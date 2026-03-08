@@ -51,18 +51,50 @@ smartclass/
 └── package.json
 ```
 
-## TODO
+## Roadmap
 
-- [ ] **Project setup**: add React Router, Hono, wrangler.toml, D1/R2 bindings
-- [ ] **Auth**: login/register pages, JWT middleware, phone+password auth
-- [ ] **Database**: D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
-- [ ] **Teacher dashboard**: exercise CRUD, PDF upload to R2, answer schema builder
-- [ ] **Student dashboard**: exercise list, past submissions view
-- [ ] **Exercise engine**: timed/untimed mode, manual form input, auto-grading
-- [ ] **Scanner mode**: Tesseract.js OCR integration for answer sheet capture
-- [ ] **Image upload**: upload answer sheet photo, extract answers client-side
-- [ ] **Lectures**: YouTube video management, section/chapter editor (teacher), video browser (student)
-- [ ] **Guest mode**: IndexedDB local storage, limited access without login
-- [ ] **Student management**: teacher creates accounts (default pw `123`), approve pending registrations
-- [ ] **Review & solutions**: students review graded submissions with correct answers
-- [ ] **Deploy**: Cloudflare Pages (frontend) + Workers (API) deployment pipeline
+Each milestone produces a usable, deployable version.
+
+### v0.1 — Deployable skeleton
+- [ ] Project setup: wrangler.toml, D1/R2 bindings, Hono worker entry
+- [ ] D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
+- [ ] Auth: phone+password login/register, JWT middleware, teacher creates students (pw `123`), pending approval flow
+- [ ] React Router, login/register pages
+- [ ] Deploy: Cloudflare Pages + Workers pipeline
+
+> **Ship:** users can register, log in, and see an empty dashboard.
+
+### v0.2 — Core exercise flow
+- [ ] Teacher: create exercises with answer schema (manual form builder)
+- [ ] Student: browse exercise list, take exercises (manual form input, timed/untimed mode)
+- [ ] Auto-grading: compare answers against schema, return score
+- [ ] Submission history: student views past submissions with scores
+
+> **Ship:** teachers create exercises, students complete and get graded — the core loop works.
+
+### v0.3 — PDF & review
+- [ ] Teacher: upload exercise PDFs to R2
+- [ ] Student: view PDF in split-pane during exercise
+- [ ] Review mode: student reviews graded submissions with correct answers shown
+
+> **Ship:** exercises feel complete with real documents and solution review.
+
+### v0.4 — Scanner & image upload
+- [ ] Tesseract.js OCR integration (client-side)
+- [ ] Scanner mode: camera capture → extract answers from standardized sheets
+- [ ] Image upload mode: upload photo → OCR → populate answer form
+
+> **Ship:** students can submit via three input methods (form, scanner, image).
+
+### v0.5 — Lectures
+- [ ] Teacher: add/edit/reorder YouTube lectures with named sections (chapters, solutions)
+- [ ] Student: browse and watch lecture videos
+
+> **Ship:** full learning experience with exercises + video lectures.
+
+### v0.6 — Guest mode & polish
+- [ ] Guest access: no login, browse exercises/lectures, submit with results saved in IndexedDB
+- [ ] Prompt guest to register after engagement
+- [ ] UI polish and mobile responsiveness
+
+> **Ship:** anonymous users can try the platform — ready for marketing.
