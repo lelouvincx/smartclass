@@ -5,3 +5,4 @@ dist/
 .dev.vars
 .envrc
 .DS_Store
+agent-sessions

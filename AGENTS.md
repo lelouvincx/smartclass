@@ -10,11 +10,16 @@
 - Grading is automated: OCR/scanner extracts answers from standardized sheets, then a simple matching logic compares against the schema.
 - **Lectures**: Teachers upload YouTube video lectures and organize them into named sections (e.g., Chapter 1, Chapter 2, Solution for Exercise X). Students can browse and view lectures.
 
+## Rules
+
+- When learning hono docs, using tiny docs at https://hono.dev/llms-small.txt first; if still get errors, read full docs at https://hono.dev/llms-full.txt (note that the docs is very long, just read a part of it)
+- Always follow test-driven development principles
+- Use conventional commits for commit messages
+
 ## Build Commands
 
 - `npm run dev` – Start Vite dev server
 - `npm run build` – Production build (`vite build`)
-- `npm run preview` – Preview production build
 - No test runner or linter is configured.
 
 ## Architecture
@@ -35,8 +40,3 @@
 - **Styling**: Tailwind utility classes via `className` string concatenation (no `clsx`/`cn`). Variant maps as plain objects inside components.
 - **Formatting**: Single quotes for JS strings, 2-space indent, trailing commas.
 - **Naming**: camelCase for variables/functions, PascalCase for components, UPPER_SNAKE_CASE for constants.
-
-## References
-
-- Learning hono docs, using tiny docs at https://hono.dev/llms-small.txt first; if still get errors, read full docs at https://hono.dev/llms-full.txt (note that the docs is very long, just read a part of it)
-- Always follow test-driven development principles
