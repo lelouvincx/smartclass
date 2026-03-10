@@ -55,6 +55,15 @@ npx wrangler r2 bucket create smartclass-assets
 
 After creating resources, update `wrangler.toml` with your real D1 `database_id`.
 
+### D1 Migrations
+
+```bash
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0001_init.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0001_init.sql
+```
+
+If your database name is not `smartclass`, replace it in the commands above.
+
 ## Project Structure
 
 ```
@@ -83,7 +92,7 @@ Each milestone produces a usable, deployable version.
 ### v0.1 — Deployable skeleton
 
 - [x] Project setup: wrangler.toml, D1/R2 bindings, Hono worker entry
-- [ ] D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
+- [x] D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
 - [ ] Auth: phone+password login/register, JWT middleware, teacher creates students (pw `123`), pending approval flow
 - [ ] React Router, login/register pages
 - [ ] Deploy: Cloudflare Pages + Workers pipeline
