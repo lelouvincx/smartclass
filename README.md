@@ -51,6 +51,7 @@ Cloudflare resources can be created from CLI:
 npx wrangler login
 npx wrangler d1 create smartclass
 npx wrangler r2 bucket create smartclass-assets
+npx wrangler secret put JWT_SECRET
 ```
 
 After creating resources, update `wrangler.toml` with your real D1 `database_id`.
@@ -63,6 +64,22 @@ npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0001_ini
 ```
 
 If your database name is not `smartclass`, replace it in the commands above.
+
+### Bootstrap Teacher Seed
+
+Run the one-time teacher seed locally:
+
+```bash
+npx wrangler d1 execute smartclass --local --file worker/db/seeds/0001_seed_teacher.sql
+```
+
+Run the same seed on remote D1:
+
+```bash
+npx wrangler d1 execute smartclass --remote --file worker/db/seeds/0001_seed_teacher.sql
+```
+
+This seed upserts the bootstrap teacher account configured for v0.1.
 
 ## Project Structure
 
@@ -93,7 +110,7 @@ Each milestone produces a usable, deployable version.
 
 - [x] Project setup: wrangler.toml, D1/R2 bindings, Hono worker entry
 - [x] D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
-- [ ] Auth: phone+password login/register, JWT middleware, teacher creates students (pw `123`), pending approval flow
+- [x] Auth: phone+password login/register, JWT middleware, teacher creates students (pw `123`), pending approval flow
 - [ ] React Router, login/register pages
 - [ ] Deploy: Cloudflare Pages + Workers pipeline
 
