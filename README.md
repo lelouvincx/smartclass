@@ -111,7 +111,7 @@ Each milestone produces a usable, deployable version.
 - [x] Project setup: wrangler.toml, D1/R2 bindings, Hono worker entry
 - [x] D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
 - [x] Auth: phone+password login/register, JWT middleware, teacher creates students (pw `123`), pending approval flow
-- [ ] React Router, login/register pages
+- [x] React Router, login/register pages
 - [ ] Deploy: Cloudflare Pages + Workers pipeline
 
 > **Ship:** users can register, log in, and see an empty dashboard.
