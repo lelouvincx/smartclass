@@ -81,6 +81,51 @@ npx wrangler d1 execute smartclass --remote --file worker/db/seeds/0001_seed_tea
 
 This seed upserts the bootstrap teacher account configured for v0.1.
 
+### Deployment (Task 5)
+
+Production domains:
+
+- Frontend: `https://smartclass.lelouvincx.com`
+- API: `https://api.smartclass.lelouvincx.com`
+
+#### Your side (Cloudflare + GitHub settings)
+
+1. Configure Cloudflare Pages project:
+   - Project name: `smartclass`
+   - Connect repository with Cloudflare GitHub App
+   - Production branch: `main`
+   - Build command: `npm run build`
+   - Build output directory: `dist`
+   - Pages production env var: `VITE_API_BASE_URL=https://api.smartclass.lelouvincx.com`
+2. Configure custom domains in Cloudflare:
+   - Pages domain: `smartclass.lelouvincx.com`
+   - Worker route: `api.smartclass.lelouvincx.com/*`
+3. Configure repository secrets for Worker CI deploy:
+   - `CLOUDFLARE_API_TOKEN`
+   - `CLOUDFLARE_ACCOUNT_ID`
+   - `JWT_SECRET`
+
+#### My side (repo automation)
+
+- Worker deployment workflow: `.github/workflows/deploy-worker.yml`
+  - Runs on push to `main`
+  - Executes `npm ci`, `npm test`, and `npm run build`
+  - Syncs Worker secret `JWT_SECRET`
+  - Deploys Worker with:
+    - `APP_ENV=production`
+    - `APP_CORS_ORIGIN=https://smartclass.lelouvincx.com`
+- Manual deployment scripts:
+  - `npm run deploy:api`
+  - `npm run deploy:web`
+
+#### Post-deploy smoke checks
+
+```bash
+curl -s https://api.smartclass.lelouvincx.com/api/health
+```
+
+Then verify browser login flow at `https://smartclass.lelouvincx.com`.
+
 ## Project Structure
 
 ```
@@ -112,7 +157,7 @@ Each milestone produces a usable, deployable version.
 - [x] D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
 - [x] Auth: phone+password login/register, JWT middleware, teacher creates students (pw `123`), pending approval flow
 - [x] React Router, login/register pages
-- [ ] Deploy: Cloudflare Pages + Workers pipeline
+- [x] Deploy: Cloudflare Pages + Workers pipeline
 
 > **Ship:** users can register, log in, and see an empty dashboard.
 
