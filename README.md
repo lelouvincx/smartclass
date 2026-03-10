@@ -79,7 +79,7 @@ If your database name is not `smartclass`, replace it in the commands above.
 
 The teacher seed is idempotent and can be re-run safely.
 
-### Deployment (Task 5)
+### Deployment
 
 Production domains:
 
@@ -93,7 +93,7 @@ Setup summary:
    - Build command `npm run build`
    - Output directory `dist`
    - Env var `VITE_API_BASE_URL=https://api.smartclass.lelouvincx.com`
-2. Worker route: `api.smartclass.lelouvincx.com/*`
+2. Worker route: `api.smartclass.lelouvincx.com`
 3. GitHub repository secrets:
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
@@ -165,18 +165,20 @@ Each milestone produces a usable, deployable version.
 
 > **Ship:** users can register, log in, and see an empty dashboard.
 
+Status: done.
+
 ### v0.2 — Core exercise flow
 
-- [ ] Teacher: create exercises with answer schema (manual form builder)
+- [ ] Teacher: upload exercise PDFs/images to R2
+- [ ] Teacher: create exercises with answer schema (from PDF/image)
 - [ ] Student: browse exercise list, take exercises (manual form input, timed/untimed mode)
 - [ ] Auto-grading: compare answers against schema, return score
 - [ ] Submission history: student views past submissions with scores
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
 
-### v0.3 — PDF & review
+### v0.3 — student review
 
-- [ ] Teacher: upload exercise PDFs to R2
 - [ ] Student: view PDF in split-pane during exercise
 - [ ] Review mode: student reviews graded submissions with correct answers shown
 
