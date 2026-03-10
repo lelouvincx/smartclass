@@ -26,9 +26,34 @@ An assessment platform for teaching and learning, built on the Cloudflare free t
 ```bash
 npm install
 npm run dev       # Start dev server at localhost:5173
+npm run dev:api   # Start Cloudflare Worker locally at localhost:8787
 npm run build     # Production build
 npm run preview   # Preview production build
 ```
+
+### Environment Variables (`.envrc`)
+
+```bash
+export APP_ENV=development
+export JWT_SECRET=replace-with-a-long-random-string
+export JWT_EXPIRES_IN=7d
+export CLOUDFLARE_ACCOUNT_ID=your_account_id
+export CLOUDFLARE_D1_DATABASE_ID=your_d1_database_id
+export CLOUDFLARE_D1_DATABASE_NAME=smartclass
+export CLOUDFLARE_R2_BUCKET_NAME=smartclass-assets
+export APP_CORS_ORIGIN=http://localhost:5173
+export VITE_API_BASE_URL=http://localhost:8787
+```
+
+Cloudflare resources can be created from CLI:
+
+```bash
+npx wrangler login
+npx wrangler d1 create smartclass
+npx wrangler r2 bucket create smartclass-assets
+```
+
+After creating resources, update `wrangler.toml` with your real D1 `database_id`.
 
 ## Project Structure
 
@@ -40,14 +65,14 @@ smartclass/
 │   ├── pages/              # Route pages (planned)
 │   ├── components/         # Shared UI primitives (planned)
 │   └── lib/                # API client, auth, OCR utils (planned)
-├── worker/                 # Backend API (planned)
+├── worker/                 # Backend API
 │   ├── index.js            # Hono app entry
 │   ├── routes/             # Route handlers
 │   ├── middleware/          # JWT auth
 │   └── db/                 # D1 migrations
 ├── docs/                   # Documentation
 │   └── plans/              # Design docs
-├── wrangler.toml           # Cloudflare config (planned)
+├── wrangler.toml           # Cloudflare worker config
 └── package.json
 ```
 
@@ -56,7 +81,8 @@ smartclass/
 Each milestone produces a usable, deployable version.
 
 ### v0.1 — Deployable skeleton
-- [ ] Project setup: wrangler.toml, D1/R2 bindings, Hono worker entry
+
+- [x] Project setup: wrangler.toml, D1/R2 bindings, Hono worker entry
 - [ ] D1 schema migrations (users, exercises, answer_schemas, submissions, lectures)
 - [ ] Auth: phone+password login/register, JWT middleware, teacher creates students (pw `123`), pending approval flow
 - [ ] React Router, login/register pages
@@ -65,6 +91,7 @@ Each milestone produces a usable, deployable version.
 > **Ship:** users can register, log in, and see an empty dashboard.
 
 ### v0.2 — Core exercise flow
+
 - [ ] Teacher: create exercises with answer schema (manual form builder)
 - [ ] Student: browse exercise list, take exercises (manual form input, timed/untimed mode)
 - [ ] Auto-grading: compare answers against schema, return score
@@ -73,6 +100,7 @@ Each milestone produces a usable, deployable version.
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
 
 ### v0.3 — PDF & review
+
 - [ ] Teacher: upload exercise PDFs to R2
 - [ ] Student: view PDF in split-pane during exercise
 - [ ] Review mode: student reviews graded submissions with correct answers shown
@@ -80,6 +108,7 @@ Each milestone produces a usable, deployable version.
 > **Ship:** exercises feel complete with real documents and solution review.
 
 ### v0.4 — Scanner & image upload
+
 - [ ] Tesseract.js OCR integration (client-side)
 - [ ] Scanner mode: camera capture → extract answers from standardized sheets
 - [ ] Image upload mode: upload photo → OCR → populate answer form
@@ -87,12 +116,14 @@ Each milestone produces a usable, deployable version.
 > **Ship:** students can submit via three input methods (form, scanner, image).
 
 ### v0.5 — Lectures
+
 - [ ] Teacher: add/edit/reorder YouTube lectures with named sections (chapters, solutions)
 - [ ] Student: browse and watch lecture videos
 
 > **Ship:** full learning experience with exercises + video lectures.
 
 ### v0.6 — Guest mode & polish
+
 - [ ] Guest access: no login, browse exercises/lectures, submit with results saved in IndexedDB
 - [ ] Prompt guest to register after engagement
 - [ ] UI polish and mobile responsiveness
