@@ -12,6 +12,7 @@
     "cf:typegen": "wrangler types"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "hono": "^4.7.2",
     "lucide-react": "^0.468.0",
     "react": "^19.0.0",
