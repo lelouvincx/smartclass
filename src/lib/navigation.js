@@ -11,11 +11,11 @@ export function getDefaultPathForRole(role) {
 }
 
 export function canAccessRolePath(role, path) {
-  if (path === '/teacher') {
+  if (path.startsWith('/teacher')) {
     return role === 'teacher'
   }
 
-  if (path === '/student') {
+  if (path.startsWith('/student')) {
     return role === 'student'
   }
 

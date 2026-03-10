@@ -133,7 +133,6 @@ git push origin v0.1.0
 smartclass/
 ├── src/                    # Frontend (React)
 │   ├── main.jsx            # App entry
-│   ├── App.jsx             # Legacy demo UI (kept for reference)
 │   ├── router.jsx          # Router entry
 │   ├── pages/              # Route pages
 │   ├── lib/                # API client + auth state
@@ -174,6 +173,7 @@ Status: done.
 - [ ] Student: browse exercise list, take exercises (manual form input, timed/untimed mode)
 - [ ] Auto-grading: compare answers against schema, return score
 - [ ] Submission history: student views past submissions with scores
+- [ ] Plan guest mode: design IndexedDB storage, guest route access, and data model for anonymous exercise completion (implementation in v0.6)
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
 
@@ -206,3 +206,7 @@ Status: done.
 - [ ] UI polish and mobile responsiveness
 
 > **Ship:** anonymous users can try the platform — ready for marketing.
+
+## Tech Debt
+
+- [ ] **Teacher seed SQL has hardcoded bcrypt hash**: `worker/db/seeds/0001_seed_teacher.sql` contains a pre-hashed password (`123`). Replace with a proper production secret management flow (e.g., generate hash at deploy time or use a CLI seed command with env var input).

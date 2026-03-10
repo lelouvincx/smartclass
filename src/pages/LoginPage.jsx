@@ -2,8 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth-context'
 import { getDefaultPathForRole } from '../lib/navigation'
-
-const PHONE_REGEX = /^\+84\d{9,10}$/
+import { PHONE_REGEX } from '../lib/validation'
 
 export default function LoginPage() {
   const navigate = useNavigate()

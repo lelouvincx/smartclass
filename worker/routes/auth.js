@@ -1,21 +1,9 @@
 import { Hono } from 'hono'
 import { hashPassword, isValidVietnamPhone, issueAccessToken, verifyPassword } from '../lib/auth.js'
+import { jsonError } from '../lib/response.js'
 import { requireAuth } from '../middleware/auth.js'
 
 const authRoutes = new Hono()
-
-function jsonError(c, status, code, message) {
-  return c.json(
-    {
-      success: false,
-      error: {
-        code,
-        message,
-      },
-    },
-    status,
-  )
-}
 
 authRoutes.post('/register', async (c) => {
   const body = await c.req.json().catch(() => null)

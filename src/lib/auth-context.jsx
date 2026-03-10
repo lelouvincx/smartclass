@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getMe, login as loginRequest } from './api'
 import { clearStoredToken, getStoredToken, setStoredToken } from './auth'
 
@@ -31,19 +31,19 @@ export function AuthProvider({ children }) {
     hydrate()
   }, [token])
 
-  async function login(payload) {
+  const login = useCallback(async (payload) => {
     const response = await loginRequest(payload)
     setStoredToken(response.data.token)
     setToken(response.data.token)
     setUser(response.data.user)
     return response
-  }
+  }, [])
 
-  function logout() {
+  const logout = useCallback(() => {
     clearStoredToken()
     setToken(null)
     setUser(null)
-  }
+  }, [])
 
   const value = useMemo(
     () => ({
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
       login,
       logout,
     }),
-    [isLoading, token, user],
+    [isLoading, token, user, login, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
