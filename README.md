@@ -45,6 +45,13 @@ export APP_CORS_ORIGIN=http://localhost:5173
 export VITE_API_BASE_URL=http://localhost:8787
 ```
 
+For local Worker secrets during `wrangler dev`, create `.dev.vars`:
+
+```bash
+JWT_SECRET=replace-with-a-long-random-string
+JWT_EXPIRES_IN=7d
+```
+
 Cloudflare resources can be created from CLI:
 
 ```bash
@@ -56,30 +63,21 @@ npx wrangler secret put JWT_SECRET
 
 After creating resources, update `wrangler.toml` with your real D1 `database_id`.
 
-### D1 Migrations
+### Database Setup (D1)
 
 ```bash
+# Apply schema
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0001_init.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0001_init.sql
+
+# Seed bootstrap teacher
+npx wrangler d1 execute smartclass --local --file worker/db/seeds/0001_seed_teacher.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/seeds/0001_seed_teacher.sql
 ```
 
 If your database name is not `smartclass`, replace it in the commands above.
 
-### Bootstrap Teacher Seed
-
-Run the one-time teacher seed locally:
-
-```bash
-npx wrangler d1 execute smartclass --local --file worker/db/seeds/0001_seed_teacher.sql
-```
-
-Run the same seed on remote D1:
-
-```bash
-npx wrangler d1 execute smartclass --remote --file worker/db/seeds/0001_seed_teacher.sql
-```
-
-This seed upserts the bootstrap teacher account configured for v0.1.
+The teacher seed is idempotent and can be re-run safely.
 
 ### Deployment (Task 5)
 
@@ -88,33 +86,23 @@ Production domains:
 - Frontend: `https://smartclass.lelouvincx.com`
 - API: `https://api.smartclass.lelouvincx.com`
 
-#### Your side (Cloudflare + GitHub settings)
+Setup summary:
 
-1. Configure Cloudflare Pages project:
-   - Project name: `smartclass`
-   - Connect repository with Cloudflare GitHub App
-   - Production branch: `main`
-   - Build command: `npm run build`
-   - Build output directory: `dist`
-   - Pages production env var: `VITE_API_BASE_URL=https://api.smartclass.lelouvincx.com`
-2. Configure custom domains in Cloudflare:
-   - Pages domain: `smartclass.lelouvincx.com`
-   - Worker route: `api.smartclass.lelouvincx.com/*`
-3. Configure repository secrets for Worker CI deploy:
+1. Cloudflare Pages project `smartclass` via GitHub App:
+   - Production branch `main`
+   - Build command `npm run build`
+   - Output directory `dist`
+   - Env var `VITE_API_BASE_URL=https://api.smartclass.lelouvincx.com`
+2. Worker route: `api.smartclass.lelouvincx.com/*`
+3. GitHub repository secrets:
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
    - `JWT_SECRET`
 
-#### My side (repo automation)
+Repository automation:
 
-- Worker deployment workflow: `.github/workflows/deploy-worker.yml`
-  - Runs on push to `main`
-  - Executes `npm ci`, `npm test`, and `npm run build`
-  - Syncs Worker secret `JWT_SECRET`
-  - Deploys Worker with:
-    - `APP_ENV=production`
-    - `APP_CORS_ORIGIN=https://smartclass.lelouvincx.com`
-- Manual deployment scripts:
+- `.github/workflows/deploy-worker.yml`: deploys Worker on `main` after install/test/build
+- Manual deploy commands:
   - `npm run deploy:api`
   - `npm run deploy:web`
 
@@ -145,15 +133,18 @@ git push origin v0.1.0
 smartclass/
 ├── src/                    # Frontend (React)
 │   ├── main.jsx            # App entry
-│   ├── App.jsx             # Root component + demo UI
-│   ├── pages/              # Route pages (planned)
-│   ├── components/         # Shared UI primitives (planned)
-│   └── lib/                # API client, auth, OCR utils (planned)
+│   ├── App.jsx             # Legacy demo UI (kept for reference)
+│   ├── router.jsx          # Router entry
+│   ├── pages/              # Route pages
+│   ├── lib/                # API client + auth state
+│   └── test/               # Test setup
 ├── worker/                 # Backend API
 │   ├── index.js            # Hono app entry
 │   ├── routes/             # Route handlers
-│   ├── middleware/          # JWT auth
-│   └── db/                 # D1 migrations
+│   ├── middleware/         # JWT auth
+│   ├── lib/                # Auth helpers
+│   └── db/                 # D1 migrations + seeds
+├── .github/workflows/      # CI/CD workflows
 ├── docs/                   # Documentation
 │   └── plans/              # Design docs
 ├── wrangler.toml           # Cloudflare worker config

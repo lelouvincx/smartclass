@@ -35,3 +35,8 @@
 - **Styling**: Tailwind utility classes via `className` string concatenation (no `clsx`/`cn`). Variant maps as plain objects inside components.
 - **Formatting**: Single quotes for JS strings, 2-space indent, trailing commas.
 - **Naming**: camelCase for variables/functions, PascalCase for components, UPPER_SNAKE_CASE for constants.
+
+## References
+
+- Learning hono docs, using tiny docs at https://hono.dev/llms-small.txt first; if still get errors, read full docs at https://hono.dev/llms-full.txt (note that the docs is very long, just read a part of it)
+- Always follow test-driven development principles
