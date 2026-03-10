@@ -1,8 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { register } from '../lib/api'
-
-const PHONE_REGEX = /^\+84\d{9,10}$/
+import { PHONE_REGEX } from '../lib/validation'
 
 export default function RegisterPage() {
   const [phone, setPhone] = useState('')

@@ -1,23 +1,11 @@
 import { Hono } from 'hono'
 import { hashPassword, isValidVietnamPhone } from '../lib/auth.js'
+import { jsonError } from '../lib/response.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const usersRoutes = new Hono()
 
 usersRoutes.use('*', requireAuth, requireRole('teacher'))
-
-function jsonError(c, status, code, message) {
-  return c.json(
-    {
-      success: false,
-      error: {
-        code,
-        message,
-      },
-    },
-    status,
-  )
-}
 
 usersRoutes.get('/', async (c) => {
   const status = c.req.query('status')

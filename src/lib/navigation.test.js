@@ -13,4 +13,11 @@ describe('navigation helpers', () => {
     expect(canAccessRolePath('student', '/teacher')).toBe(false)
     expect(canAccessRolePath('student', '/student')).toBe(true)
   })
+
+  it('checks nested role path access permissions', () => {
+    expect(canAccessRolePath('teacher', '/teacher/exercises')).toBe(true)
+    expect(canAccessRolePath('teacher', '/student/submissions')).toBe(false)
+    expect(canAccessRolePath('student', '/student/submissions')).toBe(true)
+    expect(canAccessRolePath('student', '/teacher/exercises')).toBe(false)
+  })
 })

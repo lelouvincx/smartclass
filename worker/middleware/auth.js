@@ -1,17 +1,5 @@
 import { verifyAccessToken } from '../lib/auth.js'
-
-function jsonError(c, status, code, message) {
-  return c.json(
-    {
-      success: false,
-      error: {
-        code,
-        message,
-      },
-    },
-    status,
-  )
-}
+import { jsonError } from '../lib/response.js'
 
 export async function requireAuth(c, next) {
   if (!c.env.JWT_SECRET) {
