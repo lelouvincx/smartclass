@@ -10,7 +10,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "preview": "vite preview",
+    "deploy:web": "vite build && wrangler pages deploy dist --project-name smartclass",
     "deploy:api": "wrangler deploy",
+    "deploy": "npm run deploy:api && npm run deploy:web",
     "cf:typegen": "wrangler types"
   },
   "dependencies": {
