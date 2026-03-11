@@ -32,6 +32,9 @@ jobs:
       - name: Run worker tests
         run: npm run test:worker
 
+      - name: Run integration tests
+        run: npm run test:integration
+
       - name: Build frontend
         run: npm run build
 
