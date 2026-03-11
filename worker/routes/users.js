@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { hashPassword, isValidVietnamPhone } from '../lib/auth.js'
-import { jsonError } from '../lib/response.js'
+import { jsonError, jsonSuccess } from '../lib/response.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const usersRoutes = new Hono()
@@ -28,10 +28,7 @@ usersRoutes.get('/', async (c) => {
     .bind(...params)
     .all()
 
-  return c.json({
-    success: true,
-    data: result.results,
-  })
+  return jsonSuccess(c, result.results)
 })
 
 usersRoutes.post('/', async (c) => {
@@ -73,7 +70,7 @@ usersRoutes.post('/', async (c) => {
       message: 'Student account created with default password 123.',
     },
     201,
-  )
+  ) // Keep message field for this endpoint
 })
 
 usersRoutes.put('/:id/approve', async (c) => {
@@ -99,7 +96,7 @@ usersRoutes.put('/:id/approve', async (c) => {
         status: 'active',
       },
       message: 'User is already active.',
-    })
+    }) // Keep message field
   }
 
   await c.env.DB.prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
@@ -113,7 +110,7 @@ usersRoutes.put('/:id/approve', async (c) => {
       status: 'active',
     },
     message: 'Student approved successfully.',
-  })
+  }) // Keep message field
 })
 
 export default usersRoutes

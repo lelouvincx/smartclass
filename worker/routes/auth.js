@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { hashPassword, isValidVietnamPhone, issueAccessToken, verifyPassword } from '../lib/auth.js'
-import { jsonError } from '../lib/response.js'
+import { jsonError, jsonSuccess } from '../lib/response.js'
 import { requireAuth } from '../middleware/auth.js'
 
 const authRoutes = new Hono()
@@ -47,7 +47,7 @@ authRoutes.post('/register', async (c) => {
       message: 'Registration submitted. Please wait for teacher approval.',
     },
     201,
-  )
+  ) // Keep message field for this endpoint
 })
 
 authRoutes.post('/login', async (c) => {
@@ -84,16 +84,13 @@ authRoutes.post('/login', async (c) => {
 
   const token = await issueAccessToken(c.env, user)
 
-  return c.json({
-    success: true,
-    data: {
-      token,
-      user: {
-        id: user.id,
-        phone: user.phone,
-        role: user.role,
-        status: user.status,
-      },
+  return jsonSuccess(c, {
+    token,
+    user: {
+      id: user.id,
+      phone: user.phone,
+      role: user.role,
+      status: user.status,
     },
   })
 })
@@ -108,10 +105,7 @@ authRoutes.get('/me', requireAuth, async (c) => {
     return jsonError(c, 404, 'NOT_FOUND', 'User not found.')
   }
 
-  return c.json({
-    success: true,
-    data: user,
-  })
+  return jsonSuccess(c, user)
 })
 
 export default authRoutes

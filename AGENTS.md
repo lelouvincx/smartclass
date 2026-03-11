@@ -40,3 +40,40 @@
 - **Styling**: Tailwind utility classes via `className` string concatenation (no `clsx`/`cn`). Variant maps as plain objects inside components.
 - **Formatting**: Single quotes for JS strings, 2-space indent, trailing commas.
 - **Naming**: camelCase for variables/functions, PascalCase for components, UPPER_SNAKE_CASE for constants.
+
+## Design Decisions
+
+### Exercise Permissions (v0.2)
+- **Current**: All exercises are public (readable by anyone without authentication)
+- **Future (v0.3+)**: Add granular permissions:
+  - `is_public` flag per exercise
+  - `guest_allowed` flag per exercise
+  - `exercise_permissions` table for per-student access control
+- **Rationale**: Ship core functionality faster; add access control when needed
+
+### Upload Endpoints (v0.2)
+- **Teacher uploads**: `POST /api/exercises/:id/files/upload`
+  - Auth: Teacher only
+  - Purpose: Exercise PDFs, solution PDFs, reference images
+  - R2 path: `exercises/{exercise_id}/{timestamp}-{filename}`
+  - Storage: `exercise_files` table
+  - File types: `exercise_pdf`, `solution_pdf`, `reference_image`
+  
+- **Student uploads**: `POST /api/submissions/:id/upload` (future - PR3)
+  - Auth: Student only (must own submission)
+  - Purpose: Scanned answer sheets for OCR processing
+  - R2 path: `submissions/{submission_id}/{timestamp}-{filename}`
+  - File types: Images (jpg, png, pdf)
+  
+- **Rationale**: Separate endpoints enforce clear permission boundaries and organize R2 storage by content type
+
+### Answer Schema Storage (v0.2)
+- **Storage**: Separate `answer_schemas` table (normalized, one row per question)
+- **Format**: API accepts array of objects: `[{"q_id": 1, "type": "mcq", "correct_answer": "B"}, ...]`
+- **Alternative considered**: JSON column in `exercises` table
+- **Rationale**: Proper normalization allows querying individual questions, easier to extend with metadata (explanations, points), database enforces constraints
+
+### File Upload Validation (v0.2)
+- **Current**: Trust `file_type` parameter, no file size limits
+- **Future**: Add file extension validation, size limits (e.g., 10MB for images, 50MB for PDFs)
+- **Rationale**: Simplify initial implementation; add stricter validation when abuse becomes a concern
