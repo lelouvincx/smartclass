@@ -18,7 +18,7 @@ app.use('/api/*', async (c, next) => {
 
       return origin === allowedOrigin ? origin : null
     },
-    allowHeaders: ['Content-Type', 'Authorization'],
+    allowHeaders: ['Content-Type', 'Authorization', 'x-r2-key', 'x-file-type', 'x-file-name'],
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     exposeHeaders: ['Content-Length'],
     maxAge: 600,

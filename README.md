@@ -43,6 +43,8 @@ export CLOUDFLARE_D1_DATABASE_NAME=smartclass
 export CLOUDFLARE_R2_BUCKET_NAME=smartclass-assets
 export APP_CORS_ORIGIN=http://localhost:5173
 export VITE_API_BASE_URL=http://localhost:8787
+export OPENROUTER_API_KEY=your_openrouter_api_key
+export OPENROUTER_MODEL=google/gemini-2.5-flash
 ```
 
 For local Worker secrets during `wrangler dev`, create `.dev.vars`:
@@ -50,6 +52,7 @@ For local Worker secrets during `wrangler dev`, create `.dev.vars`:
 ```bash
 JWT_SECRET=replace-with-a-long-random-string
 JWT_EXPIRES_IN=7d
+OPENROUTER_API_KEY=your_openrouter_api_key
 ```
 
 Cloudflare resources can be created from CLI:
@@ -168,10 +171,10 @@ Status: done.
 
 ### v0.2 — Core exercise flow
 
-- [x] Backend test infrastructure (#9)
-- [x] Exercise CRUD API with answer schema support (#10)
-- [x] Teacher file upload via R2 presigned URLs (#10)
-- [ ] Teacher: create exercises with answer schema (frontend)
+- [x] Backend test infrastructure ([#9](https://github.com/lelouvicnx/smartclass/pull/9))
+- [x] Exercise CRUD API with answer schema support ([#10](https://github.com/lelouvincx/smartclass/pull/10))
+- [x] Teacher file upload via R2 presigned URLs ([#10](https://github.com/lelouvincx/smartclass/pull/10))
+- [x] Teacher: create exercises with answer schema (frontend)
 - [ ] Student: browse exercise list (frontend)
 - [ ] Student: take exercises (manual form input)
 - [ ] Auto-grading: submission API

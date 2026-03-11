@@ -5,6 +5,7 @@ compatibility_date = "2026-03-01"
 [vars]
 APP_ENV = "development"
 APP_CORS_ORIGIN = "http://localhost:5173"
+OPENROUTER_MODEL = "google/gemini-2.5-flash"
 
 [[d1_databases]]
 binding = "DB"
