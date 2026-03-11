@@ -168,9 +168,9 @@ Status: done.
 
 ### v0.2 — Core exercise flow
 
-- [x] Backend test infrastructure (PR#9)
-- [x] Exercise CRUD API with answer schema support (PR#10)
-- [x] Teacher file upload via R2 presigned URLs (PR#10)
+- [x] Backend test infrastructure (#9)
+- [x] Exercise CRUD API with answer schema support (#10)
+- [x] Teacher file upload via R2 presigned URLs (#10)
 - [ ] Teacher: create exercises with answer schema (frontend)
 - [ ] Student: browse exercise list (frontend)
 - [ ] Student: take exercises (manual form input)
