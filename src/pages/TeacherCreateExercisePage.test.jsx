@@ -55,6 +55,7 @@ describe('TeacherCreateExercisePage', () => {
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', {
       title: 'Quiz 1',
+      is_timed: true,
       duration_minutes: 60,
       schema: [
         {
@@ -74,5 +75,35 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Generate Schema' })).toBeDisabled()
+  })
+
+  it('saves untimed exercise without duration value', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 202 } })
+
+    render(
+      <MemoryRouter>
+        <TeacherCreateExercisePage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText('Exercise title'), 'Untimed Quiz')
+    await user.click(screen.getByLabelText('Untimed mode'))
+    expect(screen.getByLabelText('Duration (minutes)')).toBeDisabled()
+    await user.type(screen.getByLabelText(/answer-/), 'C')
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(createExerciseMock).toHaveBeenCalledWith('test-token', {
+      title: 'Untimed Quiz',
+      is_timed: false,
+      duration_minutes: 0,
+      schema: [
+        {
+          q_id: 1,
+          type: 'mcq',
+          correct_answer: 'C',
+        },
+      ],
+    })
   })
 })

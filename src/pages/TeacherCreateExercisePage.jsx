@@ -95,6 +95,7 @@ export default function TeacherCreateExercisePage() {
   const { token, logout } = useAuth()
 
   const [title, setTitle] = useState('')
+  const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [exerciseFile, setExerciseFile] = useState(null)
   const [answerFile, setAnswerFile] = useState(null)
@@ -212,7 +213,8 @@ export default function TeacherCreateExercisePage() {
     try {
       const payload = {
         title: title.trim(),
-        duration_minutes: Number(durationMinutes),
+        is_timed: isTimed,
+        duration_minutes: isTimed ? Number(durationMinutes) : 0,
         schema: toSchemaPayload(validatedRows),
       }
 
@@ -235,7 +237,7 @@ export default function TeacherCreateExercisePage() {
       return
     }
 
-    if (!durationMinutes || Number(durationMinutes) <= 0) {
+    if (isTimed && (!durationMinutes || Number(durationMinutes) <= 0)) {
       setError('Duration must be a positive number')
       return
     }
@@ -298,13 +300,38 @@ export default function TeacherCreateExercisePage() {
               />
             </div>
             <div>
+              <p className="mb-1 block text-sm font-medium text-slate-700">Mode</p>
+              <div className="flex gap-4 rounded-md border border-slate-300 p-2">
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="radio"
+                    name="exercise-mode"
+                    checked={isTimed}
+                    onChange={() => setIsTimed(true)}
+                  />
+                  Timed mode
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    aria-label="Untimed mode"
+                    type="radio"
+                    name="exercise-mode"
+                    checked={!isTimed}
+                    onChange={() => setIsTimed(false)}
+                  />
+                  Untimed mode
+                </label>
+              </div>
+            </div>
+            <div>
               <label htmlFor="duration" className="mb-1 block text-sm font-medium text-slate-700">Duration (minutes)</label>
               <input
                 id="duration"
                 type="number"
                 value={durationMinutes}
                 onChange={(event) => setDurationMinutes(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                disabled={!isTimed}
+                className="h-10 w-full rounded-md border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
             <div>

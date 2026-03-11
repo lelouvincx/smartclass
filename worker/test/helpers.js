@@ -37,6 +37,7 @@ export async function loginAsTeacher() {
 export async function createExercise(token, overrides = {}) {
   const payload = {
     title: 'Test Quiz',
+    is_timed: true,
     duration_minutes: 60,
     schema: [
       { q_id: 1, type: 'mcq', correct_answer: 'B' },

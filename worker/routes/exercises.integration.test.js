@@ -80,9 +80,22 @@ describe('POST /api/exercises', () => {
     expect(res.status).toBe(201)
     expect(body.success).toBe(true)
     expect(body.data.title).toBe('Test Quiz')
+    expect(body.data.is_timed).toBe(1)
     expect(body.data.duration_minutes).toBe(60)
     expect(body.data.schema).toHaveLength(2)
     expect(body.data.files).toHaveLength(0)
+  })
+
+  it('creates untimed exercise with zero duration', async () => {
+    const { res, body } = await createExercise(token, {
+      is_timed: false,
+      duration_minutes: 0,
+    })
+
+    expect(res.status).toBe(201)
+    expect(body.success).toBe(true)
+    expect(body.data.is_timed).toBe(0)
+    expect(body.data.duration_minutes).toBe(0)
   })
 
   it('rejects string duration_minutes', async () => {
@@ -93,6 +106,16 @@ describe('POST /api/exercises', () => {
 
   it('rejects negative duration_minutes', async () => {
     const { res, body } = await createExercise(token, { duration_minutes: -5 })
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('rejects missing duration_minutes when exercise is timed', async () => {
+    const { res, body } = await createExercise(token, {
+      is_timed: true,
+      duration_minutes: undefined,
+    })
+
     expect(res.status).toBe(400)
     expect(body.error.code).toBe('VALIDATION_ERROR')
   })
