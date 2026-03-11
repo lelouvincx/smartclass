@@ -2,6 +2,8 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import authRoutes from './routes/auth.js'
 import usersRoutes from './routes/users.js'
+import exercisesRoutes from './routes/exercises.js'
+import uploadRoutes from './routes/upload.js'
 
 const app = new Hono()
 
@@ -37,6 +39,8 @@ app.get('/api/health', (c) => {
 
 app.route('/api/auth', authRoutes)
 app.route('/api/users', usersRoutes)
+app.route('/api/exercises', exercisesRoutes)
+app.route('/api/upload', uploadRoutes)
 
 app.onError((error, c) => {
   console.error('Unhandled worker error:', error)
