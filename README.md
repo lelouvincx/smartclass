@@ -168,11 +168,14 @@ Status: done.
 
 ### v0.2 — Core exercise flow
 
-- [ ] Teacher: upload exercise PDFs/images to R2
-- [ ] Teacher: create exercises with answer schema (from PDF/image)
-- [ ] Student: browse exercise list, take exercises (manual form input, timed/untimed mode)
-- [ ] Auto-grading: compare answers against schema, return score
-- [ ] Submission history: student views past submissions with scores
+- [x] Backend test infrastructure (PR#9)
+- [x] Exercise CRUD API with answer schema support (PR#10)
+- [x] Teacher file upload via R2 presigned URLs (PR#10)
+- [ ] Teacher: create exercises with answer schema (frontend)
+- [ ] Student: browse exercise list (frontend)
+- [ ] Student: take exercises (manual form input)
+- [ ] Auto-grading: submission API
+- [ ] Submission history: student views past submissions
 - [ ] Plan guest mode: design IndexedDB storage, guest route access, and data model for anonymous exercise completion (implementation in v0.6)
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
