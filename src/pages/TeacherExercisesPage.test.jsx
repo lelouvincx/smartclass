@@ -1,5 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import TeacherExercisesPage from './TeacherExercisesPage'
@@ -62,5 +63,21 @@ describe('TeacherExercisesPage', () => {
     expect(await screen.findByText('Physics Quiz')).toBeInTheDocument()
     expect(screen.getByText('45 min')).toBeInTheDocument()
     expect(screen.getByText('20')).toBeInTheDocument()
+  })
+
+  it('reloads list when refresh icon button is clicked', async () => {
+    const user = userEvent.setup()
+    listExercisesMock.mockResolvedValue({ data: [] })
+
+    render(
+      <MemoryRouter>
+        <TeacherExercisesPage />
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('No exercises yet.')
+    await user.click(screen.getByRole('button', { name: 'Refresh exercises' }))
+
+    expect(listExercisesMock).toHaveBeenCalledTimes(2)
   })
 })

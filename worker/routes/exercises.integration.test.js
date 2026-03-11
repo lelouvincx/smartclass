@@ -72,6 +72,85 @@ describe('POST /api/exercises/schema/parse', () => {
     ])
     expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
   })
+
+  it('returns PARSE_ERROR when model response is not valid json', async () => {
+    env.OPENROUTER_API_KEY = 'test-key'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: 'not-json',
+            },
+          },
+        ],
+      }), { status: 200 })),
+    )
+
+    const res = await app.request('/api/exercises/schema/parse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ source_text: 'Q1. B\nQ2. TRUE' }),
+    }, env)
+
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error.code).toBe('PARSE_ERROR')
+  })
+
+  it('returns INVALID_SCHEMA when parsed rows are invalid', async () => {
+    env.OPENROUTER_API_KEY = 'test-key'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                schema: [
+                  { q_id: 1, type: 'mcq', correct_answer: 'E', confidence: 0.9 },
+                ],
+              }),
+            },
+          },
+        ],
+      }), { status: 200 })),
+    )
+
+    const res = await app.request('/api/exercises/schema/parse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ source_text: 'Question 1 answer is E' }),
+    }, env)
+
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.error.code).toBe('INVALID_SCHEMA')
+  })
+
+  it('returns PARSE_ERROR when openrouter key is missing', async () => {
+    env.OPENROUTER_API_KEY = ''
+
+    const res = await app.request('/api/exercises/schema/parse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ source_text: 'Q1. B\nQ2. TRUE' }),
+    }, env)
+
+    expect(res.status).toBe(500)
+    const body = await res.json()
+    expect(body.error.code).toBe('PARSE_ERROR')
+  })
 })
 
 describe('POST /api/exercises', () => {
@@ -211,6 +290,55 @@ describe('PUT /api/exercises/:id', () => {
     }, env)
 
     expect(res.status).toBe(400)
+  })
+
+  it('forces duration_minutes to 0 when switching to untimed', async () => {
+    const { id } = await createExercise(token)
+    const res = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ is_timed: false }),
+    }, env)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.is_timed).toBe(0)
+    expect(body.data.duration_minutes).toBe(0)
+  })
+
+  it('requires positive duration when switching untimed to timed', async () => {
+    const { id } = await createExercise(token, {
+      is_timed: false,
+      duration_minutes: 0,
+    })
+
+    const invalidRes = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ is_timed: true }),
+    }, env)
+
+    expect(invalidRes.status).toBe(400)
+
+    const validRes = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ is_timed: true, duration_minutes: 45 }),
+    }, env)
+
+    expect(validRes.status).toBe(200)
+    const validBody = await validRes.json()
+    expect(validBody.data.is_timed).toBe(1)
+    expect(validBody.data.duration_minutes).toBe(45)
   })
 })
 

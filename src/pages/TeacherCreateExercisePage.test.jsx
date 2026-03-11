@@ -9,6 +9,7 @@ const createExerciseMock = vi.fn()
 const parseExerciseSchemaMock = vi.fn()
 const createExerciseFileUploadMock = vi.fn()
 const uploadExerciseFileMock = vi.fn()
+const extractTextFromPdfMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
@@ -20,6 +21,10 @@ vi.mock('../lib/api', async (importOriginal) => {
     uploadExerciseFile: (...args) => uploadExerciseFileMock(...args),
   }
 })
+
+vi.mock('../lib/pdf', () => ({
+  extractTextFromPdf: (...args) => extractTextFromPdfMock(...args),
+}))
 
 const logoutMock = vi.fn()
 
@@ -36,6 +41,7 @@ describe('TeacherCreateExercisePage', () => {
     parseExerciseSchemaMock.mockReset()
     createExerciseFileUploadMock.mockReset()
     uploadExerciseFileMock.mockReset()
+    extractTextFromPdfMock.mockReset()
     logoutMock.mockReset()
   })
 
@@ -105,5 +111,49 @@ describe('TeacherCreateExercisePage', () => {
         },
       ],
     })
+  })
+
+  it('blocks save when timed mode duration is empty', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter>
+        <TeacherCreateExercisePage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText('Exercise title'), 'Timed Quiz')
+    await user.clear(screen.getByLabelText('Duration (minutes)'))
+    await user.type(screen.getByLabelText(/answer-/), 'A')
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(screen.getByText('Duration must be a positive number')).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
+  })
+
+  it('shows parse failure and still allows manual save', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 303 } })
+    extractTextFromPdfMock.mockResolvedValue('Q1 A Q2 TRUE Q3 42')
+    parseExerciseSchemaMock.mockRejectedValue(new Error('OpenRouter unavailable'))
+
+    render(
+      <MemoryRouter>
+        <TeacherCreateExercisePage />
+      </MemoryRouter>,
+    )
+
+    const answerPdf = new File(['fake-pdf'], 'answer.pdf', { type: 'application/pdf' })
+
+    await user.type(screen.getByLabelText('Exercise title'), 'Fallback Quiz')
+    await user.upload(screen.getByLabelText('Answer PDF (recommended)'), answerPdf)
+    await user.click(screen.getByRole('button', { name: /Generate Schema/ }))
+
+    expect(await screen.findByText('OpenRouter unavailable')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/answer-/), 'D')
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(createExerciseMock).toHaveBeenCalledTimes(1)
   })
 })
