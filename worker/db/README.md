@@ -9,11 +9,13 @@ Apply migrations in order:
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0001_init.sql
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0002_add_submission_answers.sql
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0003_exercise_files.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0004_fix_cascade_deletes.sql
 
 # Remote
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0001_init.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0002_add_submission_answers.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0003_exercise_files.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0004_fix_cascade_deletes.sql
 ```
 
 If your database name is different, replace `smartclass` with your D1 database name.
