@@ -41,5 +41,8 @@ jobs:
       - name: Sync JWT secret
         run: echo "${{ secrets.JWT_SECRET }}" | npx wrangler secret put JWT_SECRET
 
+      - name: Apply remote D1 migrations
+        run: npx wrangler d1 migrations apply smartclass --remote
+
       - name: Deploy Worker
         run: npx wrangler deploy --var APP_ENV:production --var APP_CORS_ORIGIN:https://smartclass.lelouvincx.com

@@ -11,6 +11,7 @@ OPENROUTER_MODEL = "google/gemini-2.5-flash"
 binding = "DB"
 database_name = "smartclass"
 database_id = "34265c7a-6455-4e0c-a166-e0b87e2e8eee"
+migrations_dir = "worker/db/migrations"
 
 [[r2_buckets]]
 binding = "BUCKET"
