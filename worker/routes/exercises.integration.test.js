@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:test'
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import app from '../index.js'
 import { seedTeacher, loginAsTeacher, createExercise } from '../test/helpers.js'
 
@@ -10,6 +10,10 @@ beforeAll(async () => {
   token = await loginAsTeacher()
 })
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
 describe('GET /api/exercises', () => {
   it('returns empty list initially', async () => {
     const res = await app.request('/api/exercises', {}, env)
@@ -17,6 +21,56 @@ describe('GET /api/exercises', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(Array.isArray(body.data)).toBe(true)
+  })
+})
+
+describe('POST /api/exercises/schema/parse', () => {
+  it('requires auth', async () => {
+    const res = await app.request('/api/exercises/schema/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_text: 'Q1 A\nQ2 true' }),
+    }, env)
+
+    expect(res.status).toBe(401)
+  })
+
+  it('returns normalized schema from model output', async () => {
+    env.OPENROUTER_API_KEY = 'test-key'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                schema: [
+                  { q_id: '1', type: 'multiple_choice', correct_answer: 'b', confidence: 0.92 },
+                  { q_id: 2, type: 'bool', correct_answer: 'TRUE', confidence: 0.6 },
+                ],
+              }),
+            },
+          },
+        ],
+      }), { status: 200 })),
+    )
+
+    const res = await app.request('/api/exercises/schema/parse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ source_text: 'Q1. B\nQ2. TRUE' }),
+    }, env)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.schema).toEqual([
+      { q_id: 1, type: 'mcq', correct_answer: 'B', confidence: 0.92 },
+      { q_id: 2, type: 'boolean', correct_answer: 'true', confidence: 0.6 },
+    ])
+    expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
   })
 })
 

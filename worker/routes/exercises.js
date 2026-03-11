@@ -1,8 +1,54 @@
 import { Hono } from 'hono'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
+import {
+  buildConfidence,
+  buildWarnings,
+  normalizeSchemaRows,
+  parseModelSchemaContent,
+  validateSchemaRows,
+} from '../lib/schema-parser.js'
+import { requestSchemaFromOpenRouter } from '../lib/openrouter.js'
 
 const exercisesRoutes = new Hono()
+
+exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const { source_text, expected_question_count } = body || {}
+
+  if (!source_text || typeof source_text !== 'string') {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'source_text is required')
+  }
+
+  if (source_text.trim().length < 10) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'source_text is too short to parse')
+  }
+
+  try {
+    const modelContent = await requestSchemaFromOpenRouter(
+      c.env,
+      source_text.slice(0, 120000),
+      expected_question_count,
+    )
+
+    const rawRows = parseModelSchemaContent(modelContent)
+    const normalizedRows = normalizeSchemaRows(rawRows)
+    const errors = validateSchemaRows(normalizedRows)
+
+    if (errors.length > 0) {
+      return jsonError(c, 422, 'INVALID_SCHEMA', errors.join('; '))
+    }
+
+    return jsonSuccess(c, {
+      schema: normalizedRows,
+      warnings: buildWarnings(normalizedRows, 0.75),
+      confidence: buildConfidence(normalizedRows, 0.75),
+    })
+  } catch (error) {
+    console.error('Schema parse error:', error)
+    return jsonError(c, 500, 'PARSE_ERROR', error.message || 'Failed to parse schema')
+  }
+})
 
 // List all exercises (public)
 exercisesRoutes.get('/', async (c) => {
@@ -72,7 +118,7 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   // Validate each schema item
   const validTypes = new Set(['mcq', 'boolean', 'numeric'])
   for (const item of schema) {
-    if (!item.q_id || !item.type || !item.correct_answer) {
+    if (!item.q_id || !item.type || item.correct_answer === undefined || item.correct_answer === null || item.correct_answer === '') {
       return jsonError(c, 400, 'INVALID_SCHEMA', 'Each schema item must have q_id, type, and correct_answer')
     }
     if (!validTypes.has(item.type)) {
@@ -169,7 +215,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       // Validate schema
       const validTypes = new Set(['mcq', 'boolean', 'numeric'])
       for (const item of schema) {
-        if (!item.q_id || !item.type || !item.correct_answer) {
+        if (!item.q_id || !item.type || item.correct_answer === undefined || item.correct_answer === null || item.correct_answer === '') {
           return jsonError(c, 400, 'INVALID_SCHEMA', 'Each schema item must have q_id, type, and correct_answer')
         }
         if (!validTypes.has(item.type)) {

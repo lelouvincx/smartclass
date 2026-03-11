@@ -11,7 +11,9 @@ import { canAccessRolePath, getDefaultPathForRole } from './lib/navigation'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
+import TeacherCreateExercisePage from './pages/TeacherCreateExercisePage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
+import TeacherExercisesPage from './pages/TeacherExercisesPage'
 
 function PublicOnlyRoute({ children }) {
   const { isLoading, user } = useAuth()
@@ -70,6 +72,22 @@ export function AppRoutes() {
         element={
           <ProtectedRoleRoute>
             <TeacherDashboardPage />
+          </ProtectedRoleRoute>
+        }
+      />
+      <Route
+        path="/teacher/exercises"
+        element={
+          <ProtectedRoleRoute>
+            <TeacherExercisesPage />
+          </ProtectedRoleRoute>
+        }
+      />
+      <Route
+        path="/teacher/exercises/new"
+        element={
+          <ProtectedRoleRoute>
+            <TeacherCreateExercisePage />
           </ProtectedRoleRoute>
         }
       />
