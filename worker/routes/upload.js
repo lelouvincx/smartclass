@@ -50,19 +50,62 @@ uploadRoutes.post(
 
     const fileId = fileResult.meta.last_row_id
 
-    // Generate presigned URL (expires in 1 hour)
-    const presignedUrl = await c.env.BUCKET.createPresignedUrl({
-      method: 'PUT',
-      pathname: r2Key,
-      expiresIn: 3600,
-    })
+    // Return upload URL for client
+    // Note: Client will upload via multipart form data to /api/upload/exercises/:id/files/:fileId
+    const uploadUrl = `/api/upload/exercises/${exerciseId}/files/${fileId}`
 
     return jsonSuccess(c, {
       file_id: fileId,
-      presigned_url: presignedUrl,
+      upload_url: uploadUrl,
       r2_key: r2Key,
-      expires_in: 3600,
     })
+  }
+)
+
+// Actual file upload endpoint
+uploadRoutes.put(
+  '/exercises/:exerciseId/files/:fileId',
+  requireAuth,
+  requireRole('teacher'),
+  async (c) => {
+    const exerciseId = c.req.param('exerciseId')
+    const fileId = c.req.param('fileId')
+
+    // Verify file record exists and belongs to exercise
+    const fileRecord = await c.env.DB.prepare(
+      'SELECT * FROM exercise_files WHERE id = ? AND exercise_id = ?'
+    ).bind(fileId, exerciseId).first()
+
+    if (!fileRecord) {
+      return jsonError(c, 404, 'NOT_FOUND', 'File record not found')
+    }
+
+    try {
+      // Get file content from request
+      const fileContent = await c.req.arrayBuffer()
+
+      if (!fileContent || fileContent.byteLength === 0) {
+        return jsonError(c, 400, 'VALIDATION_ERROR', 'File content is required')
+      }
+
+      // Upload to R2
+      await c.env.BUCKET.put(fileRecord.r2_key, fileContent)
+
+      // Update file size in database
+      await c.env.DB.prepare(
+        'UPDATE exercise_files SET file_size = ? WHERE id = ?'
+      ).bind(fileContent.byteLength, fileId).run()
+
+      return jsonSuccess(c, {
+        file_id: fileId,
+        r2_key: fileRecord.r2_key,
+        file_size: fileContent.byteLength,
+        uploaded: true,
+      })
+    } catch (error) {
+      console.error('R2 upload error:', error)
+      return jsonError(c, 500, 'UPLOAD_ERROR', 'Failed to upload file to storage')
+    }
   }
 )
 
