@@ -42,64 +42,78 @@ uploadRoutes.post(
     const timestamp = Date.now()
     const r2Key = `exercises/${exerciseId}/${timestamp}-${file_name}`
 
-    // Create file record
-    const fileResult = await c.env.DB.prepare(`
-      INSERT INTO exercise_files (exercise_id, file_type, r2_key, file_name)
-      VALUES (?, ?, ?, ?)
-    `).bind(exerciseId, file_type, r2Key, file_name).run()
-
-    const fileId = fileResult.meta.last_row_id
-
-    // Return upload URL for client
-    // Note: Client will upload via multipart form data to /api/upload/exercises/:id/files/:fileId
-    const uploadUrl = `/api/upload/exercises/${exerciseId}/files/${fileId}`
+    // Return upload URL for client (no DB record yet — created after successful upload)
+    const uploadUrl = `/api/upload/exercises/${exerciseId}/files`
 
     return jsonSuccess(c, {
-      file_id: fileId,
       upload_url: uploadUrl,
       r2_key: r2Key,
+      file_type,
+      file_name,
     })
   }
 )
 
-// Actual file upload endpoint
+// Actual file upload endpoint — creates DB record only after successful R2 upload
 uploadRoutes.put(
-  '/exercises/:exerciseId/files/:fileId',
+  '/exercises/:exerciseId/files',
   requireAuth,
   requireRole('teacher'),
   async (c) => {
     const exerciseId = c.req.param('exerciseId')
-    const fileId = c.req.param('fileId')
 
-    // Verify file record exists and belongs to exercise
-    const fileRecord = await c.env.DB.prepare(
-      'SELECT * FROM exercise_files WHERE id = ? AND exercise_id = ?'
-    ).bind(fileId, exerciseId).first()
+    // Metadata passed via headers (from step 1 response)
+    const r2Key = c.req.header('x-r2-key')
+    const fileType = c.req.header('x-file-type')
+    const fileName = c.req.header('x-file-name')
 
-    if (!fileRecord) {
-      return jsonError(c, 404, 'NOT_FOUND', 'File record not found')
+    if (!r2Key || !fileType || !fileName) {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'x-r2-key, x-file-type, and x-file-name headers are required')
+    }
+
+    // Verify exercise exists
+    const exercise = await c.env.DB.prepare(
+      'SELECT id FROM exercises WHERE id = ?'
+    ).bind(exerciseId).first()
+
+    if (!exercise) {
+      return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
+    }
+
+    // Verify R2 key belongs to this exercise
+    if (!r2Key.startsWith(`exercises/${exerciseId}/`)) {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'R2 key does not match exercise')
     }
 
     try {
-      // Get file content from request
-      const fileContent = await c.req.arrayBuffer()
-
-      if (!fileContent || fileContent.byteLength === 0) {
+      // Stream request body directly to R2 to avoid buffering in Worker memory
+      const body = c.req.raw.body
+      if (!body) {
         return jsonError(c, 400, 'VALIDATION_ERROR', 'File content is required')
       }
 
-      // Upload to R2
-      await c.env.BUCKET.put(fileRecord.r2_key, fileContent)
+      const contentLength = parseInt(c.req.header('content-length') || '0', 10)
+      if (contentLength === 0) {
+        return jsonError(c, 400, 'VALIDATION_ERROR', 'File content is required')
+      }
 
-      // Update file size in database
-      await c.env.DB.prepare(
-        'UPDATE exercise_files SET file_size = ? WHERE id = ?'
-      ).bind(fileContent.byteLength, fileId).run()
+      // Upload to R2 using stream (no memory buffering)
+      await c.env.BUCKET.put(r2Key, body, {
+        httpMetadata: { contentType: c.req.header('content-type') || 'application/octet-stream' },
+      })
+
+      // Create file record only after successful upload
+      const fileResult = await c.env.DB.prepare(`
+        INSERT INTO exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(exerciseId, fileType, r2Key, fileName, contentLength).run()
+
+      const fileId = fileResult.meta.last_row_id
 
       return jsonSuccess(c, {
         file_id: fileId,
-        r2_key: fileRecord.r2_key,
-        file_size: fileContent.byteLength,
+        r2_key: r2Key,
+        file_size: contentLength,
         uploaded: true,
       })
     } catch (error) {

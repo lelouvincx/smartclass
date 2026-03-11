@@ -57,8 +57,12 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const { title, duration_minutes, schema } = body || {}
 
   // Validation
-  if (!title || !duration_minutes || schema === undefined) {
+  if (!title || duration_minutes === undefined || schema === undefined) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Title, duration_minutes, and schema are required')
+  }
+
+  if (typeof duration_minutes !== 'number' || duration_minutes <= 0) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'duration_minutes must be a positive number')
   }
 
   if (!Array.isArray(schema) || schema.length === 0) {
@@ -88,13 +92,14 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
     const exerciseId = exerciseResult.meta.last_row_id
 
-    // Insert answer schemas
-    for (const item of schema) {
-      await c.env.DB.prepare(`
+    // Batch insert answer schemas (atomic)
+    const schemaStmts = schema.map((item) =>
+      c.env.DB.prepare(`
         INSERT INTO answer_schemas (exercise_id, q_id, type, correct_answer)
         VALUES (?, ?, ?, ?)
-      `).bind(exerciseId, item.q_id, item.type, item.correct_answer).run()
-    }
+      `).bind(exerciseId, item.q_id, item.type, item.correct_answer)
+    )
+    await c.env.DB.batch(schemaStmts)
 
     // Return created exercise with schema
     const created = await c.env.DB.prepare(
@@ -122,8 +127,12 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
   const { title, duration_minutes, schema } = body || {}
 
-  if (!title && !duration_minutes && !schema) {
+  if (!title && duration_minutes === undefined && !schema) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'At least one field (title, duration_minutes, or schema) is required')
+  }
+
+  if (duration_minutes !== undefined && (typeof duration_minutes !== 'number' || duration_minutes <= 0)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'duration_minutes must be a positive number')
   }
 
   try {
@@ -135,7 +144,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       updates.push('title = ?')
       params.push(title)
     }
-    if (duration_minutes) {
+    if (duration_minutes !== undefined) {
       updates.push('duration_minutes = ?')
       params.push(duration_minutes)
     }
@@ -168,15 +177,15 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
         }
       }
 
-      // Delete old schema and insert new one
-      await c.env.DB.prepare('DELETE FROM answer_schemas WHERE exercise_id = ?').bind(id).run()
-
-      for (const item of schema) {
-        await c.env.DB.prepare(`
+      // Batch delete old + insert new schema (atomic)
+      const deleteStmt = c.env.DB.prepare('DELETE FROM answer_schemas WHERE exercise_id = ?').bind(id)
+      const insertStmts = schema.map((item) =>
+        c.env.DB.prepare(`
           INSERT INTO answer_schemas (exercise_id, q_id, type, correct_answer)
           VALUES (?, ?, ?, ?)
-        `).bind(id, item.q_id, item.type, item.correct_answer).run()
-      }
+        `).bind(id, item.q_id, item.type, item.correct_answer)
+      )
+      await c.env.DB.batch([deleteStmt, ...insertStmts])
     }
 
     // Return updated exercise
@@ -207,15 +216,16 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
 exercisesRoutes.delete('/:id', requireAuth, requireRole('teacher'), async (c) => {
   const id = c.req.param('id')
 
-  const result = await c.env.DB.prepare(
-    'DELETE FROM exercises WHERE id = ?'
-  ).bind(id).run()
+  // Enable foreign keys so ON DELETE CASCADE fires
+  const results = await c.env.DB.batch([
+    c.env.DB.prepare('PRAGMA foreign_keys = ON'),
+    c.env.DB.prepare('DELETE FROM exercises WHERE id = ?').bind(id),
+  ])
 
-  if (result.meta.changes === 0) {
+  if (results[1].meta.changes === 0) {
     return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
   }
 
-  // CASCADE will auto-delete exercise_files and answer_schemas
   return jsonSuccess(c, { deleted: true })
 })
 
