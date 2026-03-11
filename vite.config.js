@@ -8,5 +8,6 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.js',
     include: ['src/**/*.test.{js,jsx}', 'worker/**/*.test.{js,jsx}'],
+    exclude: ['worker/**/*.integration.test.{js,jsx}', 'node_modules'],
   },
 })
