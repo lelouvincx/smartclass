@@ -174,7 +174,7 @@ Status: done.
 - [x] Backend test infrastructure ([#9](https://github.com/lelouvicnx/smartclass/pull/9))
 - [x] Exercise CRUD API with answer schema support ([#10](https://github.com/lelouvincx/smartclass/pull/10))
 - [x] Teacher file upload via R2 presigned URLs ([#10](https://github.com/lelouvincx/smartclass/pull/10))
-- [x] Teacher: create exercises with answer schema (frontend)
+- [x] Teacher: create exercises with answer schema (frontend) ([#11](https://github.com/lelouvincx/smartclass/pull/11))
 - [ ] Student: browse exercise list (frontend)
 - [ ] Student: take exercises (manual form input)
 - [ ] Auto-grading: submission API
