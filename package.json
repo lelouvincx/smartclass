@@ -9,6 +9,8 @@
     "build": "vite build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:worker": "vitest run --config vitest.worker.config.js",
+    "test:worker:watch": "vitest --config vitest.worker.config.js",
     "preview": "vite preview",
     "deploy:web": "vite build && wrangler pages deploy dist --project-name smartclass",
     "deploy:api": "wrangler deploy",
