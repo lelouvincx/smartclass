@@ -301,25 +301,19 @@ export default function TeacherCreateExercisePage() {
             </div>
             <div>
               <p className="mb-1 block text-sm font-medium text-slate-700">Mode</p>
-              <div className="flex gap-4 rounded-md border border-slate-300 p-2">
-                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <div className="flex items-center justify-between rounded-md border border-slate-300 p-2">
+                <span className="text-sm text-slate-700">{isTimed ? 'Timed mode' : 'Untimed mode'}</span>
+                <label htmlFor="timedToggle" className="relative inline-flex cursor-pointer items-center">
                   <input
-                    type="radio"
-                    name="exercise-mode"
+                    id="timedToggle"
+                    type="checkbox"
+                    aria-label="Timed mode toggle"
+                    className="peer sr-only"
                     checked={isTimed}
-                    onChange={() => setIsTimed(true)}
+                    onChange={(event) => setIsTimed(event.target.checked)}
                   />
-                  Timed mode
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                  <input
-                    aria-label="Untimed mode"
-                    type="radio"
-                    name="exercise-mode"
-                    checked={!isTimed}
-                    onChange={() => setIsTimed(false)}
-                  />
-                  Untimed mode
+                  <span className="h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900" />
+                  <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5" />
                 </label>
               </div>
             </div>

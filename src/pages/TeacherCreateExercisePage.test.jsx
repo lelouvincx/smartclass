@@ -88,7 +88,7 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     await user.type(screen.getByLabelText('Exercise title'), 'Untimed Quiz')
-    await user.click(screen.getByLabelText('Untimed mode'))
+    await user.click(screen.getByLabelText('Timed mode toggle'))
     expect(screen.getByLabelText('Duration (minutes)')).toBeDisabled()
     await user.type(screen.getByLabelText(/answer-/), 'C')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
