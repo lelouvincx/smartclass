@@ -8,14 +8,13 @@ on:
 
 jobs:
   unit-tests:
-    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
 
       - run: npm ci
@@ -27,14 +26,13 @@ jobs:
         run: npm run test:worker
 
   integration-tests:
-    name: Integration Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
 
       - run: npm ci
