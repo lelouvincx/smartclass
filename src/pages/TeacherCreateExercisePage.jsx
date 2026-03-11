@@ -355,7 +355,7 @@ export default function TeacherCreateExercisePage() {
                 onClick={handleParseSchema}
                 className="h-10 w-full rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {isParsing ? 'Generating schema...' : 'Generate Schema'}
+                {isParsing ? 'Generating schema...' : '✨ Generate Schema'}
               </button>
             </div>
           </div>

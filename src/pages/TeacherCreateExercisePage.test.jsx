@@ -74,7 +74,7 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('button', { name: 'Generate Schema' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Generate Schema/ })).toBeDisabled()
   })
 
   it('saves untimed exercise without duration value', async () => {
