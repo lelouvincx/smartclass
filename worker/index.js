@@ -4,6 +4,7 @@ import authRoutes from './routes/auth.js'
 import usersRoutes from './routes/users.js'
 import exercisesRoutes from './routes/exercises.js'
 import uploadRoutes from './routes/upload.js'
+import submissionsRoutes from './routes/submissions.js'
 
 const app = new Hono()
 
@@ -41,6 +42,7 @@ app.route('/api/auth', authRoutes)
 app.route('/api/users', usersRoutes)
 app.route('/api/exercises', exercisesRoutes)
 app.route('/api/upload', uploadRoutes)
+app.route('/api/submissions', submissionsRoutes)
 
 app.onError((error, c) => {
   console.error('Unhandled worker error:', error)
