@@ -8,7 +8,7 @@ mode = "smart"
 [vars]
 APP_ENV = "development"
 APP_CORS_ORIGIN = "http://localhost:5173"
-OPENROUTER_MODEL = "anthropic/claude-haiku-3.5"
+OPENROUTER_MODEL = "x-ai/grok-4.1-fast"
 
 [[d1_databases]]
 binding = "DB"

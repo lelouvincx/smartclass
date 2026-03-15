@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_MODEL = 'anthropic/claude-haiku-3.5'
+const DEFAULT_MODEL = 'x-ai/grok-4.1-fast'
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
 const GEMINI_MODEL = 'gemini-2.5-flash'
