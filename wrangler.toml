@@ -2,11 +2,13 @@ name = "smartclass-api"
 main = "worker/index.js"
 compatibility_date = "2026-03-01"
 
+[placement]
+mode = "smart"
+
 [vars]
 APP_ENV = "development"
 APP_CORS_ORIGIN = "http://localhost:5173"
 OPENROUTER_MODEL = "google/gemini-2.5-flash"
-OPENROUTER_FALLBACK_MODEL = "openai/gpt-4.1-mini"
 
 [[d1_databases]]
 binding = "DB"

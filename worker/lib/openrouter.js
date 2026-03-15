@@ -1,6 +1,8 @@
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_MODEL = 'google/gemini-2.5-flash'
-const DEFAULT_FALLBACK_MODEL = 'openai/gpt-4.1-mini'
+
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
+const GEMINI_MODEL = 'gemini-2.5-flash'
 
 const RETRYABLE_PATTERNS = [
   'not available in your region',
@@ -36,7 +38,7 @@ function buildPrompt(sourceText, expectedQuestionCount) {
   ].join('\n')
 }
 
-async function callOpenRouter(endpoint, apiKey, model, messages, options = {}) {
+async function callOpenRouter(endpoint, apiKey, model, messages) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -48,7 +50,6 @@ async function callOpenRouter(endpoint, apiKey, model, messages, options = {}) {
       messages,
       temperature: 0.1,
       response_format: { type: 'json_object' },
-      ...options,
     }),
   })
 
@@ -67,24 +68,56 @@ async function callOpenRouter(endpoint, apiKey, model, messages, options = {}) {
   return { ok: true, content }
 }
 
+async function callGeminiDirect(apiKey, promptText) {
+  const endpoint = `${GEMINI_API_URL}/models/${GEMINI_MODEL}:generateContent`
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: promptText }] }],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: 'application/json',
+      },
+    }),
+  })
+
+  const payload = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message = payload?.error?.message || 'Gemini API request failed'
+    return { ok: false, message }
+  }
+
+  const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!content) {
+    return { ok: false, message: 'Gemini API returned empty content' }
+  }
+
+  return { ok: true, content }
+}
+
 export async function requestSchemaFromOpenRouter(env, sourceText, expectedQuestionCount) {
   if (!env.OPENROUTER_API_KEY) {
     throw new Error('OPENROUTER_API_KEY is not configured')
   }
 
   const primaryModel = env.OPENROUTER_MODEL || DEFAULT_MODEL
-  const fallbackModel = env.OPENROUTER_FALLBACK_MODEL || DEFAULT_FALLBACK_MODEL
   const endpoint = `${env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL}/chat/completions`
-  const messages = [{ role: 'user', content: buildPrompt(sourceText, expectedQuestionCount) }]
+  const promptText = buildPrompt(sourceText, expectedQuestionCount)
+  const messages = [{ role: 'user', content: promptText }]
 
   const primary = await callOpenRouter(endpoint, env.OPENROUTER_API_KEY, primaryModel, messages)
   if (primary.ok) {
     return primary.content
   }
 
-  if (isRetryableError(primary.message)) {
-    console.warn(`Primary model ${primaryModel} failed: ${primary.message}. Retrying with ${fallbackModel}`)
-    const fallback = await callOpenRouter(endpoint, env.OPENROUTER_API_KEY, fallbackModel, messages)
+  if (isRetryableError(primary.message) && env.GEMINI_API_KEY) {
+    console.warn(`OpenRouter failed: ${primary.message}. Falling back to direct Gemini API`)
+    const fallback = await callGeminiDirect(env.GEMINI_API_KEY, promptText)
     if (fallback.ok) {
       return fallback.content
     }
