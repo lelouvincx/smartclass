@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle, Clock } from 'lucide-react'
-import { createSubmission, getExercise, submitAnswers } from '../lib/api'
+import { createSubmission, getExercise, getSubmission, submitAnswers } from '../lib/api'
 import { useAuth } from '../lib/auth-context'
 
 // --- Timer helpers ---
@@ -142,13 +142,41 @@ export default function StudentTakeExercisePage() {
         }
         setAnswers(initial)
 
-        // Create submission
-        const subRes = await createSubmission(token, { exercise_id: Number(id) })
-        setSubmission(subRes.data)
+        // Reuse existing submission or create a new one
+        const storageKey = `submission_${id}`
+        let sub = null
 
-        // Set up timer if timed
+        const savedSubId = sessionStorage.getItem(storageKey)
+        if (savedSubId) {
+          try {
+            const existingRes = await getSubmission(token, savedSubId)
+            if (existingRes.data && !existingRes.data.submitted_at) {
+              sub = existingRes.data
+            }
+          } catch {
+            // Submission not found or inaccessible, create new
+          }
+        }
+
+        if (!sub) {
+          const subRes = await createSubmission(token, { exercise_id: Number(id) })
+          sub = subRes.data
+          sessionStorage.setItem(storageKey, String(sub.id))
+        }
+
+        setSubmission(sub)
+
+        // Set up timer if timed, using elapsed time from started_at
         if (ex.is_timed && ex.duration_minutes > 0) {
-          setSecondsLeft(ex.duration_minutes * 60)
+          const startedAt = new Date(sub.started_at + 'Z')
+          const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000)
+          const remaining = ex.duration_minutes * 60 - elapsed
+          if (remaining <= 0) {
+            setSecondsLeft(remaining)
+            setOvertime(true)
+          } else {
+            setSecondsLeft(remaining)
+          }
         }
       } catch (err) {
         setError(err.message)
@@ -160,7 +188,7 @@ export default function StudentTakeExercisePage() {
     init()
   }, [id, token])
 
-  // --- beforeunload guard ---
+  // --- beforeunload + popstate guard ---
   useEffect(() => {
     if (isLoading || isSubmitted) return
 
@@ -169,8 +197,18 @@ export default function StudentTakeExercisePage() {
       e.returnValue = ''
     }
 
+    function handlePopState() {
+      window.history.pushState(null, '', window.location.href)
+      setShowLeaveWarning(true)
+    }
+
+    window.history.pushState(null, '', window.location.href)
     window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('popstate', handlePopState)
+    }
   }, [isLoading, isSubmitted])
 
   // --- Countdown timer ---
@@ -225,6 +263,7 @@ export default function StudentTakeExercisePage() {
       const res = await submitAnswers(token, submission.id, answersPayload)
       setSubmittedAnswers(res.data.answers || [])
       setIsSubmitted(true)
+      sessionStorage.removeItem(`submission_${id}`)
     } catch (err) {
       setSubmitError(err.message)
     } finally {
@@ -474,7 +513,8 @@ export default function StudentTakeExercisePage() {
                 <button
                   type="button"
                   onClick={handleBackClick}
-                  className="text-sm text-slate-600 underline"
+                  disabled={isSubmitting}
+                  className="text-sm text-slate-600 underline disabled:opacity-50"
                 >
                   Back
                 </button>
