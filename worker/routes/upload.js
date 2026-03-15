@@ -63,9 +63,9 @@ uploadRoutes.put(
     const exerciseId = c.req.param('exerciseId')
 
     // Metadata passed via headers (from step 1 response)
-    const r2Key = c.req.header('x-r2-key')
+    const r2Key = decodeURIComponent(c.req.header('x-r2-key') || '')
     const fileType = c.req.header('x-file-type')
-    const fileName = c.req.header('x-file-name')
+    const fileName = decodeURIComponent(c.req.header('x-file-name') || '')
 
     if (!r2Key || !fileType || !fileName) {
       return jsonError(c, 400, 'VALIDATION_ERROR', 'x-r2-key, x-file-type, and x-file-name headers are required')
