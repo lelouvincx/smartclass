@@ -175,7 +175,7 @@ Status: done.
 - [x] Exercise CRUD API with answer schema support ([#10](https://github.com/lelouvincx/smartclass/pull/10))
 - [x] Teacher file upload via R2 presigned URLs ([#10](https://github.com/lelouvincx/smartclass/pull/10))
 - [x] v0.2.1 Teacher: create exercises with answer schema (frontend) ([#11](https://github.com/lelouvincx/smartclass/pull/11))
-- [ ] Student: browse exercise list (frontend)
+- [x] Student: browse exercise list (frontend) ([#13](https://github.com/lelouvincx/smartclass/pull/13))
 - [ ] Test version 0.2.1 with scanning PDF exercises and answer schema validation (manual form input for now)
 - [ ] Student: take exercises (manual form input)
 - [ ] Auto-grading: submission API
