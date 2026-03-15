@@ -11,6 +11,8 @@ import { canAccessRolePath, getDefaultPathForRole } from './lib/navigation'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import StudentDashboardPage from './pages/StudentDashboardPage'
+import StudentExercisesPage from './pages/StudentExercisesPage'
+import StudentTakeExercisePage from './pages/StudentTakeExercisePage'
 import TeacherCreateExercisePage from './pages/TeacherCreateExercisePage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import TeacherExercisesPage from './pages/TeacherExercisesPage'
@@ -96,6 +98,22 @@ export function AppRoutes() {
         element={
           <ProtectedRoleRoute>
             <StudentDashboardPage />
+          </ProtectedRoleRoute>
+        }
+      />
+      <Route
+        path="/student/exercises"
+        element={
+          <ProtectedRoleRoute>
+            <StudentExercisesPage />
+          </ProtectedRoleRoute>
+        }
+      />
+      <Route
+        path="/student/exercises/:id"
+        element={
+          <ProtectedRoleRoute>
+            <StudentTakeExercisePage />
           </ProtectedRoleRoute>
         }
       />

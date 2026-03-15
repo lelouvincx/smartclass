@@ -174,8 +174,9 @@ Status: done.
 - [x] Backend test infrastructure ([#9](https://github.com/lelouvicnx/smartclass/pull/9))
 - [x] Exercise CRUD API with answer schema support ([#10](https://github.com/lelouvincx/smartclass/pull/10))
 - [x] Teacher file upload via R2 presigned URLs ([#10](https://github.com/lelouvincx/smartclass/pull/10))
-- [x] Teacher: create exercises with answer schema (frontend) ([#11](https://github.com/lelouvincx/smartclass/pull/11))
+- [x] v0.2.1 Teacher: create exercises with answer schema (frontend) ([#11](https://github.com/lelouvincx/smartclass/pull/11))
 - [ ] Student: browse exercise list (frontend)
+- [ ] Test version 0.2.1 with scanning PDF exercises and answer schema validation (manual form input for now)
 - [ ] Student: take exercises (manual form input)
 - [ ] Auto-grading: submission API
 - [ ] Submission history: student views past submissions
@@ -216,3 +217,4 @@ Status: done.
 ## Tech Debt
 
 - [ ] **Teacher seed SQL has hardcoded bcrypt hash**: `worker/db/seeds/0001_seed_teacher.sql` contains a pre-hashed password (`123`). Replace with a proper production secret management flow (e.g., generate hash at deploy time or use a CLI seed command with env var input).
+- [ ] Validate if current styling framework is shadcn/ui or not?
