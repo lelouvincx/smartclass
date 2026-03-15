@@ -8,7 +8,7 @@ mode = "smart"
 [vars]
 APP_ENV = "development"
 APP_CORS_ORIGIN = "http://localhost:5173"
-OPENROUTER_MODEL = "google/gemini-2.5-flash"
+OPENROUTER_MODEL = "anthropic/claude-haiku-3.5"
 
 [[d1_databases]]
 binding = "DB"
