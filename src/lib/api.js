@@ -82,9 +82,9 @@ export function uploadExerciseFile(token, exerciseId, metadata, file) {
     headers: authHeaders(token, {
       'Content-Type': file.type || 'application/octet-stream',
       'Content-Length': String(file.size),
-      'x-r2-key': metadata.r2_key,
+      'x-r2-key': encodeURIComponent(metadata.r2_key),
       'x-file-type': metadata.file_type,
-      'x-file-name': metadata.file_name,
+      'x-file-name': encodeURIComponent(metadata.file_name),
     }),
     body: file,
   })
