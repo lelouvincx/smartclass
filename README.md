@@ -230,8 +230,3 @@ Status: done.
 - [ ] UI polish and mobile responsiveness
 
 > **Ship:** anonymous users can try the platform — ready for marketing.
-
-## Tech Debt
-
-- [ ] **Teacher seed SQL has hardcoded bcrypt hash**: `worker/db/seeds/0001_seed_teacher.sql` contains a pre-hashed password (`123`). Replace with a proper production secret management flow (e.g., generate hash at deploy time or use a CLI seed command with env var input).
-- [ ] Validate if current styling framework is shadcn/ui or not?
