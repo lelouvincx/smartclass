@@ -274,6 +274,66 @@ describe('PUT /api/submissions/:id/submit', () => {
     expect(body.error.code).toBe('ALREADY_SUBMITTED')
   })
 
+  it('rejects when q_id is out of range', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const createBody = await createRes.json()
+    const submissionId = createBody.data.id
+
+    const res = await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ answers: [{ q_id: 9999, submitted_answer: 'A' }] }),
+    }, env)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('rejects when duplicate q_ids in payload', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const createBody = await createRes.json()
+    const submissionId = createBody.data.id
+
+    const res = await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({
+        answers: [
+          { q_id: 1, submitted_answer: 'A' },
+          { q_id: 1, submitted_answer: 'B' },
+        ],
+      }),
+    }, env)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(body.error.message).toContain('Duplicate')
+  })
+
   it('rejects when answers is not an array', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const createRes = await app.request('/api/submissions', {

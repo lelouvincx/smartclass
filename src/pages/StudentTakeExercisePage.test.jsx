@@ -9,6 +9,7 @@ import StudentTakeExercisePage from './StudentTakeExercisePage'
 
 const getExerciseMock = vi.fn()
 const createSubmissionMock = vi.fn()
+const getSubmissionMock = vi.fn()
 const submitAnswersMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
@@ -17,6 +18,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     ...actual,
     getExercise: (...args) => getExerciseMock(...args),
     createSubmission: (...args) => createSubmissionMock(...args),
+    getSubmission: (...args) => getSubmissionMock(...args),
     submitAnswers: (...args) => submitAnswersMock(...args),
   }
 })
@@ -80,7 +82,9 @@ describe('StudentTakeExercisePage', () => {
   beforeEach(() => {
     getExerciseMock.mockReset()
     createSubmissionMock.mockReset()
+    getSubmissionMock.mockReset()
     submitAnswersMock.mockReset()
+    sessionStorage.clear()
   })
 
   // --- Loading and error states ---
@@ -163,16 +167,22 @@ describe('StudentTakeExercisePage', () => {
 
   // --- Timer ---
 
-  it('shows timer for timed exercise', async () => {
+  it('shows timer for timed exercise based on elapsed time', async () => {
+    // started_at is "now" in UTC, so remaining ≈ full duration
+    const now = new Date()
+    const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
+    const sub = { ...SUBMISSION, started_at: startedAt }
+
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    createSubmissionMock.mockResolvedValue({ data: sub })
 
     renderPage()
 
     await screen.findByText('Algebra Quiz')
 
-    // 30 min = 30:00
-    expect(screen.getByLabelText('Timer')).toHaveTextContent('30:00')
+    // Should show ~30:00 (may be 29:59 due to test execution time)
+    const timerText = screen.getByLabelText('Timer').textContent
+    expect(timerText).toMatch(/^(30:00|29:5\d)$/)
   })
 
   it('does not show timer for untimed exercise', async () => {
@@ -187,10 +197,14 @@ describe('StudentTakeExercisePage', () => {
   })
 
   it('counts down the timer every second', async () => {
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+
+    const now = new Date()
+    const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
+    const sub = { ...SUBMISSION, started_at: startedAt }
 
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    createSubmissionMock.mockResolvedValue({ data: sub })
 
     renderPage()
 
@@ -206,11 +220,15 @@ describe('StudentTakeExercisePage', () => {
   })
 
   it('shows overtime warning and counts up when time expires', async () => {
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] })
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+
+    const now = new Date()
+    const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
+    const sub = { ...SUBMISSION, started_at: startedAt }
 
     const shortExercise = { ...EXERCISE_MCQ, duration_minutes: 1 }
     getExerciseMock.mockResolvedValue({ data: shortExercise })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    createSubmissionMock.mockResolvedValue({ data: sub })
 
     renderPage()
 
@@ -526,6 +544,23 @@ describe('StudentTakeExercisePage', () => {
 
     expect(screen.queryByRole('dialog', { name: /leave exercise/i })).not.toBeInTheDocument()
     expect(screen.getByText('Algebra Quiz')).toBeInTheDocument()
+  })
+
+  it('Back button is disabled while submission is in flight', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    // Never-resolving promise to keep isSubmitting = true
+    submitAnswersMock.mockImplementation(() => new Promise(() => {}))
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+
+    const backButton = screen.getByRole('button', { name: /^Back$/i })
+    expect(backButton).toBeDisabled()
   })
 
   it('Back button is a plain link (no warning) after exercise is submitted', async () => {

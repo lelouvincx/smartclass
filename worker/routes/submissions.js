@@ -70,7 +70,7 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
 
     // Get submission and verify ownership
     const submission = await c.env.DB.prepare(
-      'SELECT id, user_id, submitted_at FROM submissions WHERE id = ?'
+      'SELECT id, user_id, submitted_at, total_questions FROM submissions WHERE id = ?'
     ).bind(submissionId).first()
 
     if (!submission) {
@@ -85,6 +85,20 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
       return jsonError(c, 400, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
     }
 
+    // Validate answer entries
+    const totalQuestions = submission.total_questions
+    const seenQIds = new Set()
+    for (const entry of answers) {
+      const qId = entry.q_id
+      if (!Number.isInteger(qId) || qId < 1 || qId > totalQuestions) {
+        return jsonError(c, 400, 'VALIDATION_ERROR', `Invalid q_id: ${qId}. Must be an integer between 1 and ${totalQuestions}`)
+      }
+      if (seenQIds.has(qId)) {
+        return jsonError(c, 400, 'VALIDATION_ERROR', `Duplicate q_id: ${qId}`)
+      }
+      seenQIds.add(qId)
+    }
+
     // Insert submission answers using D1 batch
     const insertStatements = answers.map(({ q_id, submitted_answer }) => {
       return c.env.DB.prepare(`
@@ -93,15 +107,21 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
       `).bind(submissionId, q_id, submitted_answer)
     })
 
-    // Add update submission statement to batch
+    // Add update submission statement to batch (atomic guard against double-submit)
     const updateStatement = c.env.DB.prepare(`
       UPDATE submissions
       SET submitted_at = datetime('now')
-      WHERE id = ?
+      WHERE id = ? AND submitted_at IS NULL
     `).bind(submissionId)
 
     // Execute all statements in a single batch
-    await c.env.DB.batch([...insertStatements, updateStatement])
+    const batchResults = await c.env.DB.batch([...insertStatements, updateStatement])
+
+    // Check if the UPDATE actually modified a row (last statement in batch)
+    const updateResult = batchResults[batchResults.length - 1]
+    if (updateResult.meta.changes === 0) {
+      return jsonError(c, 400, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
+    }
 
     // Get updated submission with answers
     const updatedSubmission = await c.env.DB.prepare(
