@@ -93,3 +93,35 @@ export function uploadExerciseFile(token, exerciseId, metadata, file) {
 export function listExercises() {
   return request('/api/exercises')
 }
+
+export function getExercise(id, token) {
+  return request(`/api/exercises/${id}`, {
+    headers: token ? authHeaders(token) : {},
+  })
+}
+
+export function createSubmission(token, payload) {
+  return request('/api/submissions', {
+    method: 'POST',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function submitAnswers(token, submissionId, answers) {
+  return request(`/api/submissions/${submissionId}/submit`, {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify({ answers }),
+  })
+}
+
+export function getSubmission(token, submissionId) {
+  return request(`/api/submissions/${submissionId}`, {
+    headers: authHeaders(token),
+  })
+}
