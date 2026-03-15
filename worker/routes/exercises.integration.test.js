@@ -238,6 +238,71 @@ describe('GET /api/exercises/:id', () => {
     const res = await app.request('/api/exercises/99999', {}, env)
     expect(res.status).toBe(404)
   })
+
+  it('includes correct_answer in schema for teacher requests', async () => {
+    const { id } = await createExercise(token)
+    const res = await app.request(`/api/exercises/${id}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    }, env)
+    
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.schema).toHaveLength(2)
+    expect(body.data.schema[0]).toHaveProperty('correct_answer')
+    expect(body.data.schema[0].correct_answer).toBe('B')
+    expect(body.data.schema[1]).toHaveProperty('correct_answer')
+    expect(body.data.schema[1].correct_answer).toBe('true')
+  })
+
+  it('strips correct_answer from schema for unauthenticated requests', async () => {
+    const { id } = await createExercise(token)
+    const res = await app.request(`/api/exercises/${id}`, {}, env)
+    
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.schema).toHaveLength(2)
+    expect(body.data.schema[0]).not.toHaveProperty('correct_answer')
+    expect(body.data.schema[0]).toHaveProperty('q_id')
+    expect(body.data.schema[0]).toHaveProperty('type')
+    expect(body.data.schema[1]).not.toHaveProperty('correct_answer')
+  })
+
+  it('strips correct_answer from schema for student requests', async () => {
+    // Create a student user
+    const studentPhone = '+84123456789'
+    await env.DB.prepare(`
+      INSERT INTO users (phone, password_hash, role, status)
+      VALUES (?, '$2b$10$cjeRekzD2GzbtRoxaVXj9ebzER0KjObLyqL89LeJ.zbpKBZhQ4maG', 'student', 'active')
+      ON CONFLICT(phone) DO UPDATE SET status = 'active'
+    `).bind(studentPhone).run()
+
+    // Login as student
+    const loginRes = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: studentPhone, password: '123' }),
+    }, env)
+    const loginBody = await loginRes.json()
+    const studentToken = loginBody.data.token
+
+    // Create exercise as teacher
+    const { id } = await createExercise(token)
+
+    // Fetch exercise as student
+    const res = await app.request(`/api/exercises/${id}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+    
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.schema).toHaveLength(2)
+    expect(body.data.schema[0]).not.toHaveProperty('correct_answer')
+    expect(body.data.schema[0].q_id).toBe(1)
+    expect(body.data.schema[0].type).toBe('mcq')
+    expect(body.data.schema[1]).not.toHaveProperty('correct_answer')
+    expect(body.data.schema[1].q_id).toBe(2)
+    expect(body.data.schema[1].type).toBe('boolean')
+  })
 })
 
 describe('PUT /api/exercises/:id', () => {
