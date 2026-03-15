@@ -32,6 +32,36 @@ export async function loginAsTeacher() {
 }
 
 /**
+ * Seed a student account for testing.
+ * Uses the same bcrypt hash as teacher (password: "123").
+ */
+export async function seedStudent(phone = '+84123456789') {
+  await env.DB.prepare(`
+    INSERT INTO users (phone, password_hash, role, status)
+    VALUES (?, '$2b$10$cjeRekzD2GzbtRoxaVXj9ebzER0KjObLyqL89LeJ.zbpKBZhQ4maG', 'student', 'active')
+    ON CONFLICT(phone) DO UPDATE SET
+      password_hash = excluded.password_hash,
+      role = 'student',
+      status = 'active',
+      updated_at = CURRENT_TIMESTAMP
+  `).bind(phone).run()
+}
+
+/**
+ * Login as student and return the JWT token.
+ */
+export async function loginAsStudent(phone = '+84123456789') {
+  const res = await app.request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, password: '123' }),
+  }, env)
+
+  const body = await res.json()
+  return body.data.token
+}
+
+/**
  * Create an exercise and return { id, response body }.
  */
 export async function createExercise(token, overrides = {}) {
