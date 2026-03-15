@@ -1,5 +1,6 @@
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_MODEL = 'google/gemini-2.5-flash'
+const DEFAULT_FALLBACK_MODEL = 'openai/gpt-4.1-mini'
 
 function buildPrompt(sourceText, expectedQuestionCount) {
   const countHint = expectedQuestionCount
@@ -29,6 +30,9 @@ export async function requestSchemaFromOpenRouter(env, sourceText, expectedQuest
     throw new Error('OPENROUTER_API_KEY is not configured')
   }
 
+  const primaryModel = env.OPENROUTER_MODEL || DEFAULT_MODEL
+  const fallbackModel = env.OPENROUTER_FALLBACK_MODEL || DEFAULT_FALLBACK_MODEL
+
   const endpoint = `${env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL}/chat/completions`
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -37,7 +41,8 @@ export async function requestSchemaFromOpenRouter(env, sourceText, expectedQuest
       Authorization: `Bearer ${env.OPENROUTER_API_KEY}`,
     },
     body: JSON.stringify({
-      model: env.OPENROUTER_MODEL || DEFAULT_MODEL,
+      models: [primaryModel, fallbackModel],
+      route: 'fallback',
       messages: [
         {
           role: 'user',
