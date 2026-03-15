@@ -42,7 +42,55 @@
 - **Formatting**: Single quotes for JS strings, 2-space indent, trailing commas.
 - **Naming**: camelCase for variables/functions, PascalCase for components, UPPER_SNAKE_CASE for constants.
 
+## Testing
+
+- **Frontend**: Vitest + `@testing-library/react` + `jsdom`. Tests in `*.test.jsx` alongside components.
+- **Backend**: Vitest + `@cloudflare/vitest-pool-workers` for integration tests against real D1. Config: `vitest.worker.config.js`. Tests in `*.integration.test.js`.
+- **Run frontend tests**: `npx vitest run src/`
+- **Run backend tests**: `npx vitest run --config vitest.worker.config.js`
+- **Mocking**: `vi.mock` for `auth-context` and `api.js` in frontend tests. Use `seedTeacher`/`seedStudent`/`loginAsTeacher`/`loginAsStudent` helpers from `worker/test/helpers.js` for backend tests.
+
+## API Conventions
+
+- **Response shape**: `{ success: boolean, data: any, error: { code: string, message: string } }`
+- **Helpers**: `jsonError(c, status, code, message)` and `jsonSuccess(c, data)` from `worker/lib/response.js`
+- **Auth headers**: `Authorization: Bearer <jwt>`. Use `authHeaders(token, extra)` from `src/lib/api.js`.
+- **Centralized fetch**: All API calls go through `request(path, options)` in `src/lib/api.js` which handles base URL, JSON parsing, and error propagation.
+
+## Cloudflare Workers Gotchas
+
+- **Environment bindings**: `JWT_SECRET` and other secrets must be in `.dev.vars` for local dev. Standard shell env vars are **not** available in the Worker `c.env` context.
+- **D1 migrations**: Must be manually applied via `wrangler d1 execute` to both local and remote. They are **not** auto-applied by `wrangler dev`.
+- **D1 atomicity**: Use `c.env.DB.batch([...statements])` for multi-statement transactions. Individual `.run()` calls are **not** atomic together.
+
 ## Design Decisions
+
+### Timed vs. Untimed Exercises (v0.2)
+
+- **Derived state**: `is_timed` is not a DB column. It is derived from `duration_minutes > 0`.
+- **Normalization**: Backend forces `duration_minutes = 0` when `is_timed: false`.
+- **API consistency**: `toExerciseWithTiming` helper in `worker/routes/exercises.js` ensures all responses include `is_timed` (0 or 1 for SQLite).
+
+### Answer Security: Conditional Stripping (v0.2)
+
+- **Endpoint**: `GET /api/exercises/:id` uses optional auth (not `requireAuth`)
+- **Behavior**: If valid JWT with `role: 'teacher'` → full schema with `correct_answer`. Otherwise → `correct_answer` stripped.
+- **Rationale**: Single endpoint, prevents students from inspecting network tab for answers.
+
+### Submission Integrity (v0.2, PR #19)
+
+- **Session persistence**: Frontend stores active `submission.id` in `sessionStorage` keyed by exercise ID. On page refresh, reuses the existing submission instead of creating a new one.
+- **Timer accuracy**: Remaining time calculated from `started_at` timestamp, not `duration_minutes`. Prevents timer reset exploit on refresh.
+- **Double-submit guard**: Backend uses `UPDATE ... WHERE submitted_at IS NULL` + row-count check for atomic protection. Frontend early check is a fast path only.
+- **Answer validation**: Backend validates `q_id` range (1–`total_questions`) and rejects duplicate `q_id`s with 400.
+- **Navigation guard**: `beforeunload` + `popstate` listener to catch both tab close and SPA back-button navigation.
+
+### Answer Normalization (v0.2)
+
+- `mcq`: uppercase A/B/C/D
+- `boolean`: lowercase strings `true`/`false`
+- `numeric`: trimmed strings
+- `is_correct`: nullable — grading is decoupled from submission (v0.3+)
 
 ### Exercise Permissions (v0.2)
 
