@@ -39,7 +39,6 @@ Status: done.
 - [ ] Update answer schema of boolean questions to include more sub-questions (one boolean question can have 4 sub-questions, each with its own correct answer, score, and explanation) => go with format "0101"
 - [ ] Student/Teacher: view exercises
 - [ ] Auto-grading: fill in is_correct and score after submission
-- [ ] Submission history: student views past submissions
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
 
@@ -47,14 +46,15 @@ Status: done.
 
 - [ ] Student: view PDF in split-pane during exercise
 - [ ] Review mode: student reviews graded submissions with correct answers shown
+- [ ] Submission history: student views past submissions
 
 > **Ship:** exercises feel complete with real documents and solution review.
 
-### v0.4 — Scanner & image upload
+### v0.4 — Scanner & image upload (think again to decide whether to use an OCR or just yolo with grok because it's cheap)
 
+- [ ] Image upload mode: upload photo → OCR → populate answer form
 - [ ] Tesseract.js OCR integration (client-side)
 - [ ] Scanner mode: camera capture → extract answers from standardized sheets
-- [ ] Image upload mode: upload photo → OCR → populate answer form
 
 > **Ship:** students can submit via three input methods (form, scanner, image).
 
@@ -73,6 +73,24 @@ Status: done.
 - [ ] UI polish and mobile responsiveness
 
 > **Ship:** anonymous users can try the platform — ready for marketing.
+
+### Queueing
+
+- [ ] Each answer includes an explanation field (image/markdown with math notation supported) created when uploading exercises
+- [ ] Teacher: create accounts for students
+- [ ] Teacher approves pending accounts
+- [ ] Auth: forget password
+- [ ] Auth: change password (teacher and student, teacher can reset student passwords)
+- [ ] LLM prompt for extraction
+- [ ] Additional user fields: name, class/grade, other social media links, profile image, email
+- [ ] Teacher: view student list with stats (exercises taken, average score, last active)
+- [ ] Teacher: view individual student profiles with submission history and performance trends
+- [ ] Phone prefix: accept '0' prefix for local convenience but store as '+84' in database
+- [ ] Auth: connect with google acconts for easier login and account recovery
+- [ ] Idea: students can submit an offline exercise by scanning a QR code on the exercise sheet, which opens a submission form pre-filled with the exercise ID and student info (if logged in) — this allows for easy offline-to-online transition without manual input of exercise details.
+  - [ ] Generate QR code for each exercise
+- [ ] Buy domain and set things up
+- [ ] Cost analysis and estimation dashboard
 
 ## Tech Stack
 
@@ -179,10 +197,6 @@ Production domains:
 Setup summary:
 
 1. Cloudflare Pages project `smartclass` via GitHub App:
-   - Production branch `main`
-   - Build command `npm run build`
-   - Output directory `dist`
-   - Env var `VITE_API_BASE_URL=https://api.smartclass.lelouvincx.com`
 2. Worker route: `api.smartclass.lelouvincx.com`
 3. GitHub repository secrets:
    - `CLOUDFLARE_API_TOKEN`
