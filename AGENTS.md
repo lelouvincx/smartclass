@@ -103,3 +103,18 @@
   - Show: title, duration, question count only
   - Hide: created_at, updated_at, description (if available)
   - **Rationale**: Keep interface simple; focus on actionable info; avoid information overload for students
+
+### Student Exercise Taking (v0.2)
+
+- **Submission lifecycle**: `POST /api/submissions` on page mount → `PUT /api/submissions/:id/submit` on confirm
+  - Submission created immediately when student lands on the page; no "Start" confirmation step
+  - **Rationale**: Simplest flow; timer accuracy requires `started_at` to be recorded as early as possible
+- **No auto-submit on timer expiry**: When a timed exercise runs out of time, show an "Over time" warning and count up, but allow the student to submit manually at any point
+  - **Alternative considered**: Auto-submit when timer hits zero
+  - **Rationale**: Auto-submit can lose partially filled answers due to race conditions; student agency is preferred
+- **Post-submit display**: Read-only echo of submitted answers (question, type, answer), no score or correctness shown
+  - **Rationale**: Grading is a separate future feature (v0.3+); avoid showing partial/incorrect data
+- **Unanswered questions**: Sent as `null` in the payload; displayed as `—` in the post-submit view
+  - **Rationale**: Explicit `null` distinguishes "skipped" from "answered empty"; consistent with DB schema (`submitted_answer` nullable)
+- **Navigation guard**: `beforeunload` browser warning + in-page "Back" link replaced with a warning prompt when an exercise is in progress (not yet submitted)
+  - **Rationale**: Prevents accidental data loss; students can always choose to leave if they understand the consequence

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle, Clock } from 'lucide-react'
 import { createSubmission, getExercise, submitAnswers } from '../lib/api'
 import { useAuth } from '../lib/auth-context'
@@ -96,6 +96,7 @@ function ResultRow({ question, answer }) {
 export default function StudentTakeExercisePage() {
   const { id } = useParams()
   const { token } = useAuth()
+  const navigate = useNavigate()
 
   // Loading / error
   const [isLoading, setIsLoading] = useState(true)
@@ -119,6 +120,9 @@ export default function StudentTakeExercisePage() {
   const [submitError, setSubmitError] = useState('')
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submittedAnswers, setSubmittedAnswers] = useState([])
+
+  // Navigation guard state
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false)
 
   // --- Init: fetch exercise and create submission ---
   useEffect(() => {
@@ -155,6 +159,19 @@ export default function StudentTakeExercisePage() {
 
     init()
   }, [id, token])
+
+  // --- beforeunload guard ---
+  useEffect(() => {
+    if (isLoading || isSubmitted) return
+
+    function handleBeforeUnload(e) {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isLoading, isSubmitted])
 
   // --- Countdown timer ---
   useEffect(() => {
@@ -213,6 +230,19 @@ export default function StudentTakeExercisePage() {
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // --- Navigation guard (in-page Back button) ---
+  function handleBackClick() {
+    setShowLeaveWarning(true)
+  }
+
+  function handleConfirmLeave() {
+    navigate('/student/exercises')
+  }
+
+  function handleCancelLeave() {
+    setShowLeaveWarning(false)
   }
 
   // --- Render helpers ---
@@ -367,7 +397,38 @@ export default function StudentTakeExercisePage() {
               <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{submitError}</p>
             )}
 
-            {/* Confirm dialog */}
+            {/* Leave warning dialog */}
+            {showLeaveWarning && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Leave exercise"
+                className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm"
+              >
+                <h2 className="mb-2 text-base font-semibold text-slate-900">Leave this exercise?</h2>
+                <p className="mb-4 text-sm text-slate-600">
+                  Your answers will be lost if you leave now.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleConfirmLeave}
+                    className="h-10 rounded-md bg-red-600 px-5 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Yes, leave
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCancelLeave}
+                    className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
+                  >
+                    Stay
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Confirm submit dialog */}
             {showConfirm && (
               <div
                 role="dialog"
@@ -400,7 +461,7 @@ export default function StudentTakeExercisePage() {
               </div>
             )}
 
-            {!showConfirm && (
+            {!showConfirm && !showLeaveWarning && (
               <div className="flex items-center gap-4">
                 <button
                   type="button"
@@ -410,12 +471,13 @@ export default function StudentTakeExercisePage() {
                 >
                   {isSubmitting ? 'Submitting...' : 'Submit'}
                 </button>
-                <Link
-                  to="/student/exercises"
+                <button
+                  type="button"
+                  onClick={handleBackClick}
                   className="text-sm text-slate-600 underline"
                 >
                   Back
-                </Link>
+                </button>
               </div>
             )}
           </div>
