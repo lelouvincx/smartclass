@@ -101,10 +101,30 @@ exercisesRoutes.get('/:id', async (c) => {
     'SELECT q_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC'
   ).bind(id).all()
 
+  // Determine if requester is a teacher (optional auth)
+  let isTeacher = false
+  const authorization = c.req.header('Authorization') || ''
+  if (authorization.startsWith('Bearer ') && c.env.JWT_SECRET) {
+    const token = authorization.slice(7)
+    try {
+      const { verifyAccessToken } = await import('../lib/auth.js')
+      const payload = await verifyAccessToken(token, c.env)
+      isTeacher = payload.role === 'teacher'
+    } catch {
+      // Invalid token, treat as unauthenticated
+      isTeacher = false
+    }
+  }
+
+  // Strip correct_answer from schema for non-teachers
+  const sanitizedSchema = isTeacher
+    ? schema.results
+    : schema.results.map(({ q_id, type }) => ({ q_id, type }))
+
   return jsonSuccess(c, {
     ...toExerciseWithTiming(exercise),
     files: files.results,
-    schema: schema.results,
+    schema: sanitizedSchema,
   })
 })
 
