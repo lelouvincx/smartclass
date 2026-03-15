@@ -426,4 +426,131 @@ describe('StudentTakeExercisePage', () => {
     const dashes = screen.getAllByText('—')
     expect(dashes).toHaveLength(2)
   })
+
+  // --- Navigation guard ---
+
+  it('registers a beforeunload listener while exercise is in progress', async () => {
+    const addEventSpy = vi.spyOn(window, 'addEventListener')
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+
+    const calls = addEventSpy.mock.calls.filter(([event]) => event === 'beforeunload')
+    expect(calls.length).toBeGreaterThan(0)
+
+    addEventSpy.mockRestore()
+  })
+
+  it('removes the beforeunload listener after submission', async () => {
+    const user = userEvent.setup()
+    const removeEventSpy = vi.spyOn(window, 'removeEventListener')
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    submitAnswersMock.mockResolvedValue({
+      data: {
+        id: 10,
+        submitted_at: '2026-03-15 10:05:00',
+        answers: [
+          { id: 1, q_id: 1, submitted_answer: null, is_correct: null },
+          { id: 2, q_id: 2, submitted_answer: null, is_correct: null },
+        ],
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+    await screen.findByText(/submitted!/i)
+
+    const calls = removeEventSpy.mock.calls.filter(([event]) => event === 'beforeunload')
+    expect(calls.length).toBeGreaterThan(0)
+
+    removeEventSpy.mockRestore()
+  })
+
+  it('shows Back button as a warning prompt instead of a plain link while in progress', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+
+    // Should be a button labelled "Back", not a plain link navigating away
+    expect(screen.getByRole('button', { name: /^Back$/i })).toBeInTheDocument()
+  })
+
+  it('shows an in-page leave warning when Back button is clicked mid-exercise', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Back$/i }))
+
+    expect(screen.getByRole('dialog', { name: /leave exercise/i })).toBeInTheDocument()
+    expect(screen.getByText(/your answers will be lost/i)).toBeInTheDocument()
+  })
+
+  it('navigates away when user confirms leave', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Back$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, leave/i }))
+
+    expect(await screen.findByText('Exercises list')).toBeInTheDocument()
+  })
+
+  it('dismisses leave warning when user cancels', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Back$/i }))
+    await user.click(screen.getByRole('button', { name: /stay/i }))
+
+    expect(screen.queryByRole('dialog', { name: /leave exercise/i })).not.toBeInTheDocument()
+    expect(screen.getByText('Algebra Quiz')).toBeInTheDocument()
+  })
+
+  it('Back button is a plain link (no warning) after exercise is submitted', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    submitAnswersMock.mockResolvedValue({
+      data: {
+        id: 10,
+        submitted_at: '2026-03-15 10:05:00',
+        answers: [
+          { id: 1, q_id: 1, submitted_answer: null, is_correct: null },
+          { id: 2, q_id: 2, submitted_answer: null, is_correct: null },
+        ],
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+    await screen.findByText(/submitted!/i)
+
+    // In submitted view, "Back to Exercises" should be a link, not a button
+    expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
+  })
 })
