@@ -85,6 +85,29 @@ Status: done.
 | OCR      | Tesseract.js (client-side)                     |
 | Auth     | Phone (+84xxx) + password, JWT                 |
 
+## Project Structure
+
+```
+smartclass/
+├── src/                    # Frontend (React)
+│   ├── main.jsx            # App entry
+│   ├── router.jsx          # Router entry
+│   ├── pages/              # Route pages
+│   ├── lib/                # API client + auth state
+│   └── test/               # Test setup
+├── worker/                 # Backend API
+│   ├── index.js            # Hono app entry
+│   ├── routes/             # Route handlers
+│   ├── middleware/         # JWT auth
+│   ├── lib/                # Auth helpers
+│   └── db/                 # D1 migrations + seeds
+├── .github/workflows/      # CI/CD workflows
+├── docs/                   # Documentation
+│   └── plans/              # Design docs
+├── wrangler.toml           # Cloudflare worker config
+└── package.json
+```
+
 ## Getting Started
 
 ```bash
@@ -192,27 +215,4 @@ git checkout main
 git pull
 git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
-```
-
-## Project Structure
-
-```
-smartclass/
-├── src/                    # Frontend (React)
-│   ├── main.jsx            # App entry
-│   ├── router.jsx          # Router entry
-│   ├── pages/              # Route pages
-│   ├── lib/                # API client + auth state
-│   └── test/               # Test setup
-├── worker/                 # Backend API
-│   ├── index.js            # Hono app entry
-│   ├── routes/             # Route handlers
-│   ├── middleware/         # JWT auth
-│   ├── lib/                # Auth helpers
-│   └── db/                 # D1 migrations + seeds
-├── .github/workflows/      # CI/CD workflows
-├── docs/                   # Documentation
-│   └── plans/              # Design docs
-├── wrangler.toml           # Cloudflare worker config
-└── package.json
 ```
