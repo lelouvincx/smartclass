@@ -32,8 +32,6 @@ jobs:
               .join('\n');
 
             const commitMessage = [
-              `PR #${pr.number}`,
-              '',
               'Commits:',
               commitLines,
             ].join('\n');
