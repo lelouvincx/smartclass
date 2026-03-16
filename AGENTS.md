@@ -234,5 +234,8 @@
 - **ThemeProvider**: `src/components/theme-provider.jsx` wraps app in `src/main.jsx`. Persists to `localStorage` key `smartclass-theme`.
 - **Path aliases**: `@/` maps to `./src/` via `jsconfig.json` + `vite.config.js` resolve alias.
 - **Utilities**: `cn()` from `src/lib/utils.js` (clsx + tailwind-merge) for className composition.
-- **Migration approach**: Incremental — infrastructure in Phase 1, core components in Phase 2, page-by-page in Phase 3+.
+- **Component library**: `src/components/ui/` contains shadcn/ui primitives (button, card, input, label, badge, table, select, dialog, switch, dropdown-menu). Add new ones via `npx shadcn@latest add <component>`.
+- **Shared layouts**: `src/components/student-layout.jsx` and `src/components/teacher-layout.jsx` provide sticky header with nav, user phone, mode toggle, and logout. Router uses nested `<Outlet />` pattern.
+- **Mode toggle**: `src/components/mode-toggle.jsx` — dropdown with Light/Dark/System options using `useTheme()` hook.
+- **Migration approach**: Incremental — infrastructure in Phase 1, core components + layouts in Phase 2, page-by-page in Phase 3+.
 - **RFC**: `docs/plans/2026-03-16-shadcn-ui-migration.md`.

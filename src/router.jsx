@@ -6,17 +6,19 @@ import {
   Routes,
   useLocation,
 } from 'react-router-dom'
-import { AuthProvider, useAuth } from './lib/auth-context'
-import { canAccessRolePath, getDefaultPathForRole } from './lib/navigation'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import StudentDashboardPage from './pages/StudentDashboardPage'
-import StudentExercisesPage from './pages/StudentExercisesPage'
-import StudentTakeExercisePage from './pages/StudentTakeExercisePage'
-import TeacherCreateExercisePage from './pages/TeacherCreateExercisePage'
-import TeacherDashboardPage from './pages/TeacherDashboardPage'
-import TeacherExercisesPage from './pages/TeacherExercisesPage'
-import TeacherViewExercisePage from './pages/TeacherViewExercisePage'
+import { AuthProvider, useAuth } from '@/lib/auth-context'
+import { canAccessRolePath, getDefaultPathForRole } from '@/lib/navigation'
+import { StudentLayout } from '@/components/student-layout'
+import { TeacherLayout } from '@/components/teacher-layout'
+import LoginPage from '@/pages/LoginPage'
+import RegisterPage from '@/pages/RegisterPage'
+import StudentDashboardPage from '@/pages/StudentDashboardPage'
+import StudentExercisesPage from '@/pages/StudentExercisesPage'
+import StudentTakeExercisePage from '@/pages/StudentTakeExercisePage'
+import TeacherCreateExercisePage from '@/pages/TeacherCreateExercisePage'
+import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
+import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
+import TeacherViewExercisePage from '@/pages/TeacherViewExercisePage'
 
 function PublicOnlyRoute({ children }) {
   const { isLoading, user } = useAuth()
@@ -70,62 +72,36 @@ export function AppRoutes() {
           </PublicOnlyRoute>
         }
       />
+
+      {/* Teacher routes with shared layout */}
       <Route
         path="/teacher"
         element={
           <ProtectedRoleRoute>
-            <TeacherDashboardPage />
+            <TeacherLayout />
           </ProtectedRoleRoute>
         }
-      />
-      <Route
-        path="/teacher/exercises"
-        element={
-          <ProtectedRoleRoute>
-            <TeacherExercisesPage />
-          </ProtectedRoleRoute>
-        }
-      />
-      <Route
-        path="/teacher/exercises/new"
-        element={
-          <ProtectedRoleRoute>
-            <TeacherCreateExercisePage />
-          </ProtectedRoleRoute>
-        }
-      />
-      <Route
-        path="/teacher/exercises/:id"
-        element={
-          <ProtectedRoleRoute>
-            <TeacherViewExercisePage />
-          </ProtectedRoleRoute>
-        }
-      />
+      >
+        <Route index element={<TeacherDashboardPage />} />
+        <Route path="exercises" element={<TeacherExercisesPage />} />
+        <Route path="exercises/new" element={<TeacherCreateExercisePage />} />
+        <Route path="exercises/:id" element={<TeacherViewExercisePage />} />
+      </Route>
+
+      {/* Student routes with shared layout */}
       <Route
         path="/student"
         element={
           <ProtectedRoleRoute>
-            <StudentDashboardPage />
+            <StudentLayout />
           </ProtectedRoleRoute>
         }
-      />
-      <Route
-        path="/student/exercises"
-        element={
-          <ProtectedRoleRoute>
-            <StudentExercisesPage />
-          </ProtectedRoleRoute>
-        }
-      />
-      <Route
-        path="/student/exercises/:id"
-        element={
-          <ProtectedRoleRoute>
-            <StudentTakeExercisePage />
-          </ProtectedRoleRoute>
-        }
-      />
+      >
+        <Route index element={<StudentDashboardPage />} />
+        <Route path="exercises" element={<StudentExercisesPage />} />
+        <Route path="exercises/:id" element={<StudentTakeExercisePage />} />
+      </Route>
+
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
