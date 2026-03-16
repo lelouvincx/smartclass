@@ -34,6 +34,13 @@ export function StudentLayout() {
               >
                 Exercises
               </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/student/submissions')}
+              >
+                History
+              </Button>
             </nav>
           </div>
           <div className="flex items-center gap-2">
