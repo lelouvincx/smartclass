@@ -544,30 +544,32 @@ describe('Grading — auto-grade on submit', () => {
     body.data.answers.forEach((a) => expect(a.is_correct).toBe(0))
   })
 
-  it('gives score=5 when MCQ correct and boolean all wrong (1/2 questions)', async () => {
+  it('gives score=2 when MCQ correct and boolean all wrong', async () => {
     const submissionId = await createAndStartSubmission()
     const body = await submitAnswers(submissionId, [
-      { q_id: 1, submitted_answer: 'B' },           // correct → 1.0 pt
+      { q_id: 1, submitted_answer: 'B' },           // MCQ correct → 0.25 pts
       { q_id: 2, sub_id: 'a', submitted_answer: '0' }, // wrong
       { q_id: 2, sub_id: 'b', submitted_answer: '1' }, // wrong
       { q_id: 2, sub_id: 'c', submitted_answer: '1' }, // wrong
       { q_id: 2, sub_id: 'd', submitted_answer: '0' }, // wrong
-      // boolean 0/4 correct → 0 pts. Total = 1/2 * 10 = 5
+      // boolean 0/4 correct → 0 pts. max_possible = 0.25 + 1.0 = 1.25
+      // score = (0.25 + 0) / 1.25 * 10 = 2.0
     ])
-    expect(body.data.score).toBe(5)
+    expect(body.data.score).toBe(2)
   })
 
-  it('gives partial credit for boolean — 3/4 correct yields score=7.5', async () => {
+  it('gives partial credit for boolean — 3/4 correct yields score=4', async () => {
     const submissionId = await createAndStartSubmission()
     const body = await submitAnswers(submissionId, [
-      { q_id: 1, submitted_answer: 'A' },           // wrong → 0 pts
+      { q_id: 1, submitted_answer: 'A' },           // MCQ wrong → 0 pts
       { q_id: 2, sub_id: 'a', submitted_answer: '1' }, // correct
       { q_id: 2, sub_id: 'b', submitted_answer: '0' }, // correct
       { q_id: 2, sub_id: 'c', submitted_answer: '0' }, // correct
       { q_id: 2, sub_id: 'd', submitted_answer: '0' }, // wrong (correct='1')
-      // boolean 3/4 → 0.5 pts. Total = 0.5/2 * 10 = 2.5
+      // boolean 3/4 → 0.5 pts. max_possible = 0.25 + 1.0 = 1.25
+      // score = (0 + 0.5) / 1.25 * 10 = 4.0
     ])
-    expect(body.data.score).toBe(2.5)
+    expect(body.data.score).toBe(4)
   })
 
   it('treats skipped (null) answers as wrong', async () => {
