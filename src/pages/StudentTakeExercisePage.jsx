@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
-import { createSubmission, getExercise, getSubmission, submitAnswers } from '@/lib/api'
+import { createSubmission, getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +22,7 @@ import {
   CorrectnessIcon,
   McqNumericResultRow,
 } from '@/components/answer-result'
+import { PdfSplitPane } from '@/components/pdf-split-pane'
 
 // Milestones at which to fire a toast notification (in seconds remaining).
 // Fires once each, tracked via firedMilestones ref.
@@ -459,8 +460,12 @@ export default function StudentTakeExercisePage() {
     ? 'text-amber-600 dark:text-amber-400'
     : 'text-foreground'
 
+  // Find exercise PDF file URL (public — no auth needed)
+  const exercisePdfFile = exercise?.files?.find((f) => f.file_type === 'exercise_pdf')
+  const pdfUrl = exercisePdfFile ? getFileUrl(exercisePdfFile.id) : null
+
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className={pdfUrl ? 'space-y-4' : 'max-w-2xl space-y-6'}>
       {/* Header card */}
       <Card>
         <CardContent className="pt-5">
@@ -512,6 +517,7 @@ export default function StudentTakeExercisePage() {
         </CardContent>
       </Card>
 
+      <PdfSplitPane fileUrl={pdfUrl}>
       {/* Submitted view */}
       {isSubmitted ? (
         <Card>
@@ -633,6 +639,7 @@ export default function StudentTakeExercisePage() {
           )}
         </div>
       )}
+      </PdfSplitPane>
     </div>
   )
 }
