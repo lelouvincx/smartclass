@@ -12,7 +12,7 @@
 
 ### Frontend
 
-- [ ] **Extract `StudentLayout` component** — Header/logout logic is duplicated between `StudentDashboardPage` and `StudentExercisesPage`. Extract a shared layout wrapper.
+- [x] **Extract `StudentLayout` component** — Extracted into `src/components/student-layout.jsx` with shared header, nav, logout, and mode toggle. Also created `src/components/teacher-layout.jsx`. Router uses nested `<Outlet />` for both roles.
 
 ### From README
 
@@ -30,4 +30,4 @@
 ## From shadcn/ui Migration (Phase 1)
 
 - [ ] **Migrate from JavaScript to TypeScript** — Add `tsconfig.json`, rename `.jsx` to `.tsx`, add type annotations. Consider incremental adoption (strict mode off initially).
-- [ ] **Migrate existing pages to shadcn/ui components** — 9 page components still use inline Tailwind classes. See Phase 3 migration plan in `docs/plans/2026-03-16-shadcn-ui-migration.md`.
+- [ ] **Migrate remaining pages to shadcn/ui components** — Dashboard and list pages migrated (Phase 2). Complex pages (TeacherCreateExercisePage, TeacherViewExercisePage, StudentTakeExercisePage, LoginPage, RegisterPage) still use inline Tailwind classes. See Phase 3 migration plan in `docs/plans/2026-03-16-shadcn-ui-migration.md`.

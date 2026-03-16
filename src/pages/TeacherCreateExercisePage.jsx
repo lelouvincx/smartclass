@@ -5,9 +5,9 @@ import {
   createExerciseFileUpload,
   parseExerciseSchema,
   uploadExerciseFile,
-} from '../lib/api'
-import { useAuth } from '../lib/auth-context'
-import { extractTextFromPdf } from '../lib/pdf'
+} from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
+import { extractTextFromPdf } from '@/lib/pdf'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -146,7 +146,7 @@ function newRows(type, nextQid = '') {
 
 export default function TeacherCreateExercisePage() {
   const navigate = useNavigate()
-  const { token, logout } = useAuth()
+  const { token } = useAuth()
 
   const [title, setTitle] = useState('')
   const [isTimed, setIsTimed] = useState(true)
@@ -505,33 +505,15 @@ export default function TeacherCreateExercisePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Create Exercise</h1>
-              <p className="text-sm text-slate-600">Upload answer PDF for auto-schema generation, or continue manually.</p>
-            </div>
-            <div className="flex gap-2">
-              <Link to="/teacher" className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium leading-10 text-slate-700">
-                Back
-              </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  logout()
-                  navigate('/', { replace: true })
-                }}
-                className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Create Exercise</h1>
+          <p className="text-sm text-muted-foreground">Upload answer PDF for auto-schema generation, or continue manually.</p>
         </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs md:grid-cols-3">
             <div className="md:col-span-2">
               <label htmlFor="title" className="mb-1 block text-sm font-medium text-slate-700">Exercise title</label>
@@ -684,7 +666,6 @@ export default function TeacherCreateExercisePage() {
             </button>
           </div>
         </form>
-      </div>
 
       {showWarningConfirm && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/20 p-4">

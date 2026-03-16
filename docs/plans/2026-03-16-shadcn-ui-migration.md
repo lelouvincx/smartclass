@@ -1,7 +1,9 @@
 # RFC: Migrate to shadcn/ui + Tailwind v4 + Dark Mode
 
 **Date:** 2026-03-16
-**Status:** In Progress (Phase 1)
+**Status:** In Progress (Phase 2 complete, Phase 3+ pending)
+**PR Phase 1:** #37
+**PR Phase 2:** (this PR)
 **Author:** lelouvincx + Claude Code
 
 ---

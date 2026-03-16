@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { RefreshCw, Plus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
-import { listExercises } from '../lib/api'
-import { useAuth } from '../lib/auth-context'
+import { listExercises } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 
 export default function TeacherExercisesPage() {
   const navigate = useNavigate()
-  const { logout } = useAuth()
 
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -31,96 +31,76 @@ export default function TeacherExercisesPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-semibold text-slate-900">Exercises</h1>
-              <p className="text-sm text-slate-600">Manage exercise metadata and monitor schema/file completeness.</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={loadExercises}
-                aria-label="Refresh exercises"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-300 text-slate-700"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
-              <Link
-                to="/teacher/exercises/new"
-                className="inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white"
-              >
+    <div className="space-y-6">
+      <Card className="p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Exercises</h1>
+            <p className="text-sm text-muted-foreground">Manage exercise metadata and monitor schema/file completeness.</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" size="icon" onClick={loadExercises} aria-label="Refresh exercises">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+            <Button asChild>
+              <Link to="/teacher/exercises/new">
+                <Plus className="h-4 w-4" />
                 Create Exercise
               </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  logout()
-                  navigate('/', { replace: true })
-                }}
-                className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-              >
-                Logout
-              </button>
-            </div>
+            </Button>
           </div>
         </div>
+      </Card>
 
-        <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
-          {isLoading && (
-            <p className="p-5 text-sm text-slate-600">Loading exercises...</p>
-          )}
+      <Card>
+        {isLoading && (
+          <p className="p-5 text-sm text-muted-foreground">Loading exercises...</p>
+        )}
 
-          {!isLoading && error && (
-            <p className="p-5 text-sm text-red-600">{error}</p>
-          )}
+        {!isLoading && error && (
+          <p className="p-5 text-sm text-destructive">{error}</p>
+        )}
 
-          {!isLoading && !error && items.length === 0 && (
-            <div className="p-8 text-center">
-              <p className="text-sm text-slate-600">No exercises yet.</p>
-              <Link
-                to="/teacher/exercises/new"
-                className="mt-4 inline-flex h-10 items-center rounded-md bg-slate-900 px-4 text-sm font-medium text-white"
-              >
-                Create your first exercise
-              </Link>
-            </div>
-          )}
+        {!isLoading && !error && items.length === 0 && (
+          <div className="p-8 text-center">
+            <p className="text-sm text-muted-foreground">No exercises yet.</p>
+            <Button asChild className="mt-4">
+              <Link to="/teacher/exercises/new">Create your first exercise</Link>
+            </Button>
+          </div>
+        )}
 
-          {!isLoading && !error && items.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-sm">
-                <thead className="bg-slate-50 text-left text-slate-600">
-                  <tr>
-                    <th className="px-4 py-3">Title</th>
-                    <th className="px-4 py-3">Duration</th>
-                    <th className="px-4 py-3">Questions</th>
-                    <th className="px-4 py-3">Files</th>
-                    <th className="px-4 py-3">Updated</th>
+        {!isLoading && !error && items.length > 0 && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-sm">
+              <thead className="bg-muted text-left text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Title</th>
+                  <th className="px-4 py-3">Duration</th>
+                  <th className="px-4 py-3">Questions</th>
+                  <th className="px-4 py-3">Files</th>
+                  <th className="px-4 py-3">Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((item) => (
+                  <tr
+                    key={item.id}
+                    className="cursor-pointer border-t hover:bg-muted/50"
+                    onClick={() => navigate(`/teacher/exercises/${item.id}`)}
+                  >
+                    <td className="px-4 py-3 font-medium">{item.title}</td>
+                    <td className="px-4 py-3">{item.duration_minutes} min</td>
+                    <td className="px-4 py-3">{item.question_count}</td>
+                    <td className="px-4 py-3">{item.file_count}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{item.updated_at}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {items.map((item) => (
-                    <tr
-                      key={item.id}
-                      className="cursor-pointer border-t border-slate-200 hover:bg-slate-50"
-                      onClick={() => navigate(`/teacher/exercises/${item.id}`)}
-                    >
-                      <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
-                      <td className="px-4 py-3 text-slate-700">{item.duration_minutes} min</td>
-                      <td className="px-4 py-3 text-slate-700">{item.question_count}</td>
-                      <td className="px-4 py-3 text-slate-700">{item.file_count}</td>
-                      <td className="px-4 py-3 text-slate-600">{item.updated_at}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
     </div>
   )
 }

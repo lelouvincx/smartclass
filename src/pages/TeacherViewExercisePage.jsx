@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteExercise, getExercise, updateExercise } from '../lib/api'
-import { useAuth } from '../lib/auth-context'
+import { deleteExercise, getExercise, updateExercise } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -509,24 +509,22 @@ export default function TeacherViewExercisePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50">
-        <p className="text-sm text-slate-600">Loading exercise...</p>
+      <div className="flex items-center justify-center py-12">
+        <p className="text-sm text-muted-foreground">Loading exercise...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-3xl rounded-xl border border-red-200 bg-white p-6 shadow-xs">
-          <p className="text-sm text-red-600">{error}</p>
-          <Link
-            to="/teacher/exercises"
-            className="mt-4 inline-flex h-10 items-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-          >
-            Back to Exercises
-          </Link>
-        </div>
+      <div className="max-w-3xl rounded-xl border border-destructive/50 bg-card p-6 shadow-xs">
+        <p className="text-sm text-destructive">{error}</p>
+        <Link
+          to="/teacher/exercises"
+          className="mt-4 inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium"
+        >
+          Back to Exercises
+        </Link>
       </div>
     )
   }
@@ -534,11 +532,10 @@ export default function TeacherViewExercisePage() {
   const isTimed = exercise.is_timed === 1 || exercise.is_timed === true
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
 
-        {/* Header */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+      {/* Header */}
+      <div className="rounded-xl border bg-card p-5 shadow-xs">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditing ? (
@@ -695,7 +692,6 @@ export default function TeacherViewExercisePage() {
             <ViewSchemaTable schema={exercise.schema || []} />
           )}
         </div>
-      </div>
 
       {/* Delete confirmation dialog */}
       {showDeleteConfirm && (

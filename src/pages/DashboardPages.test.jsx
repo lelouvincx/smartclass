@@ -1,28 +1,16 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import StudentDashboardPage from './StudentDashboardPage'
 import TeacherDashboardPage from './TeacherDashboardPage'
 
-const authState = {
-  user: { phone: '+84865481769' },
-  logout: vi.fn(),
-}
-
-vi.mock('../lib/auth-context', () => ({
-  useAuth: () => authState,
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => ({ user: { phone: '+84865481769' }, logout: vi.fn() }),
 }))
 
 describe('dashboard placeholders', () => {
-  beforeEach(() => {
-    authState.logout.mockReset()
-  })
-
-  it('renders teacher dashboard with account phone', () => {
-    authState.user = { phone: '+84865481769' }
-
+  it('renders teacher dashboard with title and nav links', () => {
     render(
       <MemoryRouter>
         <TeacherDashboardPage />
@@ -30,20 +18,18 @@ describe('dashboard placeholders', () => {
     )
 
     expect(screen.getByText('Teacher Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('+84865481769')).toBeInTheDocument()
+    expect(screen.getByText('Manage Exercises')).toBeInTheDocument()
+    expect(screen.getByText('Create Exercise')).toBeInTheDocument()
   })
 
-  it('calls logout from student dashboard', async () => {
-    const user = userEvent.setup()
-    authState.user = { phone: '+84900000001' }
-
+  it('renders student dashboard with quick actions', () => {
     render(
       <MemoryRouter>
         <StudentDashboardPage />
       </MemoryRouter>,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Logout' }))
-    expect(authState.logout).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('Student Dashboard')).toBeInTheDocument()
+    expect(screen.getByText('Browse Exercises')).toBeInTheDocument()
   })
 })

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { register } from '../lib/api'
-import { PHONE_REGEX } from '../lib/validation'
+import { register } from '@/lib/api'
+import { PHONE_REGEX } from '@/lib/validation'
 
 export default function RegisterPage() {
   const [phone, setPhone] = useState('')
