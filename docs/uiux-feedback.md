@@ -2,7 +2,7 @@
 
 ## Open Issues
 
-- [x] **Fix 'Generate Schema' button position** — Moved directly below the "Answer PDF" file input inside the same grid cell, clearly grouping the related upload + generate actions.
+- [x] **Fix 'Generate Schema' button position** — Moved directly below the "Answer PDF" file input inside the same grid cell, clearly grouping the related upload + generate actions. Button now shows a shadcn/ui `Spinner` (animated `Loader2Icon`) during generation.
 - [ ] **Add top panel to separate logout/account from page options** — A dedicated top panel (navbar/header) should separate the logout/account button from the page-level navigation options, improving layout clarity and preventing accidental logouts.
 - [ ] **Support drag-and-drop for file upload** — File upload inputs should accept drag-and-drop in addition to the click-to-browse interaction, improving usability especially for teachers uploading PDFs.
 - [x] **Add default duration choices when creating exercises** — Added 60 / 90 / 120 min quick-select buttons below the duration input (visible only when timed mode is on). Active preset is highlighted with the default button style.

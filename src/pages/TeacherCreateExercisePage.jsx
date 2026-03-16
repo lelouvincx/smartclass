@@ -22,6 +22,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { Spinner } from '@/components/ui/spinner'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -539,7 +540,14 @@ export default function TeacherCreateExercisePage() {
                   onClick={handleParseSchema}
                   className="w-full"
                 >
-                  {isParsing ? 'Generating schema...' : '✨ Generate Schema'}
+                  {isParsing ? (
+                    <>
+                      <Spinner className="mr-1.5" />
+                      Generating schema...
+                    </>
+                  ) : (
+                    '✨ Generate Schema'
+                  )}
                 </Button>
               </div>
             </div>
