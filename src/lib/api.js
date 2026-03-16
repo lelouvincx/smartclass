@@ -142,3 +142,17 @@ export function getSubmission(token, submissionId) {
     headers: authHeaders(token),
   })
 }
+
+export function listMySubmissions(token, { exerciseId, limit, offset } = {}) {
+  const params = new URLSearchParams()
+  if (exerciseId) params.set('exercise_id', exerciseId)
+  if (limit !== undefined) params.set('limit', limit)
+  if (offset !== undefined) params.set('offset', offset)
+
+  const query = params.toString()
+  const url = `/api/submissions${query ? `?${query}` : ''}`
+
+  return request(url, {
+    headers: authHeaders(token),
+  })
+}

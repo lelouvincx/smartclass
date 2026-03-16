@@ -5,6 +5,65 @@ import { gradeSubmission } from '../lib/grading.js'
 
 const submissionsRoutes = new Hono()
 
+// List submissions for authenticated user
+submissionsRoutes.get('/', requireAuth, async (c) => {
+  const authUser = c.get('authUser')
+
+  // Parse query params
+  const exerciseIdParam = c.req.query('exercise_id')
+  const limitParam = c.req.query('limit')
+  const offsetParam = c.req.query('offset')
+
+  const exerciseId = exerciseIdParam ? parseInt(exerciseIdParam, 10) : null
+  let limit = limitParam ? parseInt(limitParam, 10) : 50
+  let offset = offsetParam ? parseInt(offsetParam, 10) : 0
+
+  // Validate params
+  if (limit < 0 || limit > 100) limit = 50
+  if (offset < 0) offset = 0
+
+  // Build WHERE clause
+  const whereClauses = ['s.user_id = ?', 's.submitted_at IS NOT NULL']
+  const bindings = [authUser.id]
+
+  if (exerciseId) {
+    whereClauses.push('s.exercise_id = ?')
+    bindings.push(exerciseId)
+  }
+
+  const whereClause = whereClauses.join(' AND ')
+
+  // Fetch submissions with pagination
+  const submissions = await c.env.DB.prepare(`
+    SELECT
+      s.id,
+      s.exercise_id,
+      e.title AS exercise_title,
+      s.mode,
+      s.score,
+      s.total_questions,
+      s.started_at,
+      s.submitted_at
+    FROM submissions s
+    JOIN exercises e ON e.id = s.exercise_id
+    WHERE ${whereClause}
+    ORDER BY s.submitted_at DESC
+    LIMIT ? OFFSET ?
+  `).bind(...bindings, limit, offset).all()
+
+  // Get total count
+  const totalResult = await c.env.DB.prepare(`
+    SELECT COUNT(*) AS total
+    FROM submissions s
+    WHERE ${whereClause}
+  `).bind(...bindings).first()
+
+  return jsonSuccess(c, {
+    submissions: submissions.results,
+    total: totalResult.total,
+  })
+})
+
 // Create a new submission (start an exercise attempt)
 submissionsRoutes.post('/', requireAuth, async (c) => {
   const body = await c.req.json().catch(() => null)

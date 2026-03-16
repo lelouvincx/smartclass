@@ -661,3 +661,156 @@ describe('Grading — auto-grade on submit', () => {
     body.data.answers.forEach((a) => expect(a.is_correct).toBe(1))
   })
 })
+
+describe('GET /api/submissions (list)', () => {
+  /**
+   * Helper: Create and submit a complete submission for an exercise.
+   * Returns { submissionId, exerciseId, exerciseTitle }.
+   */
+  async function createAndSubmitExercise(title = 'Test Exercise') {
+    const { id: exerciseId } = await createExercise(teacherToken, { title })
+
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const { id: submissionId } = (await createRes.json()).data
+
+    // Submit answers
+    await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({
+        answers: [
+          { q_id: 1, submitted_answer: 'B' },
+          { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+          { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'd', submitted_answer: '1' },
+        ],
+      }),
+    }, env)
+
+    return { submissionId, exerciseId, exerciseTitle: title }
+  }
+
+  it('returns empty array for student with no submissions', async () => {
+    const res = await app.request('/api/submissions', {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.submissions).toEqual([])
+    expect(body.data.total).toBe(0)
+  })
+
+  it('returns submitted submissions ordered by newest first', async () => {
+    await createAndSubmitExercise('Exercise A')
+    // Small delay to ensure different submitted_at timestamps
+    await new Promise((resolve) => setTimeout(resolve, 1100))
+    await createAndSubmitExercise('Exercise B')
+
+    const res = await app.request('/api/submissions', {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    expect(body.data.submissions).toHaveLength(2)
+    expect(body.data.total).toBe(2)
+
+    // Verify ordered by submitted_at DESC (newest first)
+    expect(body.data.submissions[0].exercise_title).toBe('Exercise B')
+    expect(body.data.submissions[1].exercise_title).toBe('Exercise A')
+
+    // Verify response shape
+    const sub = body.data.submissions[0]
+    expect(sub).toMatchObject({
+      id: expect.any(Number),
+      exercise_id: expect.any(Number),
+      exercise_title: 'Exercise B',
+      mode: 'timed',
+      score: expect.any(Number),
+      total_questions: 2,
+      started_at: expect.any(String),
+      submitted_at: expect.any(String),
+    })
+  })
+
+  it('excludes in-progress (unsubmitted) submissions', async () => {
+    // Create submitted submission
+    await createAndSubmitExercise('Submitted Exercise')
+
+    // Create in-progress submission (no submit)
+    const { id: exerciseId2 } = await createExercise(teacherToken, { title: 'In Progress' })
+    await app.request('/api/submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ exercise_id: exerciseId2 }),
+    }, env)
+
+    const res = await app.request('/api/submissions', {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    expect(body.data.submissions).toHaveLength(1)
+    expect(body.data.submissions[0].exercise_title).toBe('Submitted Exercise')
+  })
+
+  it('filters by exercise_id when provided', async () => {
+    const { exerciseId: ex1 } = await createAndSubmitExercise('Exercise 1')
+    await createAndSubmitExercise('Exercise 2')
+
+    const res = await app.request(`/api/submissions?exercise_id=${ex1}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    expect(body.data.submissions).toHaveLength(1)
+    expect(body.data.submissions[0].exercise_title).toBe('Exercise 1')
+    expect(body.data.total).toBe(1)
+  })
+
+  it('respects limit param', async () => {
+    await createAndSubmitExercise('Ex 1')
+    await createAndSubmitExercise('Ex 2')
+    await createAndSubmitExercise('Ex 3')
+
+    const res = await app.request('/api/submissions?limit=2', {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    expect(body.data.submissions).toHaveLength(2)
+    expect(body.data.total).toBe(3) // Total count ignores limit
+  })
+
+  it('enforces cross-user isolation', async () => {
+    // Student A submits
+    await createAndSubmitExercise('Student A Exercise')
+
+    // Student B (different student) queries
+    await seedStudent('+84999999999')
+    const studentBToken = await loginAsStudent('+84999999999')
+
+    const res = await app.request('/api/submissions', {
+      headers: { 'Authorization': `Bearer ${studentBToken}` },
+    }, env)
+
+    const body = await res.json()
+    expect(body.data.submissions).toEqual([])
+    expect(body.data.total).toBe(0)
+  })
+})
