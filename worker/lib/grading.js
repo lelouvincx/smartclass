@@ -5,13 +5,23 @@
  * and rationale for every decision made here.
  *
  * Quick reference:
- *   MCQ     — exact string match (both normalized to uppercase A/B/C/D)
- *   Numeric — numeric equality within NUMERIC_TOLERANCE (handles 42 vs 42.0)
- *   Boolean — per-sub-question comparison; non-linear partial credit per q_id
- *   Score   — (sum_of_question_points / distinct_question_count) * 10, 0–10 scale
+ *   MCQ     — exact string match (both normalized to uppercase A/B/C/D); 0.25 pts if correct
+ *   Numeric — numeric equality within NUMERIC_TOLERANCE (handles 42 vs 42.0); 0.5 pts if correct
+ *   Boolean — per-sub-question comparison; non-linear partial credit per q_id; max 1.0 pt
+ *   Score   — (earned_points / max_possible_points) * 10, 0–10 scale
  */
 
 // ── Scoring tables & constants ─────────────────────────────────────────────────
+
+/**
+ * Points awarded for a correct MCQ answer (out of max_possible per question).
+ */
+const MCQ_POINTS = 0.25
+
+/**
+ * Points awarded for a correct numeric answer (out of max_possible per question).
+ */
+const NUMERIC_POINTS = 0.5
 
 /**
  * Non-linear partial credit table for boolean (Đúng/Sai) questions.
@@ -90,8 +100,10 @@ function gradeBooleanSub(submitted, correct) {
  *   2. For each submitted answer, look up the schema entry and compute is_correct
  *   3. For boolean questions, collect per-sub is_correct values and apply
  *      BOOLEAN_SCORE_TABLE to get the question-level point value
- *   4. For MCQ/numeric, the point value equals is_correct directly (0 or 1)
- *   5. score = (sum of question points / distinct q_id count) * 10
+ *   4. For MCQ, earned points = MCQ_POINTS (0.25) if correct, 0 otherwise
+ *   5. For numeric, earned points = NUMERIC_POINTS (0.5) if correct, 0 otherwise
+ *   6. score = (sum of earned points / max_possible_points) * 10
+ *      where max_possible_points = sum of max pts per distinct q_id by type
  */
 export function gradeSubmission(schema, answers) {
   // Step 1: Build schema lookup keyed by "q_id:sub_id" (sub_id='' for non-boolean)
@@ -104,8 +116,7 @@ export function gradeSubmission(schema, answers) {
     distinctQids.add(row.q_id)
   }
 
-  const totalQuestions = distinctQids.size
-  if (totalQuestions === 0) {
+  if (distinctQids.size === 0) {
     return { gradedAnswers: [], score: 0 }
   }
 
@@ -132,33 +143,34 @@ export function gradeSubmission(schema, answers) {
     return { q_id: answer.q_id, sub_id: answer.sub_id ?? null, is_correct }
   })
 
-  // Step 3: Compute per-question point values
+  // Step 3: Compute per-question earned points and max possible points
   // Group graded answers by q_id to handle boolean partial credit
-  const pointsByQid = new Map()
+  let earnedPoints = 0
+  let maxPossiblePoints = 0
 
   for (const qid of distinctQids) {
     const schemaRows = schema.filter((r) => r.q_id === qid)
     const type = schemaRows[0]?.type
 
     if (type === 'boolean') {
-      // Count how many sub-answers are correct for this q_id
+      maxPossiblePoints += 1.0
       const subAnswers = gradedAnswers.filter((a) => a.q_id === qid)
       const correctCount = subAnswers.filter((a) => a.is_correct === 1).length
-      pointsByQid.set(qid, BOOLEAN_SCORE_TABLE[correctCount] ?? 0)
-    } else {
-      // MCQ or numeric — the single graded answer IS the point value
+      earnedPoints += BOOLEAN_SCORE_TABLE[correctCount] ?? 0
+    } else if (type === 'numeric') {
+      maxPossiblePoints += NUMERIC_POINTS
       const ans = gradedAnswers.find((a) => a.q_id === qid)
-      pointsByQid.set(qid, ans ? ans.is_correct : 0)
+      earnedPoints += ans?.is_correct === 1 ? NUMERIC_POINTS : 0
+    } else {
+      // mcq
+      maxPossiblePoints += MCQ_POINTS
+      const ans = gradedAnswers.find((a) => a.q_id === qid)
+      earnedPoints += ans?.is_correct === 1 ? MCQ_POINTS : 0
     }
   }
 
-  // Step 4: Sum points and compute final score
-  let totalPoints = 0
-  for (const pts of pointsByQid.values()) {
-    totalPoints += pts
-  }
-
-  const score = Math.round((totalPoints / totalQuestions) * 10 * 100) / 100
+  // Step 4: Compute final score on 0–10 scale
+  const score = Math.round((earnedPoints / maxPossiblePoints) * 10 * 100) / 100
 
   return { gradedAnswers, score }
 }

@@ -199,10 +199,10 @@
 
 - **Trigger**: Runs synchronously inside `PUT /api/submissions/:id/submit`, immediately after answers are inserted.
 - **Implementation**: `worker/lib/grading.js` — pure function `gradeSubmission(schema, answers)`, no DB access. See `docs/plans/2026-03-16-grading-logic.md` for the full design doc.
-- **MCQ**: exact string match (`submitted === correct`), both normalized to uppercase A/B/C/D.
-- **Numeric**: numeric equality within tolerance `|Number(s) - Number(c)| < 0.01` — handles `42.0 === 42` and similar rounding.
-- **Boolean**: per-sub-question `is_correct`, then non-linear partial credit: `{0:0, 1:0.1, 2:0.25, 3:0.5, 4:1.0}` points per question.
-- **Score formula**: `round((sum_of_points / distinct_q_id_count) * 10, 2)` → stored on `submissions.score` on a 0–10 scale.
+- **MCQ**: exact string match (`submitted === correct`), both normalized to uppercase A/B/C/D. **0.25 pts** if correct.
+- **Numeric**: numeric equality within tolerance `|Number(s) - Number(c)| < 0.01` — handles `42.0 === 42` and similar rounding. **0.5 pts** if correct.
+- **Boolean**: per-sub-question `is_correct`, then non-linear partial credit: `{0:0, 1:0.1, 2:0.25, 3:0.5, 4:1.0}` points per question (max **1.0 pt**).
+- **Score formula**: `round((earned_points / max_possible_points) * 10, 2)` where `max_possible_points = sum of per-type max pts per distinct q_id` → stored on `submissions.score` on a 0–10 scale.
 - **Skipped answers (null)**: always `is_correct = 0`.
-- **Adjustable**: `BOOLEAN_SCORE_TABLE` and `NUMERIC_TOLERANCE` constants in `grading.js` control the curve and tolerance.
+- **Adjustable**: `MCQ_POINTS`, `NUMERIC_POINTS`, `BOOLEAN_SCORE_TABLE`, and `NUMERIC_TOLERANCE` constants in `grading.js` control the weights, curve, and tolerance.
 - **Student UI**: Score shown immediately after submit (`X / 10`), with ✓/✗ per answer row.
