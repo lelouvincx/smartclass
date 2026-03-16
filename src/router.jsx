@@ -15,6 +15,7 @@ import RegisterPage from '@/pages/RegisterPage'
 import StudentDashboardPage from '@/pages/StudentDashboardPage'
 import StudentExercisesPage from '@/pages/StudentExercisesPage'
 import StudentTakeExercisePage from '@/pages/StudentTakeExercisePage'
+import StudentSubmissionsPage from '@/pages/StudentSubmissionsPage'
 import TeacherCreateExercisePage from '@/pages/TeacherCreateExercisePage'
 import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
 import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
@@ -100,6 +101,7 @@ export function AppRoutes() {
         <Route index element={<StudentDashboardPage />} />
         <Route path="exercises" element={<StudentExercisesPage />} />
         <Route path="exercises/:id" element={<StudentTakeExercisePage />} />
+        <Route path="submissions" element={<StudentSubmissionsPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
