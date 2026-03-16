@@ -41,7 +41,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl shadow p-6">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-sm p-6">
         <h1 className="text-2xl font-semibold text-slate-900">SmartClass Login</h1>
         <p className="text-sm text-slate-600 mt-1">Sign in with your phone number.</p>
 
@@ -56,7 +56,7 @@ export default function LoginPage() {
               value={phone}
               onChange={(event) => setPhone(event.target.value)}
               placeholder="+84xxxxxxxxx"
-              className="w-full h-10 px-3 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-800"
+              className="w-full h-10 px-3 border border-slate-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-slate-800"
             />
           </div>
 
@@ -69,7 +69,7 @@ export default function LoginPage() {
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="w-full h-10 px-3 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-800"
+              className="w-full h-10 px-3 border border-slate-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-slate-800"
             />
           </div>
 

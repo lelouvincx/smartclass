@@ -367,7 +367,7 @@ export default function TeacherCreateExercisePage() {
               type="text"
               value={row.q_id}
               onChange={(event) => handleUpdateQid(row.id, event.target.value)}
-              className="h-9 w-20 rounded border border-slate-300 px-2"
+              className="h-9 w-20 rounded-sm border border-slate-300 px-2"
             />
           ) : (
             <span className="px-2 text-sm text-slate-400">{row.q_id}</span>
@@ -379,7 +379,7 @@ export default function TeacherCreateExercisePage() {
               aria-label={`type-${row.id}`}
               value="boolean"
               onChange={(event) => handleUpdateRow(row.id, 'type', event.target.value)}
-              className="h-9 rounded border border-slate-300 px-2"
+              className="h-9 rounded-sm border border-slate-300 px-2"
             >
               <option value="mcq">mcq</option>
               <option value="boolean">boolean</option>
@@ -455,7 +455,7 @@ export default function TeacherCreateExercisePage() {
             type="text"
             value={row.q_id}
             onChange={(event) => handleUpdateRow(row.id, 'q_id', event.target.value)}
-            className="h-9 w-20 rounded border border-slate-300 px-2"
+            className="h-9 w-20 rounded-sm border border-slate-300 px-2"
           />
         </td>
         <td className="px-3 py-2">
@@ -463,7 +463,7 @@ export default function TeacherCreateExercisePage() {
             aria-label={`type-${row.id}`}
             value={row.type}
             onChange={(event) => handleUpdateRow(row.id, 'type', event.target.value)}
-            className="h-9 rounded border border-slate-300 px-2"
+            className="h-9 rounded-sm border border-slate-300 px-2"
           >
             <option value="mcq">mcq</option>
             <option value="boolean">boolean</option>
@@ -476,7 +476,7 @@ export default function TeacherCreateExercisePage() {
             type="text"
             value={row.correct_answer}
             onChange={(event) => handleUpdateRow(row.id, 'correct_answer', event.target.value)}
-            className="h-9 w-36 rounded border border-slate-300 px-2"
+            className="h-9 w-36 rounded-sm border border-slate-300 px-2"
           />
         </td>
         <td className="px-3 py-2 text-slate-600">{Math.round((row.confidence ?? 1) * 100)}%</td>
@@ -507,7 +507,7 @@ export default function TeacherCreateExercisePage() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Create Exercise</h1>
@@ -532,7 +532,7 @@ export default function TeacherCreateExercisePage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:grid-cols-3">
+          <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs md:grid-cols-3">
             <div className="md:col-span-2">
               <label htmlFor="title" className="mb-1 block text-sm font-medium text-slate-700">Exercise title</label>
               <input
@@ -540,7 +540,7 @@ export default function TeacherCreateExercisePage() {
                 type="text"
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
-                className="h-10 w-full rounded-md border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-slate-800"
+                className="h-10 w-full rounded-md border border-slate-300 px-3 focus:outline-hidden focus:ring-2 focus:ring-slate-800"
               />
             </div>
             <div>
@@ -569,7 +569,7 @@ export default function TeacherCreateExercisePage() {
                 value={durationMinutes}
                 onChange={(event) => setDurationMinutes(event.target.value)}
                 disabled={!isTimed}
-                className="h-10 w-full rounded-md border border-slate-300 px-3 focus:outline-none focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
+                className="h-10 w-full rounded-md border border-slate-300 px-3 focus:outline-hidden focus:ring-2 focus:ring-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
               />
             </div>
             <div>
@@ -610,7 +610,7 @@ export default function TeacherCreateExercisePage() {
             </p>
           )}
 
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 p-4">
               <div className="flex items-center gap-3">
                 <span className="text-sm text-slate-600">Questions: <strong>{stats.total}</strong></span>

@@ -33,7 +33,7 @@ export default function TeacherExercisesPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Exercises</h1>
@@ -68,7 +68,7 @@ export default function TeacherExercisesPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
           {isLoading && (
             <p className="p-5 text-sm text-slate-600">Loading exercises...</p>
           )}
