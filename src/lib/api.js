@@ -94,6 +94,23 @@ export function listExercises() {
   return request('/api/exercises')
 }
 
+export function updateExercise(token, id, payload) {
+  return request(`/api/exercises/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteExercise(token, id) {
+  return request(`/api/exercises/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
 export function getExercise(id, token) {
   return request(`/api/exercises/${id}`, {
     headers: token ? authHeaders(token) : {},

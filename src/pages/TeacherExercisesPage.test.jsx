@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import TeacherExercisesPage from './TeacherExercisesPage'
 
@@ -22,6 +22,17 @@ vi.mock('../lib/auth-context', () => ({
   }),
 }))
 
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/teacher/exercises']}>
+      <Routes>
+        <Route path="/teacher/exercises" element={<TeacherExercisesPage />} />
+        <Route path="/teacher/exercises/:id" element={<div>Exercise detail</div>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('TeacherExercisesPage', () => {
   beforeEach(() => {
     listExercisesMock.mockReset()
@@ -30,13 +41,7 @@ describe('TeacherExercisesPage', () => {
 
   it('renders empty state when there are no exercises', async () => {
     listExercisesMock.mockResolvedValue({ data: [] })
-
-    render(
-      <MemoryRouter>
-        <TeacherExercisesPage />
-      </MemoryRouter>,
-    )
-
+    renderPage()
     expect(await screen.findByText('No exercises yet.')).toBeInTheDocument()
   })
 
@@ -54,11 +59,7 @@ describe('TeacherExercisesPage', () => {
       ],
     })
 
-    render(
-      <MemoryRouter>
-        <TeacherExercisesPage />
-      </MemoryRouter>,
-    )
+    renderPage()
 
     expect(await screen.findByText('Physics Quiz')).toBeInTheDocument()
     expect(screen.getByText('45 min')).toBeInTheDocument()
@@ -69,15 +70,34 @@ describe('TeacherExercisesPage', () => {
     const user = userEvent.setup()
     listExercisesMock.mockResolvedValue({ data: [] })
 
-    render(
-      <MemoryRouter>
-        <TeacherExercisesPage />
-      </MemoryRouter>,
-    )
+    renderPage()
 
     await screen.findByText('No exercises yet.')
     await user.click(screen.getByRole('button', { name: 'Refresh exercises' }))
 
     expect(listExercisesMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('navigates to exercise detail when a row is clicked', async () => {
+    const user = userEvent.setup()
+    listExercisesMock.mockResolvedValue({
+      data: [
+        {
+          id: 7,
+          title: 'Chemistry Quiz',
+          duration_minutes: 30,
+          question_count: 10,
+          file_count: 1,
+          updated_at: '2026-03-12 10:00:00',
+        },
+      ],
+    })
+
+    renderPage()
+
+    await screen.findByText('Chemistry Quiz')
+    await user.click(screen.getByText('Chemistry Quiz'))
+
+    expect(await screen.findByText('Exercise detail')).toBeInTheDocument()
   })
 })

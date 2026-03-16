@@ -103,7 +103,11 @@ export default function TeacherExercisesPage() {
                 </thead>
                 <tbody>
                   {items.map((item) => (
-                    <tr key={item.id} className="border-t border-slate-200">
+                    <tr
+                      key={item.id}
+                      className="cursor-pointer border-t border-slate-200 hover:bg-slate-50"
+                      onClick={() => navigate(`/teacher/exercises/${item.id}`)}
+                    >
                       <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
                       <td className="px-4 py-3 text-slate-700">{item.duration_minutes} min</td>
                       <td className="px-4 py-3 text-slate-700">{item.question_count}</td>

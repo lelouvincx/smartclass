@@ -38,7 +38,7 @@ Status: done.
 - [x] v0.2.3 Test version 0.2.1 with scanning PDF exercises and answer schema validation (manual form input for now) ([#20](https://github.com/lelouvincx/smartclass/pull/20), [#21](https://github.com/lelouvincx/smartclass/pull/21), [#22](https://github.com/lelouvincx/smartclass/pull/22), [#23](https://github.com/lelouvincx/smartclass/pull/23), [#24](https://github.com/lelouvincx/smartclass/pull/24))
 - [x] Update answer schema of boolean questions to include 4 sub-questions (a,b,c,d) with independent correct answers (`sub_id` column, `correct_answer` = `'0'`/`'1'`) ([#28](https://github.com/lelouvincx/smartclass/pull/28))
 - [x] CI: data schema auto updating on dbdocs ([#29](https://github.com/lelouvincx/smartclass/pull/29))
-- [ ] Teacher: view exercise's answers
+- [x] Teacher: view and edit exercise answer schema (`/teacher/exercises/:id`) ([#30](https://github.com/lelouvincx/smartclass/pull/30))
 - [ ] Auto-grading: fill in is_correct and score after submission
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
@@ -191,8 +191,9 @@ The teacher seed is idempotent and can be re-run safely.
 
 Production domains:
 
-- Frontend: `https://smartclass.lelouvincx.com`
-- API: `https://api.smartclass.lelouvincx.com`
+- Backend: https://api.smartclass.lelouvincx.com
+- Frontend: https://smartclass.lelouvincx.com
+- Dbdocs: https://dbdocs.io/lelouvincx/smartclass
 
 Setup summary:
 
@@ -202,6 +203,7 @@ Setup summary:
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
    - `JWT_SECRET`
+   - `DBDOCS_TOKEN`
 
 Repository automation:
 
