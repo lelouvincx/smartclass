@@ -296,7 +296,7 @@ describe('StudentTakeExercisePage', () => {
     const trueOptionA = screen.getByLabelText('Question 2 sub a True')
     await user.click(trueOptionA)
 
-    expect(trueOptionA).toBeChecked()
+    expect(trueOptionA).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('allows entering a numeric answer', async () => {
