@@ -31,5 +31,6 @@ describe('dashboard placeholders', () => {
 
     expect(screen.getByText('Student Dashboard')).toBeInTheDocument()
     expect(screen.getByText('Browse Exercises')).toBeInTheDocument()
+    expect(screen.getByText('View History')).toBeInTheDocument()
   })
 })

@@ -25,6 +25,13 @@ export default function StudentDashboardPage() {
               <h3 className="font-medium">Browse Exercises</h3>
               <p className="mt-1 text-sm text-muted-foreground">View and start available exercises</p>
             </Link>
+            <Link
+              to="/student/submissions"
+              className="block rounded-lg border p-4 transition-colors hover:bg-muted"
+            >
+              <h3 className="font-medium">View History</h3>
+              <p className="mt-1 text-sm text-muted-foreground">Review your past submissions and scores</p>
+            </Link>
           </div>
         </CardContent>
       </Card>
