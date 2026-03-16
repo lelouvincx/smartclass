@@ -131,7 +131,7 @@ function NumericInput({ qId, value, onChange, submitted }) {
 
 function CorrectnessIcon({ isCorrect }) {
   if (isCorrect === 1) {
-    return <span aria-label="correct" className="font-bold text-green-600">✓</span>
+    return <span aria-label="correct" className="font-bold text-success">✓</span>
   }
   if (isCorrect === 0) {
     return <span aria-label="wrong" className="font-bold text-destructive">✗</span>
