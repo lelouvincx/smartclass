@@ -27,7 +27,7 @@
 
 ## Architecture
 
-- **Frontend**: React 19 SPA (Vite 6) deployed on Cloudflare Pages. React Router for navigation. Tailwind CSS 3, lucide-react icons. OCR via Tesseract.js (client-side).
+- **Frontend**: React 19 SPA (Vite 6) deployed on Cloudflare Pages. React Router for navigation. shadcn/ui (Radix + Tailwind CSS v4), lucide-react icons. OCR via Tesseract.js (client-side).
 - **Backend**: Cloudflare Workers with Hono router. REST API (`/api/*`). JWT auth (bcryptjs).
 - **Database**: Cloudflare D1 (SQLite). Tables: `users`, `exercises`, `answer_schemas`, `submissions`, `submission_answers`, `lectures`.
 - **Storage**: Cloudflare R2 for PDFs and uploaded images. Client uploads via presigned URLs.
@@ -40,7 +40,7 @@
 - **Files**: `.jsx` extension, ES modules (`"type": "module"`).
 - **Components**: Function components with `React.forwardRef` for primitives; named exports for primitives, default export for `App`.
 - **State**: React hooks (`useState`, `useEffect`, `useRef`, `useCallback`). No external state library.
-- **Styling**: Tailwind utility classes via `className` string concatenation (no `clsx`/`cn`). Variant maps as plain objects inside components.
+- **Styling**: shadcn/ui components + Tailwind utility classes via `cn()` from `@/lib/utils`. Use `@/` path alias for imports (e.g., `import { Button } from '@/components/ui/button'`). Add new shadcn/ui components via CLI: `npx shadcn@latest add <component>`. Legacy pages still use inline className string concatenation (migration in progress).
 - **Formatting**: Single quotes for JS strings, 2-space indent, trailing commas.
 - **Naming**: camelCase for variables/functions, PascalCase for components, UPPER_SNAKE_CASE for constants.
 
@@ -224,3 +224,15 @@
 - **Update path**: Metadata update + schema replacement combined into single `DB.batch()` call.
 - **Create path**: If schema batch insert fails, compensating `DELETE` removes the orphan exercise row.
 - **Previous bug**: Separate DB calls could leave partial state on failure.
+
+### Styling Framework Migration (v0.2)
+
+- **Before**: Plain Tailwind CSS v3 with inline utility classes, zero reusable UI components, no dark mode.
+- **After**: shadcn/ui v2 (Radix Nova preset) + Tailwind CSS v4 + dark mode (light/dark/system).
+- **Language**: JavaScript (`tsx: false` in `components.json`). TypeScript migration deferred as tech debt.
+- **Theming**: CSS variables (oklch color space) in `src/index.css`. Light and dark themes defined via `:root` and `.dark` selectors. `@custom-variant dark` for class-based toggling.
+- **ThemeProvider**: `src/components/theme-provider.jsx` wraps app in `src/main.jsx`. Persists to `localStorage` key `smartclass-theme`.
+- **Path aliases**: `@/` maps to `./src/` via `jsconfig.json` + `vite.config.js` resolve alias.
+- **Utilities**: `cn()` from `src/lib/utils.js` (clsx + tailwind-merge) for className composition.
+- **Migration approach**: Incremental — infrastructure in Phase 1, core components in Phase 2, page-by-page in Phase 3+.
+- **RFC**: `docs/plans/2026-03-16-shadcn-ui-migration.md`.

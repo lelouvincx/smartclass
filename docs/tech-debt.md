@@ -17,7 +17,7 @@
 ### From README
 
 - [ ] **Teacher seed SQL has hardcoded bcrypt hash**: `worker/db/seeds/0001_seed_teacher.sql` contains a pre-hashed password (`123`). Replace with a proper production secret management flow (e.g., generate hash at deploy time or use a CLI seed command with env var input).
-- [ ] **Validate styling framework**: Confirm if the current styling setup is shadcn/ui or not.
+- [x] **Validate styling framework**: Confirmed plain Tailwind CSS v3 (not shadcn/ui). Migrated to shadcn/ui v2 + Tailwind v4 in Phase 1 (see `docs/plans/2026-03-16-shadcn-ui-migration.md`).
 
 ### Backend
 
@@ -26,3 +26,8 @@
 ## From v0.2 — Teacher View/Edit Exercise (PR #30)
 
 - [ ] **File upload in edit mode is deferred** — `TeacherViewExercisePage` edit mode only allows changing title, timing, and schema. Re-uploading or replacing exercise/solution PDFs is not yet possible from the edit page. Planned for a future iteration alongside a proper file management UI (list, delete, replace individual files).
+
+## From shadcn/ui Migration (Phase 1)
+
+- [ ] **Migrate from JavaScript to TypeScript** — Add `tsconfig.json`, rename `.jsx` to `.tsx`, add type annotations. Consider incremental adoption (strict mode off initially).
+- [ ] **Migrate existing pages to shadcn/ui components** — 9 page components still use inline Tailwind classes. See Phase 3 migration plan in `docs/plans/2026-03-16-shadcn-ui-migration.md`.

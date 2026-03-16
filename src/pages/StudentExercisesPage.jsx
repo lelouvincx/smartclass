@@ -33,7 +33,7 @@ export default function StudentExercisesPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-5xl space-y-6">
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">Exercises</h1>
@@ -62,7 +62,7 @@ export default function StudentExercisesPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
           {isLoading && (
             <p className="p-5 text-sm text-slate-600">Loading exercises...</p>
           )}
@@ -95,13 +95,13 @@ export default function StudentExercisesPage() {
                       <td className="px-4 py-3 text-slate-700">
                         {item.is_timed ? (
                           <span>
-                            <span className="inline-block rounded bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
+                            <span className="inline-block rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800">
                               Timed
                             </span>
                             <span className="ml-2">{item.duration_minutes} min</span>
                           </span>
                         ) : (
-                          <span className="inline-block rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                          <span className="inline-block rounded-sm bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
                             Untimed
                           </span>
                         )}

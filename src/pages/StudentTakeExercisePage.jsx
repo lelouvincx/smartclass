@@ -122,7 +122,7 @@ function NumericInput({ qId, value, onChange, submitted }) {
       disabled={submitted}
       placeholder="Enter a number"
       aria-label={`Question ${qId} numeric answer`}
-      className="w-40 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+      className="w-40 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-hidden disabled:bg-slate-50 disabled:text-slate-500"
     />
   )
 }
@@ -446,7 +446,7 @@ export default function StudentTakeExercisePage() {
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+        <div className="mx-auto max-w-2xl rounded-xl border border-red-200 bg-white p-6 shadow-xs">
           <p className="text-sm text-red-600">{error}</p>
           <Link
             to="/student/exercises"
@@ -465,7 +465,7 @@ export default function StudentTakeExercisePage() {
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="mx-auto max-w-2xl space-y-6">
         {/* Header */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">{exercise.title}</h1>
@@ -496,7 +496,7 @@ export default function StudentTakeExercisePage() {
 
         {/* Submitted view */}
         {isSubmitted ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
             <div className="mb-2 flex items-center gap-2 text-green-700">
               <CheckCircle className="h-5 w-5" />
               <h2 className="text-lg font-semibold">Submitted!</h2>
@@ -552,7 +552,7 @@ export default function StudentTakeExercisePage() {
             {questionGroups.map((group, idx) => (
               <div
                 key={group.q_id}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
               >
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   {idx + 1}. Question {group.q_id}
@@ -571,7 +571,7 @@ export default function StudentTakeExercisePage() {
                 role="dialog"
                 aria-modal="true"
                 aria-label="Leave exercise"
-                className="rounded-xl border border-amber-200 bg-white p-5 shadow-sm"
+                className="rounded-xl border border-amber-200 bg-white p-5 shadow-xs"
               >
                 <h2 className="mb-2 text-base font-semibold text-slate-900">Leave this exercise?</h2>
                 <p className="mb-4 text-sm text-slate-600">
@@ -602,7 +602,7 @@ export default function StudentTakeExercisePage() {
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="confirm-title"
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
               >
                 <h2 id="confirm-title" className="mb-2 text-base font-semibold text-slate-900">
                   Submit your answers?

@@ -14,7 +14,7 @@ export default function StudentDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-50 p-6">
       <div className="max-w-3xl mx-auto space-y-6">
-        <div className="bg-white border border-slate-200 rounded-xl shadow p-6">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
           <h1 className="text-2xl font-semibold text-slate-900">Student Dashboard</h1>
           <p className="text-sm text-slate-600 mt-1">Welcome to SmartClass</p>
           <p className="text-sm text-slate-700 mt-4">
@@ -29,7 +29,7 @@ export default function StudentDashboardPage() {
           </button>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-xl shadow p-6">
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
           <h2 className="text-lg font-semibold text-slate-900">Quick Actions</h2>
           <div className="mt-4 space-y-2">
             <Link

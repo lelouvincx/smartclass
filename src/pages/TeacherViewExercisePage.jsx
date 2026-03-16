@@ -199,7 +199,7 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
               type="text"
               value={row.q_id}
               onChange={(e) => onUpdateQid(row.id, e.target.value)}
-              className="h-9 w-20 rounded border border-slate-300 px-2 text-sm"
+              className="h-9 w-20 rounded-sm border border-slate-300 px-2 text-sm"
             />
           ) : (
             <span className="px-2 text-sm text-slate-400">{row.q_id}</span>
@@ -211,7 +211,7 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
               aria-label={`type-${row.id}`}
               value="boolean"
               onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-              className="h-9 rounded border border-slate-300 px-2 text-sm"
+              className="h-9 rounded-sm border border-slate-300 px-2 text-sm"
             >
               <option value="mcq">mcq</option>
               <option value="boolean">boolean</option>
@@ -274,7 +274,7 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
             type="text"
             value={row.q_id}
             onChange={(e) => onUpdateRow(row.id, 'q_id', e.target.value)}
-            className="h-9 w-20 rounded border border-slate-300 px-2 text-sm"
+            className="h-9 w-20 rounded-sm border border-slate-300 px-2 text-sm"
           />
         </td>
         <td className="px-3 py-2">
@@ -282,7 +282,7 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
             aria-label={`type-${row.id}`}
             value={row.type}
             onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-            className="h-9 rounded border border-slate-300 px-2 text-sm"
+            className="h-9 rounded-sm border border-slate-300 px-2 text-sm"
           >
             <option value="mcq">mcq</option>
             <option value="boolean">boolean</option>
@@ -295,7 +295,7 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
             type="text"
             value={row.correct_answer}
             onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
-            className="h-9 w-32 rounded border border-slate-300 px-2 text-sm"
+            className="h-9 w-32 rounded-sm border border-slate-300 px-2 text-sm"
           />
         </td>
         <td className="px-3 py-2">
@@ -518,7 +518,7 @@ export default function TeacherViewExercisePage() {
   if (error) {
     return (
       <div className="min-h-screen bg-slate-50 p-6">
-        <div className="mx-auto max-w-3xl rounded-xl border border-red-200 bg-white p-6 shadow-sm">
+        <div className="mx-auto max-w-3xl rounded-xl border border-red-200 bg-white p-6 shadow-xs">
           <p className="text-sm text-red-600">{error}</p>
           <Link
             to="/teacher/exercises"
@@ -538,7 +538,7 @@ export default function TeacherViewExercisePage() {
       <div className="mx-auto max-w-3xl space-y-6">
 
         {/* Header */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditing ? (
@@ -552,7 +552,7 @@ export default function TeacherViewExercisePage() {
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-800"
+                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-800"
                     />
                   </div>
                   <div className="flex flex-wrap gap-4">
@@ -580,7 +580,7 @@ export default function TeacherViewExercisePage() {
                           type="number"
                           value={editDuration}
                           onChange={(e) => setEditDuration(e.target.value)}
-                          className="h-9 w-24 rounded border border-slate-300 px-2 text-sm"
+                          className="h-9 w-24 rounded-sm border border-slate-300 px-2 text-sm"
                         />
                       </div>
                     )}
@@ -653,13 +653,13 @@ export default function TeacherViewExercisePage() {
         </div>
 
         {/* Files */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
           <h2 className="mb-3 text-sm font-semibold text-slate-700">Files</h2>
           {exercise.files?.length > 0 ? (
             <ul className="space-y-1">
               {exercise.files.map((f) => (
                 <li key={f.id} className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{f.file_type}</span>
+                  <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{f.file_type}</span>
                   <span>{f.file_name}</span>
                 </li>
               ))}
@@ -670,7 +670,7 @@ export default function TeacherViewExercisePage() {
         </div>
 
         {/* Schema */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
             <h2 className="text-sm font-semibold text-slate-700">Answer Schema</h2>
             {isEditing && (
