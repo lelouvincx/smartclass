@@ -3,6 +3,17 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle, Clock } from 'lucide-react'
 import { createSubmission, getExercise, getSubmission, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // --- Timer helpers ---
 
@@ -19,12 +30,6 @@ function formatTime(totalSeconds) {
 
 // --- Schema grouping helpers ---
 
-/**
- * Groups schema rows into question groups.
- * Returns an array of groups:
- *   { q_id, type: 'mcq'|'numeric', sub_id: null }  — for mcq/numeric
- *   { q_id, type: 'boolean', subRows: [{sub_id, ...}] }  — for boolean
- */
 function groupSchema(schema) {
   const groups = []
   const seen = new Map()
@@ -63,24 +68,19 @@ function McqInput({ qId, value, onChange, submitted }) {
             disabled={submitted}
             aria-label={`Question ${qId} option ${opt}`}
           />
-          <span className="text-sm font-medium text-slate-700">{opt}</span>
+          <span className="text-sm font-medium">{opt}</span>
         </label>
       ))}
     </div>
   )
 }
 
-/**
- * Boolean input: renders 4 sub-question rows (a,b,c,d), each with True/False radios.
- * subAnswers: { a: '1'|'0'|'', b: ..., c: ..., d: ... }
- * onSubChange(subId, value)
- */
 function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted }) {
   return (
     <div className="space-y-2">
       {subRows.map(({ sub_id }) => (
         <div key={sub_id} className="flex items-center gap-4">
-          <span className="w-5 text-sm font-medium text-slate-600">{sub_id}.</span>
+          <span className="w-5 text-sm font-medium text-muted-foreground">{sub_id}.</span>
           <div className="flex gap-4">
             <label className="flex cursor-pointer items-center gap-2">
               <input
@@ -92,7 +92,7 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted })
                 disabled={submitted}
                 aria-label={`Question ${qId} sub ${sub_id} True`}
               />
-              <span className="text-sm text-slate-700">True</span>
+              <span className="text-sm">True</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2">
               <input
@@ -104,7 +104,7 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted })
                 disabled={submitted}
                 aria-label={`Question ${qId} sub ${sub_id} False`}
               />
-              <span className="text-sm text-slate-700">False</span>
+              <span className="text-sm">False</span>
             </label>
           </div>
         </div>
@@ -122,7 +122,7 @@ function NumericInput({ qId, value, onChange, submitted }) {
       disabled={submitted}
       placeholder="Enter a number"
       aria-label={`Question ${qId} numeric answer`}
-      className="w-40 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-900 focus:border-blue-500 focus:outline-hidden disabled:bg-slate-50 disabled:text-slate-500"
+      className="w-40 rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-hidden disabled:bg-muted disabled:text-muted-foreground"
     />
   )
 }
@@ -134,7 +134,7 @@ function CorrectnessIcon({ isCorrect }) {
     return <span aria-label="correct" className="font-bold text-green-600">✓</span>
   }
   if (isCorrect === 0) {
-    return <span aria-label="wrong" className="font-bold text-red-500">✗</span>
+    return <span aria-label="wrong" className="font-bold text-destructive">✗</span>
   }
   return null
 }
@@ -142,9 +142,9 @@ function CorrectnessIcon({ isCorrect }) {
 function McqNumericResultRow({ question, answer }) {
   const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
   return (
-    <tr className="border-t border-slate-200">
-      <td className="px-4 py-3 text-sm text-slate-700">Q{question.q_id}</td>
-      <td className="px-4 py-3 text-sm font-medium text-slate-900">{display}</td>
+    <tr className="border-t">
+      <td className="px-4 py-3 text-sm text-muted-foreground">Q{question.q_id}</td>
+      <td className="px-4 py-3 text-sm font-medium">{display}</td>
       <td className="px-4 py-3 text-center">
         <CorrectnessIcon isCorrect={answer !== null && answer !== undefined ? question.is_correct : null} />
       </td>
@@ -160,9 +160,9 @@ function BooleanResultGroup({ group, submittedAnswers }) {
         const raw = ans ? ans.submitted_answer : null
         const display = raw !== null && raw !== undefined && raw !== '' ? raw : '—'
         return (
-          <tr key={sub_id} className="border-t border-slate-200">
-            <td className="px-4 py-3 text-sm text-slate-700">Q{group.q_id}{sub_id}</td>
-            <td className="px-4 py-3 text-sm font-medium text-slate-900">{display}</td>
+          <tr key={sub_id} className="border-t">
+            <td className="px-4 py-3 text-sm text-muted-foreground">Q{group.q_id}{sub_id}</td>
+            <td className="px-4 py-3 text-sm font-medium">{display}</td>
             <td className="px-4 py-3 text-center">
               <CorrectnessIcon isCorrect={ans ? ans.is_correct : null} />
             </td>
@@ -184,13 +184,8 @@ export default function StudentTakeExercisePage() {
   const [error, setError] = useState('')
 
   const [exercise, setExercise] = useState(null)
-  // questionGroups: array of grouped schema (grouped boolean sub-questions)
   const [questionGroups, setQuestionGroups] = useState([])
-
-  // answers: { [q_id]: string }  for mcq/numeric
-  //          { [q_id]: { a: '1'|'0'|'', b: ..., c: ..., d: '' } }  for boolean
   const [answers, setAnswers] = useState({})
-
   const [submission, setSubmission] = useState(null)
 
   const [secondsLeft, setSecondsLeft] = useState(null)
@@ -217,11 +212,9 @@ export default function StudentTakeExercisePage() {
         const ex = exRes.data
         setExercise(ex)
 
-        // Group schema rows
         const groups = groupSchema(ex.schema || [])
         setQuestionGroups(groups)
 
-        // Initialise answers
         const initial = {}
         for (const group of groups) {
           if (group.type === 'boolean') {
@@ -235,7 +228,6 @@ export default function StudentTakeExercisePage() {
         }
         setAnswers(initial)
 
-        // Reuse existing submission or create new
         const storageKey = `submission_${id}`
         let sub = null
 
@@ -352,7 +344,6 @@ export default function StudentTakeExercisePage() {
     try {
       clearInterval(timerRef.current)
 
-      // Build answers payload
       const answersPayload = []
       for (const group of questionGroups) {
         if (group.type === 'boolean') {
@@ -422,7 +413,6 @@ export default function StudentTakeExercisePage() {
         />
       )
     }
-    // numeric
     return (
       <NumericInput
         qId={group.q_id}
@@ -445,28 +435,32 @@ export default function StudentTakeExercisePage() {
 
   if (error) {
     return (
-      <div className="max-w-2xl rounded-xl border border-destructive/50 bg-card p-6 shadow-xs">
-        <p className="text-sm text-destructive">{error}</p>
-        <Link
-          to="/student/exercises"
-          className="mt-4 inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium"
-        >
-          Back to Exercises
-        </Link>
-      </div>
+      <Card className="max-w-2xl border-destructive/50">
+        <CardContent className="pt-6">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" asChild className="mt-4">
+            <Link to="/student/exercises">Back to Exercises</Link>
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 
-  const timerColor = overtime ? 'text-red-600' : secondsLeft <= 60 ? 'text-amber-600' : 'text-slate-700'
+  const timerColor = overtime
+    ? 'text-destructive'
+    : secondsLeft <= 60
+    ? 'text-amber-600 dark:text-amber-400'
+    : 'text-foreground'
 
   return (
     <div className="max-w-2xl space-y-6">
-        {/* Header */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
+      {/* Header card */}
+      <Card>
+        <CardContent className="pt-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">{exercise.title}</h1>
-              <p className="mt-1 text-sm text-slate-500">
+              <h1 className="text-2xl font-semibold">{exercise.title}</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {questionGroups.length} question{questionGroups.length !== 1 ? 's' : ''}
               </p>
             </div>
@@ -477,37 +471,40 @@ export default function StudentTakeExercisePage() {
                   {formatTime(secondsLeft)}
                 </span>
                 {overtime && (
-                  <span className="text-xs font-medium text-red-600">Over time</span>
+                  <Badge variant="destructive" className="text-xs">Over time</Badge>
                 )}
               </div>
             )}
           </div>
 
           {overtime && (
-            <div className="mt-3 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">
+            <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               Time is up! You can still submit your answers.
             </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Submitted view */}
-        {isSubmitted ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-xs">
-            <div className="mb-2 flex items-center gap-2 text-green-700">
+      {/* Submitted view */}
+      {isSubmitted ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="mb-2 flex items-center gap-2 text-green-700 dark:text-green-400">
               <CheckCircle className="h-5 w-5" />
               <h2 className="text-lg font-semibold">Submitted!</h2>
             </div>
             {submissionScore !== null && (
-              <p className="mb-4 text-2xl font-bold text-slate-900">
-                {submissionScore} <span className="text-base font-normal text-slate-500">/ 10</span>
+              <p className="mb-4 text-2xl font-bold">
+                {submissionScore}{' '}
+                <span className="text-base font-normal text-muted-foreground">/ 10</span>
               </p>
             )}
             {submissionScore === null && (
-              <p className="mb-4 text-sm text-slate-600">Your answers have been recorded.</p>
+              <p className="mb-4 text-sm text-muted-foreground">Your answers have been recorded.</p>
             )}
             <table className="min-w-full border-collapse text-sm">
-              <thead className="bg-slate-50 text-left text-slate-600">
+              <thead className="bg-muted text-left text-muted-foreground">
                 <tr>
                   <th className="px-4 py-2">Question</th>
                   <th className="px-4 py-2">Your Answer</th>
@@ -536,118 +533,80 @@ export default function StudentTakeExercisePage() {
                 })}
               </tbody>
             </table>
-            <Link
-              to="/student/exercises"
-              className="mt-6 inline-flex h-10 items-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-            >
-              Back to Exercises
-            </Link>
-          </div>
-        ) : (
-          /* Questions form */
-          <div className="space-y-4">
-            {questionGroups.map((group, idx) => (
-              <div
-                key={group.q_id}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
-              >
-                <p className="mb-3 text-sm font-semibold text-slate-900">
+            <Button variant="outline" asChild className="mt-6">
+              <Link to="/student/exercises">Back to Exercises</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Questions form */
+        <div className="space-y-4">
+          {questionGroups.map((group, idx) => (
+            <Card key={group.q_id}>
+              <CardContent className="pt-5">
+                <p className="mb-3 text-sm font-semibold">
                   {idx + 1}. Question {group.q_id}
                 </p>
                 {renderQuestionInput(group)}
-              </div>
-            ))}
+              </CardContent>
+            </Card>
+          ))}
 
-            {submitError && (
-              <p className="rounded-lg bg-red-50 px-4 py-2 text-sm text-red-600">{submitError}</p>
-            )}
+          {submitError && (
+            <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>
+          )}
 
-            {/* Leave warning dialog */}
-            {showLeaveWarning && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-label="Leave exercise"
-                className="rounded-xl border border-amber-200 bg-white p-5 shadow-xs"
-              >
-                <h2 className="mb-2 text-base font-semibold text-slate-900">Leave this exercise?</h2>
-                <p className="mb-4 text-sm text-slate-600">
+          {/* Leave warning dialog */}
+          <Dialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Leave this exercise?</DialogTitle>
+                <DialogDescription>
                   Your answers will be lost if you leave now.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleConfirmLeave}
-                    className="h-10 rounded-md bg-red-600 px-5 text-sm font-medium text-white hover:bg-red-700"
-                  >
-                    Yes, leave
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelLeave}
-                    className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-                  >
-                    Stay
-                  </button>
-                </div>
-              </div>
-            )}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCancelLeave}>Stay</Button>
+                <Button variant="destructive" onClick={handleConfirmLeave}>Yes, leave</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-            {/* Confirm submit dialog */}
-            {showConfirm && (
-              <div
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="confirm-title"
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs"
-              >
-                <h2 id="confirm-title" className="mb-2 text-base font-semibold text-slate-900">
-                  Submit your answers?
-                </h2>
-                <p className="mb-4 text-sm text-slate-600">
+          {/* Confirm submit dialog */}
+          <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Submit your answers?</DialogTitle>
+                <DialogDescription>
                   You cannot change your answers after submitting.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={handleConfirmSubmit}
-                    className="h-10 rounded-md bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700"
-                  >
-                    Yes, submit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCancelConfirm}
-                    className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={handleCancelConfirm}>Cancel</Button>
+                <Button onClick={handleConfirmSubmit}>Yes, submit</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
-            {!showConfirm && !showLeaveWarning && (
-              <div className="flex items-center gap-4">
-                <button
-                  type="button"
-                  onClick={handleSubmitClick}
-                  disabled={isSubmitting}
-                  className="h-10 rounded-md bg-blue-600 px-6 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Submitting...' : 'Submit'}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBackClick}
-                  disabled={isSubmitting}
-                  className="text-sm text-slate-600 underline disabled:opacity-50"
-                >
-                  Back
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+          {!showConfirm && !showLeaveWarning && (
+            <div className="flex items-center gap-4">
+              <Button
+                onClick={handleSubmitClick}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit'}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleBackClick}
+                disabled={isSubmitting}
+              >
+                Back
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

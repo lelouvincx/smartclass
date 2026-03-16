@@ -30,4 +30,4 @@
 ## From shadcn/ui Migration (Phase 1)
 
 - [ ] **Migrate from JavaScript to TypeScript** — Add `tsconfig.json`, rename `.jsx` to `.tsx`, add type annotations. Consider incremental adoption (strict mode off initially).
-- [ ] **Migrate remaining pages to shadcn/ui components** — Dashboard and list pages migrated (Phase 2). Complex pages (TeacherCreateExercisePage, TeacherViewExercisePage, StudentTakeExercisePage, LoginPage, RegisterPage) still use inline Tailwind classes. See Phase 3 migration plan in `docs/plans/2026-03-16-shadcn-ui-migration.md`.
+- [x] **Migrate remaining pages to shadcn/ui components** — All 9 pages fully migrated (Phase 3). All inline Tailwind classes replaced with shadcn/ui components. See `docs/plans/2026-03-16-shadcn-ui-migration.md`.

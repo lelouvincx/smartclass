@@ -2,14 +2,26 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { deleteExercise, getExercise, updateExercise } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
-const VALID_TYPES = new Set(['mcq', 'boolean', 'numeric'])
-const LOW_CONFIDENCE_THRESHOLD = 0.75
 
-// ── Schema helpers (shared with create page patterns) ─────────────────────────
+// ── Schema helpers ─────────────────────────────────────────────────────────────
 
 function normalizeAnswer(type, value) {
   const trimmed = String(value ?? '').trim()
@@ -97,7 +109,6 @@ function newRows(type, qid) {
   return [{ id: makeId(), q_id: qid, sub_id: null, type, correct_answer: '' }]
 }
 
-/** Convert schema rows from API response into editable row objects */
 function schemaToRows(schema) {
   return (schema || []).map((row) => ({
     id: makeId(),
@@ -112,21 +123,12 @@ function schemaToRows(schema) {
 
 function MetaBadge({ isTimed, durationMinutes }) {
   if (isTimed) {
-    return (
-      <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-        Timed · {durationMinutes} min
-      </span>
-    )
+    return <Badge variant="default">Timed · {durationMinutes} min</Badge>
   }
-  return (
-    <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
-      Untimed
-    </span>
-  )
+  return <Badge variant="secondary">Untimed</Badge>
 }
 
 function ViewSchemaTable({ schema }) {
-  // Group boolean sub-rows under their q_id
   const groups = useMemo(() => {
     const result = []
     const seen = new Map()
@@ -150,7 +152,7 @@ function ViewSchemaTable({ schema }) {
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse text-sm">
         <thead>
-          <tr className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
             <th className="px-4 py-2">Q#</th>
             <th className="px-4 py-2">Sub</th>
             <th className="px-4 py-2">Type</th>
@@ -161,22 +163,22 @@ function ViewSchemaTable({ schema }) {
           {groups.map((g) => {
             if (g.type === 'boolean') {
               return g.subRows.map((sub, i) => (
-                <tr key={`${g.q_id}-${sub.sub_id}`} className="border-t border-slate-100">
-                  <td className="px-4 py-2 text-slate-700">{i === 0 ? g.q_id : ''}</td>
-                  <td className="px-4 py-2 font-mono text-slate-500">{sub.sub_id}</td>
-                  <td className="px-4 py-2 text-slate-500">{i === 0 ? 'boolean' : ''}</td>
-                  <td className="px-4 py-2 font-medium text-slate-900">
+                <tr key={`${g.q_id}-${sub.sub_id}`} className="border-t">
+                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? g.q_id : ''}</td>
+                  <td className="px-4 py-2 font-mono text-muted-foreground">{sub.sub_id}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? 'boolean' : ''}</td>
+                  <td className="px-4 py-2 font-medium">
                     {sub.correct_answer === '1' ? 'True (1)' : 'False (0)'}
                   </td>
                 </tr>
               ))
             }
             return (
-              <tr key={g.q_id} className="border-t border-slate-100">
-                <td className="px-4 py-2 text-slate-700">{g.q_id}</td>
-                <td className="px-4 py-2 text-slate-400">—</td>
-                <td className="px-4 py-2 text-slate-500">{g.type}</td>
-                <td className="px-4 py-2 font-medium text-slate-900">{g.correct_answer}</td>
+              <tr key={g.q_id} className="border-t">
+                <td className="px-4 py-2 text-muted-foreground">{g.q_id}</td>
+                <td className="px-4 py-2 text-muted-foreground">—</td>
+                <td className="px-4 py-2 text-muted-foreground">{g.type}</td>
+                <td className="px-4 py-2 font-medium">{g.correct_answer}</td>
               </tr>
             )
           })}
@@ -191,18 +193,18 @@ function ViewSchemaTable({ schema }) {
 function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
   function renderBooleanSubRow(row) {
     return (
-      <tr key={row.id} className="border-t border-slate-100 align-top">
+      <tr key={row.id} className="border-t align-top">
         <td className="px-3 py-2">
           {row.sub_id === 'a' ? (
-            <input
+            <Input
               aria-label={`q-id-${row.id}`}
               type="text"
               value={row.q_id}
               onChange={(e) => onUpdateQid(row.id, e.target.value)}
-              className="h-9 w-20 rounded-sm border border-slate-300 px-2 text-sm"
+              className="h-9 w-20"
             />
           ) : (
-            <span className="px-2 text-sm text-slate-400">{row.q_id}</span>
+            <span className="px-2 text-sm text-muted-foreground">{row.q_id}</span>
           )}
         </td>
         <td className="px-3 py-2">
@@ -211,19 +213,19 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
               aria-label={`type-${row.id}`}
               value="boolean"
               onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-              className="h-9 rounded-sm border border-slate-300 px-2 text-sm"
+              className="h-9 rounded-md border bg-background px-2 text-sm"
             >
               <option value="mcq">mcq</option>
               <option value="boolean">boolean</option>
               <option value="numeric">numeric</option>
             </select>
           ) : (
-            <span className="text-sm text-slate-400">boolean</span>
+            <span className="text-sm text-muted-foreground">boolean</span>
           )}
         </td>
         <td className="px-3 py-2">
           <div className="flex items-center gap-3">
-            <span className="w-4 text-sm font-medium text-slate-600">{row.sub_id}.</span>
+            <span className="w-4 text-sm font-medium text-muted-foreground">{row.sub_id}.</span>
             <label className="flex items-center gap-1 text-sm">
               <input
                 type="radio"
@@ -250,15 +252,15 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
         </td>
         <td className="px-3 py-2">
           {row.errors?.length > 0
-            ? <span className="text-xs text-red-600">{row.errors[0]}</span>
-            : <span className="text-xs text-emerald-700">Valid</span>
+            ? <span className="text-xs text-destructive">{row.errors[0]}</span>
+            : <span className="text-xs text-emerald-700 dark:text-emerald-400">Valid</span>
           }
         </td>
         <td className="px-3 py-2">
           {row.sub_id === 'a' && (
-            <button type="button" onClick={() => onDeleteRow(row.id)} className="text-sm text-red-600">
+            <Button type="button" variant="ghost" size="sm" onClick={() => onDeleteRow(row.id)} className="text-destructive hover:text-destructive">
               Delete
-            </button>
+            </Button>
           )}
         </td>
       </tr>
@@ -267,14 +269,14 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
 
   function renderStandardRow(row) {
     return (
-      <tr key={row.id} className="border-t border-slate-100 align-top">
+      <tr key={row.id} className="border-t align-top">
         <td className="px-3 py-2">
-          <input
+          <Input
             aria-label={`q-id-${row.id}`}
             type="text"
             value={row.q_id}
             onChange={(e) => onUpdateRow(row.id, 'q_id', e.target.value)}
-            className="h-9 w-20 rounded-sm border border-slate-300 px-2 text-sm"
+            className="h-9 w-20"
           />
         </td>
         <td className="px-3 py-2">
@@ -282,7 +284,7 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
             aria-label={`type-${row.id}`}
             value={row.type}
             onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-            className="h-9 rounded-sm border border-slate-300 px-2 text-sm"
+            className="h-9 rounded-md border bg-background px-2 text-sm"
           >
             <option value="mcq">mcq</option>
             <option value="boolean">boolean</option>
@@ -290,24 +292,24 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
           </select>
         </td>
         <td className="px-3 py-2">
-          <input
+          <Input
             aria-label={`answer-${row.id}`}
             type="text"
             value={row.correct_answer}
             onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
-            className="h-9 w-32 rounded-sm border border-slate-300 px-2 text-sm"
+            className="h-9 w-32"
           />
         </td>
         <td className="px-3 py-2">
           {row.errors?.length > 0
-            ? <span className="text-xs text-red-600">{row.errors[0]}</span>
-            : <span className="text-xs text-emerald-700">Valid</span>
+            ? <span className="text-xs text-destructive">{row.errors[0]}</span>
+            : <span className="text-xs text-emerald-700 dark:text-emerald-400">Valid</span>
           }
         </td>
         <td className="px-3 py-2">
-          <button type="button" onClick={() => onDeleteRow(row.id)} className="text-sm text-red-600">
+          <Button type="button" variant="ghost" size="sm" onClick={() => onDeleteRow(row.id)} className="text-destructive hover:text-destructive">
             Delete
-          </button>
+          </Button>
         </td>
       </tr>
     )
@@ -317,7 +319,7 @@ function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
     <div className="overflow-x-auto">
       <table className="min-w-full border-collapse text-sm">
         <thead>
-          <tr className="bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+          <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
             <th className="px-3 py-2">q_id</th>
             <th className="px-3 py-2">type</th>
             <th className="px-3 py-2">correct_answer</th>
@@ -342,29 +344,23 @@ export default function TeacherViewExercisePage() {
   const { token } = useAuth()
   const navigate = useNavigate()
 
-  // Remote data
   const [exercise, setExercise] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // UI mode
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [saveError, setSaveError] = useState('')
 
-  // Edit-mode fields
   const [editTitle, setEditTitle] = useState('')
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
   const [editRows, setEditRows] = useState([])
 
-  // Derived validated rows
   const validatedRows = useMemo(() => validateRows(editRows), [editRows])
   const hasErrors = validatedRows.some((r) => r.errors.length > 0)
-
-  // ── Fetch exercise ───────────────────────────────────────────────────────────
 
   useEffect(() => {
     async function load() {
@@ -382,8 +378,6 @@ export default function TeacherViewExercisePage() {
     load()
   }, [id, token])
 
-  // ── Edit mode helpers ────────────────────────────────────────────────────────
-
   function enterEditMode() {
     setEditTitle(exercise.title)
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
@@ -398,25 +392,15 @@ export default function TeacherViewExercisePage() {
     setSaveError('')
   }
 
-  // Row mutation handlers
   const handleUpdateRow = useCallback((rowId, field, value) => {
     setEditRows((prev) => {
       if (field === 'type') {
         const target = prev.find((r) => r.id === rowId)
         if (!target) return prev
         const qid = target.q_id
-        const otherRows = prev.filter((r) => r.q_id !== qid || r.type !== target.type)
-        const insertIdx = prev.findIndex((r) => r.id === rowId)
-        const replacement = newRows(value, qid)
-        const result = [...otherRows]
-        result.splice(
-          prev.filter((r) => r.q_id < qid || (r.q_id === qid && r !== target)).length,
-          0,
-          ...replacement,
-        )
-        // Simpler: remove old rows for same q_id, insert replacement at same position
         const withoutOld = prev.filter((r) => r.q_id !== qid)
         const insertAt = prev.findIndex((r) => r.q_id === qid)
+        const replacement = newRows(value, qid)
         const final = [...withoutOld]
         final.splice(insertAt >= 0 ? insertAt : final.length, 0, ...replacement)
         return final
@@ -456,22 +440,13 @@ export default function TeacherViewExercisePage() {
     setEditRows((prev) => [...prev, ...newRows('mcq', String(maxQid + 1))])
   }
 
-  // ── Save ─────────────────────────────────────────────────────────────────────
-
   async function handleSave() {
     setSaveError('')
-    if (!editTitle.trim()) {
-      setSaveError('Title is required')
-      return
-    }
+    if (!editTitle.trim()) { setSaveError('Title is required'); return }
     if (editIsTimed && (!editDuration || Number(editDuration) <= 0)) {
-      setSaveError('Duration must be a positive number')
-      return
+      setSaveError('Duration must be a positive number'); return
     }
-    if (hasErrors) {
-      setSaveError('Please fix all schema errors before saving')
-      return
-    }
+    if (hasErrors) { setSaveError('Please fix all schema errors before saving'); return }
 
     setIsSaving(true)
     try {
@@ -490,8 +465,6 @@ export default function TeacherViewExercisePage() {
       setIsSaving(false)
     }
   }
-
-  // ── Delete ───────────────────────────────────────────────────────────────────
 
   async function handleConfirmDelete() {
     setIsDeleting(true)
@@ -517,15 +490,14 @@ export default function TeacherViewExercisePage() {
 
   if (error) {
     return (
-      <div className="max-w-3xl rounded-xl border border-destructive/50 bg-card p-6 shadow-xs">
-        <p className="text-sm text-destructive">{error}</p>
-        <Link
-          to="/teacher/exercises"
-          className="mt-4 inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium"
-        >
-          Back to Exercises
-        </Link>
-      </div>
+      <Card className="max-w-3xl border-destructive/50">
+        <CardContent className="pt-6">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button variant="outline" asChild className="mt-4">
+            <Link to="/teacher/exercises">Back to Exercises</Link>
+          </Button>
+        </CardContent>
+      </Card>
     )
   }
 
@@ -534,50 +506,41 @@ export default function TeacherViewExercisePage() {
   return (
     <div className="max-w-3xl space-y-6">
 
-      {/* Header */}
-      <div className="rounded-xl border bg-card p-5 shadow-xs">
+      {/* Header card */}
+      <Card>
+        <CardContent className="pt-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditing ? (
                 <div className="space-y-3">
-                  <div>
-                    <label htmlFor="edit-title" className="mb-1 block text-sm font-medium text-slate-700">
-                      Exercise title
-                    </label>
-                    <input
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-title">Exercise title</Label>
+                    <Input
                       id="edit-title"
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
-                      className="h-10 w-full rounded-md border border-slate-300 px-3 text-sm focus:outline-hidden focus:ring-2 focus:ring-slate-800"
                     />
                   </div>
                   <div className="flex flex-wrap gap-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-700">Timed</span>
-                      <label className="relative inline-flex cursor-pointer items-center">
-                        <input
-                          type="checkbox"
-                          aria-label="Timed mode toggle"
-                          className="peer sr-only"
-                          checked={editIsTimed}
-                          onChange={(e) => setEditIsTimed(e.target.checked)}
-                        />
-                        <span className="h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900" />
-                        <span className="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5" />
-                      </label>
+                      <Label htmlFor="edit-timed">Timed</Label>
+                      <Switch
+                        id="edit-timed"
+                        aria-label="Timed mode toggle"
+                        checked={editIsTimed}
+                        onCheckedChange={setEditIsTimed}
+                      />
                     </div>
                     {editIsTimed && (
-                      <div>
-                        <label htmlFor="edit-duration" className="mr-2 text-sm text-slate-700">
-                          Duration (min)
-                        </label>
-                        <input
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="edit-duration">Duration (min)</Label>
+                        <Input
                           id="edit-duration"
                           type="number"
                           value={editDuration}
                           onChange={(e) => setEditDuration(e.target.value)}
-                          className="h-9 w-24 rounded-sm border border-slate-300 px-2 text-sm"
+                          className="h-9 w-24"
                         />
                       </div>
                     )}
@@ -585,10 +548,10 @@ export default function TeacherViewExercisePage() {
                 </div>
               ) : (
                 <>
-                  <h1 className="truncate text-2xl font-semibold text-slate-900">{exercise.title}</h1>
+                  <h1 className="truncate text-2xl font-semibold">{exercise.title}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <MetaBadge isTimed={isTimed} durationMinutes={exercise.duration_minutes} />
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-muted-foreground">
                       {exercise.schema?.length ?? 0} schema row{exercise.schema?.length !== 1 ? 's' : ''}
                     </span>
                   </div>
@@ -600,133 +563,93 @@ export default function TeacherViewExercisePage() {
             <div className="flex shrink-0 gap-2">
               {isEditing ? (
                 <>
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="h-10 rounded-md bg-slate-900 px-4 text-sm font-medium text-white disabled:opacity-60"
-                  >
+                  <Button onClick={handleSave} disabled={isSaving}>
                     {isSaving ? 'Saving...' : 'Save'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={cancelEdit}
-                    disabled={isSaving}
-                    className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-                  >
+                  </Button>
+                  <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>
                     Cancel
-                  </button>
+                  </Button>
                 </>
               ) : (
                 <>
-                  <Link
-                    to="/teacher/exercises"
-                    className="inline-flex h-10 items-center rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-                  >
-                    Back to Exercises
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={enterEditMode}
-                    className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteConfirm(true)}
-                    className="h-10 rounded-md border border-red-300 px-4 text-sm font-medium text-red-700"
-                  >
+                  <Button variant="outline" asChild>
+                    <Link to="/teacher/exercises">Back to Exercises</Link>
+                  </Button>
+                  <Button variant="outline" onClick={enterEditMode}>Edit</Button>
+                  <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
                     Delete
-                  </button>
+                  </Button>
                 </>
               )}
             </div>
           </div>
 
-          {saveError && (
-            <p className="mt-3 text-sm text-red-600">{saveError}</p>
-          )}
-        </div>
+          {saveError && <p className="mt-3 text-sm text-destructive">{saveError}</p>}
+        </CardContent>
+      </Card>
 
-        {/* Files */}
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs">
-          <h2 className="mb-3 text-sm font-semibold text-slate-700">Files</h2>
+      {/* Files card */}
+      <Card>
+        <CardContent className="pt-5">
+          <h2 className="mb-3 text-sm font-semibold">Files</h2>
           {exercise.files?.length > 0 ? (
             <ul className="space-y-1">
               {exercise.files.map((f) => (
-                <li key={f.id} className="flex items-center gap-2 text-sm text-slate-700">
-                  <span className="rounded-sm bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">{f.file_type}</span>
+                <li key={f.id} className="flex items-center gap-2 text-sm">
+                  <Badge variant="secondary" className="text-xs">{f.file_type}</Badge>
                   <span>{f.file_name}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-slate-500">No files uploaded.</p>
+            <p className="text-sm text-muted-foreground">No files uploaded.</p>
           )}
-        </div>
+        </CardContent>
+      </Card>
 
-        {/* Schema */}
-        <div className="rounded-xl border border-slate-200 bg-white shadow-xs">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-            <h2 className="text-sm font-semibold text-slate-700">Answer Schema</h2>
+      {/* Schema card */}
+      <Card>
+        <CardHeader className="border-b px-5 py-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Answer Schema</h2>
             {isEditing && (
-              <button
-                type="button"
-                onClick={handleAddRow}
-                className="h-8 rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-700"
-              >
+              <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
                 Add Row
-              </button>
+              </Button>
             )}
           </div>
-
-          {isEditing ? (
-            <EditSchemaTable
-              rows={validatedRows}
-              onUpdateRow={handleUpdateRow}
-              onUpdateQid={handleUpdateQid}
-              onDeleteRow={handleDeleteRow}
-            />
-          ) : (
-            <ViewSchemaTable schema={exercise.schema || []} />
-          )}
-        </div>
+        </CardHeader>
+        {isEditing ? (
+          <EditSchemaTable
+            rows={validatedRows}
+            onUpdateRow={handleUpdateRow}
+            onUpdateQid={handleUpdateQid}
+            onDeleteRow={handleDeleteRow}
+          />
+        ) : (
+          <ViewSchemaTable schema={exercise.schema || []} />
+        )}
+      </Card>
 
       {/* Delete confirmation dialog */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/20 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Delete exercise"
-            className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-xl"
-          >
-            <h2 className="text-lg font-semibold text-slate-900">Delete this exercise?</h2>
-            <p className="mt-2 text-sm text-slate-600">
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this exercise?</DialogTitle>
+            <DialogDescription>
               This action cannot be undone. All submissions and schema data will be permanently deleted.
-            </p>
-            <div className="mt-5 flex gap-3">
-              <button
-                type="button"
-                onClick={handleConfirmDelete}
-                disabled={isDeleting}
-                className="h-10 rounded-md bg-red-600 px-5 text-sm font-medium text-white disabled:opacity-60"
-              >
-                {isDeleting ? 'Deleting...' : 'Yes, delete'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={isDeleting}
-                className="h-10 rounded-md border border-slate-300 px-4 text-sm font-medium text-slate-700"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+              {isDeleting ? 'Deleting...' : 'Yes, delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
