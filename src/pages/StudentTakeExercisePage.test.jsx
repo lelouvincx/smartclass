@@ -615,4 +615,113 @@ describe('StudentTakeExercisePage', () => {
 
     expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
   })
+
+  // --- Score and correctness display ---
+
+  it('shows score in submitted view when API returns a score', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    submitAnswersMock.mockResolvedValue({
+      data: {
+        id: 10,
+        score: 7.5,
+        submitted_at: '2026-03-15 10:05:00',
+        answers: [
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: 1 },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'A', is_correct: 0 },
+        ],
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+
+    await screen.findByText(/submitted!/i)
+    expect(screen.getByText('7.5')).toBeInTheDocument()
+    expect(screen.getByText('/ 10')).toBeInTheDocument()
+  })
+
+  it('shows correctness indicator (✓) for correct answers in submitted view', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    submitAnswersMock.mockResolvedValue({
+      data: {
+        id: 10,
+        score: 10,
+        submitted_at: '2026-03-15 10:05:00',
+        answers: [
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: 1 },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'C', is_correct: 1 },
+        ],
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+
+    await screen.findByText(/submitted!/i)
+    const correct = screen.getAllByLabelText('correct')
+    expect(correct.length).toBeGreaterThan(0)
+  })
+
+  it('shows correctness indicator (✗) for wrong answers in submitted view', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    submitAnswersMock.mockResolvedValue({
+      data: {
+        id: 10,
+        score: 0,
+        submitted_at: '2026-03-15 10:05:00',
+        answers: [
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'A', is_correct: 0 },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'D', is_correct: 0 },
+        ],
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+
+    await screen.findByText(/submitted!/i)
+    const wrong = screen.getAllByLabelText('wrong')
+    expect(wrong.length).toBeGreaterThan(0)
+  })
+
+  it('shows no score badge when score is null (legacy submissions)', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    submitAnswersMock.mockResolvedValue({
+      data: {
+        id: 10,
+        score: null,
+        submitted_at: '2026-03-15 10:05:00',
+        answers: [
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
+        ],
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+
+    await screen.findByText(/submitted!/i)
+    expect(screen.queryByText(/\/\s*10/)).not.toBeInTheDocument()
+  })
 })

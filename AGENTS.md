@@ -92,7 +92,7 @@
 - `mcq`: uppercase A/B/C/D
 - `boolean`: lowercase strings `true`/`false`
 - `numeric`: trimmed strings
-- `is_correct`: nullable — grading is decoupled from submission (v0.3+)
+- `is_correct`: set by auto-grading immediately after submission (0 or 1)
 
 ### Exercise Permissions (v0.2)
 
@@ -194,3 +194,15 @@
 - **Student UI**: Boolean questions render as a grouped card showing 4 sub-question rows, each with True/False radio buttons. Submit payload includes `sub_id` per sub-answer.
 - **Alternative considered**: Encoding as `"0101"` string in a single `correct_answer` column — rejected because it would make adding per-sub-question explanations, scoring, or metadata very difficult without a schema change.
 - **Rationale**: Treating each sub-question as a first-class DB row allows future columns (`explanation`, `points`, `image_url`) to be added trivially without migration pain.
+
+### Auto-Grading (v0.2)
+
+- **Trigger**: Runs synchronously inside `PUT /api/submissions/:id/submit`, immediately after answers are inserted.
+- **Implementation**: `worker/lib/grading.js` — pure function `gradeSubmission(schema, answers)`, no DB access. See `docs/plans/2026-03-16-grading-logic.md` for the full design doc.
+- **MCQ**: exact string match (`submitted === correct`), both normalized to uppercase A/B/C/D.
+- **Numeric**: numeric equality within tolerance `|Number(s) - Number(c)| < 0.01` — handles `42.0 === 42` and similar rounding.
+- **Boolean**: per-sub-question `is_correct`, then non-linear partial credit: `{0:0, 1:0.1, 2:0.25, 3:0.5, 4:1.0}` points per question.
+- **Score formula**: `round((sum_of_points / distinct_q_id_count) * 10, 2)` → stored on `submissions.score` on a 0–10 scale.
+- **Skipped answers (null)**: always `is_correct = 0`.
+- **Adjustable**: `BOOLEAN_SCORE_TABLE` and `NUMERIC_TOLERANCE` constants in `grading.js` control the curve and tolerance.
+- **Student UI**: Score shown immediately after submit (`X / 10`), with ✓/✗ per answer row.

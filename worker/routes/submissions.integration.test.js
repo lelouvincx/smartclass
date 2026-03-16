@@ -485,3 +485,120 @@ describe('GET /api/submissions/:id', () => {
     expect(res.status).toBe(403)
   })
 })
+
+// Default schema: q_id=1 mcq correct_answer='B', q_id=2 boolean a='1' b='0' c='0' d='1'
+// All correct → score 10.0 (1.0 + 1.0 points / 2 questions * 10)
+// All wrong   → score 0.0
+// Mixed       → partial credit
+
+describe('Grading — auto-grade on submit', () => {
+  async function createAndStartSubmission() {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const { data } = await createRes.json()
+    return data.id
+  }
+
+  async function submitAnswers(submissionId, answers) {
+    const res = await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ answers }),
+    }, env)
+    return res.json()
+  }
+
+  it('sets is_correct=1 and score=10 when all answers are correct', async () => {
+    const submissionId = await createAndStartSubmission()
+    const body = await submitAnswers(submissionId, [
+      { q_id: 1, submitted_answer: 'B' },           // MCQ correct
+      { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+      { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'd', submitted_answer: '1' },
+    ])
+
+    expect(body.data.score).toBe(10)
+    const mcqAns = body.data.answers.find((a) => a.q_id === 1)
+    expect(mcqAns.is_correct).toBe(1)
+    body.data.answers.filter((a) => a.q_id === 2).forEach((a) => {
+      expect(a.is_correct).toBe(1)
+    })
+  })
+
+  it('sets is_correct=0 and score=0 when all answers are wrong', async () => {
+    const submissionId = await createAndStartSubmission()
+    const body = await submitAnswers(submissionId, [
+      { q_id: 1, submitted_answer: 'A' },           // MCQ wrong (correct='B')
+      { q_id: 2, sub_id: 'a', submitted_answer: '0' }, // wrong (correct='1')
+      { q_id: 2, sub_id: 'b', submitted_answer: '1' }, // wrong (correct='0')
+      { q_id: 2, sub_id: 'c', submitted_answer: '1' }, // wrong (correct='0')
+      { q_id: 2, sub_id: 'd', submitted_answer: '0' }, // wrong (correct='1')
+    ])
+
+    expect(body.data.score).toBe(0)
+    body.data.answers.forEach((a) => expect(a.is_correct).toBe(0))
+  })
+
+  it('gives score=5 when MCQ correct and boolean all wrong (1/2 questions)', async () => {
+    const submissionId = await createAndStartSubmission()
+    const body = await submitAnswers(submissionId, [
+      { q_id: 1, submitted_answer: 'B' },           // correct → 1.0 pt
+      { q_id: 2, sub_id: 'a', submitted_answer: '0' }, // wrong
+      { q_id: 2, sub_id: 'b', submitted_answer: '1' }, // wrong
+      { q_id: 2, sub_id: 'c', submitted_answer: '1' }, // wrong
+      { q_id: 2, sub_id: 'd', submitted_answer: '0' }, // wrong
+      // boolean 0/4 correct → 0 pts. Total = 1/2 * 10 = 5
+    ])
+    expect(body.data.score).toBe(5)
+  })
+
+  it('gives partial credit for boolean — 3/4 correct yields score=7.5', async () => {
+    const submissionId = await createAndStartSubmission()
+    const body = await submitAnswers(submissionId, [
+      { q_id: 1, submitted_answer: 'A' },           // wrong → 0 pts
+      { q_id: 2, sub_id: 'a', submitted_answer: '1' }, // correct
+      { q_id: 2, sub_id: 'b', submitted_answer: '0' }, // correct
+      { q_id: 2, sub_id: 'c', submitted_answer: '0' }, // correct
+      { q_id: 2, sub_id: 'd', submitted_answer: '0' }, // wrong (correct='1')
+      // boolean 3/4 → 0.5 pts. Total = 0.5/2 * 10 = 2.5
+    ])
+    expect(body.data.score).toBe(2.5)
+  })
+
+  it('treats skipped (null) answers as wrong', async () => {
+    const submissionId = await createAndStartSubmission()
+    const body = await submitAnswers(submissionId, [
+      { q_id: 1, submitted_answer: null },
+      { q_id: 2, sub_id: 'a', submitted_answer: null },
+      { q_id: 2, sub_id: 'b', submitted_answer: null },
+      { q_id: 2, sub_id: 'c', submitted_answer: null },
+      { q_id: 2, sub_id: 'd', submitted_answer: null },
+    ])
+    expect(body.data.score).toBe(0)
+    body.data.answers.forEach((a) => expect(a.is_correct).toBe(0))
+  })
+
+  it('score and is_correct persist and are returned by GET /submissions/:id', async () => {
+    const submissionId = await createAndStartSubmission()
+    await submitAnswers(submissionId, [
+      { q_id: 1, submitted_answer: 'B' },
+      { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+      { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'd', submitted_answer: '1' },
+    ])
+
+    const res = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+    const body = await res.json()
+
+    expect(body.data.score).toBe(10)
+    body.data.answers.forEach((a) => expect(a.is_correct).toBe(1))
+  })
+})

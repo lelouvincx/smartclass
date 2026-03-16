@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { requireAuth } from '../middleware/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
+import { gradeSubmission } from '../lib/grading.js'
 
 const submissionsRoutes = new Hono()
 
@@ -121,8 +122,51 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
       return jsonError(c, 400, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
     }
 
+    // ── Auto-grading ───────────────────────────────────────────────────────────
+    // Fetch the answer schema for this exercise and grade all submitted answers.
+    // Then batch-update is_correct on each submission_answer row and score on the
+    // submission row in a single atomic batch.
+
+    const submissionForGrading = await c.env.DB.prepare(
+      'SELECT exercise_id FROM submissions WHERE id = ?'
+    ).bind(submissionId).first()
+
+    const schemaRows = await c.env.DB.prepare(
+      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
+    ).bind(submissionForGrading.exercise_id).all()
+
+    const insertedAnswers = await c.env.DB.prepare(
+      'SELECT id, q_id, sub_id, submitted_answer FROM submission_answers WHERE submission_id = ? ORDER BY q_id ASC, sub_id ASC'
+    ).bind(submissionId).all()
+
+    const { gradedAnswers, score } = gradeSubmission(
+      schemaRows.results,
+      insertedAnswers.results,
+    )
+
+    // Build a lookup: (q_id, sub_id) → is_correct, to match graded results back to DB row ids
+    const gradedMap = new Map()
+    for (const ga of gradedAnswers) {
+      gradedMap.set(`${ga.q_id}:${ga.sub_id ?? ''}`, ga.is_correct)
+    }
+
+    const gradeUpdateStatements = insertedAnswers.results.map((row) => {
+      const key = `${row.q_id}:${row.sub_id ?? ''}`
+      const is_correct = gradedMap.get(key) ?? 0
+      return c.env.DB.prepare(
+        'UPDATE submission_answers SET is_correct = ? WHERE id = ?'
+      ).bind(is_correct, row.id)
+    })
+
+    const scoreUpdateStatement = c.env.DB.prepare(
+      'UPDATE submissions SET score = ? WHERE id = ?'
+    ).bind(score, submissionId)
+
+    await c.env.DB.batch([...gradeUpdateStatements, scoreUpdateStatement])
+    // ── End auto-grading ───────────────────────────────────────────────────────
+
     const updatedSubmission = await c.env.DB.prepare(
-      'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at FROM submissions WHERE id = ?'
+      'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at, score FROM submissions WHERE id = ?'
     ).bind(submissionId).first()
 
     const submittedAnswers = await c.env.DB.prepare(
