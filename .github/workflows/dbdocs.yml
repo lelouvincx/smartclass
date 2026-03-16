@@ -1,0 +1,28 @@
+name: Update dbdocs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/schema.dbml'
+      - 'worker/db/migrations/**'
+
+jobs:
+  dbdocs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Publish schema to dbdocs
+        run: npm run db:docs
+        env:
+          DBDOCS_TOKEN: ${{ secrets.DBDOCS_TOKEN }}

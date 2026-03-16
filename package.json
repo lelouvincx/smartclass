@@ -17,7 +17,8 @@
     "deploy:web": "vite build && wrangler pages deploy dist --project-name smartclass",
     "deploy:api": "wrangler deploy",
     "deploy": "npm run deploy:api && npm run deploy:web",
-    "cf:typegen": "wrangler types"
+    "cf:typegen": "wrangler types",
+    "db:docs": "dbdocs build docs/schema.dbml --project smartclass"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
@@ -30,11 +31,13 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.12.21",
+    "@dbml/cli": "^6.4.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
+    "dbdocs": "^1.1.0",
     "jsdom": "^28.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
