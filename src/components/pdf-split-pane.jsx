@@ -56,17 +56,17 @@ export function PdfSplitPane({ fileUrl, children }) {
         </Button>
       </div>
 
-      {/* Split layout */}
+      {/* Split layout — PDF gets 3 parts, content gets 2 parts (60/40) */}
       <div
         className={cn(
-          'gap-4',
-          !collapsed && 'lg:grid lg:grid-cols-2',
+          'gap-6',
+          !collapsed && 'lg:grid lg:grid-cols-[3fr_2fr]',
         )}
       >
         {/* PDF pane */}
         {!collapsed && (
           <div className="mb-4 lg:mb-0">
-            <div className="sticky top-20 h-[calc(100vh-6rem)] overflow-hidden rounded-lg border bg-muted">
+            <div className="sticky top-20 h-[calc(100vh-7rem)] overflow-hidden rounded-lg border bg-muted">
               <iframe
                 src={fileUrl}
                 title="Exercise PDF"
