@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 export default function TeacherExercisesPage() {
   const navigate = useNavigate()
@@ -11,6 +12,7 @@ export default function TeacherExercisesPage() {
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [lastRefreshed, setLastRefreshed] = useState(null)
 
   async function loadExercises() {
     setIsLoading(true)
@@ -19,6 +21,7 @@ export default function TeacherExercisesPage() {
     try {
       const response = await listExercises()
       setItems(response.data || [])
+      setLastRefreshed(new Date())
     } catch (loadError) {
       setError(loadError.message)
     } finally {
@@ -38,9 +41,20 @@ export default function TeacherExercisesPage() {
             <h1 className="text-2xl font-semibold">Exercises</h1>
             <p className="text-sm text-muted-foreground">Manage exercise metadata and monitor schema/file completeness.</p>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={loadExercises} aria-label="Refresh exercises">
-              <RefreshCw className="h-4 w-4" />
+          <div className="flex items-center gap-2">
+            {lastRefreshed && !isLoading && (
+              <span className="text-xs text-muted-foreground" aria-label="Last refreshed time">
+                Updated {lastRefreshed.toLocaleTimeString()}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={loadExercises}
+              disabled={isLoading}
+              aria-label="Refresh exercises"
+            >
+              <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
             </Button>
             <Button asChild>
               <Link to="/teacher/exercises/new">

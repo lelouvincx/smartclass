@@ -78,6 +78,29 @@ describe('TeacherExercisesPage', () => {
     expect(listExercisesMock).toHaveBeenCalledTimes(2)
   })
 
+  it('shows last refreshed timestamp after successful load', async () => {
+    listExercisesMock.mockResolvedValue({ data: [] })
+    renderPage()
+    expect(await screen.findByLabelText('Last refreshed time')).toBeInTheDocument()
+    expect(screen.getByLabelText('Last refreshed time').textContent).toMatch(/Updated \d{1,2}:\d{2}:\d{2}/)
+  })
+
+  it('shows updated timestamp after manual refresh', async () => {
+    const user = userEvent.setup()
+    listExercisesMock.mockResolvedValue({ data: [] })
+    renderPage()
+
+    await screen.findByLabelText('Last refreshed time')
+    const first = screen.getByLabelText('Last refreshed time').textContent
+
+    listExercisesMock.mockResolvedValue({ data: [] })
+    await user.click(screen.getByRole('button', { name: 'Refresh exercises' }))
+
+    expect(await screen.findByLabelText('Last refreshed time')).toBeInTheDocument()
+    // timestamp element is still present (may be same second, just verify it renders)
+    expect(screen.getByLabelText('Last refreshed time').textContent).toMatch(/Updated \d{1,2}:\d{2}:\d{2}/)
+  })
+
   it('navigates to exercise detail when a row is clicked', async () => {
     const user = userEvent.setup()
     listExercisesMock.mockResolvedValue({

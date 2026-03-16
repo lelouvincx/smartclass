@@ -140,6 +140,19 @@ describe('StudentExercisesPage', () => {
     expect(screen.getByText(/loading exercises/i)).toBeInTheDocument()
   })
 
+  it('shows last refreshed timestamp after successful load', async () => {
+    listExercisesMock.mockResolvedValue({ data: [] })
+
+    render(
+      <MemoryRouter>
+        <StudentExercisesPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByLabelText('Last refreshed time')).toBeInTheDocument()
+    expect(screen.getByLabelText('Last refreshed time').textContent).toMatch(/Updated \d{1,2}:\d{2}:\d{2}/)
+  })
+
   it('reloads exercises when refresh button clicked', async () => {
     const user = userEvent.setup()
     listExercisesMock.mockResolvedValue({ data: [] })

@@ -29,6 +29,9 @@ vi.mock('../lib/auth-context', () => ({
   }),
 }))
 
+const toastMock = vi.hoisted(() => ({ info: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+vi.mock('sonner', () => ({ toast: toastMock }))
+
 // --- Fixtures ---
 
 const EXERCISE_MCQ = {
