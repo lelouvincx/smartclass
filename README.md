@@ -40,6 +40,7 @@ Status: done.
 - [x] CI: data schema auto updating on dbdocs ([#29](https://github.com/lelouvincx/smartclass/pull/29))
 - [x] Teacher: view and edit exercise answer schema (`/teacher/exercises/:id`) ([#30](https://github.com/lelouvincx/smartclass/pull/30))
 - [x] Auto-grading: fill in is_correct and score after submission; student sees score + ✓/✗ immediately ([#31](https://github.com/lelouvincx/smartclass/pull/31))
+- [x] Bug fixes: q_id validation, cascade deletes, atomic writes, test config ([#35](https://github.com/lelouvincx/smartclass/pull/35))
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
 

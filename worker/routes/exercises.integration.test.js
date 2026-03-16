@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import app from '../index.js'
-import { seedTeacher, loginAsTeacher, createExercise } from '../test/helpers.js'
+import { seedTeacher, loginAsTeacher, createExercise, seedStudent, loginAsStudent } from '../test/helpers.js'
 
 let token
 
@@ -502,6 +502,56 @@ describe('DELETE /api/exercises/:id', () => {
       'SELECT * FROM answer_schemas WHERE exercise_id = ?'
     ).bind(id).all()
     expect(schemas.results).toHaveLength(0)
+  })
+
+  it('deletes exercise that has submissions (cascade)', async () => {
+    await seedStudent('+84555666777')
+    const sToken = await loginAsStudent('+84555666777')
+
+    const { id } = await createExercise(token)
+
+    // Create a submission for this exercise
+    const subRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sToken}` },
+      body: JSON.stringify({ exercise_id: id }),
+    }, env)
+    expect(subRes.status).toBe(201)
+    const subBody = await subRes.json()
+    const submissionId = subBody.data.id
+
+    // Submit answers so submission_answers rows exist
+    await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sToken}` },
+      body: JSON.stringify({ answers: [
+        { q_id: 1, submitted_answer: 'A' },
+        { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+        { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+        { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+        { q_id: 2, sub_id: 'd', submitted_answer: '1' },
+      ] }),
+    }, env)
+
+    // Delete exercise should cascade
+    const deleteRes = await app.request(`/api/exercises/${id}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    }, env)
+
+    expect(deleteRes.status).toBe(200)
+
+    // Verify submissions are gone too
+    const submissions = await env.DB.prepare(
+      'SELECT * FROM submissions WHERE exercise_id = ?'
+    ).bind(id).all()
+    expect(submissions.results).toHaveLength(0)
+
+    // Verify submission_answers are gone too
+    const answers = await env.DB.prepare(
+      'SELECT * FROM submission_answers WHERE submission_id = ?'
+    ).bind(submissionId).all()
+    expect(answers.results).toHaveLength(0)
   })
 
   it('returns 404 for non-existent exercise', async () => {

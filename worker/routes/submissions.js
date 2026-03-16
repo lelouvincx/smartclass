@@ -79,21 +79,34 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
       return jsonError(c, 400, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
     }
 
-    // Validate answer entries
-    const totalQuestions = submission.total_questions
-    // Track uniqueness by (q_id, sub_id) composite key
-    // For non-boolean answers: key = "q_id:" (no sub_id)
-    // For boolean sub-answers: key = "q_id:sub_id"
+    // ── Fetch schema first — needed for both validation and grading ──────────
+    const schemaRows = await c.env.DB.prepare(
+      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
+    ).bind(submission.exercise_id).all()
+
+    // Build set of valid (q_id, sub_id) pairs from schema
+    const validKeys = new Set()
+    for (const row of schemaRows.results) {
+      const key = row.sub_id !== null ? `${row.q_id}:${row.sub_id}` : `${row.q_id}:`
+      validKeys.add(key)
+    }
+
+    // Validate answer entries against actual schema keys
     const seenKeys = new Set()
 
     for (const entry of answers) {
       const qId = entry.q_id
-      if (!Number.isInteger(qId) || qId < 1 || qId > totalQuestions) {
-        return jsonError(c, 400, 'VALIDATION_ERROR', `Invalid q_id: ${qId}. Must be an integer between 1 and ${totalQuestions}`)
+      if (!Number.isInteger(qId) || qId < 1) {
+        return jsonError(c, 400, 'VALIDATION_ERROR', `Invalid q_id: ${qId}. Must be a positive integer`)
       }
 
       const subId = entry.sub_id ?? null
       const key = subId !== null ? `${qId}:${subId}` : `${qId}:`
+
+      if (!validKeys.has(key)) {
+        return jsonError(c, 400, 'VALIDATION_ERROR', `Invalid q_id: ${qId}${subId ? ` sub_id=${subId}` : ''}. Not found in exercise schema`)
+      }
+
       if (seenKeys.has(key)) {
         return jsonError(c, 400, 'VALIDATION_ERROR', `Duplicate answer entry for q_id=${qId}${subId ? ` sub_id=${subId}` : ''}`)
       }
@@ -101,13 +114,9 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     }
 
     // ── Auto-grading (compute in-memory before any DB writes) ────────────────
-    // Fetch the answer schema, grade all submitted answers in-memory, then
-    // insert answers with is_correct pre-populated, set score + submitted_at
-    // all in a single atomic DB.batch().
-
-    const schemaRows = await c.env.DB.prepare(
-      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
-    ).bind(submission.exercise_id).all()
+    // Grade all submitted answers in-memory, then insert answers with
+    // is_correct pre-populated, set score + submitted_at in a single
+    // atomic DB.batch().
 
     const { gradedAnswers, score } = gradeSubmission(
       schemaRows.results,

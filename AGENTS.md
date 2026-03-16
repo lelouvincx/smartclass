@@ -206,3 +206,21 @@
 - **Skipped answers (null)**: always `is_correct = 0`.
 - **Adjustable**: `MCQ_POINTS`, `NUMERIC_POINTS`, `BOOLEAN_SCORE_TABLE`, and `NUMERIC_TOLERANCE` constants in `grading.js` control the weights, curve, and tolerance.
 - **Student UI**: Score shown immediately after submit (`X / 10`), with ✓/✗ per answer row.
+
+### Submission Answer Validation (v0.2, PR #35)
+
+- **Schema-based validation**: Answer `q_id` and `sub_id` are validated against actual schema keys from `answer_schemas`, not `total_questions` count. This allows non-contiguous q_ids (e.g., 1, 3, 5).
+- **Previous bug**: Used `q_id <= total_questions` which rejected valid answers when schemas had gaps in q_id numbering.
+
+### Cascade Deletes (v0.2, PR #35)
+
+- **`submissions`**: `ON DELETE CASCADE` from `exercises(id)` — deleting an exercise cascades to all submissions.
+- **`submission_answers`**: `ON DELETE CASCADE` from `submissions(id)` — deleting a submission cascades to all answers.
+- **Migration 0006**: Uses `PRAGMA defer_foreign_keys` (D1-correct) instead of `PRAGMA foreign_keys = OFF`.
+- **Previous bug**: Only `answer_schemas` had cascade; `submissions` and `submission_answers` did not, causing FK constraint errors when deleting exercises with submissions.
+
+### Exercise Write Atomicity (v0.2, PR #35)
+
+- **Update path**: Metadata update + schema replacement combined into single `DB.batch()` call.
+- **Create path**: If schema batch insert fails, compensating `DELETE` removes the orphan exercise row.
+- **Previous bug**: Separate DB calls could leave partial state on failure.

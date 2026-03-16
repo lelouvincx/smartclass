@@ -137,9 +137,10 @@ describe('PUT /api/upload/exercises/:exerciseId/files', () => {
     expect(files.results).toHaveLength(1)
     expect(files.results[0].file_name).toBe('quiz.pdf')
 
-    // Verify R2 object exists
+    // Verify R2 object exists (consume body to avoid isolated storage cleanup failure)
     const r2Object = await env.BUCKET.get(r2Key)
     expect(r2Object).not.toBeNull()
+    await r2Object.text()
   })
 
   it('rejects missing metadata headers', async () => {
