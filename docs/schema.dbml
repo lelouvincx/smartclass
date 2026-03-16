@@ -1,0 +1,113 @@
+// SmartClass — Cloudflare D1 (SQLite) schema
+// Kept in sync with worker/db/migrations/*.sql
+// Last updated: migration 0005_add_sub_id
+
+Project SmartClass {
+  database_type: 'SQLite'
+  Note: 'Assessment platform built on Cloudflare Workers + D1'
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+
+Table users {
+  id         integer [pk, increment]
+  phone      text    [not null, unique, note: 'E.164 format, e.g. +84865481769']
+  password_hash text [not null]
+  role       text    [not null, note: 'teacher | student']
+  status     text    [not null, default: 'pending', note: 'pending | active | disabled']
+  created_at text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at text    [not null, default: 'CURRENT_TIMESTAMP']
+}
+
+// ── Exercises ──────────────────────────────────────────────────────────────────
+
+Table exercises {
+  id               integer [pk, increment]
+  title            text    [not null]
+  duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
+  pdf_key          text    [note: 'Legacy R2 key — superseded by exercise_files']
+  created_by       integer [not null, ref: > users.id]
+  created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+}
+
+Table exercise_files {
+  id          integer [pk, increment]
+  exercise_id integer [not null, ref: > exercises.id]
+  file_type   text    [not null, note: 'exercise_pdf | solution_pdf | reference_image']
+  r2_key      text    [not null, note: 'R2 object key for the file']
+  file_name   text    [not null]
+  file_size   integer [note: 'bytes; nullable']
+  uploaded_at text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    exercise_id [name: 'idx_exercise_files_exercise']
+  }
+}
+
+// ── Answer schemas ─────────────────────────────────────────────────────────────
+
+Table answer_schemas {
+  id             integer [pk, increment]
+  exercise_id    integer [not null, ref: > exercises.id]
+  q_id           integer [not null, note: 'Question number (1-based)']
+  sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
+  type           text    [not null, note: 'mcq | boolean | numeric']
+  correct_answer text    [not null, note: 'mcq: A/B/C/D  boolean: 0/1  numeric: number string']
+  created_at     text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at     text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (exercise_id, q_id, sub_id) [unique, name: 'idx_answer_schemas_unique',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+  }
+
+  Note: '''
+    Boolean questions produce 4 rows per q_id (sub_id = a, b, c, d).
+    MCQ and numeric questions have sub_id = NULL (one row per q_id).
+    total_questions is COUNT(DISTINCT q_id), not row count.
+  '''
+}
+
+// ── Submissions ────────────────────────────────────────────────────────────────
+
+Table submissions {
+  id              integer [pk, increment]
+  exercise_id     integer [not null, ref: > exercises.id]
+  user_id         integer [ref: > users.id, note: 'NULL for guest submissions']
+  mode            text    [not null, note: 'timed | untimed | guest']
+  score           real    [note: 'Populated after grading (v0.3+)']
+  total_questions integer [note: 'COUNT(DISTINCT q_id) at submission creation time']
+  started_at      text    [note: 'UTC timestamp; used for timer accuracy']
+  submitted_at    text    [note: 'NULL until submitted; used for double-submit guard']
+  created_at      text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at      text    [not null, default: 'CURRENT_TIMESTAMP']
+}
+
+Table submission_answers {
+  id               integer [pk, increment]
+  submission_id    integer [not null, ref: > submissions.id]
+  q_id             integer [not null]
+  sub_id           text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-answers']
+  submitted_answer text    [note: 'NULL = skipped; mcq: A/B/C/D  boolean: 0/1  numeric: string']
+  is_correct       integer [note: 'NULL until graded; 0/1 boolean']
+  created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (submission_id, q_id, sub_id) [unique, name: 'idx_submission_answers_unique',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+  }
+}
+
+// ── Lectures ───────────────────────────────────────────────────────────────────
+
+Table lectures {
+  id           integer [pk, increment]
+  title        text    [not null]
+  section_name text    [not null, note: 'e.g. Chapter 1, Solution for Exercise 3']
+  youtube_url  text    [not null]
+  order_index  integer [not null, default: 0]
+  created_by   integer [not null, ref: > users.id]
+  created_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+}

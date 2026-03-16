@@ -12,10 +12,12 @@
 
 ## Rules
 
+- Create pull requests using bot token for all changes, even small ones
 - When learning hono docs, using tiny docs at https://hono.dev/llms-small.txt first; if still get errors, read full docs at https://hono.dev/llms-full.txt (note that the docs is very long, just read a part of it)
 - Always follow test-driven development principles
 - Use conventional commits for commit messages
 - After creating a PR, update README part ROADMAP and AGENTS.md part Design Decisions if applicable
+- When creating a new DB migration, also update `docs/schema.dbml` to reflect the new state
 
 ## Build Commands
 
@@ -176,10 +178,10 @@
 - **API payload** for boolean questions:
   ```json
   [
-    {"q_id": 2, "type": "boolean", "sub_id": "a", "correct_answer": "1"},
-    {"q_id": 2, "type": "boolean", "sub_id": "b", "correct_answer": "0"},
-    {"q_id": 2, "type": "boolean", "sub_id": "c", "correct_answer": "0"},
-    {"q_id": 2, "type": "boolean", "sub_id": "d", "correct_answer": "1"}
+    { "q_id": 2, "type": "boolean", "sub_id": "a", "correct_answer": "1" },
+    { "q_id": 2, "type": "boolean", "sub_id": "b", "correct_answer": "0" },
+    { "q_id": 2, "type": "boolean", "sub_id": "c", "correct_answer": "0" },
+    { "q_id": 2, "type": "boolean", "sub_id": "d", "correct_answer": "1" }
   ]
   ```
 - **Scoring formula** (future, v0.3+): non-linear partial credit per boolean question:
