@@ -542,7 +542,8 @@ describe('StudentTakeExercisePage', () => {
     await screen.findByText('Algebra Quiz')
     await user.click(screen.getByRole('button', { name: /^Back$/i }))
 
-    expect(screen.getByRole('dialog', { name: /leave exercise/i })).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText(/leave this exercise/i)).toBeInTheDocument()
     expect(screen.getByText(/your answers will be lost/i)).toBeInTheDocument()
   })
 

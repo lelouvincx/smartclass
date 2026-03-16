@@ -40,7 +40,7 @@
 - **Files**: `.jsx` extension, ES modules (`"type": "module"`).
 - **Components**: Function components with `React.forwardRef` for primitives; named exports for primitives, default export for `App`.
 - **State**: React hooks (`useState`, `useEffect`, `useRef`, `useCallback`). No external state library.
-- **Styling**: shadcn/ui components + Tailwind utility classes via `cn()` from `@/lib/utils`. Use `@/` path alias for imports (e.g., `import { Button } from '@/components/ui/button'`). Add new shadcn/ui components via CLI: `npx shadcn@latest add <component>`. Legacy pages still use inline className string concatenation (migration in progress).
+- **Styling**: shadcn/ui components + Tailwind utility classes via `cn()` from `@/lib/utils`. Use `@/` path alias for imports (e.g., `import { Button } from '@/components/ui/button'`). Add new shadcn/ui components via CLI: `npx shadcn@latest add <component>`.
 - **Formatting**: Single quotes for JS strings, 2-space indent, trailing commas.
 - **Naming**: camelCase for variables/functions, PascalCase for components, UPPER_SNAKE_CASE for constants.
 
@@ -237,5 +237,5 @@
 - **Component library**: `src/components/ui/` contains shadcn/ui primitives (button, card, input, label, badge, table, select, dialog, switch, dropdown-menu). Add new ones via `npx shadcn@latest add <component>`.
 - **Shared layouts**: `src/components/student-layout.jsx` and `src/components/teacher-layout.jsx` provide sticky header with nav, user phone, mode toggle, and logout. Router uses nested `<Outlet />` pattern.
 - **Mode toggle**: `src/components/mode-toggle.jsx` — dropdown with Light/Dark/System options using `useTheme()` hook.
-- **Migration approach**: Incremental — infrastructure in Phase 1, core components + layouts in Phase 2, page-by-page in Phase 3+.
+- **Migration**: Complete. Phase 1 (infra), Phase 2 (components + layouts), Phase 3 (all pages) — PRs #37, #38, #39.
 - **RFC**: `docs/plans/2026-03-16-shadcn-ui-migration.md`.

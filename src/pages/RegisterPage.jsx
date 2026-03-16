@@ -2,6 +2,10 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { register } from '@/lib/api'
 import { PHONE_REGEX } from '@/lib/validation'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function RegisterPage() {
   const [phone, setPhone] = useState('')
@@ -51,71 +55,61 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-        <h1 className="text-2xl font-semibold text-slate-900">Student Registration</h1>
-        <p className="text-sm text-slate-600 mt-1">Create your account for teacher approval.</p>
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl">Student Registration</CardTitle>
+          <CardDescription>Create your account for teacher approval.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                type="text"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+84xxxxxxxxx"
+              />
+            </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-6">
-          <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-slate-700 mb-1">
-              Phone
-            </label>
-            <input
-              id="phone"
-              type="text"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              placeholder="+84xxxxxxxxx"
-              className="w-full h-10 px-3 border border-slate-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-slate-800"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
 
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full h-10 px-3 border border-slate-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-slate-800"
-            />
-          </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
 
-          <div>
-            <label htmlFor="confirm-password" className="block text-sm font-medium text-slate-700 mb-1">
-              Confirm Password
-            </label>
-            <input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              className="w-full h-10 px-3 border border-slate-300 rounded-md focus:outline-hidden focus:ring-2 focus:ring-slate-800"
-            />
-          </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {successMessage && <p className="text-sm text-emerald-700 dark:text-emerald-400">{successMessage}</p>}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {successMessage && <p className="text-sm text-emerald-700">{successMessage}</p>}
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? 'Submitting...' : 'Register'}
+            </Button>
+          </form>
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full h-10 rounded-md bg-slate-900 text-white font-medium disabled:opacity-60"
-          >
-            {isSubmitting ? 'Submitting...' : 'Register'}
-          </button>
-        </form>
-
-        <p className="text-sm text-slate-600 mt-5">
-          Already have an account?{' '}
-          <Link to="/" className="text-slate-900 font-medium underline">
-            Back to login
-          </Link>
-        </p>
-      </div>
+          <p className="mt-5 text-sm text-muted-foreground">
+            Already have an account?{' '}
+            <Link to="/" className="font-medium text-foreground underline underline-offset-4">
+              Back to login
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }

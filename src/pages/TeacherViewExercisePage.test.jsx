@@ -270,7 +270,8 @@ describe('TeacherViewExercisePage', () => {
     await screen.findByText('Physics Quiz')
     await user.click(screen.getByRole('button', { name: /delete/i }))
 
-    expect(screen.getByRole('dialog', { name: /delete exercise/i })).toBeInTheDocument()
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText(/delete this exercise/i)).toBeInTheDocument()
     expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument()
   })
 
