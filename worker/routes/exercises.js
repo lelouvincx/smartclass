@@ -196,7 +196,14 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
         VALUES (?, ?, ?, ?, ?)
       `).bind(exerciseId, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
     )
-    await c.env.DB.batch(schemaStmts)
+
+    try {
+      await c.env.DB.batch(schemaStmts)
+    } catch (schemaError) {
+      // Compensating delete: remove orphan exercise row
+      await c.env.DB.prepare('DELETE FROM exercises WHERE id = ?').bind(exerciseId).run()
+      throw schemaError
+    }
 
     const created = await c.env.DB.prepare(
       'SELECT * FROM exercises WHERE id = ?'
@@ -257,6 +264,16 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       nextDuration = 0
     }
 
+    if (schema) {
+      const schemaError = validateSchemaItems(schema)
+      if (schemaError) {
+        return jsonError(c, 400, 'INVALID_SCHEMA', schemaError)
+      }
+    }
+
+    // Build all statements and execute in one atomic batch
+    const batchStmts = []
+
     const updates = []
     const params = []
 
@@ -271,30 +288,31 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
 
     if (updates.length > 0) {
       params.push(id)
-      const result = await c.env.DB.prepare(
-        `UPDATE exercises SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
-      ).bind(...params).run()
-
-      if (result.meta.changes === 0) {
-        return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
-      }
+      batchStmts.push(
+        c.env.DB.prepare(
+          `UPDATE exercises SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`
+        ).bind(...params)
+      )
     }
 
     if (schema) {
-      const schemaError = validateSchemaItems(schema)
-      if (schemaError) {
-        return jsonError(c, 400, 'INVALID_SCHEMA', schemaError)
+      batchStmts.push(c.env.DB.prepare('DELETE FROM answer_schemas WHERE exercise_id = ?').bind(id))
+      for (const item of schema) {
+        batchStmts.push(
+          c.env.DB.prepare(`
+            INSERT INTO answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
+            VALUES (?, ?, ?, ?, ?)
+          `).bind(id, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
+        )
       }
+    }
 
-      // Batch delete old + insert new schema (atomic) — include sub_id
-      const deleteStmt = c.env.DB.prepare('DELETE FROM answer_schemas WHERE exercise_id = ?').bind(id)
-      const insertStmts = schema.map((item) =>
-        c.env.DB.prepare(`
-          INSERT INTO answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(id, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
-      )
-      await c.env.DB.batch([deleteStmt, ...insertStmts])
+    if (batchStmts.length > 0) {
+      const batchResults = await c.env.DB.batch(batchStmts)
+      // If we had a metadata update, check it actually updated a row
+      if (updates.length > 0 && batchResults[0].meta.changes === 0) {
+        return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
+      }
     }
 
     const exercise = await c.env.DB.prepare(

@@ -15,7 +15,7 @@ export default defineWorkersConfig(async () => {
       setupFiles: ['./worker/test/apply-migrations.js'],
       poolOptions: {
         workers: {
-          isolatedStorage: false,
+          isolatedStorage: true,
           wrangler: { configPath: './wrangler.toml' },
           miniflare: {
             bindings: {

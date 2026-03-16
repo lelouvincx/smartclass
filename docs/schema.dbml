@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0005_add_sub_id
+// Last updated: migration 0006_add_cascade_submissions
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -73,7 +73,7 @@ Table answer_schemas {
 
 Table submissions {
   id              integer [pk, increment]
-  exercise_id     integer [not null, ref: > exercises.id]
+  exercise_id     integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
   user_id         integer [ref: > users.id, note: 'NULL for guest submissions']
   mode            text    [not null, note: 'timed | untimed | guest']
   score           real    [note: 'Populated after grading (v0.3+)']
@@ -86,7 +86,7 @@ Table submissions {
 
 Table submission_answers {
   id               integer [pk, increment]
-  submission_id    integer [not null, ref: > submissions.id]
+  submission_id    integer [not null, ref: > submissions.id, note: 'ON DELETE CASCADE']
   q_id             integer [not null]
   sub_id           text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-answers']
   submitted_answer text    [note: 'NULL = skipped; mcq: A/B/C/D  boolean: 0/1  numeric: string']
