@@ -12,9 +12,6 @@ import { requestSchemaFromOpenRouter } from '../lib/openrouter.js'
 
 const exercisesRoutes = new Hono()
 
-const VALID_TYPES = new Set(['mcq', 'boolean', 'numeric'])
-const BOOLEAN_SUB_IDS = new Set(['a', 'b', 'c', 'd'])
-
 function toExerciseWithTiming(exercise) {
   if (!exercise) {
     return exercise
@@ -28,6 +25,7 @@ function toExerciseWithTiming(exercise) {
 
 /**
  * Validate schema items for POST/PUT routes.
+ * Delegates to the shared validateSchemaRows from schema-parser.
  * Returns an error message string if invalid, or null if valid.
  */
 function validateSchemaItems(schema) {
@@ -35,47 +33,18 @@ function validateSchemaItems(schema) {
     return 'Schema must be a non-empty array'
   }
 
-  const booleanSubIds = new Map() // q_id -> Set of sub_ids
+  // Normalize into the shape validateSchemaRows expects
+  const rows = schema.map((item) => ({
+    q_id: Number.isInteger(item.q_id) ? item.q_id : Number.parseInt(String(item.q_id ?? ''), 10),
+    type: item.type ?? '',
+    sub_id: item.sub_id ?? null,
+    correct_answer: item.correct_answer === undefined || item.correct_answer === null
+      ? ''
+      : String(item.correct_answer),
+  }))
 
-  for (const item of schema) {
-    if (!item.q_id || !item.type) {
-      return 'Each schema item must have q_id and type'
-    }
-    if (!VALID_TYPES.has(item.type)) {
-      return `Invalid type: ${item.type}. Must be mcq, boolean, or numeric`
-    }
-    if (item.correct_answer === undefined || item.correct_answer === null || item.correct_answer === '') {
-      return 'Each schema item must have correct_answer'
-    }
-
-    if (item.type === 'boolean') {
-      if (!item.sub_id) {
-        return `Boolean question q_id=${item.q_id} must have sub_id (a, b, c, or d)`
-      }
-      if (!BOOLEAN_SUB_IDS.has(item.sub_id)) {
-        return `Boolean question q_id=${item.q_id} has invalid sub_id "${item.sub_id}". Must be a, b, c, or d`
-      }
-      if (!['0', '1'].includes(item.correct_answer)) {
-        return `Boolean question q_id=${item.q_id} sub_id=${item.sub_id} correct_answer must be 0 or 1`
-      }
-
-      if (!booleanSubIds.has(item.q_id)) {
-        booleanSubIds.set(item.q_id, new Set())
-      }
-      booleanSubIds.get(item.q_id).add(item.sub_id)
-    }
-  }
-
-  // Check each boolean q_id has exactly a,b,c,d
-  for (const [qid, subIds] of booleanSubIds.entries()) {
-    for (const required of ['a', 'b', 'c', 'd']) {
-      if (!subIds.has(required)) {
-        return `Boolean question q_id=${qid} is missing sub_id "${required}". Must have all of a, b, c, d`
-      }
-    }
-  }
-
-  return null
+  const errors = validateSchemaRows(rows)
+  return errors.length > 0 ? errors[0] : null
 }
 
 exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async (c) => {

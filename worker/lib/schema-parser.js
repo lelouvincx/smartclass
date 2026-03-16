@@ -90,6 +90,7 @@ export function normalizeSchemaRows(rows) {
 export function validateSchemaRows(rows) {
   const errors = []
   const seenKeys = new Set() // tracks "q_id" for mcq/numeric, "q_id:sub_id" for boolean
+  const qidTypes = new Map() // q_id -> type (enforces one type per q_id)
   const booleanSubIds = new Map() // q_id -> Set of sub_ids seen
 
   rows.forEach((row, index) => {
@@ -104,6 +105,14 @@ export function validateSchemaRows(rows) {
       errors.push(`${rowLabel}: unsupported type ${row.type}`)
       return
     }
+
+    // Enforce one type per q_id (prevents mixing boolean + mcq for same q_id)
+    const existingType = qidTypes.get(row.q_id)
+    if (existingType && existingType !== row.type) {
+      errors.push(`${rowLabel}: q_id ${row.q_id} already used as ${existingType}, cannot reuse as ${row.type}`)
+      return
+    }
+    qidTypes.set(row.q_id, row.type)
 
     if (row.correct_answer === '') {
       errors.push(`${rowLabel}: correct_answer is required`)
