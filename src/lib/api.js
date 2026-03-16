@@ -143,6 +143,12 @@ export function getSubmission(token, submissionId) {
   })
 }
 
+// Returns a URL to serve a file from R2 via the file serve endpoint.
+export function getFileUrl(fileId) {
+  const base = import.meta.env.VITE_API_BASE_URL || ''
+  return `${base}/api/files/${fileId}`
+}
+
 export function listMySubmissions(token, { exerciseId, limit, offset } = {}) {
   const params = new URLSearchParams()
   if (exerciseId) params.set('exercise_id', exerciseId)

@@ -28,7 +28,12 @@ jobs:
             });
 
             const commitLines = commits
-              .map(c => `* ${c.commit.message.split('\n')[0]} (${c.sha.slice(0, 7)})`)
+              .map(c => {
+                const lines = c.commit.message.trimEnd().split('\n');
+                const title = `* ${lines[0]} (${c.sha.slice(0, 7)})`;
+                const body = lines.slice(1).join('\n').trimEnd();
+                return body ? `${title}\n${body.split('\n').map(l => `  ${l}`).join('\n')}` : title;
+              })
               .join('\n');
 
             const commitMessage = [
