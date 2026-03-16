@@ -16,6 +16,7 @@ import StudentTakeExercisePage from './pages/StudentTakeExercisePage'
 import TeacherCreateExercisePage from './pages/TeacherCreateExercisePage'
 import TeacherDashboardPage from './pages/TeacherDashboardPage'
 import TeacherExercisesPage from './pages/TeacherExercisesPage'
+import TeacherViewExercisePage from './pages/TeacherViewExercisePage'
 
 function PublicOnlyRoute({ children }) {
   const { isLoading, user } = useAuth()
@@ -90,6 +91,14 @@ export function AppRoutes() {
         element={
           <ProtectedRoleRoute>
             <TeacherCreateExercisePage />
+          </ProtectedRoleRoute>
+        }
+      />
+      <Route
+        path="/teacher/exercises/:id"
+        element={
+          <ProtectedRoleRoute>
+            <TeacherViewExercisePage />
           </ProtectedRoleRoute>
         }
       />

@@ -22,3 +22,7 @@
 ### Backend
 
 - [ ] Remove redundant google ai studio code because we are using openrouter well.
+
+## From v0.2 — Teacher View/Edit Exercise (PR #30)
+
+- [ ] **File upload in edit mode is deferred** — `TeacherViewExercisePage` edit mode only allows changing title, timing, and schema. Re-uploading or replacing exercise/solution PDFs is not yet possible from the edit page. Planned for a future iteration alongside a proper file management UI (list, delete, replace individual files).
