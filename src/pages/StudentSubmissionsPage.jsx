@@ -4,7 +4,7 @@ import { listMySubmissions } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Table,
   TableBody,
@@ -44,11 +44,6 @@ function ScoreBadge({ score }) {
   if (score === null || score === undefined) {
     return <span className="text-sm text-muted-foreground">—</span>
   }
-
-  const variant =
-    score >= 7 ? 'default' :
-    score >= 4 ? 'secondary' :
-    'destructive'
 
   const colorClass =
     score >= 7 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
