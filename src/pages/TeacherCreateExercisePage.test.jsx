@@ -55,7 +55,7 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    await user.type(screen.getByLabelText('Exercise title'), 'Quiz 1')
+    await user.type(screen.getByLabelText(/exercise title/i), 'Quiz 1')
     await user.type(screen.getByLabelText(/answer-/), 'B')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
@@ -93,9 +93,9 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    await user.type(screen.getByLabelText('Exercise title'), 'Untimed Quiz')
+    await user.type(screen.getByLabelText(/exercise title/i), 'Untimed Quiz')
     await user.click(screen.getByLabelText('Timed mode toggle'))
-    expect(screen.getByLabelText('Duration (minutes)')).toBeDisabled()
+    expect(screen.getByLabelText(/duration \(minutes\)/i)).toBeDisabled()
     await user.type(screen.getByLabelText(/answer-/), 'C')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
@@ -122,8 +122,8 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    await user.type(screen.getByLabelText('Exercise title'), 'Timed Quiz')
-    await user.clear(screen.getByLabelText('Duration (minutes)'))
+    await user.type(screen.getByLabelText(/exercise title/i), 'Timed Quiz')
+    await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
     await user.type(screen.getByLabelText(/answer-/), 'A')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
@@ -145,7 +145,7 @@ describe('TeacherCreateExercisePage', () => {
 
     const answerPdf = new File(['fake-pdf'], 'answer.pdf', { type: 'application/pdf' })
 
-    await user.type(screen.getByLabelText('Exercise title'), 'Fallback Quiz')
+    await user.type(screen.getByLabelText(/exercise title/i), 'Fallback Quiz')
     await user.upload(screen.getByLabelText('Answer PDF (recommended)'), answerPdf)
     await user.click(screen.getByRole('button', { name: /Generate Schema/ }))
 
@@ -191,7 +191,7 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    await user.type(screen.getByLabelText('Exercise title'), 'Bool Quiz')
+    await user.type(screen.getByLabelText(/exercise title/i), 'Bool Quiz')
 
     // Change to boolean type (initial q_id = '1')
     const typeSelect = screen.getByLabelText(/type-/)
@@ -227,7 +227,7 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    await user.type(screen.getByLabelText('Exercise title'), 'Bool Quiz')
+    await user.type(screen.getByLabelText(/exercise title/i), 'Bool Quiz')
 
     const typeSelect = screen.getByLabelText(/type-/)
     await user.selectOptions(typeSelect, 'boolean')
