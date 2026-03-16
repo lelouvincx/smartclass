@@ -134,7 +134,6 @@ function McqNumericResultRow({ question, answer }) {
   return (
     <tr className="border-t border-slate-200">
       <td className="px-4 py-3 text-sm text-slate-700">Q{question.q_id}</td>
-      <td className="px-4 py-3 text-xs text-slate-500">{question.type}</td>
       <td className="px-4 py-3 text-sm font-medium text-slate-900">{display}</td>
     </tr>
   )
@@ -150,7 +149,6 @@ function BooleanResultGroup({ group, submittedAnswers }) {
         return (
           <tr key={sub_id} className="border-t border-slate-200">
             <td className="px-4 py-3 text-sm text-slate-700">Q{group.q_id}{sub_id}</td>
-            <td className="px-4 py-3 text-xs text-slate-500">boolean</td>
             <td className="px-4 py-3 text-sm font-medium text-slate-900">{display}</td>
           </tr>
         )
@@ -490,7 +488,6 @@ export default function StudentTakeExercisePage() {
               <thead className="bg-slate-50 text-left text-slate-600">
                 <tr>
                   <th className="px-4 py-2">Question</th>
-                  <th className="px-4 py-2">Type</th>
                   <th className="px-4 py-2">Your Answer</th>
                 </tr>
               </thead>
@@ -533,7 +530,6 @@ export default function StudentTakeExercisePage() {
               >
                 <p className="mb-3 text-sm font-semibold text-slate-900">
                   {idx + 1}. Question {group.q_id}
-                  <span className="ml-2 text-xs font-normal text-slate-500">({group.type})</span>
                 </p>
                 {renderQuestionInput(group)}
               </div>
