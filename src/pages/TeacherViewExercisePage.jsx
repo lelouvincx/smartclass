@@ -202,6 +202,7 @@ export default function TeacherViewExercisePage() {
 
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -489,7 +490,13 @@ export default function TeacherViewExercisePage() {
       </Card>
 
       {/* Delete confirmation dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <Dialog
+        open={showDeleteConfirm}
+        onOpenChange={(open) => {
+          setShowDeleteConfirm(open)
+          if (!open) setDeleteConfirmText('')
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete this exercise?</DialogTitle>
@@ -497,11 +504,32 @@ export default function TeacherViewExercisePage() {
               This action cannot be undone. All submissions and schema data will be permanently deleted.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-1.5 py-2">
+            <Label htmlFor="delete-confirm">
+              Type <span className="font-mono font-semibold text-destructive">DELETE</span> to confirm
+            </Label>
+            <Input
+              id="delete-confirm"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              disabled={isDeleting}
+              autoComplete="off"
+            />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={isDeleting}>
+            <Button
+              variant="outline"
+              onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText('') }}
+              disabled={isDeleting}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete} disabled={isDeleting}>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting || deleteConfirmText !== 'DELETE'}
+            >
               {isDeleting ? 'Deleting...' : 'Yes, delete'}
             </Button>
           </DialogFooter>
