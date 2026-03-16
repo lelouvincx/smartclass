@@ -10,6 +10,20 @@ const DURATION_TO_SECONDS = {
   d: 86400,
 }
 
+/**
+ * Normalises a Vietnamese phone number to the +84 international format.
+ * Accepts either the +84 prefix or the local 0 prefix.
+ * Non-string values and numbers that don't match either prefix are returned as-is.
+ */
+export function normalizePhone(phone) {
+  if (typeof phone !== 'string') return phone
+  const trimmed = phone.trim()
+  if (trimmed.startsWith('0')) {
+    return '+84' + trimmed.slice(1)
+  }
+  return trimmed
+}
+
 export function isValidVietnamPhone(phone) {
   return PHONE_REGEX.test(phone)
 }

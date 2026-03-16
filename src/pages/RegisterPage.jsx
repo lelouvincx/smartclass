@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { register } from '@/lib/api'
-import { PHONE_REGEX } from '@/lib/validation'
+import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,8 +25,10 @@ export default function RegisterPage() {
       return
     }
 
-    if (!PHONE_REGEX.test(phone)) {
-      setError('Phone must match +84xxxxxxxxx format.')
+    const normalizedPhone = normalizePhone(phone)
+
+    if (!PHONE_REGEX.test(normalizedPhone)) {
+      setError('Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')
       return
     }
 
@@ -43,7 +45,7 @@ export default function RegisterPage() {
     setIsSubmitting(true)
 
     try {
-      await register({ phone, password })
+      await register({ phone: normalizedPhone, password })
       setSuccessMessage('Registration submitted. Please wait for teacher approval.')
       setPassword('')
       setConfirmPassword('')
@@ -70,7 +72,7 @@ export default function RegisterPage() {
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+84xxxxxxxxx"
+                placeholder="0xxxxxxxxx or +84xxxxxxxxx"
               />
             </div>
 

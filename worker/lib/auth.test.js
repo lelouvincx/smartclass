@@ -1,12 +1,34 @@
 import { describe, it, expect } from 'vitest'
 import {
   isValidVietnamPhone,
+  normalizePhone,
   parseJwtDuration,
   hashPassword,
   verifyPassword,
   issueAccessToken,
   verifyAccessToken,
 } from './auth.js'
+
+describe('normalizePhone', () => {
+  it('converts 0-prefix to +84', () => {
+    expect(normalizePhone('0865481769')).toBe('+84865481769')
+    expect(normalizePhone('0123456789')).toBe('+84123456789')
+  })
+
+  it('leaves +84-prefix unchanged', () => {
+    expect(normalizePhone('+84865481769')).toBe('+84865481769')
+  })
+
+  it('trims whitespace', () => {
+    expect(normalizePhone('  0865481769  ')).toBe('+84865481769')
+    expect(normalizePhone('  +84865481769  ')).toBe('+84865481769')
+  })
+
+  it('returns non-string values as-is', () => {
+    expect(normalizePhone(null)).toBe(null)
+    expect(normalizePhone(undefined)).toBe(undefined)
+  })
+})
 
 describe('isValidVietnamPhone', () => {
   it('accepts valid +84 phone numbers', () => {
@@ -16,7 +38,7 @@ describe('isValidVietnamPhone', () => {
 
   it('rejects invalid phone numbers', () => {
     expect(isValidVietnamPhone('')).toBe(false)
-    expect(isValidVietnamPhone('0865481769')).toBe(false)
+    expect(isValidVietnamPhone('0865481769')).toBe(false) // must be normalised first
     expect(isValidVietnamPhone('+8412345')).toBe(false)
     expect(isValidVietnamPhone('+85865481769')).toBe(false)
     expect(isValidVietnamPhone('abc')).toBe(false)

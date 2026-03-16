@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { hashPassword, isValidVietnamPhone, issueAccessToken, verifyPassword } from '../lib/auth.js'
+import { hashPassword, isValidVietnamPhone, issueAccessToken, normalizePhone, verifyPassword } from '../lib/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { requireAuth } from '../middleware/auth.js'
 
@@ -7,7 +7,7 @@ const authRoutes = new Hono()
 
 authRoutes.post('/register', async (c) => {
   const body = await c.req.json().catch(() => null)
-  const phone = body?.phone?.trim()
+  const phone = normalizePhone(body?.phone)
   const password = body?.password
 
   if (!phone || !password) {
@@ -15,7 +15,7 @@ authRoutes.post('/register', async (c) => {
   }
 
   if (!isValidVietnamPhone(phone)) {
-    return jsonError(c, 400, 'INVALID_PHONE', 'Phone must match +84xxxxxxxxx format.')
+    return jsonError(c, 400, 'INVALID_PHONE', 'Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')
   }
 
   if (String(password).length < 3) {
@@ -56,7 +56,7 @@ authRoutes.post('/login', async (c) => {
   }
 
   const body = await c.req.json().catch(() => null)
-  const phone = body?.phone?.trim()
+  const phone = normalizePhone(body?.phone)
   const password = body?.password
 
   if (!phone || !password) {
