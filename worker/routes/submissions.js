@@ -231,15 +231,22 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
   }
 })
 
-// Get submission with answers
+// Get submission with enriched answers (includes type, correct_answer when submitted)
 submissionsRoutes.get('/:id', requireAuth, async (c) => {
   try {
     const submissionId = c.req.param('id')
     const authUser = c.get('authUser')
 
-    const submission = await c.env.DB.prepare(
-      'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at, score FROM submissions WHERE id = ?'
-    ).bind(submissionId).first()
+    // Fetch submission + exercise title in one query
+    const submission = await c.env.DB.prepare(`
+      SELECT
+        s.id, s.exercise_id, s.user_id, s.mode, s.total_questions,
+        s.started_at, s.submitted_at, s.score,
+        e.title AS exercise_title
+      FROM submissions s
+      JOIN exercises e ON e.id = s.exercise_id
+      WHERE s.id = ?
+    `).bind(submissionId).first()
 
     if (!submission) {
       return jsonError(c, 404, 'NOT_FOUND', 'Submission not found')
@@ -249,13 +256,48 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this submission')
     }
 
-    const answers = await c.env.DB.prepare(
-      'SELECT id, q_id, sub_id, submitted_answer, is_correct FROM submission_answers WHERE submission_id = ? ORDER BY q_id ASC, sub_id ASC'
-    ).bind(submissionId).all()
+    const isSubmitted = submission.submitted_at !== null
+
+    // Schema-first left join: guarantees every schema question appears in the response
+    // even if submission_answers is missing rows (legacy data, partial payloads, skipped Qs)
+    const answersResult = await c.env.DB.prepare(`
+      SELECT
+        a.q_id,
+        a.sub_id,
+        a.type,
+        a.correct_answer,
+        sa.submitted_answer,
+        COALESCE(sa.is_correct, 0) AS is_correct
+      FROM answer_schemas a
+      LEFT JOIN submission_answers sa
+        ON sa.submission_id = ?
+        AND sa.q_id = a.q_id
+        AND COALESCE(sa.sub_id, '') = COALESCE(a.sub_id, '')
+      WHERE a.exercise_id = ?
+      ORDER BY a.q_id ASC, a.sub_id ASC
+    `).bind(submissionId, submission.exercise_id).all()
+
+    // Strip correct_answer for in-progress (unsubmitted) submissions
+    const answers = answersResult.results.map((row) => {
+      if (!isSubmitted) {
+        const { correct_answer: _stripped, ...rest } = row
+        return rest
+      }
+      return row
+    })
+
+    // Fetch exercise files (exercise_pdf and others for teachers)
+    const filesResult = await c.env.DB.prepare(
+      'SELECT id, file_type, file_name FROM exercise_files WHERE exercise_id = ? ORDER BY uploaded_at DESC'
+    ).bind(submission.exercise_id).all()
+
+    // Remove internal fields before returning
+    const { user_id: _uid, ...submissionData } = submission
 
     return jsonSuccess(c, {
-      ...submission,
-      answers: answers.results,
+      ...submissionData,
+      files: filesResult.results,
+      answers,
     })
   } catch (error) {
     console.error('Get submission error:', error)

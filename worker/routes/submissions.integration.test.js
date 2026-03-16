@@ -541,6 +541,162 @@ describe('GET /api/submissions/:id', () => {
 
     expect(res.status).toBe(403)
   })
+
+  it('includes exercise_title and exercise_pdf files in response', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken, { title: 'My Test Exercise' })
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    // Insert a mock exercise_files record
+    await env.DB.prepare(`
+      INSERT INTO exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+      VALUES (?, 'exercise_pdf', 'exercises/1/test.pdf', 'test.pdf', 1024)
+    `).bind(exerciseId).run()
+
+    await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({
+        answers: [
+          { q_id: 1, submitted_answer: 'B' },
+          { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+          { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'd', submitted_answer: '1' },
+        ],
+      }),
+    }, env)
+
+    const res = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(body.data.exercise_title).toBe('My Test Exercise')
+    expect(body.data.files).toBeInstanceOf(Array)
+    expect(body.data.files[0]).toMatchObject({
+      id: expect.any(Number),
+      file_type: 'exercise_pdf',
+      file_name: 'test.pdf',
+    })
+  })
+
+  it('includes type and correct_answer per answer for submitted submissions', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({
+        answers: [
+          { q_id: 1, submitted_answer: 'A' }, // wrong (correct is B)
+          { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+          { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'd', submitted_answer: '1' },
+        ],
+      }),
+    }, env)
+
+    const res = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    // MCQ answer should have type and correct_answer
+    const mcqAns = body.data.answers.find((a) => a.q_id === 1 && !a.sub_id)
+    expect(mcqAns.type).toBe('mcq')
+    expect(mcqAns.correct_answer).toBe('B')
+    expect(mcqAns.submitted_answer).toBe('A')
+    expect(mcqAns.is_correct).toBe(0)
+
+    // Boolean sub-answer should have type and correct_answer
+    const boolA = body.data.answers.find((a) => a.q_id === 2 && a.sub_id === 'a')
+    expect(boolA.type).toBe('boolean')
+    expect(boolA.correct_answer).toBe('1')
+    expect(boolA.is_correct).toBe(1)
+  })
+
+  it('includes skipped questions (schema-first: questions without answers appear as null)', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    // Only submit q_id=1; skip q_id=2 (boolean) entirely
+    await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({
+        answers: [
+          { q_id: 1, submitted_answer: 'B' },
+          { q_id: 2, sub_id: 'a', submitted_answer: null },
+          { q_id: 2, sub_id: 'b', submitted_answer: null },
+          { q_id: 2, sub_id: 'c', submitted_answer: null },
+          { q_id: 2, sub_id: 'd', submitted_answer: null },
+        ],
+      }),
+    }, env)
+
+    // Now delete q_id=2 rows to simulate legacy missing data
+    await env.DB.prepare(
+      'DELETE FROM submission_answers WHERE submission_id = ? AND q_id = 2'
+    ).bind(submissionId).run()
+
+    const res = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    // All 5 schema rows should appear (1 mcq + 4 boolean sub-rows)
+    expect(body.data.answers).toHaveLength(5)
+
+    // Deleted boolean rows should show submitted_answer=null, is_correct=0
+    const boolRows = body.data.answers.filter((a) => a.q_id === 2)
+    expect(boolRows).toHaveLength(4)
+    boolRows.forEach((row) => {
+      expect(row.submitted_answer).toBeNull()
+      expect(row.is_correct).toBe(0)
+      expect(row.correct_answer).toBeDefined() // still shows the answer key
+    })
+  })
+
+  it('excludes correct_answer for unsubmitted (in-progress) submissions', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    // Do NOT submit — fetch the in-progress submission
+    const res = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    // For an unsubmitted attempt, answers array comes from schema-first join
+    // but correct_answer must be stripped
+    body.data.answers.forEach((ans) => {
+      expect(ans.correct_answer).toBeUndefined()
+    })
+  })
 })
 
 // Default schema: q_id=1 mcq correct_answer='B', q_id=2 boolean a='1' b='0' c='0' d='1'
