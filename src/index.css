@@ -1,10 +1,8 @@
 @import 'tailwindcss';
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/geist";
-/*
-  ---break---
-*/
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/geist';
+
 @custom-variant dark (&:is(.dark *));
 
 /*
@@ -28,21 +26,14 @@
   }
   body {
     @apply bg-background text-foreground;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
   }
 }
-
-body {
-  margin: 0;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/*
-  ---break---
-*/
 
 :root {
   --background: oklch(1 0 0);
@@ -79,10 +70,6 @@ body {
   --sidebar-ring: oklch(0.708 0 0);
 }
 
-/*
-  ---break---
-*/
-
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -116,10 +103,6 @@ body {
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
-
-/*
-  ---break---
-*/
 
 @theme inline {
   --font-sans: 'Geist Variable', sans-serif;
