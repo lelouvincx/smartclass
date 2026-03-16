@@ -37,7 +37,7 @@ Status: done.
 - [x] v0.2.2 Submission API: create, submit answers, retrieve ([#16](https://github.com/lelouvincx/smartclass/pull/16))
 - [x] v0.2.3 Test version 0.2.1 with scanning PDF exercises and answer schema validation (manual form input for now) ([#20](https://github.com/lelouvincx/smartclass/pull/20), [#21](https://github.com/lelouvincx/smartclass/pull/21), [#22](https://github.com/lelouvincx/smartclass/pull/22), [#23](https://github.com/lelouvincx/smartclass/pull/23), [#24](https://github.com/lelouvincx/smartclass/pull/24))
 - [x] Update answer schema of boolean questions to include 4 sub-questions (a,b,c,d) with independent correct answers (`sub_id` column, `correct_answer` = `'0'`/`'1'`) ([#28](https://github.com/lelouvincx/smartclass/pull/28))
-- [x] CI: data schema auto updating on dbdocs
+- [x] CI: data schema auto updating on dbdocs ([#29](https://github.com/lelouvincx/smartclass/pull/29))
 - [ ] Teacher: view exercise's answers
 - [ ] Auto-grading: fill in is_correct and score after submission
 
