@@ -9,14 +9,12 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
   const body = await c.req.json().catch(() => null)
   const { exercise_id } = body || {}
 
-  // Validation
   if (!exercise_id) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'exercise_id is required')
   }
 
   const authUser = c.get('authUser')
 
-  // Get exercise and verify it exists
   const exercise = await c.env.DB.prepare(
     'SELECT id, duration_minutes FROM exercises WHERE id = ?'
   ).bind(exercise_id).first()
@@ -25,17 +23,15 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
     return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
   }
 
-  // Get question count from answer_schemas
+  // Count distinct q_ids as total_questions (boolean has 4 sub-rows per q_id)
   const schemaCount = await c.env.DB.prepare(
-    'SELECT COUNT(*) as count FROM answer_schemas WHERE exercise_id = ?'
+    'SELECT COUNT(DISTINCT q_id) as count FROM answer_schemas WHERE exercise_id = ?'
   ).bind(exercise_id).first()
 
   const totalQuestions = schemaCount.count
 
-  // Determine mode based on duration
   const mode = exercise.duration_minutes > 0 ? 'timed' : 'untimed'
 
-  // Insert submission
   const result = await c.env.DB.prepare(`
     INSERT INTO submissions (exercise_id, user_id, mode, total_questions, started_at)
     VALUES (?, ?, ?, ?, datetime('now'))
@@ -43,7 +39,6 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
 
   const submissionId = result.meta.last_row_id
 
-  // Get the created submission
   const submission = await c.env.DB.prepare(
     'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at FROM submissions WHERE id = ?'
   ).bind(submissionId).first()
@@ -61,14 +56,12 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     const body = await c.req.json().catch(() => null)
     const { answers } = body || {}
 
-    // Validation
     if (!Array.isArray(answers)) {
       return jsonError(c, 400, 'VALIDATION_ERROR', 'answers must be an array')
     }
 
     const authUser = c.get('authUser')
 
-    // Get submission and verify ownership
     const submission = await c.env.DB.prepare(
       'SELECT id, user_id, submitted_at, total_questions FROM submissions WHERE id = ?'
     ).bind(submissionId).first()
@@ -87,49 +80,53 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
 
     // Validate answer entries
     const totalQuestions = submission.total_questions
-    const seenQIds = new Set()
+    // Track uniqueness by (q_id, sub_id) composite key
+    // For non-boolean answers: key = "q_id:" (no sub_id)
+    // For boolean sub-answers: key = "q_id:sub_id"
+    const seenKeys = new Set()
+
     for (const entry of answers) {
       const qId = entry.q_id
       if (!Number.isInteger(qId) || qId < 1 || qId > totalQuestions) {
         return jsonError(c, 400, 'VALIDATION_ERROR', `Invalid q_id: ${qId}. Must be an integer between 1 and ${totalQuestions}`)
       }
-      if (seenQIds.has(qId)) {
-        return jsonError(c, 400, 'VALIDATION_ERROR', `Duplicate q_id: ${qId}`)
+
+      const subId = entry.sub_id ?? null
+      const key = subId !== null ? `${qId}:${subId}` : `${qId}:`
+      if (seenKeys.has(key)) {
+        return jsonError(c, 400, 'VALIDATION_ERROR', `Duplicate answer entry for q_id=${qId}${subId ? ` sub_id=${subId}` : ''}`)
       }
-      seenQIds.add(qId)
+      seenKeys.add(key)
     }
 
-    // Insert submission answers using D1 batch
-    const insertStatements = answers.map(({ q_id, submitted_answer }) => {
+    // Insert submission answers — include sub_id
+    const insertStatements = answers.map(({ q_id, sub_id, submitted_answer }) => {
       return c.env.DB.prepare(`
-        INSERT INTO submission_answers (submission_id, q_id, submitted_answer)
-        VALUES (?, ?, ?)
-      `).bind(submissionId, q_id, submitted_answer)
+        INSERT INTO submission_answers (submission_id, q_id, sub_id, submitted_answer)
+        VALUES (?, ?, ?, ?)
+      `).bind(submissionId, q_id, sub_id ?? null, submitted_answer)
     })
 
-    // Add update submission statement to batch (atomic guard against double-submit)
+    // Atomic guard against double-submit
     const updateStatement = c.env.DB.prepare(`
       UPDATE submissions
       SET submitted_at = datetime('now')
       WHERE id = ? AND submitted_at IS NULL
     `).bind(submissionId)
 
-    // Execute all statements in a single batch
     const batchResults = await c.env.DB.batch([...insertStatements, updateStatement])
 
-    // Check if the UPDATE actually modified a row (last statement in batch)
     const updateResult = batchResults[batchResults.length - 1]
     if (updateResult.meta.changes === 0) {
       return jsonError(c, 400, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
     }
 
-    // Get updated submission with answers
     const updatedSubmission = await c.env.DB.prepare(
       'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at FROM submissions WHERE id = ?'
     ).bind(submissionId).first()
 
     const submittedAnswers = await c.env.DB.prepare(
-      'SELECT id, q_id, submitted_answer, is_correct FROM submission_answers WHERE submission_id = ? ORDER BY q_id ASC'
+      'SELECT id, q_id, sub_id, submitted_answer, is_correct FROM submission_answers WHERE submission_id = ? ORDER BY q_id ASC, sub_id ASC'
     ).bind(submissionId).all()
 
     return jsonSuccess(c, {
@@ -148,7 +145,6 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
     const submissionId = c.req.param('id')
     const authUser = c.get('authUser')
 
-    // Get submission
     const submission = await c.env.DB.prepare(
       'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at, score FROM submissions WHERE id = ?'
     ).bind(submissionId).first()
@@ -161,9 +157,8 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this submission')
     }
 
-    // Get answers
     const answers = await c.env.DB.prepare(
-      'SELECT id, q_id, submitted_answer, is_correct FROM submission_answers WHERE submission_id = ? ORDER BY q_id ASC'
+      'SELECT id, q_id, sub_id, submitted_answer, is_correct FROM submission_answers WHERE submission_id = ? ORDER BY q_id ASC, sub_id ASC'
     ).bind(submissionId).all()
 
     return jsonSuccess(c, {

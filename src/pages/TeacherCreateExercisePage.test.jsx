@@ -45,7 +45,7 @@ describe('TeacherCreateExercisePage', () => {
     logoutMock.mockReset()
   })
 
-  it('allows manual schema save without answer pdf', async () => {
+  it('allows manual MCQ schema save without answer pdf', async () => {
     const user = userEvent.setup()
     createExerciseMock.mockResolvedValue({ data: { id: 101 } })
 
@@ -155,5 +155,87 @@ describe('TeacherCreateExercisePage', () => {
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('adding a boolean row creates 4 sub-question toggles (a,b,c,d)', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter>
+        <TeacherCreateExercisePage />
+      </MemoryRouter>,
+    )
+
+    // Change the initial row type to boolean (initial q_id = '1')
+    const typeSelect = screen.getByLabelText(/type-/)
+    await user.selectOptions(typeSelect, 'boolean')
+
+    // Should now show 4 sub-question toggles labeled a,b,c,d for q_id=1
+    expect(screen.getByLabelText(/sub-q 1 a true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/sub-q 1 a false/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/sub-q 1 b true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/sub-q 1 b false/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/sub-q 1 c true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/sub-q 1 c false/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/sub-q 1 d true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/sub-q 1 d false/i)).toBeInTheDocument()
+  })
+
+  it('saves boolean question with sub-questions in schema payload', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 404 } })
+
+    render(
+      <MemoryRouter>
+        <TeacherCreateExercisePage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText('Exercise title'), 'Bool Quiz')
+
+    // Change to boolean type (initial q_id = '1')
+    const typeSelect = screen.getByLabelText(/type-/)
+    await user.selectOptions(typeSelect, 'boolean')
+
+    // Select answers: a=1, b=0, c=1, d=0
+    await user.click(screen.getByLabelText(/sub-q 1 a true/i))
+    await user.click(screen.getByLabelText(/sub-q 1 b false/i))
+    await user.click(screen.getByLabelText(/sub-q 1 c true/i))
+    await user.click(screen.getByLabelText(/sub-q 1 d false/i))
+
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(createExerciseMock).toHaveBeenCalledWith('test-token', {
+      title: 'Bool Quiz',
+      is_timed: true,
+      duration_minutes: 60,
+      schema: [
+        { q_id: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
+        { q_id: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
+        { q_id: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
+        { q_id: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
+      ],
+    })
+  })
+
+  it('blocks save when boolean sub-questions have no answer selected', async () => {
+    const user = userEvent.setup()
+
+    render(
+      <MemoryRouter>
+        <TeacherCreateExercisePage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText('Exercise title'), 'Bool Quiz')
+
+    const typeSelect = screen.getByLabelText(/type-/)
+    await user.selectOptions(typeSelect, 'boolean')
+
+    // Don't select any sub-question answers (q_id=1)
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(screen.getByText(/please fix all schema errors/i)).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
   })
 })

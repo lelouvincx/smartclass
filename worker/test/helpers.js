@@ -71,7 +71,10 @@ export async function createExercise(token, overrides = {}) {
     duration_minutes: 60,
     schema: [
       { q_id: 1, type: 'mcq', correct_answer: 'B' },
-      { q_id: 2, type: 'boolean', correct_answer: 'true' },
+      { q_id: 2, type: 'boolean', sub_id: 'a', correct_answer: '1' },
+      { q_id: 2, type: 'boolean', sub_id: 'b', correct_answer: '0' },
+      { q_id: 2, type: 'boolean', sub_id: 'c', correct_answer: '0' },
+      { q_id: 2, type: 'boolean', sub_id: 'd', correct_answer: '1' },
     ],
     ...overrides,
   }

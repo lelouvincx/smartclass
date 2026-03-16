@@ -36,8 +36,9 @@ Status: done.
 - [x] Student: take exercises (manual form input) ([#17](https://github.com/lelouvincx/smartclass/pull/17))
 - [x] v0.2.2 Submission API: create, submit answers, retrieve ([#16](https://github.com/lelouvincx/smartclass/pull/16))
 - [x] v0.2.3 Test version 0.2.1 with scanning PDF exercises and answer schema validation (manual form input for now) ([#20](https://github.com/lelouvincx/smartclass/pull/20), [#21](https://github.com/lelouvincx/smartclass/pull/21), [#22](https://github.com/lelouvincx/smartclass/pull/22), [#23](https://github.com/lelouvincx/smartclass/pull/23), [#24](https://github.com/lelouvincx/smartclass/pull/24))
-- [ ] Update answer schema of boolean questions to include more sub-questions (one boolean question can have 4 sub-questions, each with its own correct answer, score, and explanation) => go with format "0101"
-- [ ] Student/Teacher: view exercises
+- [x] Update answer schema of boolean questions to include 4 sub-questions (a,b,c,d) with independent correct answers (`sub_id` column, `correct_answer` = `'0'`/`'1'`)
+- [ ] CI: data schema auto updating on dbdocs
+- [ ] Teacher: view exercise's answers
 - [ ] Auto-grading: fill in is_correct and score after submission
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
@@ -78,14 +79,13 @@ Status: done.
 
 - [ ] Each answer includes an explanation field (image/markdown with math notation supported) created when uploading exercises
 - [ ] Teacher: create accounts for students
-- [ ] Teacher approves pending accounts
+- [ ] Teacher: approves pending accounts
 - [ ] Auth: forget password
 - [ ] Auth: change password (teacher and student, teacher can reset student passwords)
 - [ ] LLM prompt for extraction
 - [ ] Additional user fields: name, class/grade, other social media links, profile image, email
 - [ ] Teacher: view student list with stats (exercises taken, average score, last active)
 - [ ] Teacher: view individual student profiles with submission history and performance trends
-- [ ] Phone prefix: accept '0' prefix for local convenience but store as '+84' in database
 - [ ] Auth: connect with google acconts for easier login and account recovery
 - [ ] Idea: students can submit an offline exercise by scanning a QR code on the exercise sheet, which opens a submission form pre-filled with the exercise ID and student info (if logged in) — this allows for easy offline-to-online transition without manual input of exercise details.
   - [ ] Generate QR code for each exercise

@@ -13,8 +13,11 @@ beforeAll(async () => {
   studentToken = await loginAsStudent()
 })
 
+// Default helper schema: q_id=1 (mcq) + q_id=2 (boolean 4 sub-rows) = 2 distinct questions.
+// total_questions should be 2 (count distinct q_ids).
+
 describe('POST /api/submissions', () => {
-  it('creates submission for timed exercise', async () => {
+  it('creates submission for timed exercise with correct total_questions', async () => {
     const { id: exerciseId } = await createExercise(teacherToken, {
       is_timed: true,
       duration_minutes: 60,
@@ -35,7 +38,7 @@ describe('POST /api/submissions', () => {
     expect(body.data).toMatchObject({
       exercise_id: exerciseId,
       mode: 'timed',
-      total_questions: 2,
+      total_questions: 2, // 2 distinct q_ids, not 5 rows
     })
     expect(body.data.id).toBeDefined()
     expect(body.data.started_at).toBeDefined()
@@ -106,8 +109,7 @@ describe('POST /api/submissions', () => {
 })
 
 describe('PUT /api/submissions/:id/submit', () => {
-  it('submits answers and updates submission', async () => {
-    // Create exercise and submission
+  it('submits mcq and boolean sub-question answers', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
@@ -120,10 +122,13 @@ describe('PUT /api/submissions/:id/submit', () => {
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
 
-    // Submit answers
+    // Submit mcq answer + 4 boolean sub-answers
     const answers = [
       { q_id: 1, submitted_answer: 'A' },
-      { q_id: 2, submitted_answer: 'true' },
+      { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+      { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'd', submitted_answer: '1' },
     ]
 
     const res = await app.request(`/api/submissions/${submissionId}/submit`, {
@@ -139,15 +144,14 @@ describe('PUT /api/submissions/:id/submit', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.submitted_at).toBeDefined()
-    expect(body.data.answers).toHaveLength(2)
-    expect(body.data.answers[0]).toMatchObject({
-      q_id: 1,
-      submitted_answer: 'A',
-    })
-    expect(body.data.answers[1]).toMatchObject({
-      q_id: 2,
-      submitted_answer: 'true',
-    })
+    expect(body.data.answers).toHaveLength(5)
+
+    const mcqAns = body.data.answers.find((a) => a.q_id === 1)
+    expect(mcqAns).toMatchObject({ q_id: 1, sub_id: null, submitted_answer: 'A' })
+
+    const boolAns = body.data.answers.filter((a) => a.q_id === 2)
+    expect(boolAns).toHaveLength(4)
+    expect(boolAns.map((a) => a.sub_id).sort()).toEqual(['a', 'b', 'c', 'd'])
   })
 
   it('allows skipped questions (null answers)', async () => {
@@ -163,10 +167,13 @@ describe('PUT /api/submissions/:id/submit', () => {
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
 
-    // Submit with one skipped question
+    // Submit with skipped questions (null)
     const answers = [
       { q_id: 1, submitted_answer: 'B' },
-      { q_id: 2, submitted_answer: null },
+      { q_id: 2, sub_id: 'a', submitted_answer: null },
+      { q_id: 2, sub_id: 'b', submitted_answer: null },
+      { q_id: 2, sub_id: 'c', submitted_answer: null },
+      { q_id: 2, sub_id: 'd', submitted_answer: null },
     ]
 
     const res = await app.request(`/api/submissions/${submissionId}/submit`, {
@@ -180,7 +187,8 @@ describe('PUT /api/submissions/:id/submit', () => {
 
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.answers[1].submitted_answer).toBeNull()
+    const boolAnswers = body.data.answers.filter((a) => a.q_id === 2)
+    boolAnswers.forEach((a) => expect(a.submitted_answer).toBeNull())
   })
 
   it('requires authentication', async () => {
@@ -207,7 +215,6 @@ describe('PUT /api/submissions/:id/submit', () => {
   })
 
   it('rejects when submission belongs to another user', async () => {
-    // Create submission as first student
     const { id: exerciseId } = await createExercise(teacherToken)
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
@@ -220,7 +227,6 @@ describe('PUT /api/submissions/:id/submit', () => {
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
 
-    // Try to submit as different student
     await seedStudent('+84987654321')
     const otherStudentToken = await loginAsStudent('+84987654321')
 
@@ -301,7 +307,7 @@ describe('PUT /api/submissions/:id/submit', () => {
     expect(body.error.code).toBe('VALIDATION_ERROR')
   })
 
-  it('rejects when duplicate q_ids in payload', async () => {
+  it('rejects when duplicate (q_id, sub_id) pairs in payload', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
@@ -323,7 +329,40 @@ describe('PUT /api/submissions/:id/submit', () => {
       body: JSON.stringify({
         answers: [
           { q_id: 1, submitted_answer: 'A' },
-          { q_id: 1, submitted_answer: 'B' },
+          { q_id: 1, submitted_answer: 'B' }, // duplicate q_id=1 (no sub_id)
+        ],
+      }),
+    }, env)
+
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(body.error.message).toContain('Duplicate')
+  })
+
+  it('rejects when duplicate (q_id, sub_id) for boolean answers', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const createBody = await createRes.json()
+    const submissionId = createBody.data.id
+
+    const res = await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({
+        answers: [
+          { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+          { q_id: 2, sub_id: 'a', submitted_answer: '0' }, // duplicate (2, a)
         ],
       }),
     }, env)
@@ -363,8 +402,7 @@ describe('PUT /api/submissions/:id/submit', () => {
 })
 
 describe('GET /api/submissions/:id', () => {
-  it('returns submission with answers', async () => {
-    // Create and submit
+  it('returns submission with answers including sub_id', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
@@ -386,12 +424,14 @@ describe('GET /api/submissions/:id', () => {
       body: JSON.stringify({
         answers: [
           { q_id: 1, submitted_answer: 'B' },
-          { q_id: 2, submitted_answer: 'false' },
+          { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+          { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'd', submitted_answer: '1' },
         ],
       }),
     }, env)
 
-    // Get submission
     const res = await app.request(`/api/submissions/${submissionId}`, {
       headers: { 'Authorization': `Bearer ${studentToken}` },
     }, env)
@@ -400,7 +440,13 @@ describe('GET /api/submissions/:id', () => {
     const body = await res.json()
     expect(body.data.id).toBe(submissionId)
     expect(body.data.exercise_id).toBe(exerciseId)
-    expect(body.data.answers).toHaveLength(2)
+    expect(body.data.answers).toHaveLength(5)
+
+    const mcqAns = body.data.answers.find((a) => a.q_id === 1)
+    expect(mcqAns.sub_id).toBeNull()
+
+    const boolAns = body.data.answers.filter((a) => a.q_id === 2)
+    expect(boolAns).toHaveLength(4)
   })
 
   it('requires authentication', async () => {
@@ -417,7 +463,6 @@ describe('GET /api/submissions/:id', () => {
   })
 
   it('rejects when submission belongs to another user', async () => {
-    // Create submission as first student
     const { id: exerciseId } = await createExercise(teacherToken)
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
@@ -430,7 +475,6 @@ describe('GET /api/submissions/:id', () => {
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
 
-    // Try to get as different student
     await seedStudent('+84111222333')
     const otherStudentToken = await loginAsStudent('+84111222333')
 

@@ -19,3 +19,8 @@ migrations_dir = "worker/db/migrations"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "smartclass"
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true
