@@ -296,9 +296,42 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Physics Quiz')
     await user.click(screen.getByRole('button', { name: /delete/i }))
+
+    // Confirm button disabled until DELETE is typed
+    expect(screen.getByRole('button', { name: /yes, delete/i })).toBeDisabled()
+
+    await user.type(screen.getByLabelText(/type.*delete.*to confirm/i), 'DELETE')
+    expect(screen.getByRole('button', { name: /yes, delete/i })).not.toBeDisabled()
+
     await user.click(screen.getByRole('button', { name: /yes, delete/i }))
 
     expect(deleteExerciseMock).toHaveBeenCalledWith('teacher-token', 5)
     expect(await screen.findByText('Exercises list')).toBeInTheDocument()
+  })
+
+  it('confirm button stays disabled when wrong text is typed', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /delete/i }))
+    await user.type(screen.getByLabelText(/type.*delete.*to confirm/i), 'delete')
+
+    expect(screen.getByRole('button', { name: /yes, delete/i })).toBeDisabled()
+    expect(deleteExerciseMock).not.toHaveBeenCalled()
+  })
+
+  it('shows drag handles for each schema row in edit mode', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /edit/i }))
+
+    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
+    // EXERCISE_MCQ has 2 rows (q_id 1 and 2)
+    expect(handles).toHaveLength(2)
   })
 })

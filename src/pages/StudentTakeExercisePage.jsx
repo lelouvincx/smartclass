@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff } from 'lucide-react'
+import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { createSubmission, getExercise, getSubmission, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -66,59 +67,62 @@ function groupSchema(schema) {
 function McqInput({ qId, value, onChange, submitted }) {
   const options = ['A', 'B', 'C', 'D']
   return (
-    <div className="flex flex-wrap gap-4">
+    <ButtonGroup aria-label={`Question ${qId} options`}>
       {options.map((opt) => (
-        <label key={opt} className="flex cursor-pointer items-center gap-2">
-          <input
-            type="radio"
-            name={`q_${qId}`}
-            value={opt}
-            checked={value === opt}
-            onChange={() => onChange(opt)}
-            disabled={submitted}
-            aria-label={`Question ${qId} option ${opt}`}
-          />
-          <span className="text-sm font-medium">{opt}</span>
-        </label>
+        <Button
+          key={opt}
+          type="button"
+          size="sm"
+          variant={value === opt ? 'default' : 'outline'}
+          disabled={submitted}
+          onClick={() => !submitted && onChange(opt)}
+          aria-pressed={value === opt}
+          aria-label={`Question ${qId} option ${opt}`}
+        >
+          {opt}
+        </Button>
       ))}
-    </div>
+    </ButtonGroup>
   )
 }
 
 function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted }) {
   return (
     <div className="space-y-2">
-      {subRows.map(({ sub_id }) => (
-        <div key={sub_id} className="flex items-center gap-4">
-          <span className="w-5 text-sm font-medium text-muted-foreground">{sub_id}.</span>
-          <div className="flex gap-4">
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name={`q_${qId}_${sub_id}`}
-                value="1"
-                checked={(subAnswers[sub_id] ?? '') === '1'}
-                onChange={() => onSubChange(sub_id, '1')}
+      {subRows.map(({ sub_id }) => {
+        const val = subAnswers[sub_id] ?? ''
+        return (
+          <div key={sub_id} className="flex items-center gap-4">
+            <span className="w-5 text-sm font-medium text-muted-foreground">{sub_id}.</span>
+            <ButtonGroup aria-label={`Question ${qId} sub-question ${sub_id}`}>
+              <Button
+                type="button"
+                size="sm"
+                variant={val === '1' ? 'default' : 'outline'}
                 disabled={submitted}
+                onClick={() => !submitted && onSubChange(sub_id, '1')}
+                aria-pressed={val === '1'}
                 aria-label={`Question ${qId} sub ${sub_id} True`}
-              />
-              <span className="text-sm">True</span>
-            </label>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="radio"
-                name={`q_${qId}_${sub_id}`}
-                value="0"
-                checked={(subAnswers[sub_id] ?? '') === '0'}
-                onChange={() => onSubChange(sub_id, '0')}
+                className={val === '1' ? 'bg-success text-white hover:bg-success/90' : ''}
+              >
+                True
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={val === '0' ? 'default' : 'outline'}
                 disabled={submitted}
+                onClick={() => !submitted && onSubChange(sub_id, '0')}
+                aria-pressed={val === '0'}
                 aria-label={`Question ${qId} sub ${sub_id} False`}
-              />
-              <span className="text-sm">False</span>
-            </label>
+                className={val === '0' ? 'bg-destructive text-white hover:bg-destructive/90' : ''}
+              >
+                False
+              </Button>
+            </ButtonGroup>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -162,17 +166,36 @@ function McqNumericResultRow({ question, answer }) {
   )
 }
 
+function BooleanAnswerBadge({ value }) {
+  if (value === '1') {
+    return (
+      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-success/15 text-success">
+        True
+      </span>
+    )
+  }
+  if (value === '0') {
+    return (
+      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive">
+        False
+      </span>
+    )
+  }
+  return <span className="text-muted-foreground">—</span>
+}
+
 function BooleanResultGroup({ group, submittedAnswers }) {
   return (
     <>
       {group.subRows.map(({ sub_id }) => {
         const ans = submittedAnswers.find((a) => a.q_id === group.q_id && a.sub_id === sub_id)
         const raw = ans ? ans.submitted_answer : null
-        const display = raw !== null && raw !== undefined && raw !== '' ? raw : '—'
         return (
           <tr key={sub_id} className="border-t">
             <td className="px-4 py-3 text-sm text-muted-foreground">Q{group.q_id}{sub_id}</td>
-            <td className="px-4 py-3 text-sm font-medium">{display}</td>
+            <td className="px-4 py-3 text-sm font-medium">
+              <BooleanAnswerBadge value={raw} />
+            </td>
             <td className="px-4 py-3 text-center">
               <CorrectnessIcon isCorrect={ans ? ans.is_correct : null} />
             </td>
