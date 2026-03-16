@@ -301,4 +301,17 @@ describe('TeacherViewExercisePage', () => {
     expect(deleteExerciseMock).toHaveBeenCalledWith('teacher-token', 5)
     expect(await screen.findByText('Exercises list')).toBeInTheDocument()
   })
+
+  it('shows drag handles for each schema row in edit mode', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /edit/i }))
+
+    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
+    // EXERCISE_MCQ has 2 rows (q_id 1 and 2)
+    expect(handles).toHaveLength(2)
+  })
 })

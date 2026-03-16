@@ -238,4 +238,17 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByText(/please fix all schema errors/i)).toBeInTheDocument()
     expect(createExerciseMock).not.toHaveBeenCalled()
   })
+
+  it('renders a drag handle button for each schema row', async () => {
+    render(
+      <MemoryRouter>
+        <TeacherCreateExercisePage />
+      </MemoryRouter>,
+    )
+
+    // Default state: 1 MCQ row → 1 drag handle
+    await screen.findByLabelText(/q-id-/)
+    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
+    expect(handles.length).toBeGreaterThanOrEqual(1)
+  })
 })

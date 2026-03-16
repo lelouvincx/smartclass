@@ -3,7 +3,7 @@
 ## Open Issues
 
 - [ ] **Support drag-and-drop for file upload** — File upload inputs should accept drag-and-drop in addition to the click-to-browse interaction, improving usability especially for teachers uploading PDFs.
-- [ ] **Drag-and-drop reordering of answer schema rows** — When a teacher is editing an exercise's answer schema, rows should be reorderable via drag-and-drop. Currently the only way to change question order is to delete and re-add rows manually. Applies to both `TeacherCreateExercisePage` and `TeacherViewExercisePage` (edit mode).
+- [x] **Drag-and-drop reordering of answer schema rows** — Each schema row has a `GripVertical` drag handle. Dragging reorders entire question groups (boolean sub-rows a–d move together). Implemented via `@dnd-kit/core` + `@dnd-kit/sortable` in shared `src/components/schema-table.jsx`. Drag disabled when filter (errors/warnings) is active. Applies to both `TeacherCreateExercisePage` and `TeacherViewExercisePage` (edit mode).
 
 ## Closed
 

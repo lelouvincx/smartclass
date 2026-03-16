@@ -16,6 +16,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { SchemaTable } from '@/components/schema-table'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -188,155 +189,6 @@ function ViewSchemaTable({ schema }) {
   )
 }
 
-// ── Edit-mode schema table ─────────────────────────────────────────────────────
-
-function EditSchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow }) {
-  function renderBooleanSubRow(row) {
-    return (
-      <tr key={row.id} className="border-t align-top">
-        <td className="px-3 py-2">
-          {row.sub_id === 'a' ? (
-            <Input
-              aria-label={`q-id-${row.id}`}
-              type="text"
-              value={row.q_id}
-              onChange={(e) => onUpdateQid(row.id, e.target.value)}
-              className="h-9 w-20"
-            />
-          ) : (
-            <span className="px-2 text-sm text-muted-foreground">{row.q_id}</span>
-          )}
-        </td>
-        <td className="px-3 py-2">
-          {row.sub_id === 'a' ? (
-            <select
-              aria-label={`type-${row.id}`}
-              value="boolean"
-              onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-              className="h-9 rounded-md border bg-background px-2 text-sm"
-            >
-              <option value="mcq">mcq</option>
-              <option value="boolean">boolean</option>
-              <option value="numeric">numeric</option>
-            </select>
-          ) : (
-            <span className="text-sm text-muted-foreground">boolean</span>
-          )}
-        </td>
-        <td className="px-3 py-2">
-          <div className="flex items-center gap-3">
-            <span className="w-4 text-sm font-medium text-muted-foreground">{row.sub_id}.</span>
-            <label className="flex items-center gap-1 text-sm">
-              <input
-                type="radio"
-                name={`bool-${row.id}`}
-                value="1"
-                checked={row.correct_answer === '1'}
-                onChange={() => onUpdateRow(row.id, 'correct_answer', '1')}
-                aria-label={`sub-q ${row.q_id} ${row.sub_id} true`}
-              />
-              True
-            </label>
-            <label className="flex items-center gap-1 text-sm">
-              <input
-                type="radio"
-                name={`bool-${row.id}`}
-                value="0"
-                checked={row.correct_answer === '0'}
-                onChange={() => onUpdateRow(row.id, 'correct_answer', '0')}
-                aria-label={`sub-q ${row.q_id} ${row.sub_id} false`}
-              />
-              False
-            </label>
-          </div>
-        </td>
-        <td className="px-3 py-2">
-          {row.errors?.length > 0
-            ? <span className="text-xs text-destructive">{row.errors[0]}</span>
-            : <span className="text-xs text-emerald-700 dark:text-emerald-400">Valid</span>
-          }
-        </td>
-        <td className="px-3 py-2">
-          {row.sub_id === 'a' && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => onDeleteRow(row.id)} className="text-destructive hover:text-destructive">
-              Delete
-            </Button>
-          )}
-        </td>
-      </tr>
-    )
-  }
-
-  function renderStandardRow(row) {
-    return (
-      <tr key={row.id} className="border-t align-top">
-        <td className="px-3 py-2">
-          <Input
-            aria-label={`q-id-${row.id}`}
-            type="text"
-            value={row.q_id}
-            onChange={(e) => onUpdateRow(row.id, 'q_id', e.target.value)}
-            className="h-9 w-20"
-          />
-        </td>
-        <td className="px-3 py-2">
-          <select
-            aria-label={`type-${row.id}`}
-            value={row.type}
-            onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-            className="h-9 rounded-md border bg-background px-2 text-sm"
-          >
-            <option value="mcq">mcq</option>
-            <option value="boolean">boolean</option>
-            <option value="numeric">numeric</option>
-          </select>
-        </td>
-        <td className="px-3 py-2">
-          <Input
-            aria-label={`answer-${row.id}`}
-            type="text"
-            value={row.correct_answer}
-            onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
-            className="h-9 w-32"
-          />
-        </td>
-        <td className="px-3 py-2">
-          {row.errors?.length > 0
-            ? <span className="text-xs text-destructive">{row.errors[0]}</span>
-            : <span className="text-xs text-emerald-700 dark:text-emerald-400">Valid</span>
-          }
-        </td>
-        <td className="px-3 py-2">
-          <Button type="button" variant="ghost" size="sm" onClick={() => onDeleteRow(row.id)} className="text-destructive hover:text-destructive">
-            Delete
-          </Button>
-        </td>
-      </tr>
-    )
-  }
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full border-collapse text-sm">
-        <thead>
-          <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            <th className="px-3 py-2">q_id</th>
-            <th className="px-3 py-2">type</th>
-            <th className="px-3 py-2">correct_answer</th>
-            <th className="px-3 py-2">status</th>
-            <th className="px-3 py-2">actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) =>
-            row.type === 'boolean' ? renderBooleanSubRow(row) : renderStandardRow(row)
-          )}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function TeacherViewExercisePage() {
@@ -439,6 +291,10 @@ export default function TeacherViewExercisePage() {
     }, 0)
     setEditRows((prev) => [...prev, ...newRows('mcq', String(maxQid + 1))])
   }
+
+  const handleReorderRows = useCallback((newRows) => {
+    setEditRows(newRows)
+  }, [])
 
   async function handleSave() {
     setSaveError('')
@@ -620,11 +476,12 @@ export default function TeacherViewExercisePage() {
           </div>
         </CardHeader>
         {isEditing ? (
-          <EditSchemaTable
+          <SchemaTable
             rows={validatedRows}
             onUpdateRow={handleUpdateRow}
             onUpdateQid={handleUpdateQid}
             onDeleteRow={handleDeleteRow}
+            onReorder={handleReorderRows}
           />
         ) : (
           <ViewSchemaTable schema={exercise.schema || []} />

@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
+import { SchemaTable } from '@/components/schema-table'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -225,6 +226,10 @@ export default function TeacherCreateExercisePage() {
     setRows((prev) => [...prev, ...newRows('mcq', String(maxQid + 1))])
   }
 
+  function handleReorder(newRows) {
+    setRows(newRows)
+  }
+
   function handleDeleteRow(id) {
     const targetRow = rows.find((r) => r.id === id)
     if (!targetRow) return
@@ -311,134 +316,6 @@ export default function TeacherCreateExercisePage() {
     if (stats.warningsCount > 0) { setShowWarningConfirm(true); return }
 
     await saveExercise()
-  }
-
-  // --- Render boolean sub-question row ---
-
-  function renderBooleanSubRow(row) {
-    return (
-      <tr key={row.id} className="border-t align-top">
-        <td className="px-3 py-2">
-          {row.sub_id === 'a' ? (
-            <Input
-              aria-label={`q-id-${row.id}`}
-              type="text"
-              value={row.q_id}
-              onChange={(e) => handleUpdateQid(row.id, e.target.value)}
-              className="h-9 w-20"
-            />
-          ) : (
-            <span className="px-2 text-sm text-muted-foreground">{row.q_id}</span>
-          )}
-        </td>
-        <td className="px-3 py-2">
-          {row.sub_id === 'a' ? (
-            <select
-              aria-label={`type-${row.id}`}
-              value="boolean"
-              onChange={(e) => handleUpdateRow(row.id, 'type', e.target.value)}
-              className="h-9 rounded-md border bg-background px-2 text-sm"
-            >
-              <option value="mcq">mcq</option>
-              <option value="boolean">boolean</option>
-              <option value="numeric">numeric</option>
-            </select>
-          ) : (
-            <span className="text-sm text-muted-foreground">boolean</span>
-          )}
-        </td>
-        <td className="px-3 py-2">
-          <div className="flex items-center gap-3">
-            <span className="w-4 text-sm font-medium text-muted-foreground">{row.sub_id}.</span>
-            <label className="flex items-center gap-1 text-sm">
-              <input
-                type="radio"
-                name={`bool-${row.id}`}
-                value="1"
-                checked={row.correct_answer === '1'}
-                onChange={() => handleUpdateRow(row.id, 'correct_answer', '1')}
-                aria-label={`sub-q ${row.q_id} ${row.sub_id} true`}
-              />
-              True
-            </label>
-            <label className="flex items-center gap-1 text-sm">
-              <input
-                type="radio"
-                name={`bool-${row.id}`}
-                value="0"
-                checked={row.correct_answer === '0'}
-                onChange={() => handleUpdateRow(row.id, 'correct_answer', '0')}
-                aria-label={`sub-q ${row.q_id} ${row.sub_id} false`}
-              />
-              False
-            </label>
-          </div>
-        </td>
-        <td className="px-3 py-2 text-muted-foreground">{Math.round((row.confidence ?? 1) * 100)}%</td>
-        <td className="px-3 py-2">
-          {row.errors.length > 0 && <p className="text-xs text-destructive">{row.errors[0]}</p>}
-          {row.errors.length === 0 && row.warnings.length > 0 && <p className="text-xs text-amber-600">{row.warnings[0]}</p>}
-          {row.errors.length === 0 && row.warnings.length === 0 && <p className="text-xs text-emerald-700 dark:text-emerald-400">Valid</p>}
-        </td>
-        <td className="px-3 py-2">
-          {row.sub_id === 'a' && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteRow(row.id)} className="text-destructive hover:text-destructive">
-              Delete
-            </Button>
-          )}
-        </td>
-      </tr>
-    )
-  }
-
-  // --- Render standard (mcq/numeric) row ---
-
-  function renderStandardRow(row) {
-    return (
-      <tr key={row.id} className="border-t align-top">
-        <td className="px-3 py-2">
-          <Input
-            aria-label={`q-id-${row.id}`}
-            type="text"
-            value={row.q_id}
-            onChange={(e) => handleUpdateRow(row.id, 'q_id', e.target.value)}
-            className="h-9 w-20"
-          />
-        </td>
-        <td className="px-3 py-2">
-          <select
-            aria-label={`type-${row.id}`}
-            value={row.type}
-            onChange={(e) => handleUpdateRow(row.id, 'type', e.target.value)}
-            className="h-9 rounded-md border bg-background px-2 text-sm"
-          >
-            <option value="mcq">mcq</option>
-            <option value="boolean">boolean</option>
-            <option value="numeric">numeric</option>
-          </select>
-        </td>
-        <td className="px-3 py-2">
-          <Input
-            aria-label={`answer-${row.id}`}
-            type="text"
-            value={row.correct_answer}
-            onChange={(e) => handleUpdateRow(row.id, 'correct_answer', e.target.value)}
-            className="h-9 w-36"
-          />
-        </td>
-        <td className="px-3 py-2 text-muted-foreground">{Math.round((row.confidence ?? 1) * 100)}%</td>
-        <td className="px-3 py-2">
-          {row.errors.length > 0 && <p className="text-xs text-destructive">{row.errors[0]}</p>}
-          {row.errors.length === 0 && row.warnings.length > 0 && <p className="text-xs text-amber-600">{row.warnings[0]}</p>}
-          {row.errors.length === 0 && row.warnings.length === 0 && <p className="text-xs text-emerald-700 dark:text-emerald-400">Valid</p>}
-        </td>
-        <td className="px-3 py-2">
-          <Button type="button" variant="ghost" size="sm" onClick={() => handleDeleteRow(row.id)} className="text-destructive hover:text-destructive">
-            Delete
-          </Button>
-        </td>
-      </tr>
-    )
   }
 
   return (
@@ -587,25 +464,14 @@ export default function TeacherCreateExercisePage() {
               </div>
             </div>
           </CardHeader>
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-sm">
-              <thead>
-                <tr className="bg-muted text-left text-muted-foreground">
-                  <th className="px-3 py-2">q_id</th>
-                  <th className="px-3 py-2">type</th>
-                  <th className="px-3 py-2">correct_answer</th>
-                  <th className="px-3 py-2">confidence</th>
-                  <th className="px-3 py-2">status</th>
-                  <th className="px-3 py-2">actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleRows.map((row) =>
-                  row.type === 'boolean' ? renderBooleanSubRow(row) : renderStandardRow(row)
-                )}
-              </tbody>
-            </table>
-          </div>
+          <SchemaTable
+            rows={visibleRows}
+            onUpdateRow={handleUpdateRow}
+            onUpdateQid={handleUpdateQid}
+            onDeleteRow={handleDeleteRow}
+            onReorder={filter === 'all' ? handleReorder : undefined}
+            showConfidence
+          />
         </Card>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
