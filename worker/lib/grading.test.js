@@ -170,10 +170,11 @@ describe('gradeSubmission — Boolean', () => {
 
 describe('gradeSubmission — mixed exercise', () => {
   it('computes score correctly across MCQ, boolean, and numeric questions', () => {
-    // q_id=1 MCQ: correct (1.0 point)
-    // q_id=2 boolean: 3/4 correct (0.5 point)
-    // q_id=3 numeric: wrong (0 points)
-    // total = 1.5 / 3 * 10 = 5.0
+    // q_id=1 MCQ: correct (0.25 pts earned, 0.25 max)
+    // q_id=2 boolean: 3/4 correct (0.5 pts earned, 1.0 max)
+    // q_id=3 numeric: wrong (0 pts earned, 0.5 max)
+    // max_possible = 0.25 + 1.0 + 0.5 = 1.75
+    // score = (0.25 + 0.5 + 0) / 1.75 * 10 = 4.29
     const { score } = gradeSubmission(MIXED_SCHEMA, [
       { q_id: 1, sub_id: null, submitted_answer: 'B' },          // correct
       { q_id: 2, sub_id: 'a', submitted_answer: '1' },           // correct
@@ -182,7 +183,7 @@ describe('gradeSubmission — mixed exercise', () => {
       { q_id: 2, sub_id: 'd', submitted_answer: '0' },           // wrong
       { q_id: 3, sub_id: null, submitted_answer: '99' },         // wrong
     ])
-    expect(score).toBe(5)
+    expect(score).toBe(4.29)
   })
 
   it('returns score=10 when all answers are correct', () => {

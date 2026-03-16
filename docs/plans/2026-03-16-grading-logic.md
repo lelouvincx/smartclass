@@ -34,10 +34,10 @@ atomically in a `DB.batch()` call at the end of the submit endpoint.
 - **Comparison:** exact string equality — `submitted_answer === correct_answer`
 - **Both values are normalized to uppercase A/B/C/D** at write time by the frontend and backend validator
 - **Skipped (null):** always wrong (`is_correct = 0`)
-- **Points:** `1.0` if correct, `0` if wrong or skipped
+- **Points:** `0.25` if correct, `0` if wrong or skipped
 
 ```
-submitted='B', correct='B'  →  is_correct=1, points=1.0
+submitted='B', correct='B'  →  is_correct=1, points=0.25
 submitted='A', correct='B'  →  is_correct=0, points=0
 submitted=null, correct='B' →  is_correct=0, points=0
 ```
@@ -50,14 +50,14 @@ submitted=null, correct='B' →  is_correct=0, points=0
   different significant figures (e.g., `3.14` vs `3.15` are both accepted as equal, but `3.14`
   vs `3.20` are not).
 - **Skipped (null):** always wrong
-- **Points:** `1.0` if within tolerance, `0` otherwise
+- **Points:** `0.5` if within tolerance, `0` otherwise
 
 ```
-submitted='42',   correct='42'   →  is_correct=1
+submitted='42',   correct='42'   →  is_correct=1, points=0.5
 submitted='42.0', correct='42'   →  is_correct=1   (trailing zero)
 submitted='3.14', correct='3.14' →  is_correct=1
-submitted='99',   correct='42'   →  is_correct=0
-submitted=null,   correct='42'   →  is_correct=0
+submitted='99',   correct='42'   →  is_correct=0, points=0
+submitted=null,   correct='42'   →  is_correct=0, points=0
 ```
 
 > **To change the tolerance:** Edit `NUMERIC_TOLERANCE` constant in `worker/lib/grading.js`.
@@ -98,27 +98,45 @@ who know the topic well.
 ## Score formula
 
 ```
-score = round((sum_of_question_points / distinct_question_count) * 10, 2)
+max_possible_points = sum over each distinct q_id of:
+  MCQ     → 0.25
+  Numeric → 0.5
+  Boolean → 1.0
+
+score = round((earned_points / max_possible_points) * 10, 2)
 ```
 
 - **Scale:** 0–10 (stored as `REAL` in SQLite)
-- **`distinct_question_count`:** counted from `answer_schemas` at submission creation time and
-  stored as `total_questions` — uses `COUNT(DISTINCT q_id)`, so a boolean question with 4 sub-rows
-  counts as **1** question, not 4
+- **`max_possible_points`:** sum of the maximum achievable points per distinct question, based on
+  type — NOT a simple question count. A boolean question contributes `1.0`, MCQ `0.25`, numeric `0.5`.
 - **Rounding:** 2 decimal places (`Math.round(...*100)/100`)
 - **Full score:** 10.0 (all questions correct)
 - **Zero score:** 0.0 (all wrong or all skipped)
 
 ### Example: mixed exercise (3 questions)
 
-| Q# | Type | Result | Points |
-|---|---|---|---|
-| 1 | MCQ | Correct | 1.0 |
-| 2 | Boolean | 3/4 correct | 0.5 |
-| 3 | Numeric | Wrong | 0.0 |
+| Q# | Type | Result | Earned | Max |
+|---|---|---|---|---|
+| 1 | MCQ | Correct | 0.25 | 0.25 |
+| 2 | Boolean | 3/4 correct | 0.5 | 1.0 |
+| 3 | Numeric | Wrong | 0.0 | 0.5 |
 
 ```
-score = (1.0 + 0.5 + 0.0) / 3 * 10 = 5.0
+max_possible = 0.25 + 1.0 + 0.5 = 1.75
+score = (0.25 + 0.5 + 0.0) / 1.75 * 10 = 4.29
+```
+
+### Example: standard exercise (12 MCQ + 6 numeric + 4 boolean)
+
+| Type | Count | Max pts each | Total max |
+|---|---|---|---|
+| MCQ | 12 | 0.25 | 3.0 |
+| Numeric | 6 | 0.5 | 3.0 |
+| Boolean | 4 | 1.0 | 4.0 |
+| **Total** | | | **10.0** |
+
+```
+score = earned_points / 10.0 * 10 = earned_points   (max 10.0)
 ```
 
 ---
@@ -166,7 +184,9 @@ All grading parameters are isolated in `worker/lib/grading.js` as named constant
 
 | Constant | Current value | Purpose |
 |---|---|---|
-| `BOOLEAN_SCORE_TABLE` | `{0:0, 1:0.1, 2:0.25, 3:0.5, 4:1.0}` | Per-question partial credit curve |
+| `MCQ_POINTS` | `0.25` | Points per correct MCQ answer |
+| `NUMERIC_POINTS` | `0.5` | Points per correct numeric answer |
+| `BOOLEAN_SCORE_TABLE` | `{0:0, 1:0.1, 2:0.25, 3:0.5, 4:1.0}` | Per-question partial credit curve for boolean |
 | `NUMERIC_TOLERANCE` | `0.01` | Max allowed difference for numeric equality |
 
 To change grading behaviour, edit these constants and run `npx vitest run worker/lib/grading.test.js`
