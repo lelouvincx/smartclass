@@ -162,17 +162,36 @@ function McqNumericResultRow({ question, answer }) {
   )
 }
 
+function BooleanAnswerBadge({ value }) {
+  if (value === '1') {
+    return (
+      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-success/15 text-success">
+        True
+      </span>
+    )
+  }
+  if (value === '0') {
+    return (
+      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive">
+        False
+      </span>
+    )
+  }
+  return <span className="text-muted-foreground">—</span>
+}
+
 function BooleanResultGroup({ group, submittedAnswers }) {
   return (
     <>
       {group.subRows.map(({ sub_id }) => {
         const ans = submittedAnswers.find((a) => a.q_id === group.q_id && a.sub_id === sub_id)
         const raw = ans ? ans.submitted_answer : null
-        const display = raw !== null && raw !== undefined && raw !== '' ? raw : '—'
         return (
           <tr key={sub_id} className="border-t">
             <td className="px-4 py-3 text-sm text-muted-foreground">Q{group.q_id}{sub_id}</td>
-            <td className="px-4 py-3 text-sm font-medium">{display}</td>
+            <td className="px-4 py-3 text-sm font-medium">
+              <BooleanAnswerBadge value={raw} />
+            </td>
             <td className="px-4 py-3 text-center">
               <CorrectnessIcon isCorrect={ans ? ans.is_correct : null} />
             </td>

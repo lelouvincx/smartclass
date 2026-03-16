@@ -169,7 +169,15 @@ function ViewSchemaTable({ schema }) {
                   <td className="px-4 py-2 font-mono text-muted-foreground">{sub.sub_id}</td>
                   <td className="px-4 py-2 text-muted-foreground">{i === 0 ? 'boolean' : ''}</td>
                   <td className="px-4 py-2 font-medium">
-                    {sub.correct_answer === '1' ? 'True (1)' : 'False (0)'}
+                    {sub.correct_answer === '1' ? (
+                      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-success/15 text-success">
+                        True
+                      </span>
+                    ) : (
+                      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive">
+                        False
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))
