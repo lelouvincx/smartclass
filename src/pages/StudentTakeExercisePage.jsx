@@ -17,6 +17,35 @@ function formatTime(totalSeconds) {
   return `${totalSeconds < 0 ? '+' : ''}${hStr}${mStr}:${sStr}`
 }
 
+// --- Schema grouping helpers ---
+
+/**
+ * Groups schema rows into question groups.
+ * Returns an array of groups:
+ *   { q_id, type: 'mcq'|'numeric', sub_id: null }  — for mcq/numeric
+ *   { q_id, type: 'boolean', subRows: [{sub_id, ...}] }  — for boolean
+ */
+function groupSchema(schema) {
+  const groups = []
+  const seen = new Map()
+
+  for (const row of schema) {
+    if (row.type === 'boolean') {
+      if (!seen.has(row.q_id)) {
+        const group = { q_id: row.q_id, type: 'boolean', subRows: [] }
+        groups.push(group)
+        seen.set(row.q_id, group)
+      }
+      seen.get(row.q_id).subRows.push(row)
+    } else {
+      groups.push({ q_id: row.q_id, type: row.type, sub_id: null })
+      seen.set(row.q_id, true)
+    }
+  }
+
+  return groups
+}
+
 // --- Question input components ---
 
 function McqInput({ qId, value, onChange, submitted }) {
@@ -41,24 +70,44 @@ function McqInput({ qId, value, onChange, submitted }) {
   )
 }
 
-function BooleanInput({ qId, value, onChange, submitted }) {
+/**
+ * Boolean input: renders 4 sub-question rows (a,b,c,d), each with True/False radios.
+ * subAnswers: { a: '1'|'0'|'', b: ..., c: ..., d: ... }
+ * onSubChange(subId, value)
+ */
+function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted }) {
   return (
-    <div className="flex gap-6">
-      {['true', 'false'].map((opt) => (
-        <label key={opt} className="flex cursor-pointer items-center gap-2">
-          <input
-            type="radio"
-            name={`q_${qId}`}
-            value={opt}
-            checked={value === opt}
-            onChange={() => onChange(opt)}
-            disabled={submitted}
-            aria-label={`Question ${qId} option ${opt === 'true' ? 'True' : 'False'}`}
-          />
-          <span className="text-sm font-medium text-slate-700">
-            {opt === 'true' ? 'True' : 'False'}
-          </span>
-        </label>
+    <div className="space-y-2">
+      {subRows.map(({ sub_id }) => (
+        <div key={sub_id} className="flex items-center gap-4">
+          <span className="w-5 text-sm font-medium text-slate-600">{sub_id}.</span>
+          <div className="flex gap-4">
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name={`q_${qId}_${sub_id}`}
+                value="1"
+                checked={(subAnswers[sub_id] ?? '') === '1'}
+                onChange={() => onSubChange(sub_id, '1')}
+                disabled={submitted}
+                aria-label={`Question ${qId} sub ${sub_id} True`}
+              />
+              <span className="text-sm text-slate-700">True</span>
+            </label>
+            <label className="flex cursor-pointer items-center gap-2">
+              <input
+                type="radio"
+                name={`q_${qId}_${sub_id}`}
+                value="0"
+                checked={(subAnswers[sub_id] ?? '') === '0'}
+                onChange={() => onSubChange(sub_id, '0')}
+                disabled={submitted}
+                aria-label={`Question ${qId} sub ${sub_id} False`}
+              />
+              <span className="text-sm text-slate-700">False</span>
+            </label>
+          </div>
+        </div>
       ))}
     </div>
   )
@@ -78,9 +127,9 @@ function NumericInput({ qId, value, onChange, submitted }) {
   )
 }
 
-// --- Read-only result row ---
+// --- Read-only result rows ---
 
-function ResultRow({ question, answer }) {
+function McqNumericResultRow({ question, answer }) {
   const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
   return (
     <tr className="border-t border-slate-200">
@@ -91,6 +140,25 @@ function ResultRow({ question, answer }) {
   )
 }
 
+function BooleanResultGroup({ group, submittedAnswers }) {
+  return (
+    <>
+      {group.subRows.map(({ sub_id }) => {
+        const ans = submittedAnswers.find((a) => a.q_id === group.q_id && a.sub_id === sub_id)
+        const raw = ans ? ans.submitted_answer : null
+        const display = raw !== null && raw !== undefined && raw !== '' ? raw : '—'
+        return (
+          <tr key={sub_id} className="border-t border-slate-200">
+            <td className="px-4 py-3 text-sm text-slate-700">Q{group.q_id}{sub_id}</td>
+            <td className="px-4 py-3 text-xs text-slate-500">boolean</td>
+            <td className="px-4 py-3 text-sm font-medium text-slate-900">{display}</td>
+          </tr>
+        )
+      })}
+    </>
+  )
+}
+
 // --- Main page ---
 
 export default function StudentTakeExercisePage() {
@@ -98,33 +166,32 @@ export default function StudentTakeExercisePage() {
   const { token } = useAuth()
   const navigate = useNavigate()
 
-  // Loading / error
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Exercise + submission data
   const [exercise, setExercise] = useState(null)
-  const [submission, setSubmission] = useState(null)
+  // questionGroups: array of grouped schema (grouped boolean sub-questions)
+  const [questionGroups, setQuestionGroups] = useState([])
 
-  // Answers: { [q_id]: string }
+  // answers: { [q_id]: string }  for mcq/numeric
+  //          { [q_id]: { a: '1'|'0'|'', b: ..., c: ..., d: '' } }  for boolean
   const [answers, setAnswers] = useState({})
 
-  // Timer state
-  const [secondsLeft, setSecondsLeft] = useState(null) // null = untimed
+  const [submission, setSubmission] = useState(null)
+
+  const [secondsLeft, setSecondsLeft] = useState(null)
   const [overtime, setOvertime] = useState(false)
   const timerRef = useRef(null)
 
-  // Submission flow state
   const [showConfirm, setShowConfirm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submittedAnswers, setSubmittedAnswers] = useState([])
 
-  // Navigation guard state
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
 
-  // --- Init: fetch exercise and create submission ---
+  // --- Init ---
   useEffect(() => {
     async function init() {
       setIsLoading(true)
@@ -135,14 +202,25 @@ export default function StudentTakeExercisePage() {
         const ex = exRes.data
         setExercise(ex)
 
-        // Initialise answers map
+        // Group schema rows
+        const groups = groupSchema(ex.schema || [])
+        setQuestionGroups(groups)
+
+        // Initialise answers
         const initial = {}
-        for (const q of ex.schema || []) {
-          initial[q.q_id] = ''
+        for (const group of groups) {
+          if (group.type === 'boolean') {
+            initial[group.q_id] = {}
+            for (const { sub_id } of group.subRows) {
+              initial[group.q_id][sub_id] = ''
+            }
+          } else {
+            initial[group.q_id] = ''
+          }
         }
         setAnswers(initial)
 
-        // Reuse existing submission or create a new one
+        // Reuse existing submission or create new
         const storageKey = `submission_${id}`
         let sub = null
 
@@ -154,7 +232,7 @@ export default function StudentTakeExercisePage() {
               sub = existingRes.data
             }
           } catch {
-            // Submission not found or inaccessible, create new
+            // not found or inaccessible
           }
         }
 
@@ -166,7 +244,6 @@ export default function StudentTakeExercisePage() {
 
         setSubmission(sub)
 
-        // Set up timer if timed, using elapsed time from started_at
         if (ex.is_timed && ex.duration_minutes > 0) {
           const startedAt = new Date(sub.started_at + 'Z')
           const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000)
@@ -218,12 +295,10 @@ export default function StudentTakeExercisePage() {
     timerRef.current = setInterval(() => {
       setSecondsLeft((prev) => {
         if (prev === 1) {
-          // Reached zero — switch to overtime
           setOvertime(true)
           return 0
         }
         if (prev <= 0) {
-          // Count up (negative = overtime seconds elapsed)
           return prev - 1
         }
         return prev - 1
@@ -233,9 +308,16 @@ export default function StudentTakeExercisePage() {
     return () => clearInterval(timerRef.current)
   }, [secondsLeft === null, isSubmitted]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // --- Answer change handler ---
+  // --- Answer change handlers ---
   const handleAnswerChange = useCallback((qId, value) => {
     setAnswers((prev) => ({ ...prev, [qId]: value }))
+  }, [])
+
+  const handleBooleanSubChange = useCallback((qId, subId, value) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [qId]: { ...(prev[qId] || {}), [subId]: value },
+    }))
   }, [])
 
   // --- Submit flow ---
@@ -255,10 +337,27 @@ export default function StudentTakeExercisePage() {
     try {
       clearInterval(timerRef.current)
 
-      const answersPayload = Object.entries(answers).map(([qId, ans]) => ({
-        q_id: Number(qId),
-        submitted_answer: ans !== '' ? ans : null,
-      }))
+      // Build answers payload
+      const answersPayload = []
+      for (const group of questionGroups) {
+        if (group.type === 'boolean') {
+          const subAnswers = answers[group.q_id] || {}
+          for (const { sub_id } of group.subRows) {
+            const val = subAnswers[sub_id]
+            answersPayload.push({
+              q_id: group.q_id,
+              sub_id,
+              submitted_answer: val !== '' ? val : null,
+            })
+          }
+        } else {
+          const val = answers[group.q_id]
+          answersPayload.push({
+            q_id: group.q_id,
+            submitted_answer: val !== '' ? val : null,
+          })
+        }
+      }
 
       const res = await submitAnswers(token, submission.id, answersPayload)
       setSubmittedAnswers(res.data.answers || [])
@@ -271,7 +370,7 @@ export default function StudentTakeExercisePage() {
     }
   }
 
-  // --- Navigation guard (in-page Back button) ---
+  // --- Navigation guard ---
   function handleBackClick() {
     setShowLeaveWarning(true)
   }
@@ -284,26 +383,25 @@ export default function StudentTakeExercisePage() {
     setShowLeaveWarning(false)
   }
 
-  // --- Render helpers ---
-
-  function renderQuestionInput(q) {
-    const value = answers[q.q_id] ?? ''
-    if (q.type === 'mcq') {
+  // --- Render question input ---
+  function renderQuestionInput(group) {
+    if (group.type === 'mcq') {
       return (
         <McqInput
-          qId={q.q_id}
-          value={value}
-          onChange={(v) => handleAnswerChange(q.q_id, v)}
+          qId={group.q_id}
+          value={answers[group.q_id] ?? ''}
+          onChange={(v) => handleAnswerChange(group.q_id, v)}
           submitted={isSubmitted}
         />
       )
     }
-    if (q.type === 'boolean') {
+    if (group.type === 'boolean') {
       return (
-        <BooleanInput
-          qId={q.q_id}
-          value={value}
-          onChange={(v) => handleAnswerChange(q.q_id, v)}
+        <BooleanGroupInput
+          qId={group.q_id}
+          subRows={group.subRows}
+          subAnswers={answers[group.q_id] || {}}
+          onSubChange={(subId, v) => handleBooleanSubChange(group.q_id, subId, v)}
           submitted={isSubmitted}
         />
       )
@@ -311,9 +409,9 @@ export default function StudentTakeExercisePage() {
     // numeric
     return (
       <NumericInput
-        qId={q.q_id}
-        value={value}
-        onChange={(v) => handleAnswerChange(q.q_id, v)}
+        qId={group.q_id}
+        value={answers[group.q_id] ?? ''}
+        onChange={(v) => handleAnswerChange(group.q_id, v)}
         submitted={isSubmitted}
       />
     )
@@ -397,12 +495,21 @@ export default function StudentTakeExercisePage() {
                 </tr>
               </thead>
               <tbody>
-                {exercise.schema?.map((q) => {
-                  const ans = submittedAnswers.find((a) => a.q_id === q.q_id)
+                {questionGroups.map((group) => {
+                  if (group.type === 'boolean') {
+                    return (
+                      <BooleanResultGroup
+                        key={group.q_id}
+                        group={group}
+                        submittedAnswers={submittedAnswers}
+                      />
+                    )
+                  }
+                  const ans = submittedAnswers.find((a) => a.q_id === group.q_id && !a.sub_id)
                   return (
-                    <ResultRow
-                      key={q.q_id}
-                      question={q}
+                    <McqNumericResultRow
+                      key={group.q_id}
+                      question={group}
                       answer={ans ? ans.submitted_answer : null}
                     />
                   )
@@ -419,16 +526,16 @@ export default function StudentTakeExercisePage() {
         ) : (
           /* Questions form */
           <div className="space-y-4">
-            {exercise.schema?.map((q, idx) => (
+            {questionGroups.map((group, idx) => (
               <div
-                key={q.q_id}
+                key={group.q_id}
                 className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
               >
                 <p className="mb-3 text-sm font-semibold text-slate-900">
-                  {idx + 1}. Question {q.q_id}
-                  <span className="ml-2 text-xs font-normal text-slate-500">({q.type})</span>
+                  {idx + 1}. Question {group.q_id}
+                  <span className="ml-2 text-xs font-normal text-slate-500">({group.type})</span>
                 </p>
-                {renderQuestionInput(q)}
+                {renderQuestionInput(group)}
               </div>
             ))}
 

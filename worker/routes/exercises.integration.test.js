@@ -14,6 +14,9 @@ afterEach(() => {
   vi.unstubAllGlobals()
 })
 
+// Default helper schema: q_id=1 (mcq, B) + q_id=2 (boolean, a=1,b=0,c=0,d=1)
+// That's 5 rows in answer_schemas but 2 distinct q_ids.
+
 describe('GET /api/exercises', () => {
   it('returns empty list initially', async () => {
     const res = await app.request('/api/exercises', {}, env)
@@ -21,6 +24,16 @@ describe('GET /api/exercises', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(Array.isArray(body.data)).toBe(true)
+  })
+
+  it('counts distinct q_ids as question_count', async () => {
+    await createExercise(token)
+    const res = await app.request('/api/exercises', {}, env)
+    const body = await res.json()
+    // q_id 1 (mcq) + q_id 2 (boolean with 4 sub-rows) = 2 distinct questions
+    const created = body.data.find((e) => e.title === 'Test Quiz')
+    expect(created).toBeDefined()
+    expect(created.question_count).toBe(2)
   })
 })
 
@@ -35,7 +48,7 @@ describe('POST /api/exercises/schema/parse', () => {
     expect(res.status).toBe(401)
   })
 
-  it('returns normalized schema from model output', async () => {
+  it('returns normalized schema from model output including boolean sub-questions', async () => {
     env.OPENROUTER_API_KEY = 'test-key'
     vi.stubGlobal(
       'fetch',
@@ -46,7 +59,10 @@ describe('POST /api/exercises/schema/parse', () => {
               content: JSON.stringify({
                 schema: [
                   { q_id: '1', type: 'multiple_choice', correct_answer: 'b', confidence: 0.92 },
-                  { q_id: 2, type: 'bool', correct_answer: 'TRUE', confidence: 0.6 },
+                  { q_id: 2, type: 'bool', sub_id: 'a', correct_answer: 'T', confidence: 0.85 },
+                  { q_id: 2, type: 'bool', sub_id: 'b', correct_answer: 'F', confidence: 0.85 },
+                  { q_id: 2, type: 'bool', sub_id: 'c', correct_answer: 'T', confidence: 0.6 },
+                  { q_id: 2, type: 'bool', sub_id: 'd', correct_answer: 'F', confidence: 0.85 },
                 ],
               }),
             },
@@ -61,14 +77,17 @@ describe('POST /api/exercises/schema/parse', () => {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ source_text: 'Q1. B\nQ2. TRUE' }),
+      body: JSON.stringify({ source_text: 'Q1. B\nQ2 a.T b.F c.T d.F' }),
     }, env)
 
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.schema).toEqual([
-      { q_id: 1, type: 'mcq', correct_answer: 'B', confidence: 0.92 },
-      { q_id: 2, type: 'boolean', correct_answer: 'true', confidence: 0.6 },
+      { q_id: 1, type: 'mcq', sub_id: null, correct_answer: 'B', confidence: 0.92 },
+      { q_id: 2, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.85 },
+      { q_id: 2, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.85 },
+      { q_id: 2, type: 'boolean', sub_id: 'c', correct_answer: '1', confidence: 0.6 },
+      { q_id: 2, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.85 },
     ])
     expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
   })
@@ -154,15 +173,21 @@ describe('POST /api/exercises/schema/parse', () => {
 })
 
 describe('POST /api/exercises', () => {
-  it('creates exercise with valid schema', async () => {
+  it('creates exercise with valid schema including boolean sub-questions', async () => {
     const { res, body } = await createExercise(token)
     expect(res.status).toBe(201)
     expect(body.success).toBe(true)
     expect(body.data.title).toBe('Test Quiz')
     expect(body.data.is_timed).toBe(1)
     expect(body.data.duration_minutes).toBe(60)
-    expect(body.data.schema).toHaveLength(2)
+    // 5 rows: 1 mcq + 4 boolean sub-rows
+    expect(body.data.schema).toHaveLength(5)
     expect(body.data.files).toHaveLength(0)
+
+    // Verify boolean sub-rows have sub_id
+    const booleanRows = body.data.schema.filter((r) => r.type === 'boolean')
+    expect(booleanRows).toHaveLength(4)
+    expect(booleanRows.map((r) => r.sub_id).sort()).toEqual(['a', 'b', 'c', 'd'])
   })
 
   it('creates untimed exercise with zero duration', async () => {
@@ -213,6 +238,52 @@ describe('POST /api/exercises', () => {
     expect(body.error.code).toBe('INVALID_SCHEMA')
   })
 
+  it('rejects boolean row without sub_id', async () => {
+    const { res, body } = await createExercise(token, {
+      schema: [{ q_id: 1, type: 'boolean', correct_answer: '1' }],
+    })
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('INVALID_SCHEMA')
+  })
+
+  it('rejects boolean row with invalid sub_id', async () => {
+    const { res, body } = await createExercise(token, {
+      schema: [
+        { q_id: 1, type: 'boolean', sub_id: 'e', correct_answer: '1' },
+        { q_id: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
+        { q_id: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
+        { q_id: 1, type: 'boolean', sub_id: 'c', correct_answer: '0' },
+      ],
+    })
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('INVALID_SCHEMA')
+  })
+
+  it('rejects boolean row with answer other than 0 or 1', async () => {
+    const { res, body } = await createExercise(token, {
+      schema: [
+        { q_id: 1, type: 'boolean', sub_id: 'a', correct_answer: 'true' },
+        { q_id: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
+        { q_id: 1, type: 'boolean', sub_id: 'c', correct_answer: '0' },
+        { q_id: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
+      ],
+    })
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('INVALID_SCHEMA')
+  })
+
+  it('rejects boolean question with incomplete sub-questions', async () => {
+    const { res, body } = await createExercise(token, {
+      schema: [
+        { q_id: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
+        { q_id: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
+        // missing c and d
+      ],
+    })
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('INVALID_SCHEMA')
+  })
+
   it('requires auth', async () => {
     const res = await app.request('/api/exercises', {
       method: 'POST',
@@ -230,7 +301,7 @@ describe('GET /api/exercises/:id', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.id).toBe(id)
-    expect(body.data.schema).toHaveLength(2)
+    expect(body.data.schema).toHaveLength(5) // 1 mcq + 4 boolean sub-rows
     expect(body.data.files).toHaveLength(0)
   })
 
@@ -239,36 +310,40 @@ describe('GET /api/exercises/:id', () => {
     expect(res.status).toBe(404)
   })
 
-  it('includes correct_answer in schema for teacher requests', async () => {
+  it('includes correct_answer and sub_id in schema for teacher requests', async () => {
     const { id } = await createExercise(token)
     const res = await app.request(`/api/exercises/${id}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     }, env)
-    
+
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.schema).toHaveLength(2)
-    expect(body.data.schema[0]).toHaveProperty('correct_answer')
-    expect(body.data.schema[0].correct_answer).toBe('B')
-    expect(body.data.schema[1]).toHaveProperty('correct_answer')
-    expect(body.data.schema[1].correct_answer).toBe('true')
+    const schema = body.data.schema
+    expect(schema).toHaveLength(5)
+
+    const mcqRow = schema.find((r) => r.type === 'mcq')
+    expect(mcqRow).toMatchObject({ q_id: 1, type: 'mcq', correct_answer: 'B', sub_id: null })
+
+    const boolRowA = schema.find((r) => r.type === 'boolean' && r.sub_id === 'a')
+    expect(boolRowA).toMatchObject({ q_id: 2, type: 'boolean', sub_id: 'a', correct_answer: '1' })
   })
 
   it('strips correct_answer from schema for unauthenticated requests', async () => {
     const { id } = await createExercise(token)
     const res = await app.request(`/api/exercises/${id}`, {}, env)
-    
+
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.schema).toHaveLength(2)
-    expect(body.data.schema[0]).not.toHaveProperty('correct_answer')
-    expect(body.data.schema[0]).toHaveProperty('q_id')
-    expect(body.data.schema[0]).toHaveProperty('type')
-    expect(body.data.schema[1]).not.toHaveProperty('correct_answer')
+    expect(body.data.schema).toHaveLength(5)
+    body.data.schema.forEach((row) => {
+      expect(row).not.toHaveProperty('correct_answer')
+      expect(row).toHaveProperty('q_id')
+      expect(row).toHaveProperty('type')
+      expect(row).toHaveProperty('sub_id')
+    })
   })
 
   it('strips correct_answer from schema for student requests', async () => {
-    // Create a student user
     const studentPhone = '+84123456789'
     await env.DB.prepare(`
       INSERT INTO users (phone, password_hash, role, status)
@@ -276,7 +351,6 @@ describe('GET /api/exercises/:id', () => {
       ON CONFLICT(phone) DO UPDATE SET status = 'active'
     `).bind(studentPhone).run()
 
-    // Login as student
     const loginRes = await app.request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -285,23 +359,24 @@ describe('GET /api/exercises/:id', () => {
     const loginBody = await loginRes.json()
     const studentToken = loginBody.data.token
 
-    // Create exercise as teacher
     const { id } = await createExercise(token)
 
-    // Fetch exercise as student
     const res = await app.request(`/api/exercises/${id}`, {
       headers: { 'Authorization': `Bearer ${studentToken}` },
     }, env)
-    
+
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.schema).toHaveLength(2)
-    expect(body.data.schema[0]).not.toHaveProperty('correct_answer')
-    expect(body.data.schema[0].q_id).toBe(1)
-    expect(body.data.schema[0].type).toBe('mcq')
-    expect(body.data.schema[1]).not.toHaveProperty('correct_answer')
-    expect(body.data.schema[1].q_id).toBe(2)
-    expect(body.data.schema[1].type).toBe('boolean')
+    expect(body.data.schema).toHaveLength(5)
+    body.data.schema.forEach((row) => {
+      expect(row).not.toHaveProperty('correct_answer')
+    })
+
+    const mcqRow = body.data.schema.find((r) => r.type === 'mcq')
+    expect(mcqRow).toMatchObject({ q_id: 1, type: 'mcq', sub_id: null })
+
+    const boolRowB = body.data.schema.find((r) => r.type === 'boolean' && r.sub_id === 'b')
+    expect(boolRowB).toMatchObject({ q_id: 2, type: 'boolean', sub_id: 'b' })
   })
 })
 
@@ -420,11 +495,9 @@ describe('DELETE /api/exercises/:id', () => {
     const body = await deleteRes.json()
     expect(body.data.deleted).toBe(true)
 
-    // Verify exercise is gone
     const getRes = await app.request(`/api/exercises/${id}`, {}, env)
     expect(getRes.status).toBe(404)
 
-    // Verify cascaded schema deletion
     const schemas = await env.DB.prepare(
       'SELECT * FROM answer_schemas WHERE exercise_id = ?'
     ).bind(id).all()

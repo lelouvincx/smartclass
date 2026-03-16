@@ -12,6 +12,9 @@ import { requestSchemaFromOpenRouter } from '../lib/openrouter.js'
 
 const exercisesRoutes = new Hono()
 
+const VALID_TYPES = new Set(['mcq', 'boolean', 'numeric'])
+const BOOLEAN_SUB_IDS = new Set(['a', 'b', 'c', 'd'])
+
 function toExerciseWithTiming(exercise) {
   if (!exercise) {
     return exercise
@@ -21,6 +24,58 @@ function toExerciseWithTiming(exercise) {
     ...exercise,
     is_timed: exercise.duration_minutes > 0 ? 1 : 0,
   }
+}
+
+/**
+ * Validate schema items for POST/PUT routes.
+ * Returns an error message string if invalid, or null if valid.
+ */
+function validateSchemaItems(schema) {
+  if (!Array.isArray(schema) || schema.length === 0) {
+    return 'Schema must be a non-empty array'
+  }
+
+  const booleanSubIds = new Map() // q_id -> Set of sub_ids
+
+  for (const item of schema) {
+    if (!item.q_id || !item.type) {
+      return 'Each schema item must have q_id and type'
+    }
+    if (!VALID_TYPES.has(item.type)) {
+      return `Invalid type: ${item.type}. Must be mcq, boolean, or numeric`
+    }
+    if (item.correct_answer === undefined || item.correct_answer === null || item.correct_answer === '') {
+      return 'Each schema item must have correct_answer'
+    }
+
+    if (item.type === 'boolean') {
+      if (!item.sub_id) {
+        return `Boolean question q_id=${item.q_id} must have sub_id (a, b, c, or d)`
+      }
+      if (!BOOLEAN_SUB_IDS.has(item.sub_id)) {
+        return `Boolean question q_id=${item.q_id} has invalid sub_id "${item.sub_id}". Must be a, b, c, or d`
+      }
+      if (!['0', '1'].includes(item.correct_answer)) {
+        return `Boolean question q_id=${item.q_id} sub_id=${item.sub_id} correct_answer must be 0 or 1`
+      }
+
+      if (!booleanSubIds.has(item.q_id)) {
+        booleanSubIds.set(item.q_id, new Set())
+      }
+      booleanSubIds.get(item.q_id).add(item.sub_id)
+    }
+  }
+
+  // Check each boolean q_id has exactly a,b,c,d
+  for (const [qid, subIds] of booleanSubIds.entries()) {
+    for (const required of ['a', 'b', 'c', 'd']) {
+      if (!subIds.has(required)) {
+        return `Boolean question q_id=${qid} is missing sub_id "${required}". Must have all of a, b, c, d`
+      }
+    }
+  }
+
+  return null
 }
 
 exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async (c) => {
@@ -67,7 +122,7 @@ exercisesRoutes.get('/', async (c) => {
     SELECT 
       e.*,
       COUNT(DISTINCT ef.id) as file_count,
-      COUNT(DISTINCT ans.id) as question_count
+      COUNT(DISTINCT ans.q_id) as question_count
     FROM exercises e
     LEFT JOIN exercise_files ef ON e.id = ef.exercise_id
     LEFT JOIN answer_schemas ans ON e.id = ans.exercise_id
@@ -82,7 +137,6 @@ exercisesRoutes.get('/', async (c) => {
 exercisesRoutes.get('/:id', async (c) => {
   const id = c.req.param('id')
 
-  // Get exercise
   const exercise = await c.env.DB.prepare(
     'SELECT * FROM exercises WHERE id = ?'
   ).bind(id).first()
@@ -91,14 +145,13 @@ exercisesRoutes.get('/:id', async (c) => {
     return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
   }
 
-  // Get files
   const files = await c.env.DB.prepare(
     'SELECT * FROM exercise_files WHERE exercise_id = ? ORDER BY uploaded_at DESC'
   ).bind(id).all()
 
-  // Get answer schema
+  // Include sub_id in schema fetch
   const schema = await c.env.DB.prepare(
-    'SELECT q_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC'
+    'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
   ).bind(id).all()
 
   // Determine if requester is a teacher (optional auth)
@@ -111,7 +164,6 @@ exercisesRoutes.get('/:id', async (c) => {
       const payload = await verifyAccessToken(token, c.env)
       isTeacher = payload.role === 'teacher'
     } catch {
-      // Invalid token, treat as unauthenticated
       isTeacher = false
     }
   }
@@ -119,7 +171,7 @@ exercisesRoutes.get('/:id', async (c) => {
   // Strip correct_answer from schema for non-teachers
   const sanitizedSchema = isTeacher
     ? schema.results
-    : schema.results.map(({ q_id, type }) => ({ q_id, type }))
+    : schema.results.map(({ q_id, sub_id, type }) => ({ q_id, sub_id, type }))
 
   return jsonSuccess(c, {
     ...toExerciseWithTiming(exercise),
@@ -133,7 +185,6 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
   const { title, duration_minutes, schema, is_timed = true } = body || {}
 
-  // Validation
   if (!title || schema === undefined) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Title, is_timed, and schema are required')
   }
@@ -154,26 +205,14 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
     normalizedDuration = 0
   }
 
-  if (!Array.isArray(schema) || schema.length === 0) {
-    return jsonError(c, 400, 'INVALID_SCHEMA', 'Schema must be a non-empty array')
-  }
-
-  // Validate each schema item
-  const validTypes = new Set(['mcq', 'boolean', 'numeric'])
-  for (const item of schema) {
-    if (!item.q_id || !item.type || item.correct_answer === undefined || item.correct_answer === null || item.correct_answer === '') {
-      return jsonError(c, 400, 'INVALID_SCHEMA', 'Each schema item must have q_id, type, and correct_answer')
-    }
-    if (!validTypes.has(item.type)) {
-      return jsonError(c, 400, 'INVALID_SCHEMA', `Invalid type: ${item.type}. Must be mcq, boolean, or numeric`)
-    }
+  const schemaError = validateSchemaItems(schema)
+  if (schemaError) {
+    return jsonError(c, 400, 'INVALID_SCHEMA', schemaError)
   }
 
   const authUser = c.get('authUser')
 
-  // Transaction: Insert exercise + answer schemas
   try {
-    // Insert exercise
     const exerciseResult = await c.env.DB.prepare(`
       INSERT INTO exercises (title, duration_minutes, created_by)
       VALUES (?, ?, ?)
@@ -181,22 +220,21 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
     const exerciseId = exerciseResult.meta.last_row_id
 
-    // Batch insert answer schemas (atomic)
+    // Batch insert answer schemas (atomic) — include sub_id
     const schemaStmts = schema.map((item) =>
       c.env.DB.prepare(`
-        INSERT INTO answer_schemas (exercise_id, q_id, type, correct_answer)
-        VALUES (?, ?, ?, ?)
-      `).bind(exerciseId, item.q_id, item.type, item.correct_answer)
+        INSERT INTO answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(exerciseId, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
     )
     await c.env.DB.batch(schemaStmts)
 
-    // Return created exercise with schema
     const created = await c.env.DB.prepare(
       'SELECT * FROM exercises WHERE id = ?'
     ).bind(exerciseId).first()
 
     const schemaResult = await c.env.DB.prepare(
-      'SELECT q_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC'
+      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
     ).bind(exerciseId).all()
 
     return jsonSuccess(c, {
@@ -250,7 +288,6 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       nextDuration = 0
     }
 
-    // Update exercise metadata
     const updates = []
     const params = []
 
@@ -274,35 +311,23 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       }
     }
 
-    // Update schema if provided
     if (schema) {
-      if (!Array.isArray(schema) || schema.length === 0) {
-        return jsonError(c, 400, 'INVALID_SCHEMA', 'Schema must be a non-empty array')
+      const schemaError = validateSchemaItems(schema)
+      if (schemaError) {
+        return jsonError(c, 400, 'INVALID_SCHEMA', schemaError)
       }
 
-      // Validate schema
-      const validTypes = new Set(['mcq', 'boolean', 'numeric'])
-      for (const item of schema) {
-        if (!item.q_id || !item.type || item.correct_answer === undefined || item.correct_answer === null || item.correct_answer === '') {
-          return jsonError(c, 400, 'INVALID_SCHEMA', 'Each schema item must have q_id, type, and correct_answer')
-        }
-        if (!validTypes.has(item.type)) {
-          return jsonError(c, 400, 'INVALID_SCHEMA', `Invalid type: ${item.type}. Must be mcq, boolean, or numeric`)
-        }
-      }
-
-      // Batch delete old + insert new schema (atomic)
+      // Batch delete old + insert new schema (atomic) — include sub_id
       const deleteStmt = c.env.DB.prepare('DELETE FROM answer_schemas WHERE exercise_id = ?').bind(id)
       const insertStmts = schema.map((item) =>
         c.env.DB.prepare(`
-          INSERT INTO answer_schemas (exercise_id, q_id, type, correct_answer)
-          VALUES (?, ?, ?, ?)
-        `).bind(id, item.q_id, item.type, item.correct_answer)
+          INSERT INTO answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
+          VALUES (?, ?, ?, ?, ?)
+        `).bind(id, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
       )
       await c.env.DB.batch([deleteStmt, ...insertStmts])
     }
 
-    // Return updated exercise
     const exercise = await c.env.DB.prepare(
       'SELECT * FROM exercises WHERE id = ?'
     ).bind(id).first()
@@ -312,7 +337,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     ).bind(id).all()
 
     const schemaResult = await c.env.DB.prepare(
-      'SELECT q_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC'
+      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
     ).bind(id).all()
 
     return jsonSuccess(c, {
@@ -330,7 +355,6 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
 exercisesRoutes.delete('/:id', requireAuth, requireRole('teacher'), async (c) => {
   const id = c.req.param('id')
 
-  // Enable foreign keys so ON DELETE CASCADE fires
   const results = await c.env.DB.batch([
     c.env.DB.prepare('PRAGMA foreign_keys = ON'),
     c.env.DB.prepare('DELETE FROM exercises WHERE id = ?').bind(id),

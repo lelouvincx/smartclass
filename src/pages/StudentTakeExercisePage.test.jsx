@@ -37,20 +37,24 @@ const EXERCISE_MCQ = {
   duration_minutes: 30,
   is_timed: 1,
   schema: [
-    { q_id: 1, type: 'mcq' },
-    { q_id: 2, type: 'mcq' },
+    { q_id: 1, type: 'mcq', sub_id: null },
+    { q_id: 2, type: 'mcq', sub_id: null },
   ],
 }
 
+// Boolean questions use 4 sub-rows (a,b,c,d) per question
 const EXERCISE_MIXED = {
   id: 2,
   title: 'Mixed Quiz',
   duration_minutes: 0,
   is_timed: 0,
   schema: [
-    { q_id: 1, type: 'mcq' },
-    { q_id: 2, type: 'boolean' },
-    { q_id: 3, type: 'numeric' },
+    { q_id: 1, type: 'mcq', sub_id: null },
+    { q_id: 2, type: 'boolean', sub_id: 'a' },
+    { q_id: 2, type: 'boolean', sub_id: 'b' },
+    { q_id: 2, type: 'boolean', sub_id: 'c' },
+    { q_id: 2, type: 'boolean', sub_id: 'd' },
+    { q_id: 3, type: 'numeric', sub_id: null },
   ],
 }
 
@@ -142,7 +146,7 @@ describe('StudentTakeExercisePage', () => {
     expect(screen.getByLabelText('Question 1 option D')).toBeInTheDocument()
   })
 
-  it('renders True/False radio buttons for boolean-type questions', async () => {
+  it('renders 4 True/False sub-question rows for boolean-type questions', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
     createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
@@ -150,8 +154,15 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Mixed Quiz')
 
-    expect(screen.getByLabelText('Question 2 option True')).toBeInTheDocument()
-    expect(screen.getByLabelText('Question 2 option False')).toBeInTheDocument()
+    // Should show True/False radios for each sub-question (a,b,c,d) of q_id=2
+    expect(screen.getByLabelText('Question 2 sub a True')).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 sub a False')).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 sub b True')).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 sub b False')).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 sub c True')).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 sub c False')).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 sub d True')).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 sub d False')).toBeInTheDocument()
   })
 
   it('renders numeric input for numeric-type questions', async () => {
@@ -168,7 +179,6 @@ describe('StudentTakeExercisePage', () => {
   // --- Timer ---
 
   it('shows timer for timed exercise based on elapsed time', async () => {
-    // started_at is "now" in UTC, so remaining ≈ full duration
     const now = new Date()
     const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
     const sub = { ...SUBMISSION, started_at: startedAt }
@@ -180,7 +190,6 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Algebra Quiz')
 
-    // Should show ~30:00 (may be 29:59 due to test execution time)
     const timerText = screen.getByLabelText('Timer').textContent
     expect(timerText).toMatch(/^(30:00|29:5\d)$/)
   })
@@ -261,7 +270,7 @@ describe('StudentTakeExercisePage', () => {
     expect(optionB).toBeChecked()
   })
 
-  it('allows selecting a boolean option', async () => {
+  it('allows selecting a boolean sub-question option', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
     createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, mode: 'untimed' } })
@@ -270,16 +279,16 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Mixed Quiz')
 
-    const trueOption = screen.getByLabelText('Question 2 option True')
-    await user.click(trueOption)
+    const trueOptionA = screen.getByLabelText('Question 2 sub a True')
+    await user.click(trueOptionA)
 
-    expect(trueOption).toBeChecked()
+    expect(trueOptionA).toBeChecked()
   })
 
   it('allows entering a numeric answer', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, mode: 'untimed' } })
+    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
     renderPage('2')
 
@@ -321,33 +330,43 @@ describe('StudentTakeExercisePage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('calls submitAnswers with correct payload on confirm', async () => {
+  it('calls submitAnswers with correct payload including sub_id for boolean', async () => {
     const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
+    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed', total_questions: 3 } })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
         submitted_at: '2026-03-15 10:05:00',
         answers: [
-          { id: 1, q_id: 1, submitted_answer: 'B', is_correct: null },
-          { id: 2, q_id: 2, submitted_answer: null, is_correct: null },
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: null },
+          { id: 2, q_id: 2, sub_id: 'a', submitted_answer: '1', is_correct: null },
+          { id: 3, q_id: 2, sub_id: 'b', submitted_answer: null, is_correct: null },
+          { id: 4, q_id: 2, sub_id: 'c', submitted_answer: null, is_correct: null },
+          { id: 5, q_id: 2, sub_id: 'd', submitted_answer: null, is_correct: null },
+          { id: 6, q_id: 3, sub_id: null, submitted_answer: null, is_correct: null },
         ],
       },
     })
 
-    renderPage()
+    renderPage('2')
 
-    await screen.findByText('Algebra Quiz')
+    await screen.findByText('Mixed Quiz')
 
     await user.click(screen.getByLabelText('Question 1 option B'))
+    await user.click(screen.getByLabelText('Question 2 sub a True'))
+
     await user.click(screen.getByRole('button', { name: /^Submit$/i }))
     await user.click(screen.getByRole('button', { name: /yes, submit/i }))
 
-    expect(submitAnswersMock).toHaveBeenCalledWith('test-token', 10, [
+    expect(submitAnswersMock).toHaveBeenCalledWith('test-token', 10, expect.arrayContaining([
       { q_id: 1, submitted_answer: 'B' },
-      { q_id: 2, submitted_answer: null },
-    ])
+      { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+      { q_id: 2, sub_id: 'b', submitted_answer: null },
+      { q_id: 2, sub_id: 'c', submitted_answer: null },
+      { q_id: 2, sub_id: 'd', submitted_answer: null },
+      { q_id: 3, submitted_answer: null },
+    ]))
   })
 
   it('shows submitted view with read-only answer table after success', async () => {
@@ -359,8 +378,8 @@ describe('StudentTakeExercisePage', () => {
         id: 10,
         submitted_at: '2026-03-15 10:05:00',
         answers: [
-          { id: 1, q_id: 1, submitted_answer: 'B', is_correct: null },
-          { id: 2, q_id: 2, submitted_answer: 'A', is_correct: null },
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: null },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'A', is_correct: null },
         ],
       },
     })
@@ -386,8 +405,8 @@ describe('StudentTakeExercisePage', () => {
         id: 10,
         submitted_at: '2026-03-15 10:05:00',
         answers: [
-          { id: 1, q_id: 1, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, submitted_answer: null, is_correct: null },
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
         ],
       },
     })
@@ -427,8 +446,8 @@ describe('StudentTakeExercisePage', () => {
         id: 10,
         submitted_at: '2026-03-15 10:05:00',
         answers: [
-          { id: 1, q_id: 1, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, submitted_answer: null, is_correct: null },
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
         ],
       },
     })
@@ -472,8 +491,8 @@ describe('StudentTakeExercisePage', () => {
         id: 10,
         submitted_at: '2026-03-15 10:05:00',
         answers: [
-          { id: 1, q_id: 1, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, submitted_answer: null, is_correct: null },
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
         ],
       },
     })
@@ -499,7 +518,6 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Algebra Quiz')
 
-    // Should be a button labelled "Back", not a plain link navigating away
     expect(screen.getByRole('button', { name: /^Back$/i })).toBeInTheDocument()
   })
 
@@ -550,7 +568,6 @@ describe('StudentTakeExercisePage', () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    // Never-resolving promise to keep isSubmitting = true
     submitAnswersMock.mockImplementation(() => new Promise(() => {}))
 
     renderPage()
@@ -572,8 +589,8 @@ describe('StudentTakeExercisePage', () => {
         id: 10,
         submitted_at: '2026-03-15 10:05:00',
         answers: [
-          { id: 1, q_id: 1, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, submitted_answer: null, is_correct: null },
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
         ],
       },
     })
@@ -585,7 +602,6 @@ describe('StudentTakeExercisePage', () => {
     await user.click(screen.getByRole('button', { name: /yes, submit/i }))
     await screen.findByText(/submitted!/i)
 
-    // In submitted view, "Back to Exercises" should be a link, not a button
     expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
   })
 })

@@ -166,3 +166,29 @@
   - **Rationale**: Explicit `null` distinguishes "skipped" from "answered empty"; consistent with DB schema (`submitted_answer` nullable)
 - **Navigation guard**: `beforeunload` browser warning + in-page "Back" link replaced with a warning prompt when an exercise is in progress (not yet submitted)
   - **Rationale**: Prevents accidental data loss; students can always choose to leave if they understand the consequence
+
+### Boolean Sub-Questions Design (v0.2)
+
+- **Format**: Each boolean ("Đúng/Sai") question has exactly 4 sub-questions (a, b, c, d), each with an independent correct answer of `'0'` (false) or `'1'` (true).
+- **DB storage**: `answer_schemas` table has a nullable `sub_id TEXT` column. MCQ/numeric rows have `sub_id = NULL`; boolean rows have `sub_id IN ('a','b','c','d')`. Uniqueness is enforced by a `COALESCE` unique index: `CREATE UNIQUE INDEX idx_answer_schemas_unique ON answer_schemas(exercise_id, q_id, COALESCE(sub_id, ''))`.
+- **Same pattern for submissions**: `submission_answers` has the same `sub_id` column and unique index to store per-sub-question student answers.
+- **`total_questions` counts distinct `q_id` values** (`COUNT(DISTINCT q_id)`), not row count. A boolean question with 4 sub-rows still counts as 1 question.
+- **API payload** for boolean questions:
+  ```json
+  [
+    {"q_id": 2, "type": "boolean", "sub_id": "a", "correct_answer": "1"},
+    {"q_id": 2, "type": "boolean", "sub_id": "b", "correct_answer": "0"},
+    {"q_id": 2, "type": "boolean", "sub_id": "c", "correct_answer": "0"},
+    {"q_id": 2, "type": "boolean", "sub_id": "d", "correct_answer": "1"}
+  ]
+  ```
+- **Scoring formula** (future, v0.3+): non-linear partial credit per boolean question:
+  - 0 sub-questions correct → 0 points
+  - 1 correct → 0.1 points
+  - 2 correct → 0.25 points
+  - 3 correct → 0.5 points
+  - 4 correct → 1.0 point
+- **Teacher UI**: Boolean rows expand into 4 sub-rows (a,b,c,d) in the schema table, each with True/False radio toggles. Changing type to/from boolean auto-creates/collapses sub-rows.
+- **Student UI**: Boolean questions render as a grouped card showing 4 sub-question rows, each with True/False radio buttons. Submit payload includes `sub_id` per sub-answer.
+- **Alternative considered**: Encoding as `"0101"` string in a single `correct_answer` column — rejected because it would make adding per-sub-question explanations, scoring, or metadata very difficult without a schema change.
+- **Rationale**: Treating each sub-question as a first-class DB row allows future columns (`explanation`, `points`, `image_url`) to be added trivially without migration pain.

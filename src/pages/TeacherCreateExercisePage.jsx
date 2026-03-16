@@ -10,26 +10,38 @@ import { useAuth } from '../lib/auth-context'
 import { extractTextFromPdf } from '../lib/pdf'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
+const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
+
+// --- Normalization helpers ---
 
 function normalizeAnswer(type, value) {
   const trimmed = String(value ?? '').trim()
   if (type === 'mcq') {
     return trimmed.toUpperCase()
   }
-  if (type === 'boolean') {
-    return trimmed.toLowerCase()
-  }
+  // boolean sub-answers are already '0' or '1'
   return trimmed
 }
+
+// --- Validation ---
 
 function validateRows(rows) {
   const qidCounts = new Map()
   rows.forEach((row) => {
     const key = String(row.q_id)
-    if (!key) {
-      return
-    }
+    if (!key) return
     qidCounts.set(key, (qidCounts.get(key) || 0) + 1)
+  })
+
+  // Track boolean sub-ids per q_id for completeness check
+  const booleanSubIds = new Map()
+  rows.forEach((row) => {
+    if (row.type === 'boolean' && row.sub_id) {
+      if (!booleanSubIds.has(String(row.q_id))) {
+        booleanSubIds.set(String(row.q_id), new Set())
+      }
+      booleanSubIds.get(String(row.q_id)).add(row.sub_id)
+    }
   })
 
   return rows.map((row) => {
@@ -39,19 +51,29 @@ function validateRows(rows) {
 
     if (!row.q_id || Number.isNaN(qid) || qid <= 0) {
       errors.push('q_id must be a positive integer')
-    } else if (qidCounts.get(String(row.q_id)) > 1) {
-      errors.push('q_id must be unique')
     }
 
-    const answer = normalizeAnswer(row.type, row.correct_answer)
-    if (!answer) {
-      errors.push('correct_answer is required')
-    } else if (row.type === 'mcq' && !['A', 'B', 'C', 'D'].includes(answer)) {
-      errors.push('MCQ answer must be A, B, C, or D')
-    } else if (row.type === 'boolean' && !['true', 'false'].includes(answer)) {
-      errors.push('Boolean answer must be true or false')
-    } else if (row.type === 'numeric' && Number.isNaN(Number(answer))) {
-      errors.push('Numeric answer must be a valid number')
+    if (row.type === 'boolean') {
+      // For boolean, each row is a sub-question
+      if (!row.sub_id || !BOOLEAN_SUB_IDS.includes(row.sub_id)) {
+        errors.push('boolean sub_id must be a, b, c, or d')
+      } else if (!['0', '1'].includes(row.correct_answer)) {
+        errors.push('select True (1) or False (0)')
+      }
+    } else {
+      // mcq / numeric: check for duplicate q_id
+      if (qidCounts.get(String(row.q_id)) > 1) {
+        errors.push('q_id must be unique')
+      }
+
+      const answer = normalizeAnswer(row.type, row.correct_answer)
+      if (!answer) {
+        errors.push('correct_answer is required')
+      } else if (row.type === 'mcq' && !['A', 'B', 'C', 'D'].includes(answer)) {
+        errors.push('MCQ answer must be A, B, C, or D')
+      } else if (row.type === 'numeric' && Number.isNaN(Number(answer))) {
+        errors.push('Numeric answer must be a valid number')
+      }
     }
 
     if ((row.confidence ?? 1) < LOW_CONFIDENCE_THRESHOLD) {
@@ -60,35 +82,67 @@ function validateRows(rows) {
 
     return {
       ...row,
-      q_id: row.q_id,
-      correct_answer: answer,
+      correct_answer: row.type === 'boolean' ? (row.correct_answer ?? '') : normalizeAnswer(row.type, row.correct_answer),
       errors,
       warnings,
     }
   })
 }
 
+// --- Schema payload builder ---
+
 function toSchemaPayload(rows) {
-  return rows.map((row) => ({
-    q_id: Number.parseInt(String(row.q_id), 10),
-    type: row.type,
-    correct_answer: normalizeAnswer(row.type, row.correct_answer),
-  }))
+  return rows.map((row) => {
+    if (row.type === 'boolean') {
+      return {
+        q_id: Number.parseInt(String(row.q_id), 10),
+        type: 'boolean',
+        sub_id: row.sub_id,
+        correct_answer: row.correct_answer,
+      }
+    }
+    return {
+      q_id: Number.parseInt(String(row.q_id), 10),
+      type: row.type,
+      correct_answer: normalizeAnswer(row.type, row.correct_answer),
+    }
+  })
 }
 
-function newRow(nextQid = '') {
-  const id = typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2)
+// --- Row factory ---
 
-  return {
-    id,
+/**
+ * For MCQ/numeric: returns a single row with a unique id.
+ * For boolean: returns 4 sub-rows (a,b,c,d) under the same q_id.
+ */
+function newRows(type, nextQid = '') {
+  const makeId = () =>
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+
+  if (type === 'boolean') {
+    return BOOLEAN_SUB_IDS.map((sub_id) => ({
+      id: makeId(),
+      q_id: nextQid,
+      sub_id,
+      type: 'boolean',
+      correct_answer: '',
+      confidence: 1,
+    }))
+  }
+
+  return [{
+    id: makeId(),
     q_id: nextQid,
-    type: 'mcq',
+    sub_id: null,
+    type,
     correct_answer: '',
     confidence: 1,
-  }
+  }]
 }
+
+// --- Main page ---
 
 export default function TeacherCreateExercisePage() {
   const navigate = useNavigate()
@@ -99,7 +153,7 @@ export default function TeacherCreateExercisePage() {
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [exerciseFile, setExerciseFile] = useState(null)
   const [answerFile, setAnswerFile] = useState(null)
-  const [rows, setRows] = useState([newRow('1')])
+  const [rows, setRows] = useState(newRows('mcq', '1'))
   const [filter, setFilter] = useState('all')
   const [error, setError] = useState('')
   const [isParsing, setIsParsing] = useState(false)
@@ -125,22 +179,52 @@ export default function TeacherCreateExercisePage() {
   }, [filter, validatedRows])
 
   function handleUpdateRow(id, field, value) {
-    setRows((prev) => prev.map((row) => {
-      if (row.id !== id) {
-        return row
-      }
-      if (field === 'correct_answer') {
-        return { ...row, correct_answer: normalizeAnswer(row.type, value) }
-      }
+    setRows((prev) => {
       if (field === 'type') {
-        return {
-          ...row,
-          type: value,
-          correct_answer: normalizeAnswer(value, row.correct_answer),
-        }
+        // When changing type, replace the row(s) for this q_id
+        const targetRow = prev.find((r) => r.id === id)
+        if (!targetRow) return prev
+
+        const qid = targetRow.q_id
+        // Remove all rows with same q_id (handles boolean -> non-boolean collapse)
+        const otherRows = prev.filter((r) => r.q_id !== qid)
+        const insertIndex = prev.findIndex((r) => r.q_id === qid)
+
+        const replacement = newRows(value, qid)
+        const result = [...otherRows]
+        result.splice(insertIndex, 0, ...replacement)
+        return result
       }
-      return { ...row, [field]: value }
-    }))
+
+      return prev.map((row) => {
+        if (row.id !== id) return row
+        if (field === 'correct_answer') {
+          return { ...row, correct_answer: value }
+        }
+        if (field === 'q_id') {
+          return { ...row, q_id: value }
+        }
+        return { ...row, [field]: value }
+      })
+    })
+  }
+
+  // When updating q_id for a boolean group, update all 4 sub-rows
+  function handleUpdateQid(id, value) {
+    setRows((prev) => {
+      const targetRow = prev.find((r) => r.id === id)
+      if (!targetRow) return prev
+
+      if (targetRow.type === 'boolean') {
+        // Update q_id on all sub-rows that share this q_id
+        const oldQid = targetRow.q_id
+        return prev.map((r) =>
+          r.type === 'boolean' && r.q_id === oldQid ? { ...r, q_id: value } : r
+        )
+      }
+
+      return prev.map((r) => r.id === id ? { ...r, q_id: value } : r)
+    })
   }
 
   function handleAddRow() {
@@ -148,17 +232,23 @@ export default function TeacherCreateExercisePage() {
       const parsed = Number.parseInt(String(row.q_id), 10)
       return Number.isNaN(parsed) ? acc : Math.max(acc, parsed)
     }, 0)
-    setRows((prev) => [...prev, newRow(String(maxQid + 1))])
+    setRows((prev) => [...prev, ...newRows('mcq', String(maxQid + 1))])
   }
 
   function handleDeleteRow(id) {
-    setRows((prev) => prev.filter((row) => row.id !== id))
+    const targetRow = rows.find((r) => r.id === id)
+    if (!targetRow) return
+
+    if (targetRow.type === 'boolean') {
+      // Delete all sub-rows for this boolean q_id
+      setRows((prev) => prev.filter((r) => !(r.type === 'boolean' && r.q_id === targetRow.q_id)))
+    } else {
+      setRows((prev) => prev.filter((row) => row.id !== id))
+    }
   }
 
   async function handleParseSchema() {
-    if (!answerFile) {
-      return
-    }
+    if (!answerFile) return
 
     setIsParsing(true)
     setError('')
@@ -172,17 +262,21 @@ export default function TeacherCreateExercisePage() {
         source_text: sourceText,
       })
 
-      const parsedRows = response.data.schema.map((row) => ({
-        id: typeof crypto !== 'undefined' && crypto.randomUUID
+      const makeId = () =>
+        typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
-          : Math.random().toString(36).slice(2),
+          : Math.random().toString(36).slice(2)
+
+      const parsedRows = response.data.schema.map((row) => ({
+        id: makeId(),
         q_id: String(row.q_id),
+        sub_id: row.sub_id ?? null,
         type: row.type,
-        correct_answer: normalizeAnswer(row.type, row.correct_answer),
+        correct_answer: row.type === 'boolean' ? row.correct_answer : normalizeAnswer(row.type, row.correct_answer),
         confidence: row.confidence,
       }))
 
-      setRows(parsedRows.length > 0 ? parsedRows : [newRow('1')])
+      setRows(parsedRows.length > 0 ? parsedRows : newRows('mcq', '1'))
     } catch (parseError) {
       setError(parseError.message)
     } finally {
@@ -258,6 +352,156 @@ export default function TeacherCreateExercisePage() {
     }
 
     await saveExercise()
+  }
+
+  // --- Render boolean sub-question row ---
+
+  function renderBooleanSubRow(row) {
+    return (
+      <tr key={row.id} className="border-t border-slate-200 align-top">
+        <td className="px-3 py-2">
+          {/* Show q_id input only on sub_id='a' row, read-only on others */}
+          {row.sub_id === 'a' ? (
+            <input
+              aria-label={`q-id-${row.id}`}
+              type="text"
+              value={row.q_id}
+              onChange={(event) => handleUpdateQid(row.id, event.target.value)}
+              className="h-9 w-20 rounded border border-slate-300 px-2"
+            />
+          ) : (
+            <span className="px-2 text-sm text-slate-400">{row.q_id}</span>
+          )}
+        </td>
+        <td className="px-3 py-2">
+          {row.sub_id === 'a' ? (
+            <select
+              aria-label={`type-${row.id}`}
+              value="boolean"
+              onChange={(event) => handleUpdateRow(row.id, 'type', event.target.value)}
+              className="h-9 rounded border border-slate-300 px-2"
+            >
+              <option value="mcq">mcq</option>
+              <option value="boolean">boolean</option>
+              <option value="numeric">numeric</option>
+            </select>
+          ) : (
+            <span className="text-sm text-slate-500">boolean</span>
+          )}
+        </td>
+        <td className="px-3 py-2">
+          <div className="flex items-center gap-3">
+            <span className="w-4 text-sm font-medium text-slate-600">{row.sub_id}.</span>
+            <label className="flex items-center gap-1 text-sm">
+              <input
+                type="radio"
+                name={`bool-${row.id}`}
+                value="1"
+                checked={row.correct_answer === '1'}
+                onChange={() => handleUpdateRow(row.id, 'correct_answer', '1')}
+                aria-label={`sub-q ${row.q_id} ${row.sub_id} true`}
+              />
+              True
+            </label>
+            <label className="flex items-center gap-1 text-sm">
+              <input
+                type="radio"
+                name={`bool-${row.id}`}
+                value="0"
+                checked={row.correct_answer === '0'}
+                onChange={() => handleUpdateRow(row.id, 'correct_answer', '0')}
+                aria-label={`sub-q ${row.q_id} ${row.sub_id} false`}
+              />
+              False
+            </label>
+          </div>
+        </td>
+        <td className="px-3 py-2 text-slate-600">{Math.round((row.confidence ?? 1) * 100)}%</td>
+        <td className="px-3 py-2">
+          {row.errors.length > 0 && (
+            <p className="text-xs text-red-600">{row.errors[0]}</p>
+          )}
+          {row.errors.length === 0 && row.warnings.length > 0 && (
+            <p className="text-xs text-amber-600">{row.warnings[0]}</p>
+          )}
+          {row.errors.length === 0 && row.warnings.length === 0 && (
+            <p className="text-xs text-emerald-700">Valid</p>
+          )}
+        </td>
+        <td className="px-3 py-2">
+          {/* Show delete only on first sub-row */}
+          {row.sub_id === 'a' && (
+            <button
+              type="button"
+              onClick={() => handleDeleteRow(row.id)}
+              className="text-sm text-red-600"
+            >
+              Delete
+            </button>
+          )}
+        </td>
+      </tr>
+    )
+  }
+
+  // --- Render standard (mcq/numeric) row ---
+
+  function renderStandardRow(row) {
+    return (
+      <tr key={row.id} className="border-t border-slate-200 align-top">
+        <td className="px-3 py-2">
+          <input
+            aria-label={`q-id-${row.id}`}
+            type="text"
+            value={row.q_id}
+            onChange={(event) => handleUpdateRow(row.id, 'q_id', event.target.value)}
+            className="h-9 w-20 rounded border border-slate-300 px-2"
+          />
+        </td>
+        <td className="px-3 py-2">
+          <select
+            aria-label={`type-${row.id}`}
+            value={row.type}
+            onChange={(event) => handleUpdateRow(row.id, 'type', event.target.value)}
+            className="h-9 rounded border border-slate-300 px-2"
+          >
+            <option value="mcq">mcq</option>
+            <option value="boolean">boolean</option>
+            <option value="numeric">numeric</option>
+          </select>
+        </td>
+        <td className="px-3 py-2">
+          <input
+            aria-label={`answer-${row.id}`}
+            type="text"
+            value={row.correct_answer}
+            onChange={(event) => handleUpdateRow(row.id, 'correct_answer', event.target.value)}
+            className="h-9 w-36 rounded border border-slate-300 px-2"
+          />
+        </td>
+        <td className="px-3 py-2 text-slate-600">{Math.round((row.confidence ?? 1) * 100)}%</td>
+        <td className="px-3 py-2">
+          {row.errors.length > 0 && (
+            <p className="text-xs text-red-600">{row.errors[0]}</p>
+          )}
+          {row.errors.length === 0 && row.warnings.length > 0 && (
+            <p className="text-xs text-amber-600">{row.warnings[0]}</p>
+          )}
+          {row.errors.length === 0 && row.warnings.length === 0 && (
+            <p className="text-xs text-emerald-700">Valid</p>
+          )}
+        </td>
+        <td className="px-3 py-2">
+          <button
+            type="button"
+            onClick={() => handleDeleteRow(row.id)}
+            className="text-sm text-red-600"
+          >
+            Delete
+          </button>
+        </td>
+      </tr>
+    )
   }
 
   return (
@@ -418,61 +662,11 @@ export default function TeacherCreateExercisePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleRows.map((row) => (
-                    <tr key={row.id} className="border-t border-slate-200 align-top">
-                      <td className="px-3 py-2">
-                        <input
-                          aria-label={`q-id-${row.id}`}
-                          type="text"
-                          value={row.q_id}
-                          onChange={(event) => handleUpdateRow(row.id, 'q_id', event.target.value)}
-                          className="h-9 w-20 rounded border border-slate-300 px-2"
-                        />
-                      </td>
-                      <td className="px-3 py-2">
-                        <select
-                          aria-label={`type-${row.id}`}
-                          value={row.type}
-                          onChange={(event) => handleUpdateRow(row.id, 'type', event.target.value)}
-                          className="h-9 rounded border border-slate-300 px-2"
-                        >
-                          <option value="mcq">mcq</option>
-                          <option value="boolean">boolean</option>
-                          <option value="numeric">numeric</option>
-                        </select>
-                      </td>
-                      <td className="px-3 py-2">
-                        <input
-                          aria-label={`answer-${row.id}`}
-                          type="text"
-                          value={row.correct_answer}
-                          onChange={(event) => handleUpdateRow(row.id, 'correct_answer', event.target.value)}
-                          className="h-9 w-36 rounded border border-slate-300 px-2"
-                        />
-                      </td>
-                      <td className="px-3 py-2 text-slate-600">{Math.round((row.confidence ?? 1) * 100)}%</td>
-                      <td className="px-3 py-2">
-                        {row.errors.length > 0 && (
-                          <p className="text-xs text-red-600">{row.errors[0]}</p>
-                        )}
-                        {row.errors.length === 0 && row.warnings.length > 0 && (
-                          <p className="text-xs text-amber-600">{row.warnings[0]}</p>
-                        )}
-                        {row.errors.length === 0 && row.warnings.length === 0 && (
-                          <p className="text-xs text-emerald-700">Valid</p>
-                        )}
-                      </td>
-                      <td className="px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteRow(row.id)}
-                          className="text-sm text-red-600"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {visibleRows.map((row) =>
+                    row.type === 'boolean'
+                      ? renderBooleanSubRow(row)
+                      : renderStandardRow(row)
+                  )}
                 </tbody>
               </table>
             </div>
