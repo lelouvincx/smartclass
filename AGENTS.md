@@ -225,6 +225,51 @@
 - **Create path**: If schema batch insert fails, compensating `DELETE` removes the orphan exercise row.
 - **Previous bug**: Separate DB calls could leave partial state on failure.
 
+### File Serve Access Control (v0.3)
+
+- **Endpoint**: `GET /api/files/:fileId` — worker proxy streaming from R2 via `BUCKET.get()`
+- **Tiered auth by `file_type`**:
+  - `exercise_pdf`: public (no auth required) — matches public exercise browsing; needed for guest mode (v0.6)
+  - `solution_pdf`, `reference_image`: teacher-only (403 for students/unauthenticated)
+- **Pattern**: Optional auth (same as `GET /api/exercises/:id`) — parse JWT if present, check role, gate on `file_type`
+- **Content-Type**: `r2Object.httpMetadata?.contentType` first (stored at upload); falls back to extension-based derivation
+- **Caching**: `Cache-Control: public, max-age=3600`
+- **Known gap**: `GET /api/exercises/:id` still returns all file metadata including `solution_pdf` IDs publicly. Content is protected; metadata stripping deferred to future cleanup.
+- **Rationale**: Consistent with existing upload pattern (Worker proxy). Avoids `@aws-sdk` deps and R2 API credentials required for presigned URLs.
+
+### List Submissions Endpoint (v0.3)
+
+- **Endpoint**: `GET /api/submissions` — `requireAuth`, returns only the authenticated user's submissions
+- **Filters**: Optional `?exercise_id=X`, `?limit=N` (default 50, max 100), `?offset=M` (default 0)
+- **Excludes**: In-progress submissions (`submitted_at IS NULL`)
+- **Response shape**: `{ submissions: [...], total: N }` — total count separate from paginated rows
+- **Cross-user isolation**: `WHERE user_id = authUser.id` enforced server-side
+- **Rationale**: Dashboard needs only 3 rows (`limit=3`); history page uses default. Server-side pagination avoids fetching full history on every visit.
+
+### Enriched Submission GET (v0.3)
+
+- **Endpoint**: `GET /api/submissions/:id` — extended response includes `exercise_title`, `files[]`, and per-answer `type` + `correct_answer`
+- **Query pattern**: Schema-first LEFT JOIN — `answer_schemas LEFT JOIN submission_answers` — guarantees all schema questions appear in review even if `submission_answers` has missing rows (legacy data, skipped questions, partial payloads)
+- **Security**: `correct_answer` stripped when `submitted_at IS NULL` (in-progress attempts). Same pattern as `GET /api/exercises/:id` for non-teachers.
+- **Single fetch**: Review page gets everything (exercise title, files, answers with correct answers) in one request
+
+### PDF Split-Pane Viewer (v0.3)
+
+- **Component**: `src/components/pdf-split-pane.jsx` — reused by both `StudentTakeExercisePage` and `StudentReviewPage`
+- **Desktop (lg+)**: CSS grid `lg:grid-cols-[3fr_2fr]` — PDF 60%, content 40%
+- **Mobile**: Collapsible PDF section above content; toggle state persisted to `localStorage` key `smartclass-pdf-pane-collapsed`
+- **Rendering**: `<iframe src={fileUrl}>` — browser's native PDF viewer; zero JS bundle cost
+- **Null guard**: If `fileUrl` is null (no PDF uploaded), renders children only with no layout change
+- **Rationale**: 60/40 split chosen over 50/50 because the PDF needs width to be readable; answer form (A/B/C/D buttons) is compact
+
+### Submission History and Review Pages (v0.3)
+
+- **Routes**: `/student/submissions` (history), `/student/submissions/:id/review` (review)
+- **Separate pages** (not reusing `StudentTakeExercisePage`): different data flow, avoids adding conditionals to a 697-line component with complex timer/navigation-guard logic
+- **Shared components**: `src/components/answer-result.jsx` — `CorrectnessIcon`, `BooleanAnswerBadge`, `McqNumericResultRow`, `BooleanResultGroup` extracted from take page; both take page (post-submit view, no `correctAnswer`) and review page (full review, `correctAnswer` shown) import from this module
+- **Score color coding**: green ≥7.0, yellow ≥4.0, red <4.0 — consistent across history table and review header
+- **Correct answer visibility**: All correct answers shown in review mode (full transparency after submission is locked)
+
 ### Styling Framework Migration (v0.2)
 
 - **Before**: Plain Tailwind CSS v3 with inline utility classes, zero reusable UI components, no dark mode.
