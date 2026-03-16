@@ -3,6 +3,7 @@
 ## Open Issues
 
 - [ ] **Support drag-and-drop for file upload** — File upload inputs should accept drag-and-drop in addition to the click-to-browse interaction, improving usability especially for teachers uploading PDFs.
+- [ ] **Drag-and-drop reordering of answer schema rows** — When a teacher is editing an exercise's answer schema, rows should be reorderable via drag-and-drop. Currently the only way to change question order is to delete and re-add rows manually. Applies to both `TeacherCreateExercisePage` and `TeacherViewExercisePage` (edit mode).
 
 ## Closed
 
