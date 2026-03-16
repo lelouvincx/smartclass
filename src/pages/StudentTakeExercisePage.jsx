@@ -129,12 +129,25 @@ function NumericInput({ qId, value, onChange, submitted }) {
 
 // --- Read-only result rows ---
 
+function CorrectnessIcon({ isCorrect }) {
+  if (isCorrect === 1) {
+    return <span aria-label="correct" className="font-bold text-green-600">✓</span>
+  }
+  if (isCorrect === 0) {
+    return <span aria-label="wrong" className="font-bold text-red-500">✗</span>
+  }
+  return null
+}
+
 function McqNumericResultRow({ question, answer }) {
   const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
   return (
     <tr className="border-t border-slate-200">
       <td className="px-4 py-3 text-sm text-slate-700">Q{question.q_id}</td>
       <td className="px-4 py-3 text-sm font-medium text-slate-900">{display}</td>
+      <td className="px-4 py-3 text-center">
+        <CorrectnessIcon isCorrect={answer !== null && answer !== undefined ? question.is_correct : null} />
+      </td>
     </tr>
   )
 }
@@ -150,6 +163,9 @@ function BooleanResultGroup({ group, submittedAnswers }) {
           <tr key={sub_id} className="border-t border-slate-200">
             <td className="px-4 py-3 text-sm text-slate-700">Q{group.q_id}{sub_id}</td>
             <td className="px-4 py-3 text-sm font-medium text-slate-900">{display}</td>
+            <td className="px-4 py-3 text-center">
+              <CorrectnessIcon isCorrect={ans ? ans.is_correct : null} />
+            </td>
           </tr>
         )
       })}
@@ -186,6 +202,7 @@ export default function StudentTakeExercisePage() {
   const [submitError, setSubmitError] = useState('')
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [submittedAnswers, setSubmittedAnswers] = useState([])
+  const [submissionScore, setSubmissionScore] = useState(null)
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
 
@@ -359,6 +376,7 @@ export default function StudentTakeExercisePage() {
 
       const res = await submitAnswers(token, submission.id, answersPayload)
       setSubmittedAnswers(res.data.answers || [])
+      setSubmissionScore(res.data.score ?? null)
       setIsSubmitted(true)
       sessionStorage.removeItem(`submission_${id}`)
     } catch (err) {
@@ -479,16 +497,24 @@ export default function StudentTakeExercisePage() {
         {/* Submitted view */}
         {isSubmitted ? (
           <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="mb-4 flex items-center gap-2 text-green-700">
+            <div className="mb-2 flex items-center gap-2 text-green-700">
               <CheckCircle className="h-5 w-5" />
               <h2 className="text-lg font-semibold">Submitted!</h2>
             </div>
-            <p className="mb-4 text-sm text-slate-600">Your answers have been recorded.</p>
+            {submissionScore !== null && (
+              <p className="mb-4 text-2xl font-bold text-slate-900">
+                {submissionScore} <span className="text-base font-normal text-slate-500">/ 10</span>
+              </p>
+            )}
+            {submissionScore === null && (
+              <p className="mb-4 text-sm text-slate-600">Your answers have been recorded.</p>
+            )}
             <table className="min-w-full border-collapse text-sm">
               <thead className="bg-slate-50 text-left text-slate-600">
                 <tr>
                   <th className="px-4 py-2">Question</th>
                   <th className="px-4 py-2">Your Answer</th>
+                  <th className="px-4 py-2 text-center">Result</th>
                 </tr>
               </thead>
               <tbody>
@@ -506,7 +532,7 @@ export default function StudentTakeExercisePage() {
                   return (
                     <McqNumericResultRow
                       key={group.q_id}
-                      question={group}
+                      question={{ ...group, is_correct: ans ? ans.is_correct : null }}
                       answer={ans ? ans.submitted_answer : null}
                     />
                   )

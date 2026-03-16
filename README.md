@@ -39,7 +39,7 @@ Status: done.
 - [x] Update answer schema of boolean questions to include 4 sub-questions (a,b,c,d) with independent correct answers (`sub_id` column, `correct_answer` = `'0'`/`'1'`) ([#28](https://github.com/lelouvincx/smartclass/pull/28))
 - [x] CI: data schema auto updating on dbdocs ([#29](https://github.com/lelouvincx/smartclass/pull/29))
 - [x] Teacher: view and edit exercise answer schema (`/teacher/exercises/:id`) ([#30](https://github.com/lelouvincx/smartclass/pull/30))
-- [ ] Auto-grading: fill in is_correct and score after submission
+- [x] Auto-grading: fill in is_correct and score after submission; student sees score + ✓/✗ immediately ([#31](https://github.com/lelouvincx/smartclass/pull/31))
 
 > **Ship:** teachers create exercises, students complete and get graded — the core loop works.
 
@@ -91,6 +91,7 @@ Status: done.
   - [ ] Generate QR code for each exercise
 - [ ] Buy domain and set things up
 - [ ] Cost analysis and estimation dashboard
+- [ ] Structure logging system for best debugging and monitoring in production
 
 ## Tech Stack
 
