@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff } from 'lucide-react'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Label } from '@/components/ui/label'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { createSubmission, getExercise, getSubmission, submitAnswers } from '@/lib/api'
@@ -69,29 +67,22 @@ function groupSchema(schema) {
 function McqInput({ qId, value, onChange, submitted }) {
   const options = ['A', 'B', 'C', 'D']
   return (
-    <RadioGroup
-      value={value}
-      onValueChange={submitted ? undefined : onChange}
-      disabled={submitted}
-      className="flex flex-wrap gap-x-6 gap-y-2"
-      aria-label={`Question ${qId} options`}
-    >
+    <ButtonGroup aria-label={`Question ${qId} options`}>
       {options.map((opt) => (
-        <div key={opt} className="flex items-center gap-2">
-          <RadioGroupItem
-            value={opt}
-            id={`q_${qId}_${opt}`}
-            aria-label={`Question ${qId} option ${opt}`}
-          />
-          <Label
-            htmlFor={`q_${qId}_${opt}`}
-            className="cursor-pointer text-sm font-semibold"
-          >
-            {opt}
-          </Label>
-        </div>
+        <Button
+          key={opt}
+          type="button"
+          size="sm"
+          variant={value === opt ? 'default' : 'outline'}
+          disabled={submitted}
+          onClick={() => !submitted && onChange(opt)}
+          aria-pressed={value === opt}
+          aria-label={`Question ${qId} option ${opt}`}
+        >
+          {opt}
+        </Button>
       ))}
-    </RadioGroup>
+    </ButtonGroup>
   )
 }
 

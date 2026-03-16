@@ -146,7 +146,7 @@ describe('StudentTakeExercisePage', () => {
     expect(screen.getByText(/3 questions/i)).toBeInTheDocument()
   })
 
-  it('renders MCQ radio buttons for mcq-type questions', async () => {
+  it('renders MCQ option buttons for mcq-type questions', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
@@ -281,7 +281,7 @@ describe('StudentTakeExercisePage', () => {
     const optionB = screen.getByLabelText('Question 1 option B')
     await user.click(optionB)
 
-    expect(optionB).toBeChecked()
+    expect(optionB).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('allows selecting a boolean sub-question option', async () => {
