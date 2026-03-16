@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/auth-context'
 import { getDefaultPathForRole } from '@/lib/navigation'
-import { PHONE_REGEX } from '@/lib/validation'
+import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,15 +26,17 @@ export default function LoginPage() {
       return
     }
 
-    if (!PHONE_REGEX.test(phone)) {
-      setError('Phone must match +84xxxxxxxxx format.')
+    const normalizedPhone = normalizePhone(phone)
+
+    if (!PHONE_REGEX.test(normalizedPhone)) {
+      setError('Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')
       return
     }
 
     setIsSubmitting(true)
 
     try {
-      const response = await login({ phone, password })
+      const response = await login({ phone: normalizedPhone, password })
       navigate(getDefaultPathForRole(response.data.user.role), { replace: true })
     } catch (submitError) {
       setError(submitError.message)
@@ -59,7 +61,7 @@ export default function LoginPage() {
                 type="text"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+84xxxxxxxxx"
+                placeholder="0xxxxxxxxx or +84xxxxxxxxx"
               />
             </div>
 

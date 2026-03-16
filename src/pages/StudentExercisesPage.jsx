@@ -5,6 +5,7 @@ import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 export default function StudentExercisesPage() {
   const navigate = useNavigate()
@@ -12,6 +13,7 @@ export default function StudentExercisesPage() {
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [lastRefreshed, setLastRefreshed] = useState(null)
 
   async function loadExercises() {
     setIsLoading(true)
@@ -20,6 +22,7 @@ export default function StudentExercisesPage() {
     try {
       const response = await listExercises()
       setItems(response.data || [])
+      setLastRefreshed(new Date())
     } catch (loadError) {
       setError(loadError.message)
     } finally {
@@ -39,9 +42,22 @@ export default function StudentExercisesPage() {
             <h1 className="text-2xl font-semibold">Exercises</h1>
             <p className="text-sm text-muted-foreground">Browse and start exercises</p>
           </div>
-          <Button variant="outline" size="icon" onClick={loadExercises} aria-label="Refresh exercises">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {lastRefreshed && !isLoading && (
+              <span className="text-xs text-muted-foreground" aria-label="Last refreshed time">
+                Updated {lastRefreshed.toLocaleTimeString()}
+              </span>
+            )}
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={loadExercises}
+              disabled={isLoading}
+              aria-label="Refresh exercises"
+            >
+              <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+            </Button>
+          </div>
         </div>
       </Card>
 

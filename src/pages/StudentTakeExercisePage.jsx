@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle, Clock } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff } from 'lucide-react'
+import { toast } from 'sonner'
 import { createSubmission, getExercise, getSubmission, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+
+// Milestones at which to fire a toast notification (in seconds remaining).
+// Fires once each, tracked via firedMilestones ref.
+const TIMER_MILESTONES = [
+  { at: 1800, message: '30 minutes left', type: 'info' },
+  { at: 600,  message: '10 minutes left', type: 'warning' },
+  { at: 300,  message: '5 minutes left',  type: 'warning' },
+  { at: 60,   message: '1 minute left',   type: 'error' },
+]
 
 // --- Timer helpers ---
 
@@ -131,7 +141,7 @@ function NumericInput({ qId, value, onChange, submitted }) {
 
 function CorrectnessIcon({ isCorrect }) {
   if (isCorrect === 1) {
-    return <span aria-label="correct" className="font-bold text-green-600">✓</span>
+    return <span aria-label="correct" className="font-bold text-success">✓</span>
   }
   if (isCorrect === 0) {
     return <span aria-label="wrong" className="font-bold text-destructive">✗</span>
@@ -191,6 +201,19 @@ export default function StudentTakeExercisePage() {
   const [secondsLeft, setSecondsLeft] = useState(null)
   const [overtime, setOvertime] = useState(false)
   const timerRef = useRef(null)
+  const firedMilestones = useRef(new Set())
+
+  const [timerHidden, setTimerHidden] = useState(
+    () => localStorage.getItem('smartclass-timer-hidden') === 'true'
+  )
+
+  function toggleTimerHidden() {
+    setTimerHidden((prev) => {
+      const next = !prev
+      localStorage.setItem('smartclass-timer-hidden', String(next))
+      return next
+    })
+  }
 
   const [showConfirm, setShowConfirm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -295,20 +318,40 @@ export default function StudentTakeExercisePage() {
     }
   }, [isLoading, isSubmitted])
 
-  // --- Countdown timer ---
+  // --- Countdown timer + milestone toasts ---
   useEffect(() => {
     if (secondsLeft === null || isSubmitted) return
 
+    // Fire any milestones that have already passed on mount
+    // (e.g. student refreshed after 25 mins into a 30-min exercise)
+    for (const { at, message, type } of TIMER_MILESTONES) {
+      if (secondsLeft <= at && !firedMilestones.current.has(at)) {
+        firedMilestones.current.add(at)
+        toast[type](message, { duration: 6000 })
+      }
+    }
+
     timerRef.current = setInterval(() => {
       setSecondsLeft((prev) => {
-        if (prev === 1) {
+        const next = prev - 1
+
+        if (next === 0) {
           setOvertime(true)
-          return 0
+          if (!firedMilestones.current.has('overtime')) {
+            firedMilestones.current.add('overtime')
+            toast.error("Time's up! You can still submit your answers.", { duration: 8000 })
+          }
         }
-        if (prev <= 0) {
-          return prev - 1
+
+        // Check milestones on each tick
+        for (const { at, message, type } of TIMER_MILESTONES) {
+          if (next === at && !firedMilestones.current.has(at)) {
+            firedMilestones.current.add(at)
+            toast[type](message, { duration: 6000 })
+          }
         }
-        return prev - 1
+
+        return next
       })
     }, 1000)
 
@@ -465,14 +508,33 @@ export default function StudentTakeExercisePage() {
               </p>
             </div>
             {secondsLeft !== null && (
-              <div className={`flex items-center gap-2 ${timerColor}`} aria-live="polite" aria-label="Timer">
-                <Clock className="h-4 w-4" />
-                <span className="tabular-nums text-lg font-semibold">
-                  {formatTime(secondsLeft)}
-                </span>
-                {overtime && (
-                  <Badge variant="destructive" className="text-xs">Over time</Badge>
-                )}
+              <div className="flex items-center gap-2">
+                <div
+                  className={`flex items-center gap-2 ${timerColor}`}
+                  aria-live="polite"
+                  aria-label="Timer"
+                >
+                  <Clock className="h-4 w-4" />
+                  {!timerHidden && (
+                    <span className="tabular-nums text-lg font-semibold">
+                      {formatTime(secondsLeft)}
+                    </span>
+                  )}
+                  {overtime && (
+                    <Badge variant="destructive" className="text-xs">Over time</Badge>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground"
+                  onClick={toggleTimerHidden}
+                  aria-label={timerHidden ? 'Show timer' : 'Hide timer'}
+                  title={timerHidden ? 'Show timer' : 'Hide timer'}
+                >
+                  {timerHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                </Button>
               </div>
             )}
           </div>

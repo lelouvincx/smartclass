@@ -38,6 +38,24 @@ describe('RegisterPage', () => {
     expect(registerMock).not.toHaveBeenCalled()
   })
 
+  it('normalises 0-prefix to +84 before calling API', async () => {
+    const user = userEvent.setup()
+    registerMock.mockResolvedValue({ success: true })
+
+    render(
+      <MemoryRouter>
+        <RegisterPage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText('Phone'), '0900000002')
+    await user.type(screen.getByLabelText('Password'), 'abc')
+    await user.type(screen.getByLabelText('Confirm Password'), 'abc')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+
+    expect(registerMock).toHaveBeenCalledWith({ phone: '+84900000002', password: 'abc' })
+  })
+
   it('shows pending approval success after register', async () => {
     const user = userEvent.setup()
     registerMock.mockResolvedValue({ success: true })

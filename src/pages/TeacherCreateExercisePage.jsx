@@ -22,6 +22,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { Spinner } from '@/components/ui/spinner'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -452,8 +453,11 @@ export default function TeacherCreateExercisePage() {
         <Card>
           <CardContent className="pt-5">
             <div className="grid gap-4 md:grid-cols-3">
+              {/* Title — required */}
               <div className="md:col-span-2 space-y-1.5">
-                <Label htmlFor="title">Exercise title</Label>
+                <Label htmlFor="title">
+                  Exercise title <span aria-hidden="true" className="text-destructive">*</span>
+                </Label>
                 <Input
                   id="title"
                   type="text"
@@ -461,6 +465,8 @@ export default function TeacherCreateExercisePage() {
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
+
+              {/* Timed mode toggle */}
               <div className="space-y-1.5">
                 <Label>Mode</Label>
                 <div className="flex items-center justify-between rounded-md border bg-background p-2">
@@ -473,8 +479,12 @@ export default function TeacherCreateExercisePage() {
                   />
                 </div>
               </div>
+
+              {/* Duration — required when timed, with quick-select presets */}
               <div className="space-y-1.5">
-                <Label htmlFor="duration">Duration (minutes)</Label>
+                <Label htmlFor="duration">
+                  Duration (minutes){isTimed && <span aria-hidden="true" className="text-destructive"> *</span>}
+                </Label>
                 <Input
                   id="duration"
                   type="number"
@@ -482,7 +492,25 @@ export default function TeacherCreateExercisePage() {
                   onChange={(e) => setDurationMinutes(e.target.value)}
                   disabled={!isTimed}
                 />
+                {isTimed && (
+                  <div className="flex gap-1.5" role="group" aria-label="Quick duration presets">
+                    {[60, 90, 120].map((mins) => (
+                      <Button
+                        key={mins}
+                        type="button"
+                        variant={Number(durationMinutes) === mins ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => setDurationMinutes(mins)}
+                      >
+                        {mins} min
+                      </Button>
+                    ))}
+                  </div>
+                )}
               </div>
+
+              {/* Exercise PDF upload */}
               <div className="space-y-1.5">
                 <Label htmlFor="exerciseFile">Exercise PDF (optional)</Label>
                 <input
@@ -493,6 +521,8 @@ export default function TeacherCreateExercisePage() {
                   className="block w-full text-sm"
                 />
               </div>
+
+              {/* Answer PDF upload + Generate Schema grouped as related actions */}
               <div className="space-y-1.5">
                 <Label htmlFor="answerFile">Answer PDF (recommended)</Label>
                 <input
@@ -502,16 +532,22 @@ export default function TeacherCreateExercisePage() {
                   onChange={(e) => setAnswerFile(e.target.files?.[0] || null)}
                   className="block w-full text-sm"
                 />
-              </div>
-              <div className="flex items-end">
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
                   disabled={!answerFile || isParsing}
                   onClick={handleParseSchema}
                   className="w-full"
                 >
-                  {isParsing ? 'Generating schema...' : '✨ Generate Schema'}
+                  {isParsing ? (
+                    <>
+                      <Spinner className="mr-1.5" />
+                      Generating schema...
+                    </>
+                  ) : (
+                    '✨ Generate Schema'
+                  )}
                 </Button>
               </div>
             </div>

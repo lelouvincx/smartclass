@@ -31,8 +31,25 @@ describe('LoginPage', () => {
     await user.type(screen.getByLabelText('Password'), '123')
     await user.click(screen.getByRole('button', { name: 'Sign In' }))
 
-    expect(screen.getByText('Phone must match +84xxxxxxxxx format.')).toBeInTheDocument()
+    expect(screen.getByText('Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')).toBeInTheDocument()
     expect(loginMock).not.toHaveBeenCalled()
+  })
+
+  it('normalises 0-prefix to +84 before calling API', async () => {
+    const user = userEvent.setup()
+    loginMock.mockResolvedValue({ data: { user: { role: 'student' } } })
+
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText('Phone'), '0865481769')
+    await user.type(screen.getByLabelText('Password'), '123')
+    await user.click(screen.getByRole('button', { name: 'Sign In' }))
+
+    expect(loginMock).toHaveBeenCalledWith({ phone: '+84865481769', password: '123' })
   })
 
   it('shows API error when login fails', async () => {

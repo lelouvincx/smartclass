@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { hashPassword, isValidVietnamPhone } from '../lib/auth.js'
+import { hashPassword, isValidVietnamPhone, normalizePhone } from '../lib/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 
@@ -33,14 +33,14 @@ usersRoutes.get('/', async (c) => {
 
 usersRoutes.post('/', async (c) => {
   const body = await c.req.json().catch(() => null)
-  const phone = body?.phone?.trim()
+  const phone = normalizePhone(body?.phone)
 
   if (!phone) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Phone is required.')
   }
 
   if (!isValidVietnamPhone(phone)) {
-    return jsonError(c, 400, 'INVALID_PHONE', 'Phone must match +84xxxxxxxxx format.')
+    return jsonError(c, 400, 'INVALID_PHONE', 'Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')
   }
 
   const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE phone = ?').bind(phone).first()
