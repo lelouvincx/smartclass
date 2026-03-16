@@ -64,7 +64,7 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     const authUser = c.get('authUser')
 
     const submission = await c.env.DB.prepare(
-      'SELECT id, user_id, submitted_at, total_questions FROM submissions WHERE id = ?'
+      'SELECT id, exercise_id, user_id, submitted_at, total_questions FROM submissions WHERE id = ?'
     ).bind(submissionId).first()
 
     if (!submission) {
@@ -100,20 +100,42 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
       seenKeys.add(key)
     }
 
-    // Insert submission answers — include sub_id
+    // ── Auto-grading (compute in-memory before any DB writes) ────────────────
+    // Fetch the answer schema, grade all submitted answers in-memory, then
+    // insert answers with is_correct pre-populated, set score + submitted_at
+    // all in a single atomic DB.batch().
+
+    const schemaRows = await c.env.DB.prepare(
+      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
+    ).bind(submission.exercise_id).all()
+
+    const { gradedAnswers, score } = gradeSubmission(
+      schemaRows.results,
+      answers.map((a) => ({ q_id: a.q_id, sub_id: a.sub_id ?? null, submitted_answer: a.submitted_answer })),
+    )
+
+    // Build lookup: (q_id, sub_id) → is_correct
+    const gradedMap = new Map()
+    for (const ga of gradedAnswers) {
+      gradedMap.set(`${ga.q_id}:${ga.sub_id ?? ''}`, ga.is_correct)
+    }
+
+    // Insert answers with is_correct already set
     const insertStatements = answers.map(({ q_id, sub_id, submitted_answer }) => {
+      const key = `${q_id}:${sub_id ?? ''}`
+      const is_correct = gradedMap.get(key) ?? 0
       return c.env.DB.prepare(`
-        INSERT INTO submission_answers (submission_id, q_id, sub_id, submitted_answer)
-        VALUES (?, ?, ?, ?)
-      `).bind(submissionId, q_id, sub_id ?? null, submitted_answer)
+        INSERT INTO submission_answers (submission_id, q_id, sub_id, submitted_answer, is_correct)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(submissionId, q_id, sub_id ?? null, submitted_answer, is_correct)
     })
 
-    // Atomic guard against double-submit
+    // Atomic: insert answers + set submitted_at + set score in one batch
     const updateStatement = c.env.DB.prepare(`
       UPDATE submissions
-      SET submitted_at = datetime('now')
+      SET submitted_at = datetime('now'), score = ?
       WHERE id = ? AND submitted_at IS NULL
-    `).bind(submissionId)
+    `).bind(score, submissionId)
 
     const batchResults = await c.env.DB.batch([...insertStatements, updateStatement])
 
@@ -121,48 +143,6 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     if (updateResult.meta.changes === 0) {
       return jsonError(c, 400, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
     }
-
-    // ── Auto-grading ───────────────────────────────────────────────────────────
-    // Fetch the answer schema for this exercise and grade all submitted answers.
-    // Then batch-update is_correct on each submission_answer row and score on the
-    // submission row in a single atomic batch.
-
-    const submissionForGrading = await c.env.DB.prepare(
-      'SELECT exercise_id FROM submissions WHERE id = ?'
-    ).bind(submissionId).first()
-
-    const schemaRows = await c.env.DB.prepare(
-      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
-    ).bind(submissionForGrading.exercise_id).all()
-
-    const insertedAnswers = await c.env.DB.prepare(
-      'SELECT id, q_id, sub_id, submitted_answer FROM submission_answers WHERE submission_id = ? ORDER BY q_id ASC, sub_id ASC'
-    ).bind(submissionId).all()
-
-    const { gradedAnswers, score } = gradeSubmission(
-      schemaRows.results,
-      insertedAnswers.results,
-    )
-
-    // Build a lookup: (q_id, sub_id) → is_correct, to match graded results back to DB row ids
-    const gradedMap = new Map()
-    for (const ga of gradedAnswers) {
-      gradedMap.set(`${ga.q_id}:${ga.sub_id ?? ''}`, ga.is_correct)
-    }
-
-    const gradeUpdateStatements = insertedAnswers.results.map((row) => {
-      const key = `${row.q_id}:${row.sub_id ?? ''}`
-      const is_correct = gradedMap.get(key) ?? 0
-      return c.env.DB.prepare(
-        'UPDATE submission_answers SET is_correct = ? WHERE id = ?'
-      ).bind(is_correct, row.id)
-    })
-
-    const scoreUpdateStatement = c.env.DB.prepare(
-      'UPDATE submissions SET score = ? WHERE id = ?'
-    ).bind(score, submissionId)
-
-    await c.env.DB.batch([...gradeUpdateStatements, scoreUpdateStatement])
     // ── End auto-grading ───────────────────────────────────────────────────────
 
     const updatedSubmission = await c.env.DB.prepare(

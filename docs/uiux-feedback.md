@@ -10,3 +10,4 @@
 - [ ] Clicking 'refresh' button should show last refreshed time — When teachers click the refresh button on the exercise list page, display a timestamp indicating when the data was last refreshed to provide feedback that the action was successful.
 - [ ] Phone prefix: accept '0' prefix for local convenience but store as '+84' in database
 - [ ] Allow students to hide the timer because they can feel frustrated when they are taking the test and the timer is ticking. Just notify on certain time intervals (e.g. 30 mins left, 10 mins left) instead of showing a constant countdown.
+- [ ] **Consolidate correctness indicator colors** — `CorrectnessIcon` in `StudentTakeExercisePage.jsx` hardcodes `text-green-600`/`text-red-500`. Consider using consistent semantic color tokens if a theme system is introduced.
