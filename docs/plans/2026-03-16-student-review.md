@@ -1,7 +1,7 @@
 # RFC: v0.3 — Student Review
 
 **Date:** 2026-03-16
-**Status:** Draft (revised)
+**Status:** Shipped
 **Author:** lelouvincx + Claude Code
 
 ### Revision History
@@ -10,6 +10,7 @@
 |-----|------|---------|
 | v1 | 2026-03-16 | Initial draft |
 | v2 | 2026-03-16 | Address review: tiered file auth (HIGH), schema-first left join (MED), list pagination (MED), security tests (MED), R2 Content-Type metadata (LOW) |
+| v3 | 2026-03-16 | Shipped — all 7 PRs merged (#42–#49). PDF split changed from 50/50 to 60/40 after UI feedback. |
 
 ---
 

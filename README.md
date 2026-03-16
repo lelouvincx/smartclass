@@ -46,11 +46,17 @@ Status: done.
 
 ### v0.3 — student review
 
-- [ ] Student: view PDF in split-pane during exercise
-- [ ] Review mode: student reviews graded submissions with correct answers shown
-- [ ] Submission history: student views past submissions
+- [x] File serve endpoint: `GET /api/files/:fileId` with tiered auth (exercise_pdf public, solution_pdf/reference_image teacher-only) ([#42](https://github.com/lelouvincx/smartclass/pull/42))
+- [x] Student: view PDF in split-pane during exercise (60/40 layout, collapsible on mobile) ([#45](https://github.com/lelouvincx/smartclass/pull/45), [#49](https://github.com/lelouvincx/smartclass/pull/49))
+- [x] List submissions endpoint: `GET /api/submissions` with pagination, filters, cross-user isolation ([#43](https://github.com/lelouvincx/smartclass/pull/43))
+- [x] Enrich submission GET: correct answers, type, exercise title, files via schema-first LEFT JOIN ([#44](https://github.com/lelouvincx/smartclass/pull/44))
+- [x] Submission history page: `/student/submissions` — table with color-coded score badges and Review links ([#46](https://github.com/lelouvincx/smartclass/pull/46))
+- [x] Review mode: student reviews graded submission with correct answers shown alongside PDF ([#47](https://github.com/lelouvincx/smartclass/pull/47))
+- [x] History nav link and dashboard quick action ([#48](https://github.com/lelouvincx/smartclass/pull/48))
 
 > **Ship:** exercises feel complete with real documents and solution review.
+
+Status: done.
 
 ### v0.4 — Scanner & image upload (think again to decide whether to use an OCR or just yolo with grok because it's cheap)
 
@@ -96,14 +102,14 @@ Status: done.
 
 ## Tech Stack
 
-| Layer    | Technology                                     |
-| -------- | ---------------------------------------------- |
-| Frontend | React 19, Vite 6, Tailwind CSS 3, React Router |
-| Backend  | Cloudflare Workers + Hono                      |
-| Database | Cloudflare D1 (SQLite)                         |
-| Storage  | Cloudflare R2 (PDFs, images)                   |
-| OCR      | Tesseract.js (client-side)                     |
-| Auth     | Phone (+84xxx) + password, JWT                 |
+| Layer    | Technology                                                  |
+| -------- | ----------------------------------------------------------- |
+| Frontend | React 19, Vite 6, shadcn/ui + Tailwind CSS v4, React Router |
+| Backend  | Cloudflare Workers + Hono                                   |
+| Database | Cloudflare D1 (SQLite)                                      |
+| Storage  | Cloudflare R2 (PDFs, images)                                |
+| OCR      | Tesseract.js (client-side)                                  |
+| Auth     | Phone (+84xxx) + password, JWT                              |
 
 ## Project Structure
 
