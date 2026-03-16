@@ -132,6 +132,17 @@ describe('StudentTakeExercisePage', () => {
     expect(screen.getByText(/2 questions/i)).toBeInTheDocument()
   })
 
+  it('shows distinct question count (not raw schema row count) for exercises with boolean sub-rows', async () => {
+    // EXERCISE_MIXED has 6 schema rows: 1 mcq + 4 boolean sub-rows + 1 numeric = 3 distinct questions
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
+    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
+
+    renderPage('2')
+
+    expect(await screen.findByText('Mixed Quiz')).toBeInTheDocument()
+    expect(screen.getByText(/3 questions/i)).toBeInTheDocument()
+  })
+
   it('renders MCQ radio buttons for mcq-type questions', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     createSubmissionMock.mockResolvedValue({ data: SUBMISSION })

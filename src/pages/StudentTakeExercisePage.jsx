@@ -454,7 +454,7 @@ export default function StudentTakeExercisePage() {
             <div>
               <h1 className="text-2xl font-semibold text-slate-900">{exercise.title}</h1>
               <p className="mt-1 text-sm text-slate-500">
-                {exercise.schema?.length ?? 0} question{exercise.schema?.length !== 1 ? 's' : ''}
+                {questionGroups.length} question{questionGroups.length !== 1 ? 's' : ''}
               </p>
             </div>
             {secondsLeft !== null && (
