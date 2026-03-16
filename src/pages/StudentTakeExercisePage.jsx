@@ -16,6 +16,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import {
+  BooleanAnswerBadge,
+  BooleanResultGroup,
+  CorrectnessIcon,
+  McqNumericResultRow,
+} from '@/components/answer-result'
 
 // Milestones at which to fire a toast notification (in seconds remaining).
 // Fires once each, tracked via firedMilestones ref.
@@ -138,71 +144,6 @@ function NumericInput({ qId, value, onChange, submitted }) {
       aria-label={`Question ${qId} numeric answer`}
       className="w-40 rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-hidden disabled:bg-muted disabled:text-muted-foreground"
     />
-  )
-}
-
-// --- Read-only result rows ---
-
-function CorrectnessIcon({ isCorrect }) {
-  if (isCorrect === 1) {
-    return <span aria-label="correct" className="font-bold text-success">✓</span>
-  }
-  if (isCorrect === 0) {
-    return <span aria-label="wrong" className="font-bold text-destructive">✗</span>
-  }
-  return null
-}
-
-function McqNumericResultRow({ question, answer }) {
-  const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
-  return (
-    <tr className="border-t">
-      <td className="px-4 py-3 text-sm text-muted-foreground">Q{question.q_id}</td>
-      <td className="px-4 py-3 text-sm font-medium">{display}</td>
-      <td className="px-4 py-3 text-center">
-        <CorrectnessIcon isCorrect={answer !== null && answer !== undefined ? question.is_correct : null} />
-      </td>
-    </tr>
-  )
-}
-
-function BooleanAnswerBadge({ value }) {
-  if (value === '1') {
-    return (
-      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-success/15 text-success">
-        True
-      </span>
-    )
-  }
-  if (value === '0') {
-    return (
-      <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive">
-        False
-      </span>
-    )
-  }
-  return <span className="text-muted-foreground">—</span>
-}
-
-function BooleanResultGroup({ group, submittedAnswers }) {
-  return (
-    <>
-      {group.subRows.map(({ sub_id }) => {
-        const ans = submittedAnswers.find((a) => a.q_id === group.q_id && a.sub_id === sub_id)
-        const raw = ans ? ans.submitted_answer : null
-        return (
-          <tr key={sub_id} className="border-t">
-            <td className="px-4 py-3 text-sm text-muted-foreground">Q{group.q_id}{sub_id}</td>
-            <td className="px-4 py-3 text-sm font-medium">
-              <BooleanAnswerBadge value={raw} />
-            </td>
-            <td className="px-4 py-3 text-center">
-              <CorrectnessIcon isCorrect={ans ? ans.is_correct : null} />
-            </td>
-          </tr>
-        )
-      })}
-    </>
   )
 }
 
