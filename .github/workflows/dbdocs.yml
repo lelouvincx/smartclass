@@ -1,12 +1,12 @@
-name: Update dbdocs
+name: Update Dbdocs
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'docs/schema.dbml'
-      - 'worker/db/migrations/**'
+      - "docs/schema.dbml"
+      - "worker/db/migrations/**"
 
 jobs:
   dbdocs:
@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
 
       - name: Install dependencies
