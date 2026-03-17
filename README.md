@@ -10,7 +10,9 @@ An assessment platform for teaching and learning, built on Cloudflare.
 - **Student**: take timed or untimed exercises, submit answers (manual form, scanner/OCR, image upload), get auto-graded, review past results, watch lecture videos
 - **Guest**: browse exercises and lectures, submit exercises with results saved locally — no login required
 
-## Roadmap
+<details>
+
+<summary><h2>Roadmap</h2></summary>
 
 Each milestone produces a usable, deployable version.
 
@@ -99,6 +101,8 @@ Status: done.
 - [ ] Buy domain and set things up
 - [ ] Cost analysis and estimation dashboard
 - [ ] Structure logging system for best debugging and monitoring in production
+
+</details>
 
 ## Tech Stack
 
