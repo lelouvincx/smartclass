@@ -16,7 +16,7 @@ export function TeacherLayout() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-6">
+        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-8">
           <div className="flex items-center gap-4">
             <span className="text-sm font-semibold">SmartClass</span>
             <nav className="hidden items-center gap-1 sm:flex">
@@ -58,7 +58,7 @@ export function TeacherLayout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-5xl px-6 py-6">
+      <main className="mx-auto max-w-4xl px-8 py-6">
         <Outlet />
       </main>
     </div>
