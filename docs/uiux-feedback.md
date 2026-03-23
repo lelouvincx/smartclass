@@ -3,10 +3,12 @@
 ## Open Issues
 
 - [ ] **Support drag-and-drop for file upload** — File upload inputs should accept drag-and-drop in addition to the click-to-browse interaction, improving usability especially for teachers uploading PDFs.
-- [x] **Drag-and-drop reordering of answer schema rows** — Each schema row has a `GripVertical` drag handle. Dragging reorders entire question groups (boolean sub-rows a–d move together). Implemented via `@dnd-kit/core` + `@dnd-kit/sortable` in shared `src/components/schema-table.jsx`. Drag disabled when filter (errors/warnings) is active. Applies to both `TeacherCreateExercisePage` and `TeacherViewExercisePage` (edit mode).
+- [x] **Increase content margin for better readability** — Both `StudentLayout` and `TeacherLayout` updated from `max-w-5xl px-6` to `max-w-4xl px-8` on header and main containers, giving wider horizontal whitespace across all pages.
+- [ ] For answer schema rows when students doing exercises, change UI to a list of questions with number icons, when clicking on a question, it will expand to show the answer schema (mcq, boolean, numeric) (need design first)
 
 ## Closed
 
+- [x] **Drag-and-drop reordering of answer schema rows** — Each schema row has a `GripVertical` drag handle. Dragging reorders entire question groups (boolean sub-rows a–d move together). Implemented via `@dnd-kit/core` + `@dnd-kit/sortable` in shared `src/components/schema-table.jsx`. Drag disabled when filter (errors/warnings) is active. Applies to both `TeacherCreateExercisePage` and `TeacherViewExercisePage` (edit mode).
 - [x] Allow students to hide the timer because they can feel frustrated when they are taking the test and the timer is ticking. Just notify on certain time intervals (e.g. 30 mins left, 10 mins left) instead of showing a constant countdown.
 - [x] Clicking 'refresh' button should show last refreshed time — "Updated HH:MM:SS" timestamp appears next to the refresh button on both TeacherExercisesPage and StudentExercisesPage after each successful load. Refresh icon spins while loading; button is disabled during fetch.
 - [x] **Fix 'Generate Schema' button position** — Moved directly below the "Answer PDF" file input inside the same grid cell, clearly grouping the related upload + generate actions. Button now shows a shadcn/ui `Spinner` (animated `Loader2Icon`) during generation.
