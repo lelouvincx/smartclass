@@ -9,6 +9,7 @@ import {
   validateSchemaRows,
 } from '../lib/schema-parser.js'
 import { requestSchemaFromOpenRouter } from '../lib/openrouter.js'
+import { isValidExtractModel } from '../lib/extract-models.js'
 
 const exercisesRoutes = new Hono()
 
@@ -152,7 +153,7 @@ exercisesRoutes.get('/:id', async (c) => {
 // Create exercise with answer schema (teacher only)
 exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { title, duration_minutes, schema, is_timed = true } = body || {}
+  const { title, duration_minutes, schema, is_timed = true, extract_model } = body || {}
 
   if (!title || schema === undefined) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Title, is_timed, and schema are required')
@@ -161,6 +162,13 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   if (typeof is_timed !== 'boolean') {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'is_timed must be boolean')
   }
+
+  // extract_model is optional. null/undefined means "use server default".
+  // A non-null value must be in the EXTRACT_MODELS allowlist.
+  if (extract_model != null && !isValidExtractModel(extract_model)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'extract_model must be one of the allowed model ids')
+  }
+  const normalizedExtractModel = extract_model == null ? null : extract_model
 
   let normalizedDuration = duration_minutes
   if (is_timed) {
@@ -183,9 +191,9 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
   try {
     const exerciseResult = await c.env.DB.prepare(`
-      INSERT INTO exercises (title, duration_minutes, created_by)
-      VALUES (?, ?, ?)
-    `).bind(title, normalizedDuration, authUser.id).run()
+      INSERT INTO exercises (title, duration_minutes, created_by, extract_model)
+      VALUES (?, ?, ?, ?)
+    `).bind(title, normalizedDuration, authUser.id, normalizedExtractModel).run()
 
     const exerciseId = exerciseResult.meta.last_row_id
 
@@ -228,14 +236,19 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json().catch(() => null)
-  const { title, duration_minutes, schema, is_timed } = body || {}
+  const { title, duration_minutes, schema, is_timed, extract_model } = body || {}
 
-  if (!title && duration_minutes === undefined && !schema && is_timed === undefined) {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'At least one field (title, is_timed, duration_minutes, or schema) is required')
+  if (!title && duration_minutes === undefined && !schema && is_timed === undefined && extract_model === undefined) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'At least one field (title, is_timed, duration_minutes, schema, or extract_model) is required')
   }
 
   if (is_timed !== undefined && typeof is_timed !== 'boolean') {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'is_timed must be boolean')
+  }
+
+  // extract_model: undefined → leave alone; null → reset to default; string → must be in allowlist.
+  if (extract_model !== undefined && extract_model !== null && !isValidExtractModel(extract_model)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'extract_model must be one of the allowed model ids')
   }
 
   try {
@@ -284,6 +297,10 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     if (duration_minutes !== undefined || is_timed !== undefined) {
       updates.push('duration_minutes = ?')
       params.push(nextDuration)
+    }
+    if (extract_model !== undefined) {
+      updates.push('extract_model = ?')
+      params.push(extract_model) // null clears it back to "use default"
     }
 
     if (updates.length > 0) {

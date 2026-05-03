@@ -363,9 +363,14 @@ submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
       return jsonError(c, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Only image/jpeg and image/png are accepted')
     }
 
-    // ── Model selection (server-side allowlist; silently substitutes default) ─
-    const requestedModel = typeof body.model === 'string' ? body.model : null
-    const modelUsed = resolveModel(requestedModel)
+    // ── Model selection ─────────────────────────────────────────────────────
+    // Source of truth is the exercise's teacher-configured extract_model.
+    // The student request is NOT allowed to override; any client-supplied
+    // model field is intentionally ignored.
+    const exerciseRow = await c.env.DB.prepare(
+      'SELECT extract_model FROM exercises WHERE id = (SELECT exercise_id FROM submissions WHERE id = ?)'
+    ).bind(submissionId).first()
+    const modelUsed = resolveModel(exerciseRow?.extract_model ?? null)
 
     // ── Upload to R2 ────────────────────────────────────────────────────────
     const timestamp = Date.now()

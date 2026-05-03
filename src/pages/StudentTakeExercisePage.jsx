@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff, ImageIcon, Pencil } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { createSubmission, getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
@@ -23,6 +23,37 @@ import {
   McqNumericResultRow,
 } from '@/components/answer-result'
 import { PdfSplitPane } from '@/components/pdf-split-pane'
+import AnswerImageUpload from '@/components/answer-image-upload'
+
+// Build a stable key for an answer cell (matches the worker's (q_id, sub_id) pair).
+function cellKey(qId, subId) {
+  return `${qId}:${subId ?? ''}`
+}
+
+// Tri-color confidence dot. Returns null for cells that have been manually
+// edited / verified (the parent passes confidence=null to suppress the dot).
+function ConfidenceDot({ confidence }) {
+  if (confidence === null || confidence === undefined) return null
+  let color
+  let label
+  if (confidence >= 0.8) {
+    color = 'bg-success'
+    label = 'high confidence'
+  } else if (confidence >= 0.5) {
+    color = 'bg-amber-500'
+    label = 'medium confidence — please review'
+  } else {
+    color = 'bg-destructive'
+    label = 'low confidence — please verify'
+  }
+  return (
+    <span
+      aria-label={label}
+      title={`Auto-filled (${Math.round(confidence * 100)}% confidence)`}
+      className={`ml-2 inline-block h-2 w-2 shrink-0 rounded-full ${color}`}
+    />
+  )
+}
 
 // Milestones at which to fire a toast notification (in seconds remaining).
 // Fires once each, tracked via firedMilestones ref.
@@ -71,29 +102,32 @@ function groupSchema(schema) {
 
 // --- Question input components ---
 
-function McqInput({ qId, value, onChange, submitted }) {
+function McqInput({ qId, value, onChange, submitted, confidence }) {
   const options = ['A', 'B', 'C', 'D']
   return (
-    <ButtonGroup aria-label={`Question ${qId} options`}>
-      {options.map((opt) => (
-        <Button
-          key={opt}
-          type="button"
-          size="sm"
-          variant={value === opt ? 'default' : 'outline'}
-          disabled={submitted}
-          onClick={() => !submitted && onChange(opt)}
-          aria-pressed={value === opt}
-          aria-label={`Question ${qId} option ${opt}`}
-        >
-          {opt}
-        </Button>
-      ))}
-    </ButtonGroup>
+    <div className="flex items-center">
+      <ButtonGroup aria-label={`Question ${qId} options`}>
+        {options.map((opt) => (
+          <Button
+            key={opt}
+            type="button"
+            size="sm"
+            variant={value === opt ? 'default' : 'outline'}
+            disabled={submitted}
+            onClick={() => !submitted && onChange(opt)}
+            aria-pressed={value === opt}
+            aria-label={`Question ${qId} option ${opt}`}
+          >
+            {opt}
+          </Button>
+        ))}
+      </ButtonGroup>
+      <ConfidenceDot confidence={confidence} />
+    </div>
   )
 }
 
-function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted }) {
+function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, subConfidence }) {
   return (
     <div className="space-y-2">
       {subRows.map(({ sub_id }) => {
@@ -127,6 +161,7 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted })
                 False
               </Button>
             </ButtonGroup>
+            <ConfidenceDot confidence={subConfidence?.[sub_id]} />
           </div>
         )
       })}
@@ -134,17 +169,20 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted })
   )
 }
 
-function NumericInput({ qId, value, onChange, submitted }) {
+function NumericInput({ qId, value, onChange, submitted, confidence }) {
   return (
-    <input
-      type="number"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={submitted}
-      placeholder="Enter a number"
-      aria-label={`Question ${qId} numeric answer`}
-      className="w-40 rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-hidden disabled:bg-muted disabled:text-muted-foreground"
-    />
+    <div className="flex items-center">
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={submitted}
+        placeholder="Enter a number"
+        aria-label={`Question ${qId} numeric answer`}
+        className="w-40 rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-hidden disabled:bg-muted disabled:text-muted-foreground"
+      />
+      <ConfidenceDot confidence={confidence} />
+    </div>
   )
 }
 
@@ -188,6 +226,12 @@ export default function StudentTakeExercisePage() {
   const [submissionScore, setSubmissionScore] = useState(null)
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
+
+  // Image-extraction state (v0.4)
+  //   inputMode             — 'manual' | 'photo'
+  //   extractedConfidence   — { [cellKey]: number } — auto-filled cells; cleared on manual edit
+  const [inputMode, setInputMode] = useState('manual')
+  const [extractedConfidence, setExtractedConfidence] = useState({})
 
   // --- Init ---
   useEffect(() => {
@@ -324,8 +368,16 @@ export default function StudentTakeExercisePage() {
   }, [secondsLeft === null, isSubmitted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Answer change handlers ---
+  // Editing a cell manually clears its "auto-filled" confidence dot —
+  // signal that the student has personally verified this cell.
   const handleAnswerChange = useCallback((qId, value) => {
     setAnswers((prev) => ({ ...prev, [qId]: value }))
+    setExtractedConfidence((prev) => {
+      const key = cellKey(qId, null)
+      if (!(key in prev)) return prev
+      const { [key]: _removed, ...rest } = prev
+      return rest
+    })
   }, [])
 
   const handleBooleanSubChange = useCallback((qId, subId, value) => {
@@ -333,7 +385,72 @@ export default function StudentTakeExercisePage() {
       ...prev,
       [qId]: { ...(prev[qId] || {}), [subId]: value },
     }))
+    setExtractedConfidence((prev) => {
+      const key = cellKey(qId, subId)
+      if (!(key in prev)) return prev
+      const { [key]: _removed, ...rest } = prev
+      return rest
+    })
   }, [])
+
+  // --- Image extraction merge handler (v0.4) ---
+  // Merge the LLM's extracted answers into the form state and remember which
+  // cells were auto-filled so we can render confidence dots.
+  const handleExtracted = useCallback(
+    ({ extracted, warnings, model_used }) => {
+      if (!Array.isArray(extracted) || extracted.length === 0) {
+        toast.warning('No answers were extracted from the image.')
+        return
+      }
+
+      setAnswers((prev) => {
+        const next = { ...prev }
+        for (const row of extracted) {
+          if (row.answer === null || row.answer === undefined) continue
+          if (row.sub_id) {
+            next[row.q_id] = { ...(next[row.q_id] || {}), [row.sub_id]: row.answer }
+          } else {
+            next[row.q_id] = row.answer
+          }
+        }
+        return next
+      })
+
+      setExtractedConfidence((prev) => {
+        const next = { ...prev }
+        for (const row of extracted) {
+          if (row.answer === null || row.answer === undefined) continue
+          next[cellKey(row.q_id, row.sub_id)] = Number(row.confidence) || 0
+        }
+        return next
+      })
+
+      const filled = extracted.filter((r) => r.answer !== null && r.answer !== undefined).length
+      const lowConf = extracted.filter(
+        (r) => (r.answer !== null && r.answer !== undefined) && Number(r.confidence) < 0.5,
+      ).length
+      const wMsg = warnings && warnings.length > 0 ? ` · ${warnings.length} warning${warnings.length > 1 ? 's' : ''}` : ''
+      const lowMsg = lowConf > 0 ? ` · ${lowConf} low-confidence` : ''
+      toast.success(
+        `Pre-filled ${filled} answer${filled === 1 ? '' : 's'}${lowMsg}${wMsg}. Please review.`,
+        { duration: 6000 },
+      )
+    },
+    [],
+  )
+
+  // Per-question confidence lookup for boolean sub-rows.
+  const booleanSubConfidence = useMemo(() => {
+    const byQ = {}
+    for (const [key, conf] of Object.entries(extractedConfidence)) {
+      const [qStr, subId] = key.split(':')
+      if (!subId) continue
+      const qId = Number(qStr)
+      if (!byQ[qId]) byQ[qId] = {}
+      byQ[qId][subId] = conf
+    }
+    return byQ
+  }, [extractedConfidence])
 
   // --- Submit flow ---
   function handleSubmitClick() {
@@ -407,6 +524,7 @@ export default function StudentTakeExercisePage() {
           value={answers[group.q_id] ?? ''}
           onChange={(v) => handleAnswerChange(group.q_id, v)}
           submitted={isSubmitted}
+          confidence={extractedConfidence[cellKey(group.q_id, null)]}
         />
       )
     }
@@ -418,6 +536,7 @@ export default function StudentTakeExercisePage() {
           subAnswers={answers[group.q_id] || {}}
           onSubChange={(subId, v) => handleBooleanSubChange(group.q_id, subId, v)}
           submitted={isSubmitted}
+          subConfidence={booleanSubConfidence[group.q_id]}
         />
       )
     }
@@ -427,6 +546,7 @@ export default function StudentTakeExercisePage() {
         value={answers[group.q_id] ?? ''}
         onChange={(v) => handleAnswerChange(group.q_id, v)}
         submitted={isSubmitted}
+        confidence={extractedConfidence[cellKey(group.q_id, null)]}
       />
     )
   }
@@ -573,6 +693,50 @@ export default function StudentTakeExercisePage() {
       ) : (
         /* Questions form */
         <div className="space-y-4">
+          {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
+          <Card>
+            <CardContent className="space-y-3 pt-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Input mode</p>
+                  <p className="text-xs text-muted-foreground">
+                    Type answers manually, or upload a photo of your answer sheet to auto-fill.
+                  </p>
+                </div>
+                <ButtonGroup aria-label="Input mode">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={inputMode === 'manual' ? 'default' : 'outline'}
+                    onClick={() => setInputMode('manual')}
+                    aria-pressed={inputMode === 'manual'}
+                  >
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                    Manual
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={inputMode === 'photo' ? 'default' : 'outline'}
+                    onClick={() => setInputMode('photo')}
+                    aria-pressed={inputMode === 'photo'}
+                  >
+                    <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+                    Upload photo
+                  </Button>
+                </ButtonGroup>
+              </div>
+
+              {inputMode === 'photo' && submission && (
+                <AnswerImageUpload
+                  submissionId={submission.id}
+                  onExtracted={handleExtracted}
+                  disabled={isSubmitting}
+                />
+              )}
+            </CardContent>
+          </Card>
+
           {questionGroups.map((group, idx) => (
             <Card key={group.q_id}>
               <CardContent className="pt-5">

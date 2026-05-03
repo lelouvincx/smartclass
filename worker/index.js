@@ -6,6 +6,7 @@ import exercisesRoutes from './routes/exercises.js'
 import uploadRoutes from './routes/upload.js'
 import submissionsRoutes from './routes/submissions.js'
 import filesRoutes from './routes/files.js'
+import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from './lib/extract-models.js'
 
 const app = new Hono()
 
@@ -35,6 +36,18 @@ app.get('/api/health', (c) => {
       service: 'smartclass-api',
       environment: c.env.APP_ENV || 'development',
       timestamp: new Date().toISOString(),
+    },
+  })
+})
+
+// Read-only: vision-LLM models the teacher can pick for image extraction.
+// Public (non-sensitive) so the teacher form can populate without auth gymnastics.
+app.get('/api/extract-models', (c) => {
+  return c.json({
+    success: true,
+    data: {
+      models: EXTRACT_MODELS,
+      default: DEFAULT_EXTRACT_MODEL,
     },
   })
 })

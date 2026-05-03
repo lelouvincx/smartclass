@@ -28,3 +28,11 @@ export function resolveModel(requested) {
   }
   return DEFAULT_EXTRACT_MODEL
 }
+
+/**
+ * Strict check used by exercise create/update — rejects unknown ids so the
+ * teacher gets a clear 400 instead of a silent fallback.
+ */
+export function isValidExtractModel(id) {
+  return typeof id === 'string' && MODEL_IDS.has(id)
+}
