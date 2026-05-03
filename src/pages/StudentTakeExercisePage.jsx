@@ -691,7 +691,7 @@ export default function StudentTakeExercisePage() {
       </Card>
 
       {/* Two-column layout: main content + sidebar */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6">
+      <div className="lg:grid lg:grid-cols-[1fr_clamp(240px,_20rem,_40vw)] lg:items-start lg:gap-6">
         {/* Left: PDF + questions */}
         <div>
           <PdfSplitPane fileUrl={pdfUrl}>

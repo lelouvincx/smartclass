@@ -8,12 +8,11 @@
 //      requestAnswersFromImage forwards the model id verbatim.
 
 export const EXTRACT_MODELS = [
-  { id: 'x-ai/grok-4.1-fast', label: 'Grok 4.1 Fast (default)', provider: 'openrouter' },
-  { id: 'google/gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'openrouter' },
-  { id: 'openai/gpt-4o-mini', label: 'GPT-4o-mini', provider: 'openrouter' },
+  { id: 'mistralai/mistral-small-3.2-24b-instruct', label: 'Mistral Small 3.2 (default)', provider: 'openrouter' },
+  { id: 'x-ai/grok-4.1-fast', label: 'Grok 4.1 Fast', provider: 'openrouter' },
 ]
 
-export const DEFAULT_EXTRACT_MODEL = 'x-ai/grok-4.1-fast'
+export const DEFAULT_EXTRACT_MODEL = 'mistralai/mistral-small-3.2-24b-instruct'
 
 const MODEL_IDS = new Set(EXTRACT_MODELS.map((m) => m.id))
 
