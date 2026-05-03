@@ -3,6 +3,8 @@ import { requireAuth } from '../middleware/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { gradeSubmission } from '../lib/grading.js'
 import { resolveModel } from '../lib/extract-models.js'
+import { requestAnswersFromImage } from '../lib/openrouter.js'
+import { validateExtractedAnswers, ExtractParseError } from '../lib/extract-validator.js'
 
 const submissionsRoutes = new Hono()
 
@@ -387,12 +389,64 @@ submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
 
     const fileId = fileResult.meta.last_row_id
 
-    // ── PR A stub — LLM extraction lands in PR B ────────────────────────────
+    // ── Fetch answer schema (constrains the LLM output) ─────────────────────
+    // Loaded via a fresh query because the submission row was selected with
+    // minimal columns above. We need (q_id, sub_id, type) only.
+    const schemaResult = await c.env.DB.prepare(`
+      SELECT a.q_id, a.sub_id, a.type
+      FROM answer_schemas a
+      JOIN submissions s ON s.exercise_id = a.exercise_id
+      WHERE s.id = ?
+      ORDER BY a.q_id ASC, a.sub_id ASC
+    `).bind(submissionId).all()
+
+    const schema = schemaResult.results
+
+    // ── Vision LLM call ──────────────────────────────────────────────────────
+    const imageBytes = await image.arrayBuffer()
+    let rawContent
+    try {
+      rawContent = await requestAnswersFromImage(c.env, {
+        imageBytes,
+        contentType: image.type,
+        schema,
+        model: modelUsed,
+      })
+    } catch (error) {
+      console.error('Vision extract error:', error)
+      return jsonError(
+        c,
+        502,
+        'EXTRACTION_FAILED',
+        error.message || 'Failed to extract answers from image. Try a different model or use manual mode.',
+      )
+    }
+
+    // ── Validate + normalize ─────────────────────────────────────────────────
+    let extracted
+    let warnings
+    try {
+      const result = validateExtractedAnswers(rawContent, schema)
+      extracted = result.answers
+      warnings = result.warnings
+    } catch (error) {
+      if (error instanceof ExtractParseError) {
+        console.error('Extract parse error:', error.message, 'raw:', rawContent)
+        return jsonError(
+          c,
+          422,
+          'EXTRACT_PARSE_ERROR',
+          'Could not parse model output. Please retry or switch to manual mode.',
+        )
+      }
+      throw error
+    }
+
     return jsonSuccess(c, {
       file_id: fileId,
       model_used: modelUsed,
-      extracted: [],
-      warnings: ['LLM extraction not yet implemented (PR A stub)'],
+      extracted,
+      warnings,
     })
   } catch (error) {
     console.error('Extract answers error:', error)

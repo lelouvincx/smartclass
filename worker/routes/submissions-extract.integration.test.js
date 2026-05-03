@@ -1,5 +1,5 @@
 import { env } from 'cloudflare:test'
-import { describe, it, expect, beforeAll } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import app from '../index.js'
 import { seedTeacher, loginAsTeacher, seedStudent, loginAsStudent, createExercise } from '../test/helpers.js'
 import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from '../lib/extract-models.js'
@@ -14,9 +14,47 @@ beforeAll(async () => {
   studentToken = await loginAsStudent()
 })
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+/**
+ * Default LLM payload that maps the helper exercise schema:
+ *   q_id=1 (mcq, B) + q_id=2 boolean (a=1,b=0,c=0,d=1)
+ */
+const DEFAULT_LLM_ANSWERS = {
+  answers: [
+    { q_id: 1, answer: 'B', confidence: 0.9 },
+    { q_id: 2, sub_id: 'a', answer: '1', confidence: 0.85 },
+    { q_id: 2, sub_id: 'b', answer: '0', confidence: 0.85 },
+    { q_id: 2, sub_id: 'c', answer: '0', confidence: 0.85 },
+    { q_id: 2, sub_id: 'd', answer: '1', confidence: 0.85 },
+  ],
+}
+
+/**
+ * Stub global fetch so any OpenRouter call from the worker returns `payload`
+ * (object → JSON.stringify'd into the chat completion content) or `raw`
+ * (raw string for content). When `status` is given (≥ 400), errors out.
+ *
+ * Returns the spy so tests can introspect calls.
+ */
+function mockOpenRouter({ payload, raw, status = 200, errorMessage } = {}) {
+  const content = raw ?? JSON.stringify(payload ?? DEFAULT_LLM_ANSWERS)
+  const spy = vi.fn(async () => {
+    if (status >= 400) {
+      return new Response(JSON.stringify({ error: { message: errorMessage || 'Upstream failed' } }), { status })
+    }
+    return new Response(JSON.stringify({
+      choices: [{ message: { content } }],
+    }), { status: 200 })
+  })
+  vi.stubGlobal('fetch', spy)
+  return spy
+}
+
 /**
  * Create an in-progress submission for the given exercise as the student.
- * Returns the submission id.
  */
 async function startSubmission(exerciseId, token = studentToken) {
   const res = await app.request('/api/submissions', {
@@ -32,8 +70,7 @@ async function startSubmission(exerciseId, token = studentToken) {
 }
 
 /**
- * Build a multipart FormData body with a fake PNG file (1×1 transparent pixel).
- * `extra` may include a `model` field.
+ * Build a multipart FormData body with a fake image file.
  */
 function buildExtractForm({ filename = 'sheet.png', mime = 'image/png', size = 256, extra = {} } = {}) {
   const bytes = new Uint8Array(size).fill(0xab)
@@ -57,9 +94,16 @@ async function postExtract(submissionId, form, token = studentToken, extraHeader
   }, env)
 }
 
-describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
+beforeEach(() => {
+  // Tests rely on the LLM call going through; ensure a key is present.
+  env.OPENROUTER_API_KEY = 'test-key'
+})
+
+describe('POST /api/submissions/:id/extract', () => {
   describe('happy path', () => {
-    it('uploads image, persists submission_files row, returns stub response', async () => {
+    it('uploads image, persists submission_files row, returns extracted answers', async () => {
+      mockOpenRouter()
+
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
@@ -71,9 +115,17 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
       expect(body.data).toMatchObject({
         file_id: expect.any(Number),
         model_used: DEFAULT_EXTRACT_MODEL,
-        extracted: [],
-        warnings: expect.arrayContaining([expect.stringMatching(/PR A stub/i)]),
+        warnings: expect.any(Array),
       })
+
+      // Extracted matches the schema shape (1 mcq + 4 boolean rows = 5 entries)
+      expect(body.data.extracted).toHaveLength(5)
+      const mcq = body.data.extracted.find((a) => a.q_id === 1 && a.sub_id === null)
+      expect(mcq).toMatchObject({ q_id: 1, sub_id: null, answer: 'B' })
+      expect(mcq.confidence).toBeGreaterThan(0)
+
+      const boolA = body.data.extracted.find((a) => a.q_id === 2 && a.sub_id === 'a')
+      expect(boolA).toMatchObject({ q_id: 2, sub_id: 'a', answer: '1' })
 
       // File row exists in DB and is linked to this submission
       const row = await env.DB.prepare(
@@ -91,6 +143,49 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
       expect(obj).not.toBeNull()
       const arrBuf = await obj.arrayBuffer()
       expect(arrBuf.byteLength).toBe(256)
+    })
+
+    it('passes the requested model to OpenRouter', async () => {
+      const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
+      const spy = mockOpenRouter()
+
+      const { id: exerciseId } = await createExercise(teacherToken)
+      const submissionId = await startSubmission(exerciseId)
+
+      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: altModel.id } }))
+      expect(res.status).toBe(200)
+
+      // Inspect the OpenRouter call body
+      const [, init] = spy.mock.calls.find(([url]) => String(url).includes('openrouter.ai'))
+      const body = JSON.parse(init.body)
+      expect(body.model).toBe(altModel.id)
+
+      // Vision message format: image_url with data: URI
+      const userMsg = body.messages[0]
+      expect(Array.isArray(userMsg.content)).toBe(true)
+      const imagePart = userMsg.content.find((p) => p.type === 'image_url')
+      expect(imagePart).toBeDefined()
+      expect(imagePart.image_url.url).toMatch(/^data:image\/png;base64,/)
+    })
+
+    it('drops out-of-schema rows from the LLM response with a warning', async () => {
+      mockOpenRouter({
+        payload: {
+          answers: [
+            { q_id: 1, answer: 'A', confidence: 0.9 },
+            { q_id: 99, answer: 'C', confidence: 0.9 }, // not in schema
+          ],
+        },
+      })
+
+      const { id: exerciseId } = await createExercise(teacherToken)
+      const submissionId = await startSubmission(exerciseId)
+
+      const res = await postExtract(submissionId, buildExtractForm())
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.data.extracted.find((a) => a.q_id === 99)).toBeUndefined()
+      expect(body.data.warnings.some((w) => w.includes('Q99'))).toBe(true)
     })
   })
 
@@ -115,10 +210,8 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
 
     it('returns 403 when caller is not the submission owner', async () => {
       const { id: exerciseId } = await createExercise(teacherToken)
-      // Submission owned by the default student
       const submissionId = await startSubmission(exerciseId)
 
-      // Different student tries to extract
       await seedStudent('+84111222333')
       const otherToken = await loginAsStudent('+84111222333')
 
@@ -178,6 +271,7 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
     })
 
     it('accepts image/jpeg', async () => {
+      mockOpenRouter()
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
@@ -201,8 +295,8 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
 
   describe('model selection', () => {
     it('echoes back a valid model id', async () => {
+      mockOpenRouter()
       const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
-      expect(altModel).toBeDefined()
 
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
@@ -214,6 +308,7 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
     })
 
     it('substitutes default for unknown model id', async () => {
+      const spy = mockOpenRouter()
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
@@ -221,9 +316,14 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
+
+      // The OpenRouter request used the default, not the made-up id
+      const [, init] = spy.mock.calls[0]
+      expect(JSON.parse(init.body).model).toBe(DEFAULT_EXTRACT_MODEL)
     })
 
     it('uses default when model is omitted', async () => {
+      mockOpenRouter()
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
@@ -234,8 +334,68 @@ describe('POST /api/submissions/:id/extract — PR A scaffold', () => {
     })
   })
 
+  describe('LLM failure modes', () => {
+    it('returns 502 when OpenRouter responds with an upstream error', async () => {
+      mockOpenRouter({ status: 500, errorMessage: 'upstream exploded' })
+
+      const { id: exerciseId } = await createExercise(teacherToken)
+      const submissionId = await startSubmission(exerciseId)
+
+      const res = await postExtract(submissionId, buildExtractForm())
+      expect(res.status).toBe(502)
+      const body = await res.json()
+      expect(body.error.code).toBe('EXTRACTION_FAILED')
+    })
+
+    it('returns 422 when the LLM returns non-JSON content', async () => {
+      mockOpenRouter({ raw: 'sorry, I cannot help with that' })
+
+      const { id: exerciseId } = await createExercise(teacherToken)
+      const submissionId = await startSubmission(exerciseId)
+
+      const res = await postExtract(submissionId, buildExtractForm())
+      expect(res.status).toBe(422)
+      const body = await res.json()
+      expect(body.error.code).toBe('EXTRACT_PARSE_ERROR')
+    })
+
+    it('returns 422 when the LLM JSON has no answers array', async () => {
+      mockOpenRouter({ raw: JSON.stringify({ result: 'ok' }) })
+
+      const { id: exerciseId } = await createExercise(teacherToken)
+      const submissionId = await startSubmission(exerciseId)
+
+      const res = await postExtract(submissionId, buildExtractForm())
+      expect(res.status).toBe(422)
+      const body = await res.json()
+      expect(body.error.code).toBe('EXTRACT_PARSE_ERROR')
+    })
+
+    it('still persists the file row even when extraction fails', async () => {
+      mockOpenRouter({ status: 503, errorMessage: 'overloaded' })
+
+      const { id: exerciseId } = await createExercise(teacherToken)
+      const submissionId = await startSubmission(exerciseId)
+
+      const before = await env.DB.prepare(
+        'SELECT COUNT(*) AS c FROM submission_files WHERE submission_id = ?'
+      ).bind(submissionId).first()
+
+      const res = await postExtract(submissionId, buildExtractForm())
+      expect(res.status).toBe(502)
+
+      const after = await env.DB.prepare(
+        'SELECT COUNT(*) AS c FROM submission_files WHERE submission_id = ?'
+      ).bind(submissionId).first()
+      // The file is still uploaded — auditable record of the attempt.
+      expect(after.c).toBe(before.c + 1)
+    })
+  })
+
   describe('cascade delete', () => {
     it('deletes submission_files when its submission is deleted', async () => {
+      mockOpenRouter()
+
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
