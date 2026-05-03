@@ -1,4 +1,4 @@
-name: Auto Merge on Approval
+name: Auto Merge
 
 on:
   pull_request_review:
