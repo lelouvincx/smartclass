@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff, ImageIcon, Pencil } from 'lucide-react'
+import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff, ImageIcon, LayoutGrid, Pencil } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
@@ -16,6 +16,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import {
   BooleanAnswerBadge,
   BooleanResultGroup,
@@ -24,6 +25,7 @@ import {
 } from '@/components/answer-result'
 import { PdfSplitPane } from '@/components/pdf-split-pane'
 import AnswerImageUpload from '@/components/answer-image-upload'
+import { QuestionNavGrid, countUnanswered } from '@/components/question-nav-grid'
 
 // Build a stable key for an answer cell (matches the worker's (q_id, sub_id) pair).
 function cellKey(qId, subId) {
@@ -226,6 +228,12 @@ export default function StudentTakeExercisePage() {
   const [submissionScore, setSubmissionScore] = useState(null)
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  // Tracks the currently "focused" question for the nav grid highlight
+  const [currentQId, setCurrentQId] = useState(null)
+  // Refs for scroll-to-question via the nav grid
+  const questionRefs = useRef({})
 
   // Image-extraction state (v0.4)
   //   inputMode             — 'manual' | 'photo'
@@ -246,6 +254,7 @@ export default function StudentTakeExercisePage() {
 
         const groups = groupSchema(ex.schema || [])
         setQuestionGroups(groups)
+        setCurrentQId(groups[0]?.q_id ?? null)
 
         const initial = {}
         for (const group of groups) {
@@ -331,7 +340,6 @@ export default function StudentTakeExercisePage() {
     if (secondsLeft === null || isSubmitted) return
 
     // Fire any milestones that have already passed on mount
-    // (e.g. student refreshed after 25 mins into a 30-min exercise)
     for (const { at, message, type } of TIMER_MILESTONES) {
       if (secondsLeft <= at && !firedMilestones.current.has(at)) {
         firedMilestones.current.add(at)
@@ -351,7 +359,6 @@ export default function StudentTakeExercisePage() {
           }
         }
 
-        // Check milestones on each tick
         for (const { at, message, type } of TIMER_MILESTONES) {
           if (next === at && !firedMilestones.current.has(at)) {
             firedMilestones.current.add(at)
@@ -367,8 +374,6 @@ export default function StudentTakeExercisePage() {
   }, [secondsLeft === null, isSubmitted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Answer change handlers ---
-  // Editing a cell manually clears its "auto-filled" confidence dot —
-  // signal that the student has personally verified this cell.
   const handleAnswerChange = useCallback((qId, value) => {
     setAnswers((prev) => ({ ...prev, [qId]: value }))
     setExtractedConfidence((prev) => {
@@ -393,8 +398,6 @@ export default function StudentTakeExercisePage() {
   }, [])
 
   // --- Image extraction merge handler (v0.4) ---
-  // Merge the LLM's extracted answers into the form state and remember which
-  // cells were auto-filled so we can render confidence dots.
   const handleExtracted = useCallback(
     ({ extracted, warnings, model_used }) => {
       if (!Array.isArray(extracted) || extracted.length === 0) {
@@ -451,6 +454,13 @@ export default function StudentTakeExercisePage() {
     return byQ
   }, [extractedConfidence])
 
+  // --- Nav grid jump ---
+  function handleJump(qId) {
+    setCurrentQId(qId)
+    setSheetOpen(false)
+    questionRefs.current[qId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
   // --- Submit flow ---
   function handleSubmitClick() {
     setShowConfirm(true)
@@ -502,7 +512,7 @@ export default function StudentTakeExercisePage() {
   }
 
   // --- Navigation guard ---
-  function handleBackClick() {
+  function handleExitClick() {
     setShowLeaveWarning(true)
   }
 
@@ -583,8 +593,83 @@ export default function StudentTakeExercisePage() {
   const exercisePdfFile = exercise?.files?.find((f) => f.file_type === 'exercise_pdf')
   const pdfUrl = exercisePdfFile ? getFileUrl(exercisePdfFile.id) : null
 
+  const unansweredCount = exercise ? countUnanswered(exercise.schema, answers) : 0
+  const confirmMessage = unansweredCount > 0
+    ? `You have ${unansweredCount} unanswered question${unansweredCount === 1 ? '' : 's'}. Submit anyway?`
+    : 'You cannot change your answers after submitting.'
+
+  // Sidebar content shared between desktop and mobile sheet
+  function renderSidebar() {
+    return (
+      <div className="space-y-4">
+        {/* Timer */}
+        {secondsLeft !== null && (
+          <div className="rounded-lg border bg-card p-3">
+            <div className="flex items-center justify-between">
+              <div
+                className={`flex items-center gap-2 ${timerColor}`}
+                aria-live="polite"
+                aria-label="Timer"
+              >
+                <Clock className="h-4 w-4" />
+                {!timerHidden && (
+                  <span className="tabular-nums text-lg font-semibold">
+                    {formatTime(secondsLeft)}
+                  </span>
+                )}
+                {overtime && (
+                  <Badge variant="destructive" className="text-xs">Over time</Badge>
+                )}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground"
+                onClick={toggleTimerHidden}
+                aria-label={timerHidden ? 'Show timer' : 'Hide timer'}
+                title={timerHidden ? 'Show timer' : 'Hide timer'}
+              >
+                {timerHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Nav grid */}
+        {exercise && (
+          <QuestionNavGrid
+            schema={exercise.schema}
+            answers={answers}
+            currentQId={currentQId}
+            onJump={handleJump}
+          />
+        )}
+
+        {/* Actions */}
+        <div className="flex flex-col gap-2">
+          <Button
+            onClick={handleSubmitClick}
+            disabled={isSubmitting}
+            className="w-full"
+          >
+            {isSubmitting ? 'Submitting...' : 'Submit'}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleExitClick}
+            disabled={isSubmitting}
+            className="w-full"
+          >
+            Exit
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className={pdfUrl ? 'space-y-4' : 'max-w-2xl space-y-6'}>
+    <div className="space-y-4">
       {/* Header card */}
       <Card>
         <CardContent className="pt-5">
@@ -595,36 +680,6 @@ export default function StudentTakeExercisePage() {
                 {questionGroups.length} question{questionGroups.length !== 1 ? 's' : ''}
               </p>
             </div>
-            {secondsLeft !== null && (
-              <div className="flex items-center gap-2">
-                <div
-                  className={`flex items-center gap-2 ${timerColor}`}
-                  aria-live="polite"
-                  aria-label="Timer"
-                >
-                  <Clock className="h-4 w-4" />
-                  {!timerHidden && (
-                    <span className="tabular-nums text-lg font-semibold">
-                      {formatTime(secondsLeft)}
-                    </span>
-                  )}
-                  {overtime && (
-                    <Badge variant="destructive" className="text-xs">Over time</Badge>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground"
-                  onClick={toggleTimerHidden}
-                  aria-label={timerHidden ? 'Show timer' : 'Hide timer'}
-                  title={timerHidden ? 'Show timer' : 'Hide timer'}
-                >
-                  {timerHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </Button>
-              </div>
-            )}
           </div>
 
           {overtime && (
@@ -636,173 +691,201 @@ export default function StudentTakeExercisePage() {
         </CardContent>
       </Card>
 
-      <PdfSplitPane fileUrl={pdfUrl}>
-      {/* Submitted view */}
-      {isSubmitted ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="mb-2 flex items-center gap-2 text-green-700 dark:text-green-400">
-              <CheckCircle className="h-5 w-5" />
-              <h2 className="text-lg font-semibold">Submitted!</h2>
-            </div>
-            {submissionScore !== null && (
-              <p className="mb-4 text-2xl font-bold">
-                {submissionScore}{' '}
-                <span className="text-base font-normal text-muted-foreground">/ 10</span>
-              </p>
-            )}
-            {submissionScore === null && (
-              <p className="mb-4 text-sm text-muted-foreground">Your answers have been recorded.</p>
-            )}
-            <table className="min-w-full border-collapse text-sm">
-              <thead className="bg-muted text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-2">Question</th>
-                  <th className="px-4 py-2">Your Answer</th>
-                  <th className="px-4 py-2 text-center">Result</th>
-                </tr>
-              </thead>
-              <tbody>
-                {questionGroups.map((group) => {
-                  if (group.type === 'boolean') {
-                    return (
-                      <BooleanResultGroup
-                        key={group.q_id}
-                        group={group}
-                        submittedAnswers={submittedAnswers}
-                      />
-                    )
-                  }
-                  const ans = submittedAnswers.find((a) => a.q_id === group.q_id && !a.sub_id)
-                  return (
-                    <McqNumericResultRow
-                      key={group.q_id}
-                      question={{ ...group, is_correct: ans ? ans.is_correct : null }}
-                      answer={ans ? ans.submitted_answer : null}
-                    />
-                  )
-                })}
-              </tbody>
-            </table>
-            <Button variant="outline" asChild className="mt-6">
-              <Link to="/student/exercises">Back to Exercises</Link>
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Questions form */
-        <div className="space-y-4">
-          {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
-          <Card>
-            <CardContent className="space-y-3 pt-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">Input mode</p>
-                  <p className="text-xs text-muted-foreground">
-                    Type answers manually, or upload a photo of your answer sheet to auto-fill.
-                  </p>
+      {/* Two-column layout: main content + sidebar */}
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6">
+        {/* Left: PDF + questions */}
+        <div>
+          <PdfSplitPane fileUrl={pdfUrl}>
+          {/* Submitted view */}
+          {isSubmitted ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="mb-2 flex items-center gap-2 text-green-700 dark:text-green-400">
+                  <CheckCircle className="h-5 w-5" />
+                  <h2 className="text-lg font-semibold">Submitted!</h2>
                 </div>
-                <ButtonGroup aria-label="Input mode">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={inputMode === 'manual' ? 'default' : 'outline'}
-                    onClick={() => setInputMode('manual')}
-                    aria-pressed={inputMode === 'manual'}
-                  >
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                    Manual
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={inputMode === 'photo' ? 'default' : 'outline'}
-                    onClick={() => setInputMode('photo')}
-                    aria-pressed={inputMode === 'photo'}
-                  >
-                    <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                    Upload photo
-                  </Button>
-                </ButtonGroup>
-              </div>
-
-              {inputMode === 'photo' && submission && (
-                <AnswerImageUpload
-                  submissionId={submission.id}
-                  onExtracted={handleExtracted}
-                  disabled={isSubmitting}
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {questionGroups.map((group, idx) => (
-            <Card key={group.q_id}>
-              <CardContent className="pt-5">
-                <p className="mb-3 text-sm font-semibold">
-                  {idx + 1}. Question {group.q_id}
-                </p>
-                {renderQuestionInput(group)}
+                {submissionScore !== null && (
+                  <p className="mb-4 text-2xl font-bold">
+                    {submissionScore}{' '}
+                    <span className="text-base font-normal text-muted-foreground">/ 10</span>
+                  </p>
+                )}
+                {submissionScore === null && (
+                  <p className="mb-4 text-sm text-muted-foreground">Your answers have been recorded.</p>
+                )}
+                <table className="min-w-full border-collapse text-sm">
+                  <thead className="bg-muted text-left text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-2">Question</th>
+                      <th className="px-4 py-2">Your Answer</th>
+                      <th className="px-4 py-2 text-center">Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {questionGroups.map((group) => {
+                      if (group.type === 'boolean') {
+                        return (
+                          <BooleanResultGroup
+                            key={group.q_id}
+                            group={group}
+                            submittedAnswers={submittedAnswers}
+                          />
+                        )
+                      }
+                      const ans = submittedAnswers.find((a) => a.q_id === group.q_id && !a.sub_id)
+                      return (
+                        <McqNumericResultRow
+                          key={group.q_id}
+                          question={{ ...group, is_correct: ans ? ans.is_correct : null }}
+                          answer={ans ? ans.submitted_answer : null}
+                        />
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <Button variant="outline" asChild className="mt-6">
+                  <Link to="/student/exercises">Back to Exercises</Link>
+                </Button>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            /* Questions form */
+            <div className="space-y-4">
+              {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
+              <Card>
+                <CardContent className="space-y-3 pt-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold">Input mode</p>
+                      <p className="text-xs text-muted-foreground">
+                        Type answers manually, or upload a photo of your answer sheet to auto-fill.
+                      </p>
+                    </div>
+                    <ButtonGroup aria-label="Input mode">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={inputMode === 'manual' ? 'default' : 'outline'}
+                        onClick={() => setInputMode('manual')}
+                        aria-pressed={inputMode === 'manual'}
+                      >
+                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                        Manual
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={inputMode === 'photo' ? 'default' : 'outline'}
+                        onClick={() => setInputMode('photo')}
+                        aria-pressed={inputMode === 'photo'}
+                      >
+                        <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+                        Upload photo
+                      </Button>
+                    </ButtonGroup>
+                  </div>
 
-          {submitError && (
-            <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>
-          )}
+                  {inputMode === 'photo' && submission && (
+                    <AnswerImageUpload
+                      submissionId={submission.id}
+                      onExtracted={handleExtracted}
+                      disabled={isSubmitting}
+                    />
+                  )}
+                </CardContent>
+              </Card>
 
-          {/* Leave warning dialog */}
-          <Dialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Leave this exercise?</DialogTitle>
-                <DialogDescription>
-                  Your answers will be lost if you leave now.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={handleCancelLeave}>Stay</Button>
-                <Button variant="destructive" onClick={handleConfirmLeave}>Yes, leave</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              {questionGroups.map((group, idx) => (
+                <div
+                  key={group.q_id}
+                  ref={(el) => { questionRefs.current[group.q_id] = el }}
+                >
+                  <Card>
+                    <CardContent className="pt-5">
+                      <p className="mb-3 text-sm font-semibold">
+                        {idx + 1}. Question {group.q_id}
+                      </p>
+                      {renderQuestionInput(group)}
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
 
-          {/* Confirm submit dialog */}
-          <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Submit your answers?</DialogTitle>
-                <DialogDescription>
-                  You cannot change your answers after submitting.
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={handleCancelConfirm}>Cancel</Button>
-                <Button onClick={handleConfirmSubmit}>Yes, submit</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {!showConfirm && !showLeaveWarning && (
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={handleSubmitClick}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit'}
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleBackClick}
-                disabled={isSubmitting}
-              >
-                Back
-              </Button>
+              {submitError && (
+                <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>
+              )}
             </div>
           )}
+          </PdfSplitPane>
         </div>
+
+        {/* Right: sticky sidebar (desktop only) */}
+        {!isSubmitted && (
+          <div className="hidden lg:block">
+            <div className="sticky top-4">
+              <Card>
+                <CardContent className="pt-5">
+                  {renderSidebar()}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Dialogs */}
+      <Dialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave this exercise?</DialogTitle>
+            <DialogDescription>
+              Your answers will be lost if you leave now.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelLeave}>Stay</Button>
+            <Button variant="destructive" onClick={handleConfirmLeave}>Yes, leave</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Submit your answers?</DialogTitle>
+            <DialogDescription>
+              {confirmMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCancelConfirm}>Cancel</Button>
+            <Button onClick={handleConfirmSubmit}>Yes, submit</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile: floating answer sheet button */}
+      {!isSubmitted && (
+        <button
+          type="button"
+          aria-label="Open answer sheet"
+          onClick={() => setSheetOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg lg:hidden"
+        >
+          <LayoutGrid className="h-4 w-4" />
+          Answer Sheet
+        </button>
       )}
-      </PdfSplitPane>
+
+      {/* Mobile: bottom sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Answer Sheet</SheetTitle>
+          </SheetHeader>
+          {renderSidebar()}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

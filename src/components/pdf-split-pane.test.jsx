@@ -86,7 +86,7 @@ describe('PdfSplitPane', () => {
     expect(screen.getByTitle('Exercise PDF')).toBeInTheDocument()
   })
 
-  it('persists collapsed state to localStorage', () => {
+  it('persists visibility state to localStorage', () => {
     render(
       <PdfSplitPane fileUrl="/api/files/42">
         <div>Content</div>
@@ -96,11 +96,11 @@ describe('PdfSplitPane', () => {
     const toggleButton = screen.getByRole('button', { name: /pdf/i })
     fireEvent.click(toggleButton)
 
-    expect(localStorage.getItem('smartclass-pdf-pane-collapsed')).toBe('true')
+    expect(localStorage.getItem('smartclass-take-pdf-visible')).toBe('false')
   })
 
-  it('reads initial collapsed state from localStorage', () => {
-    localStorage.setItem('smartclass-pdf-pane-collapsed', 'true')
+  it('reads initial visibility state from localStorage', () => {
+    localStorage.setItem('smartclass-take-pdf-visible', 'false')
 
     render(
       <PdfSplitPane fileUrl="/api/files/42">
@@ -108,7 +108,7 @@ describe('PdfSplitPane', () => {
       </PdfSplitPane>
     )
 
-    // Should start collapsed — no iframe
+    // Should start hidden — no iframe
     expect(screen.queryByTitle('Exercise PDF')).not.toBeInTheDocument()
   })
 })
