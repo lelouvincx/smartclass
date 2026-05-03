@@ -3,7 +3,7 @@ import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const STORAGE_KEY = 'smartclass-pdf-pane-collapsed'
+const STORAGE_KEY = 'smartclass-take-pdf-visible'
 
 /**
  * PdfSplitPane — wraps content alongside an inline PDF viewer.
@@ -14,26 +14,28 @@ const STORAGE_KEY = 'smartclass-pdf-pane-collapsed'
  *
  * Desktop (lg+): side-by-side grid, PDF on left, children on right.
  * Mobile (<lg):  PDF in a collapsible section above children.
- * Toggle state persisted to localStorage.
+ * Toggle state persisted to localStorage (key: smartclass-take-pdf-visible, default: visible).
  */
 export function PdfSplitPane({ fileUrl, children }) {
-  const [collapsed, setCollapsed] = useState(() => {
+  const [pdfVisible, setPdfVisible] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_KEY) === 'true'
+      const stored = localStorage.getItem(STORAGE_KEY)
+      return stored === null ? true : stored !== 'false'
     } catch {
-      return false
+      return true
     }
   })
 
-  function toggleCollapsed() {
-    const next = !collapsed
-    setCollapsed(next)
+  function togglePdfVisible() {
+    const next = !pdfVisible
+    setPdfVisible(next)
     try {
       localStorage.setItem(STORAGE_KEY, String(next))
     } catch {
       // ignore
     }
   }
+  const collapsed = !pdfVisible
 
   // No PDF — render children directly with no layout change
   if (!fileUrl) {
@@ -47,7 +49,7 @@ export function PdfSplitPane({ fileUrl, children }) {
         <Button
           variant="outline"
           size="sm"
-          onClick={toggleCollapsed}
+          onClick={togglePdfVisible}
           aria-label={collapsed ? 'Show PDF' : 'Hide PDF'}
           aria-expanded={!collapsed}
         >

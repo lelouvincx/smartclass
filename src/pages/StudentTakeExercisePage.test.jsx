@@ -353,7 +353,7 @@ describe('StudentTakeExercisePage', () => {
 
   // --- Submit flow ---
 
-  it('shows confirm dialog when submit button is clicked', async () => {
+  it('shows confirm dialog with unanswered count when submit button is clicked', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
@@ -364,7 +364,7 @@ describe('StudentTakeExercisePage', () => {
     await user.click(screen.getByRole('button', { name: /^Submit$/i }))
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText(/cannot change your answers/i)).toBeInTheDocument()
+    expect(screen.getByText(/you have 2 unanswered questions/i)).toBeInTheDocument()
   })
 
   it('hides confirm dialog when cancel is clicked', async () => {
@@ -561,7 +561,7 @@ describe('StudentTakeExercisePage', () => {
     removeEventSpy.mockRestore()
   })
 
-  it('shows Back button as a warning prompt instead of a plain link while in progress', async () => {
+  it('shows Exit button as a warning prompt instead of a plain link while in progress', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
@@ -569,10 +569,10 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Algebra Quiz')
 
-    expect(screen.getByRole('button', { name: /^Back$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Exit$/i })).toBeInTheDocument()
   })
 
-  it('shows an in-page leave warning when Back button is clicked mid-exercise', async () => {
+  it('shows an in-page leave warning when Exit button is clicked mid-exercise', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
@@ -580,7 +580,7 @@ describe('StudentTakeExercisePage', () => {
     renderPage()
 
     await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Back$/i }))
+    await user.click(screen.getByRole('button', { name: /^Exit$/i }))
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText(/leave this exercise/i)).toBeInTheDocument()
@@ -595,7 +595,7 @@ describe('StudentTakeExercisePage', () => {
     renderPage()
 
     await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Back$/i }))
+    await user.click(screen.getByRole('button', { name: /^Exit$/i }))
     await user.click(screen.getByRole('button', { name: /yes, leave/i }))
 
     expect(await screen.findByText('Exercises list')).toBeInTheDocument()
@@ -609,14 +609,14 @@ describe('StudentTakeExercisePage', () => {
     renderPage()
 
     await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Back$/i }))
+    await user.click(screen.getByRole('button', { name: /^Exit$/i }))
     await user.click(screen.getByRole('button', { name: /stay/i }))
 
     expect(screen.queryByRole('dialog', { name: /leave exercise/i })).not.toBeInTheDocument()
     expect(screen.getByText('Algebra Quiz')).toBeInTheDocument()
   })
 
-  it('Back button is disabled while submission is in flight', async () => {
+  it('Exit button is disabled while submission is in flight', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
@@ -628,8 +628,8 @@ describe('StudentTakeExercisePage', () => {
     await user.click(screen.getByRole('button', { name: /^Submit$/i }))
     await user.click(screen.getByRole('button', { name: /yes, submit/i }))
 
-    const backButton = screen.getByRole('button', { name: /^Back$/i })
-    expect(backButton).toBeDisabled()
+    const exitButton = screen.getByRole('button', { name: /^Exit$/i })
+    expect(exitButton).toBeDisabled()
   })
 
   it('Back button is a plain link (no warning) after exercise is submitted', async () => {

@@ -10,12 +10,22 @@ import React from 'react'
 
 // --- Utility ---
 
-export function CorrectnessIcon({ isCorrect }) {
-  if (isCorrect === 1) {
+export function computeStatus(submittedAnswer, isCorrect) {
+  if (submittedAnswer === null || submittedAnswer === undefined) return 'skipped'
+  if (isCorrect === 1) return 'correct'
+  if (isCorrect === 0) return 'incorrect'
+  return null
+}
+
+export function CorrectnessIcon({ status }) {
+  if (status === 'correct') {
     return <span aria-label="correct" className="font-bold text-success">✓</span>
   }
-  if (isCorrect === 0) {
+  if (status === 'incorrect') {
     return <span aria-label="wrong" className="font-bold text-destructive">✗</span>
+  }
+  if (status === 'skipped') {
+    return <span aria-label="skipped" className="font-bold text-muted-foreground">−</span>
   }
   return null
 }
@@ -50,7 +60,7 @@ export function BooleanAnswerBadge({ value }) {
  */
 export function McqNumericResultRow({ question, answer, correctAnswer }) {
   const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
-  const isCorrect = answer !== null && answer !== undefined ? question.is_correct : null
+  const status = computeStatus(answer, question.is_correct)
 
   return (
     <tr className="border-t">
@@ -60,7 +70,7 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
         <td className="px-4 py-3 text-sm text-muted-foreground">{correctAnswer ?? '—'}</td>
       )}
       <td className="px-4 py-3 text-center">
-        <CorrectnessIcon isCorrect={isCorrect} />
+        <CorrectnessIcon status={status} />
       </td>
     </tr>
   )
@@ -94,7 +104,7 @@ export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
               </td>
             )}
             <td className="px-4 py-3 text-center">
-              <CorrectnessIcon isCorrect={ans ? ans.is_correct : null} />
+              <CorrectnessIcon status={computeStatus(ans?.submitted_answer, ans?.is_correct)} />
             </td>
           </tr>
         )
