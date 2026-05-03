@@ -4,10 +4,10 @@
 
 - Three roles: **Teacher**, **Student**, and **Guest**.
 - **Teacher** (admin): uploads exercises (PDF) with answer schemas, manages lecture pages (e.g., naming chapters, adding solution videos). The admin panel must be fully UI-editable and intuitive for non-technical users (no code or CLI required).
-- **Student**: takes exercises (timed or untimed mode), submits answers via manual form, scanner mode (OCR), or image upload, receives automatic grading, saves results for later review, views solutions, and watches lecture videos.
+- **Student**: takes exercises (timed or untimed mode), submits answers via manual form or photo upload (vision-LLM extracts handwritten answers), receives automatic grading, saves results for later review, views solutions, and watches lecture videos.
 - **Guest**: same as Student (completes exercises, watches videos) but without saving results.
 - Answer types: multiple choice (A/B/C/D), true/false, or numeric fill-in.
-- Grading is automated: OCR/scanner extracts answers from standardized sheets, then a simple matching logic compares against the schema.
+- Grading is automated: a multimodal LLM (Grok via OpenRouter) extracts answers from a photo of the answer sheet, the student reviews/corrects, then a simple matching logic compares against the schema.
 - **Lectures**: Teachers upload YouTube video lectures and organize them into named sections (e.g., Chapter 1, Chapter 2, Solution for Exercise X). Students can browse and view lectures.
 
 ## Rules
@@ -27,9 +27,10 @@
 
 ## Architecture
 
-- **Frontend**: React 19 SPA (Vite 6) deployed on Cloudflare Pages. React Router for navigation. shadcn/ui (Radix + Tailwind CSS v4), lucide-react icons. OCR via Tesseract.js (client-side).
+- **Frontend**: React 19 SPA (Vite 6) deployed on Cloudflare Pages. React Router for navigation. shadcn/ui (Radix + Tailwind CSS v4), lucide-react icons.
 - **Backend**: Cloudflare Workers with Hono router. REST API (`/api/*`). JWT auth (bcryptjs).
-- **Database**: Cloudflare D1 (SQLite). Tables: `users`, `exercises`, `answer_schemas`, `submissions`, `submission_answers`, `lectures`.
+- **Database**: Cloudflare D1 (SQLite). Tables: `users`, `exercises`, `answer_schemas`, `submissions`, `submission_answers`, `submission_files`, `exercise_files`, `lectures`.
+- **Vision**: Multimodal LLM via OpenRouter (Grok 4.1 Fast default, Gemini 2.5 Flash fallback) for student answer-sheet image extraction. No client-side OCR.
 - **Storage**: Cloudflare R2 for PDFs and uploaded images. Client uploads via presigned URLs.
 - **Auth**: Phone number (`+84xxx`) + password. Teacher creates students (default pw `123`) or student self-registers (pending approval). Guest = no login, data in IndexedDB.
 - **Project structure**: `src/` (frontend), `worker/` (backend API), `wrangler.toml` (Cloudflare config).
@@ -284,3 +285,47 @@
 - **Mode toggle**: `src/components/mode-toggle.jsx` — dropdown with Light/Dark/System options using `useTheme()` hook.
 - **Migration**: Complete. Phase 1 (infra), Phase 2 (components + layouts), Phase 3 (all pages) — PRs #37, #38, #39.
 - **RFC**: `docs/plans/2026-03-16-shadcn-ui-migration.md`.
+
+### Image-based Answer Extraction (v0.4, PRs #52/#53/#54)
+
+- **Goal**: Let students submit a photo of a filled answer sheet instead of clicking A/B/C/D for every question. Extraction populates the form; the student reviews and corrects before submitting.
+- **Engine**: Multimodal LLM via OpenRouter — no client-side OCR (Tesseract.js was rejected for poor handwriting accuracy, ~2 MB WASM bundle, no schema awareness). Default model `x-ai/grok-4.1-fast`; allowlist also includes `google/gemini-2.5-flash` and `openai/gpt-4o-mini`. Cost per submission ≈ $0.0007.
+- **RFC**: `docs/plans/2026-05-03-image-answer-extraction.md` covers the full design rationale, prompt skeleton, edge cases, and cost breakdown.
+
+#### Endpoint and storage
+
+- **Endpoint**: `POST /api/submissions/:id/extract` — `multipart/form-data` with one `image` field (jpg/png, ≤ 20 MB). Auth: `requireAuth`, must be the submission owner, submission must be in-progress (`submitted_at IS NULL`).
+- **Single-shot upload + extract**: Deliberately not split into two endpoints. The only reason to upload an answer-sheet image is to extract from it; combining avoids orphan R2 objects and a round trip.
+- **Status codes**: `403` non-owner, `409` submission already submitted, `413` > 20 MB, `415` wrong content-type, `502` LLM provider failures (after Gemini fallback), `422` LLM JSON unrecoverable.
+- **Storage**: `submission_files` table (migration 0007) with `file_type CHECK ('answer_sheet')`, `ON DELETE CASCADE` from `submissions`. R2 path `submissions/{submission_id}/{timestamp}-{filename}`. Images persist indefinitely (auditable; teachers can review the source image for disputed grades).
+- **Response shape**: `{ file_id, model_used, extracted: [{q_id, sub_id?, answer, confidence}], warnings: [...] }`. `model_used` reflects substitution if a stale model id was sent.
+
+#### Model selection (teacher-configured, not student-configured)
+
+- **Decision**: The vision model is configured **per exercise by the teacher**, not picked by the student. The student-facing UI has no model picker.
+- **Rationale**: Teachers know which model performs best for their exam style and want consistent grading across a class. Letting students pick would let one student's "GPT-4o-mini got it wrong" be a different bug than another student's "Grok got it wrong" — bad for support.
+- **Storage**: `exercises.extract_model TEXT NULL` (migration 0008). `NULL` means "use server default".
+- **API**: `POST /api/exercises` and `PUT /api/exercises/:id` accept `extract_model` and validate against the allowlist (400 on unknown id). Strict — teachers should see a clear error, not a silent fallback.
+- **Server-side resolution**: When a student calls `/extract`, the worker reads `exercise.extract_model` and resolves via `resolveModel()` in `worker/lib/extract-models.js` (silent fallback to default if NULL or stale). Any client-supplied `model` field on the extract request is **intentionally ignored** to prevent students from changing the model.
+- **Public discovery**: `GET /api/extract-models` returns `{ models, default }` for the teacher-side `ExtractModelSelect` picker. No auth required (the allowlist is not sensitive).
+- **Allowlist source**: `worker/lib/extract-models.js` — shared between worker and frontend. Adding a model is a one-line change; no separate frontend constants file.
+
+#### Vision-LLM helper
+
+- **`requestAnswersFromImage(env, { imageBytes, contentType, schema, model })`** in `worker/lib/openrouter.js`, sibling of `requestSchemaFromOpenRouter`. Same Gemini fallback + retry logic regardless of which model was requested. Vision messages use the OpenAI-compatible `image_url` content type with a `data:` URI built from `imageBytes` + `contentType`.
+- **Schema-aware prompt**: The prompt embeds the exercise's answer schema (q_ids, types, sub_ids) and asks for strict JSON `{"answers":[...]}`. Constraining the model to known slots cuts hallucinated q_ids to ~zero (same gain we observed with teacher-side schema extraction).
+- **Validator**: `worker/lib/extract-validator.js` — pure function. Parses JSON, drops rows whose `(q_id, sub_id)` is not in the schema (warn), normalizes per type (uppercase MCQ; trim numeric; coerce boolean to `'1'`/`'0'`), backfills missing schema rows with `{answer: null, confidence: 0}` so the frontend always gets a complete shape.
+
+#### Frontend UX
+
+- **Component**: `src/components/answer-image-upload.jsx` — dropzone, image preview, XHR upload progress, cancel during upload, retry after error, warnings disclosure. State machine: `idle → previewing → uploading → extracting → done` (with `error` branches).
+- **Why XHR, not fetch**: `fetch` cannot report upload progress. XHR is isolated to this one endpoint — `extractAnswersFromImage()` in `src/lib/api.js`. All other API calls continue through the central `request()` helper.
+- **Mode toggle on take page**: Manual ⇄ Photo segmented control on `StudentTakeExercisePage.jsx`. The mode toggle does not destroy answer state — switching modes preserves whatever the student has already filled in.
+- **Confidence dots**: Tri-color per pre-filled cell — green ≥ 0.8, amber ≥ 0.5, red < 0.5. Manually editing a highlighted cell clears its dot ("I have personally verified this one").
+- **Warnings**: Surfaced inline as a collapsible list ("Q5: 'E' is not a valid MCQ answer, dropped"). Doesn't block submission.
+- **No auto-submit**: Extraction populates the form only. The student always hits **Submit**, the same `PUT /api/submissions/:id/submit` runs, and grading is identical. Matches the v0.2 "no auto-submit on timer expiry" precedent — student agency over automation.
+
+#### Teacher UX
+
+- **Component**: `src/components/extract-model-select.jsx` — used in `TeacherCreateExercisePage` (editable) and `TeacherViewExercisePage` (editable + read-only modes). Loads the allowlist from `GET /api/extract-models` so a model added to the worker is immediately visible without a frontend deploy.
+- **Sentinel value**: Radix Select disallows empty string as a value, so the "Use server default" option uses `'__default__'` and the component translates it to `null` on `onChange`.

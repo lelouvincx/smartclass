@@ -60,13 +60,16 @@ Status: done.
 
 Status: done.
 
-### v0.4 — Scanner & image upload (think again to decide whether to use an OCR or just yolo with grok because it's cheap)
+### v0.4 — Image-based answer extraction (vision LLM, no OCR)
 
-- [ ] Image upload mode: upload photo → OCR → populate answer form
-- [ ] Tesseract.js OCR integration (client-side)
-- [ ] Scanner mode: camera capture → extract answers from standardized sheets
+RFC: [`docs/plans/2026-05-03-image-answer-extraction.md`](docs/plans/2026-05-03-image-answer-extraction.md). After comparing Tesseract.js vs. a multimodal LLM, we shipped vision-LLM extraction (Grok 4.1 Fast via OpenRouter, with Gemini fallback) — handles handwriting, schema-aware, and ~$0.0007/submission.
 
-> **Ship:** students can submit via three input methods (form, scanner, image).
+- [x] PR A — DB + endpoint scaffold: `submission_files` table (migration 0007), `worker/lib/extract-models.js` allowlist, `POST /api/submissions/:id/extract` (auth, ownership, 20 MB cap, jpg/png) ([#52](https://github.com/lelouvincx/smartclass/pull/52))
+- [x] PR B — Vision LLM + validator: `requestAnswersFromImage` in `worker/lib/openrouter.js`, `worker/lib/extract-validator.js` (schema filter, type normalization, missing-row backfill), Gemini retry fallback ([#53](https://github.com/lelouvincx/smartclass/pull/53))
+- [x] PR C — Frontend upload UI + teacher model config: `AnswerImageUpload` component (dropzone, XHR progress, cancel/retry, warnings), Manual ⇄ Photo mode toggle on take page, tri-color confidence dots, teacher-side `ExtractModelSelect` on create/view exercise pages, `extract_model` column on `exercises` (migration 0008), public `GET /api/extract-models` ([#54](https://github.com/lelouvincx/smartclass/pull/54))
+- [x] PR D — Docs: README + AGENTS.md updates for the full v0.4 extraction flow
+
+> **Ship:** students can submit via two input methods (manual form, photo upload). A "scanner" mode with live camera framing is deferred to v0.6 polish.
 
 ### v0.5 — Lectures
 
@@ -112,7 +115,7 @@ Status: done.
 | Backend  | Cloudflare Workers + Hono                                   |
 | Database | Cloudflare D1 (SQLite)                                      |
 | Storage  | Cloudflare R2 (PDFs, images)                                |
-| OCR      | Tesseract.js (client-side)                                  |
+| Vision   | Grok 4.1 Fast via OpenRouter (Gemini 2.5 Flash fallback)    |
 | Auth     | Phone (+84xxx) + password, JWT                              |
 
 ## Project Structure
