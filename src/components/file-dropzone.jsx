@@ -12,14 +12,34 @@ function formatSize(bytes) {
  * Controlled drag-and-drop file picker.
  *
  * Props:
- *   id        — string  — forwarded to the hidden input for label association
- *   accept    — string  — input accept attribute (e.g. ".pdf")
- *   hint      — string  — caption shown inside the dropzone
- *   file      — File|null
- *   onChange  — (File|null) => void
- *   disabled  — boolean
+ *   id              — string  — forwarded to the hidden input for label association
+ *   accept          — string  — input accept attribute (e.g. ".pdf", "image/jpeg,image/png")
+ *   hint            — string  — caption shown inside the dropzone
+ *   file            — File|null
+ *   onChange        — (File|null) => void
+ *   disabled        — boolean
+ *   icon            — Lucide icon component (default: FileUp)
+ *   title           — primary label inside the dropzone (default: 'Drop a file here or click to pick')
+ *   capture         — input capture attribute (e.g. 'environment' for mobile camera)
+ *   inputAriaLabel  — aria-label on the hidden input (overrides default association via id)
+ *   size            — 'default' | 'lg' — controls padding + icon size
+ *   showPickedFile  — boolean — when false, the consumer renders its own picked-file UI
+ *                     (the dropzone unmounts once a file is selected). Default: true.
  */
-export default function FileDropzone({ id, accept, hint, file, onChange, disabled = false }) {
+export default function FileDropzone({
+  id,
+  accept,
+  hint,
+  file,
+  onChange,
+  disabled = false,
+  icon: Icon = FileUp,
+  title = 'Drop a file here or click to pick',
+  capture,
+  inputAriaLabel,
+  size = 'default',
+  showPickedFile = true,
+}) {
   const inputRef = useRef(null)
 
   function pick(picked) {
@@ -47,7 +67,7 @@ export default function FileDropzone({ id, accept, hint, file, onChange, disable
     if (inputRef.current) inputRef.current.value = ''
   }
 
-  if (file) {
+  if (file && showPickedFile) {
     return (
       <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-sm">
         <div className="min-w-0">
@@ -69,6 +89,15 @@ export default function FileDropzone({ id, accept, hint, file, onChange, disable
     )
   }
 
+  // When showPickedFile=false and a file is already picked, the consumer is
+  // rendering its own preview; we should not render the dropzone at all.
+  if (file && !showPickedFile) return null
+
+  const padding = size === 'lg' ? 'px-6 py-10' : 'px-4 py-6'
+  const iconSize = size === 'lg' ? 'h-7 w-7' : 'h-6 w-6'
+  const gap = size === 'lg' ? 'gap-2' : 'gap-1.5'
+  const bg = size === 'lg' ? 'bg-muted/30 hover:bg-muted/50' : 'bg-muted/20 hover:bg-muted/40'
+
   return (
     <>
       <input
@@ -76,10 +105,12 @@ export default function FileDropzone({ id, accept, hint, file, onChange, disable
         id={id}
         type="file"
         accept={accept}
+        capture={capture}
         onChange={handleInputChange}
         className="sr-only"
         disabled={disabled}
         tabIndex={-1}
+        aria-label={inputAriaLabel}
       />
       <div
         role="button"
@@ -93,12 +124,12 @@ export default function FileDropzone({ id, accept, hint, file, onChange, disable
         }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        className={`flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed border-input bg-muted/20 px-4 py-6 text-center transition-colors hover:bg-muted/40 ${
+        className={`flex flex-col items-center justify-center ${gap} rounded-lg border-2 border-dashed border-input ${bg} ${padding} text-center transition-colors ${
           disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
         }`}
       >
-        <FileUp className="h-6 w-6 text-muted-foreground" />
-        <p className="text-sm font-medium">Drop a file here or click to pick</p>
+        <Icon className={`${iconSize} text-muted-foreground`} />
+        <p className="text-sm font-medium">{title}</p>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </div>
     </>

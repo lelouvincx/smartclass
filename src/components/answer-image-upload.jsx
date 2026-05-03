@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, Camera, ImagePlus, Loader2, RotateCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import FileDropzone from '@/components/file-dropzone'
 import { extractAnswersFromImage } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
@@ -41,7 +42,6 @@ function formatSize(bytes) {
  */
 export default function AnswerImageUpload({ submissionId, onExtracted, disabled = false }) {
   const { token } = useAuth()
-  const fileInputRef = useRef(null)
   const previewUrlRef = useRef(null)
   const abortRef = useRef(null)
 
@@ -71,7 +71,6 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
     setErrorMessage('')
     setWarnings([])
     setPhase('idle')
-    if (fileInputRef.current) fileInputRef.current.value = ''
   }, [])
 
   const handleFilePicked = useCallback((picked) => {
@@ -100,22 +99,6 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
     setWarnings([])
     setPhase('previewing')
   }, [])
-
-  const handleInputChange = (e) => {
-    const picked = e.target.files?.[0]
-    if (picked) handleFilePicked(picked)
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault()
-    if (disabled) return
-    const dropped = e.dataTransfer.files?.[0]
-    if (dropped) handleFilePicked(dropped)
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-  }
 
   const startExtraction = useCallback(async () => {
     if (!file) return
@@ -186,18 +169,6 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
         </div>
       )}
 
-      {/* Hidden input — shared by dropzone + camera button */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/jpg,image/png"
-        capture="environment"
-        onChange={handleInputChange}
-        className="hidden"
-        aria-label="Pick or capture answer sheet image"
-        disabled={disabled || isBusy}
-      />
-
       {/* Inline error before any file is accepted (e.g., wrong type / oversize) */}
       {!file && phase === 'error' && (
         <div className="flex items-start gap-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
@@ -206,30 +177,21 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
         </div>
       )}
 
-      {/* Dropzone or preview */}
+      {/* Dropzone (shared primitive) — only when no file is selected. Once
+          picked, AnswerImageUpload renders its own preview + status panel. */}
       {!file ? (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={() => !disabled && fileInputRef.current?.click()}
-          onKeyDown={(e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && !disabled) {
-              e.preventDefault()
-              fileInputRef.current?.click()
-            }
-          }}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          className={`flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input bg-muted/30 px-6 py-10 text-center transition-colors hover:bg-muted/50 ${
-            disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-          }`}
-        >
-          <ImagePlus className="h-7 w-7 text-muted-foreground" />
-          <p className="text-sm font-medium">Drop a photo here or click to pick</p>
-          <p className="text-xs text-muted-foreground">
-            JPEG or PNG, up to 20 MB · use your camera on mobile
-          </p>
-        </div>
+        <FileDropzone
+          file={null}
+          onChange={handleFilePicked}
+          accept="image/jpeg,image/jpg,image/png"
+          icon={ImagePlus}
+          title="Drop a photo here or click to pick"
+          hint="JPEG or PNG, up to 20 MB · use your camera on mobile"
+          capture="environment"
+          inputAriaLabel="Pick or capture answer sheet image"
+          size="lg"
+          disabled={disabled || isBusy}
+        />
       ) : (
         <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 sm:flex-row">
           {/* Preview */}
