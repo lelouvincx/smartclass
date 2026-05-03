@@ -109,6 +109,7 @@ function renderPage(exerciseId = '1') {
         <Route path="/student/exercises/:id/take" element={<StudentTakeExercisePage />} />
         <Route path="/student/exercises/:id" element={<div>Exercise landing</div>} />
         <Route path="/student/exercises" element={<div>Exercises list</div>} />
+        <Route path="/student/submissions/:id/summary" element={<div>Summary page</div>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -420,44 +421,18 @@ describe('StudentTakeExercisePage', () => {
     ]))
   })
 
-  it('shows submitted view with read-only answer table after success', async () => {
+  it('navigates to summary page after successful submit', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
+        score: 7.5,
         submitted_at: '2026-03-15 10:05:00',
         answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: null },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'A', is_correct: null },
-        ],
-      },
-    })
-
-    renderPage()
-
-    await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByLabelText('Question 1 option B'))
-    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
-    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-
-    expect(await screen.findByText(/submitted!/i)).toBeInTheDocument()
-    expect(screen.getByText('B')).toBeInTheDocument()
-    expect(screen.getByText('A')).toBeInTheDocument()
-  })
-
-  it('question inputs are gone after submission (submitted view shows table)', async () => {
-    const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    submitAnswersMock.mockResolvedValue({
-      data: {
-        id: 10,
-        submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
+          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: 1 },
+          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: 0 },
         ],
       },
     })
@@ -468,9 +443,7 @@ describe('StudentTakeExercisePage', () => {
     await user.click(screen.getByRole('button', { name: /^Submit$/i }))
     await user.click(screen.getByRole('button', { name: /yes, submit/i }))
 
-    await screen.findByText(/submitted!/i)
-
-    expect(screen.queryByLabelText('Question 1 option A')).not.toBeInTheDocument()
+    expect(await screen.findByText('Summary page')).toBeInTheDocument()
   })
 
   it('shows submit error when submitAnswers API fails', async () => {
@@ -488,32 +461,6 @@ describe('StudentTakeExercisePage', () => {
     expect(await screen.findByText(/submission already exists/i)).toBeInTheDocument()
   })
 
-  it('shows dash for unanswered questions in submitted view', async () => {
-    const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    submitAnswersMock.mockResolvedValue({
-      data: {
-        id: 10,
-        submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
-        ],
-      },
-    })
-
-    renderPage()
-
-    await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
-    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-
-    await screen.findByText(/submitted!/i)
-
-    const dashes = screen.getAllByText('—')
-    expect(dashes).toHaveLength(2)
-  })
 
   // --- Navigation guard ---
 
@@ -541,10 +488,7 @@ describe('StudentTakeExercisePage', () => {
       data: {
         id: 10,
         submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
-        ],
+        answers: [],
       },
     })
 
@@ -553,7 +497,7 @@ describe('StudentTakeExercisePage', () => {
     await screen.findByText('Algebra Quiz')
     await user.click(screen.getByRole('button', { name: /^Submit$/i }))
     await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-    await screen.findByText(/submitted!/i)
+    await screen.findByText('Summary page')
 
     const calls = removeEventSpy.mock.calls.filter(([event]) => event === 'beforeunload')
     expect(calls.length).toBeGreaterThan(0)
@@ -630,140 +574,6 @@ describe('StudentTakeExercisePage', () => {
 
     const exitButton = screen.getByRole('button', { name: /^Exit$/i })
     expect(exitButton).toBeDisabled()
-  })
-
-  it('Back button is a plain link (no warning) after exercise is submitted', async () => {
-    const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    submitAnswersMock.mockResolvedValue({
-      data: {
-        id: 10,
-        submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
-        ],
-      },
-    })
-
-    renderPage()
-
-    await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
-    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-    await screen.findByText(/submitted!/i)
-
-    expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
-  })
-
-  // --- Score and correctness display ---
-
-  it('shows score in submitted view when API returns a score', async () => {
-    const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    submitAnswersMock.mockResolvedValue({
-      data: {
-        id: 10,
-        score: 7.5,
-        submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: 1 },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'A', is_correct: 0 },
-        ],
-      },
-    })
-
-    renderPage()
-
-    await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
-    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-
-    await screen.findByText(/submitted!/i)
-    expect(screen.getByText('7.5')).toBeInTheDocument()
-    expect(screen.getByText('/ 10')).toBeInTheDocument()
-  })
-
-  it('shows correctness indicator (✓) for correct answers in submitted view', async () => {
-    const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    submitAnswersMock.mockResolvedValue({
-      data: {
-        id: 10,
-        score: 10,
-        submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'B', is_correct: 1 },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'C', is_correct: 1 },
-        ],
-      },
-    })
-
-    renderPage()
-
-    await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
-    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-
-    await screen.findByText(/submitted!/i)
-    const correct = screen.getAllByLabelText('correct')
-    expect(correct.length).toBeGreaterThan(0)
-  })
-
-  it('shows correctness indicator (✗) for wrong answers in submitted view', async () => {
-    const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    submitAnswersMock.mockResolvedValue({
-      data: {
-        id: 10,
-        score: 0,
-        submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: 'A', is_correct: 0 },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: 'D', is_correct: 0 },
-        ],
-      },
-    })
-
-    renderPage()
-
-    await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
-    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-
-    await screen.findByText(/submitted!/i)
-    const wrong = screen.getAllByLabelText('wrong')
-    expect(wrong.length).toBeGreaterThan(0)
-  })
-
-  it('shows no score badge when score is null (legacy submissions)', async () => {
-    const user = userEvent.setup()
-    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-    submitAnswersMock.mockResolvedValue({
-      data: {
-        id: 10,
-        score: null,
-        submitted_at: '2026-03-15 10:05:00',
-        answers: [
-          { id: 1, q_id: 1, sub_id: null, submitted_answer: null, is_correct: null },
-          { id: 2, q_id: 2, sub_id: null, submitted_answer: null, is_correct: null },
-        ],
-      },
-    })
-
-    renderPage()
-
-    await screen.findByText('Algebra Quiz')
-    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
-    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
-
-    await screen.findByText(/submitted!/i)
-    expect(screen.queryByText(/\/\s*10/)).not.toBeInTheDocument()
   })
 
   // ── Image extraction (v0.4) ────────────────────────────────────────────────

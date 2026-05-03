@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Clock } from 'lucide-react'
-import { createSubmission, getExercise, getSubmission } from '@/lib/api'
+import { CheckCircle, Clock } from 'lucide-react'
+import { createSubmission, getExercise, getSubmission, listMySubmissions } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -17,6 +17,7 @@ export default function StudentExerciseLandingPage() {
   const [exercise, setExercise] = useState(null)
   const [questionCount, setQuestionCount] = useState(0)
   const [hasResumable, setHasResumable] = useState(false)
+  const [submittedSubmissionId, setSubmittedSubmissionId] = useState(null)
   const [isStarting, setIsStarting] = useState(false)
 
   useEffect(() => {
@@ -32,16 +33,30 @@ export default function StudentExerciseLandingPage() {
         setQuestionCount(uniqueQIds.size)
 
         const savedSubId = sessionStorage.getItem(`submission_${id}`)
+        let resumable = false
         if (savedSubId) {
           try {
             const subRes = await getSubmission(token, savedSubId)
             if (subRes.data && !subRes.data.submitted_at) {
               setHasResumable(true)
+              resumable = true
             } else {
               sessionStorage.removeItem(`submission_${id}`)
             }
           } catch {
             sessionStorage.removeItem(`submission_${id}`)
+          }
+        }
+
+        if (!resumable) {
+          try {
+            const subsRes = await listMySubmissions(token, { exerciseId: id, limit: 1 })
+            const latest = subsRes.data?.submissions?.[0]
+            if (latest?.submitted_at) {
+              setSubmittedSubmissionId(latest.id)
+            }
+          } catch {
+            // best effort — ignore if submissions check fails
           }
         }
       } catch (err) {
@@ -113,23 +128,40 @@ export default function StudentExerciseLandingPage() {
             </span>
           </div>
 
-          <div className="flex gap-3">
-            {hasResumable ? (
-              <>
-                <Button onClick={handleResume}>Resume</Button>
-                <Button variant="outline" onClick={handleStart} disabled={isStarting}>
-                  {isStarting ? 'Starting...' : 'Start new'}
+          {submittedSubmissionId ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
+                <CheckCircle className="h-5 w-5 shrink-0" />
+                You have already submitted this exercise.
+              </div>
+              <div className="flex gap-3">
+                <Button asChild>
+                  <Link to={`/student/submissions/${submittedSubmissionId}/summary`}>View result</Link>
                 </Button>
-              </>
-            ) : (
-              <Button onClick={handleStart} disabled={isStarting}>
-                {isStarting ? 'Starting...' : 'Start'}
+                <Button variant="ghost" asChild>
+                  <Link to="/student/exercises">Back</Link>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              {hasResumable ? (
+                <>
+                  <Button onClick={handleResume}>Resume</Button>
+                  <Button variant="outline" onClick={handleStart} disabled={isStarting}>
+                    {isStarting ? 'Starting...' : 'Start new'}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={handleStart} disabled={isStarting}>
+                  {isStarting ? 'Starting...' : 'Start'}
+                </Button>
+              )}
+              <Button variant="ghost" asChild>
+                <Link to="/student/exercises">Back</Link>
               </Button>
-            )}
-            <Button variant="ghost" asChild>
-              <Link to="/student/exercises">Back</Link>
-            </Button>
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

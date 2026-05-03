@@ -18,6 +18,7 @@ import StudentExerciseLandingPage from '@/pages/StudentExerciseLandingPage'
 import StudentTakeExercisePage from '@/pages/StudentTakeExercisePage'
 import StudentSubmissionsPage from '@/pages/StudentSubmissionsPage'
 import StudentReviewPage from '@/pages/StudentReviewPage'
+import StudentSummaryPage from '@/pages/StudentSummaryPage'
 import TeacherCreateExercisePage from '@/pages/TeacherCreateExercisePage'
 import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
 import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
@@ -105,6 +106,7 @@ export function AppRoutes() {
         <Route path="exercises/:id" element={<StudentExerciseLandingPage />} />
         <Route path="exercises/:id/take" element={<StudentTakeExercisePage />} />
         <Route path="submissions" element={<StudentSubmissionsPage />} />
+        <Route path="submissions/:id/summary" element={<StudentSummaryPage />} />
         <Route path="submissions/:id/review" element={<StudentReviewPage />} />
       </Route>
 

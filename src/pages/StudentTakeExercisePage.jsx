@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff, ImageIcon, LayoutGrid, Pencil } from 'lucide-react'
+import { AlertTriangle, Clock, Eye, EyeOff, ImageIcon, LayoutGrid, Pencil } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
@@ -17,12 +17,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import {
-  BooleanAnswerBadge,
-  BooleanResultGroup,
-  CorrectnessIcon,
-  McqNumericResultRow,
-} from '@/components/answer-result'
 import { PdfSplitPane } from '@/components/pdf-split-pane'
 import AnswerImageUpload from '@/components/answer-image-upload'
 import { QuestionNavGrid, countUnanswered } from '@/components/question-nav-grid'
@@ -107,7 +101,7 @@ function groupSchema(schema) {
 function McqInput({ qId, value, onChange, submitted, confidence }) {
   const options = ['A', 'B', 'C', 'D']
   return (
-    <div className="flex items-center">
+    <div className="flex items-center gap-2">
       <ButtonGroup aria-label={`Question ${qId} options`}>
         {options.map((opt) => (
           <Button
@@ -124,6 +118,16 @@ function McqInput({ qId, value, onChange, submitted, confidence }) {
           </Button>
         ))}
       </ButtonGroup>
+      {value && !submitted && (
+        <button
+          type="button"
+          aria-label={`Clear answer for question ${qId}`}
+          onClick={() => onChange('')}
+          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          ×
+        </button>
+      )}
       <ConfidenceDot confidence={confidence} />
     </div>
   )
@@ -223,9 +227,6 @@ export default function StudentTakeExercisePage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
-  const [isSubmitted, setIsSubmitted] = useState(false)
-  const [submittedAnswers, setSubmittedAnswers] = useState([])
-  const [submissionScore, setSubmissionScore] = useState(null)
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
   const [sheetOpen, setSheetOpen] = useState(false)
@@ -314,7 +315,7 @@ export default function StudentTakeExercisePage() {
 
   // --- beforeunload + popstate guard ---
   useEffect(() => {
-    if (isLoading || isSubmitted) return
+    if (isLoading) return
 
     function handleBeforeUnload(e) {
       e.preventDefault()
@@ -333,11 +334,11 @@ export default function StudentTakeExercisePage() {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       window.removeEventListener('popstate', handlePopState)
     }
-  }, [isLoading, isSubmitted])
+  }, [isLoading])
 
   // --- Countdown timer + milestone toasts ---
   useEffect(() => {
-    if (secondsLeft === null || isSubmitted) return
+    if (secondsLeft === null) return
 
     // Fire any milestones that have already passed on mount
     for (const { at, message, type } of TIMER_MILESTONES) {
@@ -371,7 +372,7 @@ export default function StudentTakeExercisePage() {
     }, 1000)
 
     return () => clearInterval(timerRef.current)
-  }, [secondsLeft === null, isSubmitted]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [secondsLeft === null]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Answer change handlers ---
   const handleAnswerChange = useCallback((qId, value) => {
@@ -499,11 +500,9 @@ export default function StudentTakeExercisePage() {
         }
       }
 
-      const res = await submitAnswers(token, submission.id, answersPayload)
-      setSubmittedAnswers(res.data.answers || [])
-      setSubmissionScore(res.data.score ?? null)
-      setIsSubmitted(true)
+      await submitAnswers(token, submission.id, answersPayload)
       sessionStorage.removeItem(`submission_${id}`)
+      navigate(`/student/submissions/${submission.id}/summary`)
     } catch (err) {
       setSubmitError(err.message)
     } finally {
@@ -532,7 +531,7 @@ export default function StudentTakeExercisePage() {
           qId={group.q_id}
           value={answers[group.q_id] ?? ''}
           onChange={(v) => handleAnswerChange(group.q_id, v)}
-          submitted={isSubmitted}
+          submitted={false}
           confidence={extractedConfidence[cellKey(group.q_id, null)]}
         />
       )
@@ -544,7 +543,7 @@ export default function StudentTakeExercisePage() {
           subRows={group.subRows}
           subAnswers={answers[group.q_id] || {}}
           onSubChange={(subId, v) => handleBooleanSubChange(group.q_id, subId, v)}
-          submitted={isSubmitted}
+          submitted={false}
           subConfidence={booleanSubConfidence[group.q_id]}
         />
       )
@@ -554,7 +553,7 @@ export default function StudentTakeExercisePage() {
         qId={group.q_id}
         value={answers[group.q_id] ?? ''}
         onChange={(v) => handleAnswerChange(group.q_id, v)}
-        submitted={isSubmitted}
+        submitted={false}
         confidence={extractedConfidence[cellKey(group.q_id, null)]}
       />
     )
@@ -696,60 +695,6 @@ export default function StudentTakeExercisePage() {
         {/* Left: PDF + questions */}
         <div>
           <PdfSplitPane fileUrl={pdfUrl}>
-          {/* Submitted view */}
-          {isSubmitted ? (
-            <Card>
-              <CardContent className="pt-6">
-                <div className="mb-2 flex items-center gap-2 text-green-700 dark:text-green-400">
-                  <CheckCircle className="h-5 w-5" />
-                  <h2 className="text-lg font-semibold">Submitted!</h2>
-                </div>
-                {submissionScore !== null && (
-                  <p className="mb-4 text-2xl font-bold">
-                    {submissionScore}{' '}
-                    <span className="text-base font-normal text-muted-foreground">/ 10</span>
-                  </p>
-                )}
-                {submissionScore === null && (
-                  <p className="mb-4 text-sm text-muted-foreground">Your answers have been recorded.</p>
-                )}
-                <table className="min-w-full border-collapse text-sm">
-                  <thead className="bg-muted text-left text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2">Question</th>
-                      <th className="px-4 py-2">Your Answer</th>
-                      <th className="px-4 py-2 text-center">Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {questionGroups.map((group) => {
-                      if (group.type === 'boolean') {
-                        return (
-                          <BooleanResultGroup
-                            key={group.q_id}
-                            group={group}
-                            submittedAnswers={submittedAnswers}
-                          />
-                        )
-                      }
-                      const ans = submittedAnswers.find((a) => a.q_id === group.q_id && !a.sub_id)
-                      return (
-                        <McqNumericResultRow
-                          key={group.q_id}
-                          question={{ ...group, is_correct: ans ? ans.is_correct : null }}
-                          answer={ans ? ans.submitted_answer : null}
-                        />
-                      )
-                    })}
-                  </tbody>
-                </table>
-                <Button variant="outline" asChild className="mt-6">
-                  <Link to="/student/exercises">Back to Exercises</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            /* Questions form */
             <div className="space-y-4">
               {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
               <Card>
@@ -815,22 +760,19 @@ export default function StudentTakeExercisePage() {
                 <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>
               )}
             </div>
-          )}
           </PdfSplitPane>
         </div>
 
         {/* Right: sticky sidebar (desktop only) */}
-        {!isSubmitted && (
-          <div className="hidden lg:block">
-            <div className="sticky top-4">
-              <Card>
-                <CardContent className="pt-5">
-                  {renderSidebar()}
-                </CardContent>
-              </Card>
-            </div>
+        <div className="hidden lg:block">
+          <div className="sticky top-4">
+            <Card>
+              <CardContent className="pt-5">
+                {renderSidebar()}
+              </CardContent>
+            </Card>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Dialogs */}
@@ -865,17 +807,15 @@ export default function StudentTakeExercisePage() {
       </Dialog>
 
       {/* Mobile: floating answer sheet button */}
-      {!isSubmitted && (
-        <button
-          type="button"
-          aria-label="Open answer sheet"
-          onClick={() => setSheetOpen(true)}
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg lg:hidden"
-        >
-          <LayoutGrid className="h-4 w-4" />
-          Answer Sheet
-        </button>
-      )}
+      <button
+        type="button"
+        aria-label="Open answer sheet"
+        onClick={() => setSheetOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg lg:hidden"
+      >
+        <LayoutGrid className="h-4 w-4" />
+        Answer Sheet
+      </button>
 
       {/* Mobile: bottom sheet */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
