@@ -119,7 +119,9 @@ export async function requestSchemaFromOpenRouter(env, sourceText, expectedQuest
     throw new Error('OPENROUTER_API_KEY is not configured')
   }
 
-  const primaryModel = env.OPENROUTER_MODEL || DEFAULT_MODEL
+  // Model is hard-coded to DEFAULT_MODEL here; teacher UI will surface a
+  // configurable choice in a follow-up PR (then this becomes a function arg).
+  const primaryModel = DEFAULT_MODEL
   const endpoint = `${env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL}/chat/completions`
   const promptText = buildPrompt(sourceText, expectedQuestionCount)
   const messages = [{ role: 'user', content: promptText }]

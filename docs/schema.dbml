@@ -26,6 +26,7 @@ Table exercises {
   title            text    [not null]
   duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
   pdf_key          text    [note: 'Legacy R2 key — superseded by exercise_files']
+  extract_model    text    [note: 'Vision-LLM model id for image extraction (v0.4); NULL = use server default']
   created_by       integer [not null, ref: > users.id]
   created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at       text    [not null, default: 'CURRENT_TIMESTAMP']

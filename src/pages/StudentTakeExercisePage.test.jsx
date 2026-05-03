@@ -29,8 +29,37 @@ vi.mock('../lib/auth-context', () => ({
   }),
 }))
 
-const toastMock = vi.hoisted(() => ({ info: vi.fn(), warning: vi.fn(), error: vi.fn() }))
+const toastMock = vi.hoisted(() => ({
+  info: vi.fn(),
+  warning: vi.fn(),
+  error: vi.fn(),
+  success: vi.fn(),
+}))
 vi.mock('sonner', () => ({ toast: toastMock }))
+
+// AnswerImageUpload renders the upload UI; the take page only handles the toggle
+// + merge. Stub it with a button that triggers a known extraction payload.
+vi.mock('@/components/answer-image-upload', () => ({
+  __esModule: true,
+  default: ({ onExtracted }) => (
+    <button
+      type="button"
+      data-testid="stub-extract-fire"
+      onClick={() =>
+        onExtracted({
+          extracted: [
+            { q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 },
+            { q_id: 2, sub_id: null, answer: 'C', confidence: 0.4 },
+          ],
+          warnings: [],
+          model_used: 'x-ai/grok-4.1-fast',
+        })
+      }
+    >
+      stub extract
+    </button>
+  ),
+}))
 
 // --- Fixtures ---
 
@@ -727,5 +756,88 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText(/submitted!/i)
     expect(screen.queryByText(/\/\s*10/)).not.toBeInTheDocument()
+  })
+
+  // ── Image extraction (v0.4) ────────────────────────────────────────────────
+
+  describe('Image extraction (v0.4)', () => {
+    beforeEach(() => {
+      toastMock.success.mockReset()
+      toastMock.warning.mockReset()
+    })
+
+    it('renders the input mode toggle and defaults to manual', async () => {
+      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+      renderPage()
+      await screen.findByText('Algebra Quiz')
+
+      const manualBtn = screen.getByRole('button', { name: /^Manual$/i })
+      const photoBtn = screen.getByRole('button', { name: /Upload photo/i })
+      expect(manualBtn).toHaveAttribute('aria-pressed', 'true')
+      expect(photoBtn).toHaveAttribute('aria-pressed', 'false')
+      // Upload component is hidden by default
+      expect(screen.queryByTestId('stub-extract-fire')).not.toBeInTheDocument()
+    })
+
+    it('shows the upload panel when switching to photo mode', async () => {
+      const user = userEvent.setup()
+      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+      renderPage()
+      await screen.findByText('Algebra Quiz')
+
+      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
+      expect(screen.getByTestId('stub-extract-fire')).toBeInTheDocument()
+    })
+
+    it('merges extracted answers into the form and shows confidence dots', async () => {
+      const user = userEvent.setup()
+      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+      renderPage()
+      await screen.findByText('Algebra Quiz')
+
+      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
+      await user.click(screen.getByTestId('stub-extract-fire'))
+
+      // Q1 → B selected (high confidence dot)
+      const q1B = screen.getByRole('button', { name: 'Question 1 option B' })
+      expect(q1B).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
+
+      // Q2 → C selected (low confidence dot — 0.4)
+      const q2C = screen.getByRole('button', { name: 'Question 2 option C' })
+      expect(q2C).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByLabelText(/low confidence/i)).toBeInTheDocument()
+
+      // Toast notified the student
+      expect(toastMock.success).toHaveBeenCalled()
+    })
+
+    it('clears the confidence dot on a cell after the student edits it manually', async () => {
+      const user = userEvent.setup()
+      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+      renderPage()
+      await screen.findByText('Algebra Quiz')
+
+      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
+      await user.click(screen.getByTestId('stub-extract-fire'))
+
+      // Q1 starts with the high-confidence dot (Q2 also has a low-conf dot)
+      expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
+
+      // Student manually picks A for Q1 — the high-confidence dot disappears
+      await user.click(screen.getByRole('button', { name: 'Question 1 option A' }))
+      expect(screen.queryByLabelText(/high confidence/i)).not.toBeInTheDocument()
+
+      // Q2 still has its low-confidence dot
+      expect(screen.getByLabelText(/low confidence/i)).toBeInTheDocument()
+    })
   })
 })

@@ -145,14 +145,14 @@ describe('POST /api/submissions/:id/extract', () => {
       expect(arrBuf.byteLength).toBe(256)
     })
 
-    it('passes the requested model to OpenRouter', async () => {
+    it("passes the exercise's teacher-configured extract_model to OpenRouter", async () => {
       const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
       const spy = mockOpenRouter()
 
-      const { id: exerciseId } = await createExercise(teacherToken)
+      const { id: exerciseId } = await createExercise(teacherToken, { extract_model: altModel.id })
       const submissionId = await startSubmission(exerciseId)
 
-      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: altModel.id } }))
+      const res = await postExtract(submissionId, buildExtractForm())
       expect(res.status).toBe(200)
 
       // Inspect the OpenRouter call body
@@ -293,36 +293,21 @@ describe('POST /api/submissions/:id/extract', () => {
     })
   })
 
-  describe('model selection', () => {
-    it('echoes back a valid model id', async () => {
+  describe('model selection (teacher-configured per exercise)', () => {
+    it("echoes back the exercise's extract_model in model_used", async () => {
       mockOpenRouter()
       const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
 
-      const { id: exerciseId } = await createExercise(teacherToken)
+      const { id: exerciseId } = await createExercise(teacherToken, { extract_model: altModel.id })
       const submissionId = await startSubmission(exerciseId)
 
-      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: altModel.id } }))
+      const res = await postExtract(submissionId, buildExtractForm())
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data.model_used).toBe(altModel.id)
     })
 
-    it('substitutes default for unknown model id', async () => {
-      const spy = mockOpenRouter()
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: 'made-up/model' } }))
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
-
-      // The OpenRouter request used the default, not the made-up id
-      const [, init] = spy.mock.calls[0]
-      expect(JSON.parse(init.body).model).toBe(DEFAULT_EXTRACT_MODEL)
-    })
-
-    it('uses default when model is omitted', async () => {
+    it('falls back to default when the exercise has no extract_model', async () => {
       mockOpenRouter()
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
@@ -331,6 +316,24 @@ describe('POST /api/submissions/:id/extract', () => {
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
+    })
+
+    it('ignores any client-supplied model field (security: students cannot pick)', async () => {
+      const spy = mockOpenRouter()
+      const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
+
+      // Exercise has NO extract_model — server default should win.
+      const { id: exerciseId } = await createExercise(teacherToken)
+      const submissionId = await startSubmission(exerciseId)
+
+      // Student tries to override via the form field — must be ignored.
+      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: altModel.id } }))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
+
+      const [, init] = spy.mock.calls.find(([url]) => String(url).includes('openrouter.ai'))
+      expect(JSON.parse(init.body).model).toBe(DEFAULT_EXTRACT_MODEL)
     })
   })
 

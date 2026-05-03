@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
+import ExtractModelSelect from '@/components/extract-model-select'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -159,6 +160,8 @@ export default function TeacherCreateExercisePage() {
   const [title, setTitle] = useState('')
   const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
+  // null = use server default; non-null = a specific model id from the allowlist.
+  const [extractModel, setExtractModel] = useState(null)
   const [exerciseFile, setExerciseFile] = useState(null)
   const [answerFile, setAnswerFile] = useState(null)
   const [rows, setRows] = useState(newRows('mcq', '1'))
@@ -293,6 +296,7 @@ export default function TeacherCreateExercisePage() {
         is_timed: isTimed,
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
         schema: toSchemaPayload(validatedRows),
+        extract_model: extractModel,
       }
       const createResponse = await createExercise(token, payload)
       await uploadFiles(createResponse.data.id)
@@ -385,6 +389,11 @@ export default function TeacherCreateExercisePage() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Image-extraction model picker — teacher-only choice */}
+              <div className="md:col-span-3">
+                <ExtractModelSelect value={extractModel} onChange={setExtractModel} />
               </div>
 
               {/* Exercise PDF upload */}

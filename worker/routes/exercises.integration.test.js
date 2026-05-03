@@ -2,6 +2,7 @@ import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import app from '../index.js'
 import { seedTeacher, loginAsTeacher, createExercise, seedStudent, loginAsStudent } from '../test/helpers.js'
+import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from '../lib/extract-models.js'
 
 let token
 
@@ -560,5 +561,86 @@ describe('DELETE /api/exercises/:id', () => {
       headers: { 'Authorization': `Bearer ${token}` },
     }, env)
     expect(res.status).toBe(404)
+  })
+})
+
+// ── extract_model on exercises (v0.4 PR C2) ──────────────────────────────────
+
+describe('extract_model on exercises', () => {
+  const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
+
+  it('round-trips a valid extract_model on create', async () => {
+    const { res, body } = await createExercise(token, { extract_model: altModel.id })
+    expect(res.status).toBe(201)
+    expect(body.data.extract_model).toBe(altModel.id)
+  })
+
+  it('defaults extract_model to null when omitted', async () => {
+    const { res, body } = await createExercise(token)
+    expect(res.status).toBe(201)
+    expect(body.data.extract_model).toBeNull()
+  })
+
+  it('rejects an unknown extract_model on create', async () => {
+    const { res, body } = await createExercise(token, { extract_model: 'made-up/model' })
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+    expect(body.error.message).toMatch(/extract_model/)
+  })
+
+  it('updates extract_model via PUT', async () => {
+    const { id } = await createExercise(token)
+
+    const updateRes = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ extract_model: altModel.id }),
+    }, env)
+    expect(updateRes.status).toBe(200)
+    const updated = await updateRes.json()
+    expect(updated.data.extract_model).toBe(altModel.id)
+  })
+
+  it('clears extract_model when PUT sends null', async () => {
+    const { id } = await createExercise(token, { extract_model: altModel.id })
+
+    const updateRes = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ extract_model: null }),
+    }, env)
+    expect(updateRes.status).toBe(200)
+    const updated = await updateRes.json()
+    expect(updated.data.extract_model).toBeNull()
+  })
+
+  it('rejects an unknown extract_model on PUT', async () => {
+    const { id } = await createExercise(token)
+    const updateRes = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+      body: JSON.stringify({ extract_model: 'made-up/model' }),
+    }, env)
+    expect(updateRes.status).toBe(400)
+    const body = await updateRes.json()
+    expect(body.error.code).toBe('VALIDATION_ERROR')
+  })
+})
+
+describe('GET /api/extract-models', () => {
+  it('returns the allowlist + default model id (no auth required)', async () => {
+    const res = await app.request('/api/extract-models', {}, env)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.success).toBe(true)
+    expect(Array.isArray(body.data.models)).toBe(true)
+    expect(body.data.models.length).toBeGreaterThan(0)
+    expect(body.data.default).toBe(DEFAULT_EXTRACT_MODEL)
+    // Each entry has the shape the frontend picker expects
+    for (const m of body.data.models) {
+      expect(m).toHaveProperty('id')
+      expect(m).toHaveProperty('label')
+      expect(m).toHaveProperty('provider')
+    }
   })
 })

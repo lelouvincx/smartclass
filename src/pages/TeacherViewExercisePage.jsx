@@ -17,6 +17,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { SchemaTable } from '@/components/schema-table'
+import ExtractModelSelect from '@/components/extract-model-select'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -218,6 +219,7 @@ export default function TeacherViewExercisePage() {
   const [editTitle, setEditTitle] = useState('')
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
+  const [editExtractModel, setEditExtractModel] = useState(null)
   const [editRows, setEditRows] = useState([])
 
   const validatedRows = useMemo(() => validateRows(editRows), [editRows])
@@ -243,6 +245,7 @@ export default function TeacherViewExercisePage() {
     setEditTitle(exercise.title)
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
     setEditDuration(exercise.duration_minutes)
+    setEditExtractModel(exercise.extract_model ?? null)
     setEditRows(schemaToRows(exercise.schema))
     setSaveError('')
     setIsEditing(true)
@@ -320,6 +323,7 @@ export default function TeacherViewExercisePage() {
         is_timed: editIsTimed,
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
         schema: toSchemaPayload(validatedRows),
+        extract_model: editExtractModel,
       }
       const res = await updateExercise(token, exercise.id, payload)
       setExercise(res.data)
@@ -410,6 +414,10 @@ export default function TeacherViewExercisePage() {
                       </div>
                     )}
                   </div>
+                  <ExtractModelSelect
+                    value={editExtractModel}
+                    onChange={setEditExtractModel}
+                  />
                 </div>
               ) : (
                 <>
@@ -420,6 +428,12 @@ export default function TeacherViewExercisePage() {
                       {exercise.schema?.length ?? 0} schema row{exercise.schema?.length !== 1 ? 's' : ''}
                     </span>
                   </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Extraction model:{' '}
+                    <span className="font-medium text-foreground">
+                      {exercise.extract_model || 'server default'}
+                    </span>
+                  </p>
                 </>
               )}
             </div>

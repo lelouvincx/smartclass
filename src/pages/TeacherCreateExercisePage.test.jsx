@@ -70,6 +70,7 @@ describe('TeacherCreateExercisePage', () => {
           correct_answer: 'B',
         },
       ],
+      extract_model: null,
     })
   })
 
@@ -110,6 +111,7 @@ describe('TeacherCreateExercisePage', () => {
           correct_answer: 'C',
         },
       ],
+      extract_model: null,
     })
   })
 
@@ -215,6 +217,7 @@ describe('TeacherCreateExercisePage', () => {
         { q_id: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
         { q_id: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
       ],
+      extract_model: null,
     })
   })
 
