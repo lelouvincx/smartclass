@@ -71,6 +71,17 @@ RFC: [`docs/plans/2026-05-03-image-answer-extraction.md`](docs/plans/2026-05-03-
 
 > **Ship:** students can submit via two input methods (manual form, photo upload). A "scanner" mode with live camera framing is deferred to v0.6 polish.
 
+### v0.4.5 — Exercise experience polish
+
+RFC: [`docs/plans/2026-05-03-exercise-experience-polish.md`](docs/plans/2026-05-03-exercise-experience-polish.md). UX polish pass on the existing take/review loop driven by post-v0.4 customer feedback and a Shub.edu.vn benchmark. No new product surface; no DB migrations.
+
+- [x] PR A — Routing split + pre-start landing card: new `StudentExerciseLandingPage` at `/student/exercises/:id`, take session moves to `/student/exercises/:id/take`. Submission created on **Start** click instead of mount; timer accuracy preserved via `started_at` ([#56](https://github.com/lelouvincx/smartclass/pull/56))
+- [x] PR B — Two-column take layout + question nav grid + skipped state: sticky right sidebar (desktop) / bottom Sheet drawer (mobile) with timer, navigation grid (`n:LETTER` / `n:VALUE` / `n:✓`), submit, exit. Dynamic unanswered count in submit dialog. New `'skipped'` correctness state (grey `−`) distinct from incorrect (red `✗`) ([#57](https://github.com/lelouvincx/smartclass/pull/57))
+- [x] PR C — Summary page + review sidebar + MCQ deselect + submitted banner: new `/student/submissions/:id/summary` page with score, ✓/✗/− counters, time taken, "View detailed results" CTA. Review page gets per-question status sidebar with click-to-scroll. MCQ rows get a `×` deselect button. Landing card shows a "Submitted" banner + "View result" link when student has already submitted ([#58](https://github.com/lelouvincx/smartclass/pull/58))
+- [x] PR D — Drag-and-drop file upload, 150 % zoom, model allowlist trim: new `FileDropzone` primitive used in teacher create/edit pages. `html { font-size: 150% }` reclaims page-margin whitespace as readable type. Image-extraction allowlist trimmed to Mistral Small 3.2 (**new default**) + Grok 4.1 Fast; stale Gemini/GPT-4o-mini IDs and `NULL` rows fall back to Mistral via `resolveModel()` ([#59](https://github.com/lelouvincx/smartclass/pull/59))
+
+> **Ship:** the core take/review loop feels professional — pre-start landing, persistent answer-sheet sidebar, dynamic unanswered count, dedicated summary page, distinct skipped state.
+
 ### v0.5 — Lectures
 
 - [ ] Plan guest mode: design IndexedDB storage, guest route access, and data model for anonymous exercise completion (implementation in v0.6)

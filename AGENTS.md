@@ -30,7 +30,7 @@
 - **Frontend**: React 19 SPA (Vite 6) deployed on Cloudflare Pages. React Router for navigation. shadcn/ui (Radix + Tailwind CSS v4), lucide-react icons.
 - **Backend**: Cloudflare Workers with Hono router. REST API (`/api/*`). JWT auth (bcryptjs).
 - **Database**: Cloudflare D1 (SQLite). Tables: `users`, `exercises`, `answer_schemas`, `submissions`, `submission_answers`, `submission_files`, `exercise_files`, `lectures`.
-- **Vision**: Multimodal LLM via OpenRouter (Grok 4.1 Fast default, Gemini 2.5 Flash fallback) for student answer-sheet image extraction. No client-side OCR.
+- **Vision**: Multimodal LLM via OpenRouter (Mistral Small 3.2 default, Grok 4.1 Fast as alternate; allowlist enforced server-side) for student answer-sheet image extraction. No client-side OCR.
 - **Storage**: Cloudflare R2 for PDFs and uploaded images. Client uploads via presigned URLs.
 - **Auth**: Phone number (`+84xxx`) + password. Teacher creates students (default pw `123`) or student self-registers (pending approval). Guest = no login, data in IndexedDB.
 - **Project structure**: `src/` (frontend), `worker/` (backend API), `wrangler.toml` (Cloudflare config).
@@ -329,3 +329,35 @@
 
 - **Component**: `src/components/extract-model-select.jsx` — used in `TeacherCreateExercisePage` (editable) and `TeacherViewExercisePage` (editable + read-only modes). Loads the allowlist from `GET /api/extract-models` so a model added to the worker is immediately visible without a frontend deploy.
 - **Sentinel value**: Radix Select disallows empty string as a value, so the "Use server default" option uses `'__default__'` and the component translates it to `null` on `onChange`.
+
+### Pre-Start Landing + Take-Page Sidebar (v0.4.5, PRs #56/#57/#58)
+
+- **Routing**: `/student/exercises/:id` is a metadata landing card (`StudentExerciseLandingPage`); the take session lives at `/student/exercises/:id/take`. The take page redirects to the landing if no `submission_${id}` entry is in `sessionStorage`, preventing direct-URL bypass.
+- **Submission lifecycle (revised)**: Submission row is created on **Start** click, not on take-page mount. Reverses the v0.2 "create on mount" decision. Timer accuracy is unchanged because `secondsLeft` is still derived from server-issued `started_at`, and `sessionStorage.submission_${id}` keeps the same key shape — the create call just moves from `/take` mount to the landing page's Start handler.
+- **Submitted-state banner**: When the landing page detects a finished submission for the user (`GET /api/submissions?exercise_id=X&limit=1` → `submissions[0].submitted_at != null`), it replaces the Start CTA with a "Submitted" banner + "View result" link to `/student/submissions/:id/summary`. Relies on the worker's `ORDER BY s.submitted_at DESC`.
+- **Layout**: CSS grid `lg:grid-cols-[1fr_clamp(240px,_20rem,_40vw)]` with `position: sticky` right sidebar on desktop. Mobile shows a floating "Answer Sheet" button that opens a Radix `Sheet` slide-up drawer (`src/components/ui/sheet.jsx`).
+- **PDF default**: visible on first mount. Storage key migrated from `smartclass-pdf-pane-collapsed` (v0.3) to `smartclass-take-pdf-visible`; old key is silently ignored. Toolbar toggle still works. Default flips to off when the QR-code submission flow lands.
+- **Question navigation grid** (`src/components/question-nav-grid.jsx`): 5-column grid; cells render `n:LETTER` (mcq), `n:VALUE` truncated to 4 chars (numeric), `n:✓` (boolean if all 4 subs answered), or just `n` (unanswered). Boolean is "answered" iff **all** sub-questions are answered. Clicking a cell calls `onJump(qId)`, which `scrollIntoView({ behavior: 'smooth', block: 'center' })`s the question card.
+- **Submit dialog message**: `countUnanswered()` is exported alongside `QuestionNavGrid` and reused by the take page; message reads `"You have N unanswered question(s). Submit anyway?"` when `N > 0`.
+- **Skipped vs incorrect**: New `computeStatus(submitted_answer, is_correct)` in `answer-result.jsx` adds `'skipped'` whenever `submitted_answer == null`. `CorrectnessIcon` renders `✓` (green), `✗` (red), or `−` (grey). No DB migration — all detection is at render time.
+- **Summary page**: `/student/submissions/:id/summary` (`StudentSummaryPage`) loads `GET /api/submissions/:id` and computes `{correct, incorrect, skipped}` client-side at the **sub-question row level** (matches the score formula). Counts boolean sub-rows individually; skipped = `submitted_answer == null`. After submit, take page navigates to summary instead of rendering the in-place echo.
+- **Review sidebar** (`src/components/submission-review-sidebar.jsx`): score card (color-coded green ≥ 7 / yellow ≥ 4 / red), time taken, submitted timestamp, three counters (✓/✗/−), and a per-question table (`status | q# | chosen | pts`) with click-to-scroll. Boolean rows render correctness rollup `${correctCount}/4` in the chosen column (deliberately divergent from the RFC's 5-column `chosen | correct` design — saves space; tracked in `docs/tech-debt.md`).
+- **Frontend grading constants**: `src/lib/grading-display.js` mirrors `worker/lib/grading.js` (`MCQ_POINTS`, `NUMERIC_POINTS`, `BOOLEAN_SCORE_TABLE`). Mirror is read-only with a comment pointing to the worker source of truth. (Drift-detection test still pending — tracked in `docs/tech-debt.md`.)
+- **MCQ deselect only**: small `×` button on the selected MCQ row clears `answers[qId]`. Numeric/boolean keep native clearing (delete the input / pick the opposite state).
+
+### File Upload Dropzone (v0.4.5, PR #59)
+
+- **New primitive**: `src/components/file-dropzone.jsx` — drag/drop, click, and keyboard-activated file picker. Used by `TeacherCreateExercisePage` and `TeacherViewExercisePage` (edit mode) for replacing exercise/solution PDFs.
+- **Divergence from RFC**: The RFC said this primitive would be **extracted from** `AnswerImageUpload`. In practice the new `FileDropzone` is a parallel implementation; `answer-image-upload.jsx` still has its own `onDrop`/`onDragOver` handlers. Consolidation is tracked in `docs/tech-debt.md`.
+
+### Default 150 % Zoom (v0.4.5, PR #59)
+
+- **Implementation**: `html { font-size: 150% }` in `src/index.css`. Cascades through every Tailwind/shadcn `rem`-based unit.
+- **Sidebar override**: take-page and review-page sidebars use `clamp(240px, 20rem, 40vw)` instead of a fixed `320px` so the sidebar tracks the zoom on small viewports without overflowing on large ones.
+- **Rationale**: customer feedback — the v0.4 page-margin fix (`max-w-4xl px-8`) leaves too much vertical real estate unused. Scaling root font-size reclaims it as readable type without touching layout containers. Tailwind's px-based breakpoints (`lg: 1024px`) are unaffected, but content sized in `rem` is now 1.5× larger — keep this in mind when adding dense layouts.
+
+### Image-Extraction Model Allowlist Trim (v0.4.5, PR #59)
+
+- **New allowlist**: `mistralai/mistral-small-3.2-24b-instruct` (**default**), `x-ai/grok-4.1-fast`. Removed: `google/gemini-2.5-flash`, `openai/gpt-4o-mini`.
+- **Default change**: Grok → Mistral. Existing `exercises.extract_model = NULL` rows and stale-ID rows (Gemini, GPT-4o-mini) all silently resolve to Mistral via the existing `resolveModel()` fallback. **No DB migration**, no in-product notification, release-notes only.
+- **Tests**: `worker/lib/extract-models.test.js` pins `DEFAULT_EXTRACT_MODEL === 'mistralai/mistral-small-3.2-24b-instruct'` and asserts that removed model IDs fall back to Mistral.
