@@ -1,7 +1,7 @@
 # RFC: v0.4.5 — Exercise Experience Polish
 
 **Date:** 2026-05-03
-**Status:** Draft
+**Status:** Shipped (PRs #56, #57, #58, #59 — all merged 2026-05-03)
 **Author:** lelouvincx + Amp
 
 ### Revision History
@@ -11,6 +11,7 @@
 | v1  | 2026-05-03 | Initial draft. Inserts a UX-only minor version between v0.4 (image extraction, shipped) and v0.5 (lectures, planned). Driven by customer feedback and a benchmark of Shub.edu.vn captured in [`docs/learning.md`](file:///Users/lelouvincx/Developer/smartclass/docs/learning.md). |
 | v2  | 2026-05-03 | Fold in open items from [`docs/uiux-feedback.md`](file:///Users/lelouvincx/Developer/smartclass/docs/uiux-feedback.md): drag-and-drop file upload, expandable question list (alternative to nav grid + scroll), 150 % default zoom, trim image-extraction model allowlist to `x-ai/grok-4.1-fast` + `mistralai/mistral-small-3.2-24b-instruct`. Reverses the "no API/no DB changes" claim — the allowlist trim is a small backend edit. |
 | v3  | 2026-05-03 | Resolve all 8 open questions. **Drop the expandable per-question list entirely** (was prototype-gated; now out of scope for v0.4.5 — revisit in v0.5 with a fresh design). **Take-page PDF default flips to ON** (off later when the QR-code submission flow from the README's queue lands). **Change extract default from `x-ai/grok-4.1-fast` to `mistralai/mistral-small-3.2-24b-instruct`** — stale model IDs and `NULL` values both resolve to Mistral. **PDF margin replaces "readability" as the rationale for 150 %** zoom. Close items 1, 3, 4, 5, 6, 8 with explicit decisions (see Decisions table). |
+| v4  | 2026-05-03 | Mark **Shipped**. PRs #56–#59 all merged. Record divergences from the plan: (1) `FileDropzone` was implemented as a **parallel** component, not extracted from `AnswerImageUpload` — the existing dropzone in `answer-image-upload.jsx` was left untouched (consolidation tracked in `docs/tech-debt.md`); (2) review sidebar table ships **4 columns** (`status | q# | chosen | pts`) instead of the planned 5 (`chosen | correct` was collapsed into a `correctCount/4` rollup for boolean rows); (3) take-page sidebar width landed at `clamp(240px, 20rem, 40vw)` (instead of the appendix's `clamp(280px, 22rem, 360px)`); (4) the planned drift-detection test for `src/lib/grading-display.js` did not ship and is in tech-debt; (5) on mobile the timer is currently only inside the bottom-sheet drawer (no inline mobile timer chip) — known regression filed against tech-debt. Code review of all four PRs is the primary source for these notes. |
 
 ---
 
