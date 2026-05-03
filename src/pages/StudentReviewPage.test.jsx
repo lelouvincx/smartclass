@@ -71,7 +71,7 @@ describe('StudentReviewPage', () => {
     renderReviewPage()
 
     expect(await screen.findByText('Algebra Quiz')).toBeInTheDocument()
-    expect(screen.getByText(/7\.5/)).toBeInTheDocument()
+    expect(screen.getAllByText(/7\.5/).length).toBeGreaterThan(0)
   })
 
   it('renders an iframe for the exercise PDF', async () => {
@@ -88,9 +88,9 @@ describe('StudentReviewPage', () => {
     renderReviewPage()
 
     await screen.findByText('Algebra Quiz')
-    // MCQ Q1: student answered A, correct is B
-    expect(screen.getByText('A')).toBeInTheDocument()
-    expect(screen.getByText('B')).toBeInTheDocument()
+    // MCQ Q1: student answered A, correct is B — may appear in table + sidebar
+    expect(screen.getAllByText('A').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('B').length).toBeGreaterThan(0)
     // Numeric Q3: both student and correct are 42
     expect(screen.getAllByText('42').length).toBeGreaterThan(0)
   })

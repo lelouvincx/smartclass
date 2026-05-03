@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getFileUrl, getSubmission } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -10,6 +10,7 @@ import {
   BooleanResultGroup,
   McqNumericResultRow,
 } from '@/components/answer-result'
+import { SubmissionReviewSidebar } from '@/components/submission-review-sidebar'
 
 // --- Schema grouping (mirrors StudentTakeExercisePage) ---
 
@@ -58,6 +59,7 @@ function ScoreBadge({ score }) {
 export default function StudentReviewPage() {
   const { id } = useParams()
   const { token } = useAuth()
+  const questionRefs = useRef({})
 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -130,55 +132,70 @@ export default function StudentReviewPage() {
         </div>
       </div>
 
-      <PdfSplitPane fileUrl={pdfUrl}>
-        <div className="space-y-4">
-          {/* Answer review table */}
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-sm">
-                  <thead className="bg-muted text-left text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2">Question</th>
-                      <th className="px-4 py-2">Your Answer</th>
-                      <th className="px-4 py-2">Correct Answer</th>
-                      <th className="px-4 py-2 text-center">Result</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+      {/* Two-column layout: review content + sidebar */}
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6">
+        {/* Left: PDF + review table */}
+        <PdfSplitPane fileUrl={pdfUrl}>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse text-sm">
+                    <thead className="bg-muted text-left text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-2">Question</th>
+                        <th className="px-4 py-2">Your Answer</th>
+                        <th className="px-4 py-2">Correct Answer</th>
+                        <th className="px-4 py-2 text-center">Result</th>
+                      </tr>
+                    </thead>
                     {questionGroups.map((group) => {
-                      if (group.type === 'boolean') {
-                        return (
-                          <BooleanResultGroup
-                            key={group.q_id}
-                            group={group}
-                            submittedAnswers={answers}
-                            schemaAnswers={answers}
-                          />
-                        )
-                      }
-                      const ans = answers.find((a) => a.q_id === group.q_id && !a.sub_id)
+                      const ans = group.type !== 'boolean'
+                        ? answers.find((a) => a.q_id === group.q_id && !a.sub_id)
+                        : null
                       return (
-                        <McqNumericResultRow
+                        <tbody
                           key={group.q_id}
-                          question={{ ...group, is_correct: ans?.is_correct ?? null }}
-                          answer={ans?.submitted_answer ?? null}
-                          correctAnswer={ans?.correct_answer}
-                        />
+                          ref={(el) => { questionRefs.current[group.q_id] = el }}
+                        >
+                          {group.type === 'boolean' ? (
+                            <BooleanResultGroup
+                              group={group}
+                              submittedAnswers={answers}
+                              schemaAnswers={answers}
+                            />
+                          ) : (
+                            <McqNumericResultRow
+                              question={{ ...group, is_correct: ans?.is_correct ?? null }}
+                              answer={ans?.submitted_answer ?? null}
+                              correctAnswer={ans?.correct_answer}
+                            />
+                          )}
+                        </tbody>
                       )
                     })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
 
-          {/* Summary */}
-          <p className="text-sm text-muted-foreground">
-            {correctCount} / {totalAnswerRows} answer rows correct
-          </p>
+            <p className="text-sm text-muted-foreground">
+              {correctCount} / {totalAnswerRows} answer rows correct
+            </p>
+          </div>
+        </PdfSplitPane>
+
+        {/* Right: sticky review sidebar (desktop only) */}
+        <div className="hidden lg:block">
+          <div className="sticky top-4">
+            <Card>
+              <CardContent className="pt-5">
+                <SubmissionReviewSidebar submission={submission} questionRefs={questionRefs} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </PdfSplitPane>
+      </div>
     </div>
   )
 }
