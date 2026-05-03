@@ -2,8 +2,12 @@ import { Hono } from 'hono'
 import { requireAuth } from '../middleware/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { gradeSubmission } from '../lib/grading.js'
+import { resolveModel } from '../lib/extract-models.js'
 
 const submissionsRoutes = new Hono()
+
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024 // 20 MB
+const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'])
 
 // List submissions for authenticated user
 submissionsRoutes.get('/', requireAuth, async (c) => {
@@ -302,6 +306,97 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
   } catch (error) {
     console.error('Get submission error:', error)
     return jsonError(c, 500, 'INTERNAL_ERROR', error.message || 'Failed to get submission')
+  }
+})
+
+// Upload an answer-sheet image and extract answers via vision LLM (v0.4).
+// PR A: scaffold only — performs upload + persistence; LLM extraction stubbed.
+submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
+  try {
+    const submissionId = c.req.param('id')
+    const authUser = c.get('authUser')
+
+    // ── Ownership + state check ──────────────────────────────────────────────
+    const submission = await c.env.DB.prepare(
+      'SELECT id, user_id, submitted_at FROM submissions WHERE id = ?'
+    ).bind(submissionId).first()
+
+    if (!submission) {
+      return jsonError(c, 404, 'NOT_FOUND', 'Submission not found')
+    }
+
+    if (submission.user_id !== authUser.id) {
+      return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this submission')
+    }
+
+    if (submission.submitted_at) {
+      return jsonError(c, 409, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
+    }
+
+    // ── Size pre-check via Content-Length (cheap, before parsing body) ──────
+    const contentLength = parseInt(c.req.header('content-length') || '0', 10)
+    if (contentLength > MAX_IMAGE_BYTES) {
+      return jsonError(c, 413, 'PAYLOAD_TOO_LARGE', `Image must be ≤ ${MAX_IMAGE_BYTES / 1024 / 1024} MB`)
+    }
+
+    // ── Parse multipart form ────────────────────────────────────────────────
+    let body
+    try {
+      body = await c.req.parseBody()
+    } catch {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'Request body must be multipart/form-data')
+    }
+
+    const image = body.image
+    if (!(image instanceof File)) {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'image field is required')
+    }
+
+    // Re-check size after parsing (Content-Length might be missing on some clients)
+    if (image.size > MAX_IMAGE_BYTES) {
+      return jsonError(c, 413, 'PAYLOAD_TOO_LARGE', `Image must be ≤ ${MAX_IMAGE_BYTES / 1024 / 1024} MB`)
+    }
+
+    if (!ALLOWED_IMAGE_TYPES.has(image.type)) {
+      return jsonError(c, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Only image/jpeg and image/png are accepted')
+    }
+
+    // ── Model selection (server-side allowlist; silently substitutes default) ─
+    const requestedModel = typeof body.model === 'string' ? body.model : null
+    const modelUsed = resolveModel(requestedModel)
+
+    // ── Upload to R2 ────────────────────────────────────────────────────────
+    const timestamp = Date.now()
+    const safeName = image.name || `upload-${timestamp}`
+    const r2Key = `submissions/${submissionId}/${timestamp}-${safeName}`
+
+    try {
+      await c.env.BUCKET.put(r2Key, image.stream(), {
+        httpMetadata: { contentType: image.type },
+      })
+    } catch (error) {
+      console.error('R2 upload error (extract):', error)
+      return jsonError(c, 500, 'UPLOAD_ERROR', 'Failed to upload image to storage')
+    }
+
+    // ── Persist file record ─────────────────────────────────────────────────
+    const fileResult = await c.env.DB.prepare(`
+      INSERT INTO submission_files (submission_id, file_type, r2_key, file_name, file_size)
+      VALUES (?, 'answer_sheet', ?, ?, ?)
+    `).bind(submissionId, r2Key, safeName, image.size).run()
+
+    const fileId = fileResult.meta.last_row_id
+
+    // ── PR A stub — LLM extraction lands in PR B ────────────────────────────
+    return jsonSuccess(c, {
+      file_id: fileId,
+      model_used: modelUsed,
+      extracted: [],
+      warnings: ['LLM extraction not yet implemented (PR A stub)'],
+    })
+  } catch (error) {
+    console.error('Extract answers error:', error)
+    return jsonError(c, 500, 'INTERNAL_ERROR', error.message || 'Failed to extract answers')
   }
 })
 

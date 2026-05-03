@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0006_add_cascade_submissions
+// Last updated: migration 0007_add_submission_files
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -97,6 +97,25 @@ Table submission_answers {
     (submission_id, q_id, sub_id) [unique, name: 'idx_submission_answers_unique',
       note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
   }
+}
+
+Table submission_files {
+  id            integer [pk, increment]
+  submission_id integer [not null, ref: > submissions.id, note: 'ON DELETE CASCADE']
+  file_type     text    [not null, note: 'answer_sheet (only kind in v0.4); future: scratch_work, etc.']
+  r2_key        text    [not null, note: 'R2 object key — submissions/{submission_id}/{timestamp}-{filename}']
+  file_name     text    [not null]
+  file_size     integer [note: 'bytes; nullable']
+  uploaded_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    submission_id [name: 'idx_submission_files_submission']
+  }
+
+  Note: '''
+    Student-uploaded answer-sheet images for the v0.4 LLM extraction flow.
+    Stored indefinitely for audit (teacher dispute review).
+  '''
 }
 
 // ── Lectures ───────────────────────────────────────────────────────────────────
