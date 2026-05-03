@@ -806,6 +806,23 @@ export default function StudentTakeExercisePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Mobile: persistent timer chip — visible while the answer-sheet drawer is closed.
+          Reuses the same secondsLeft / overtime / timerHidden state as the desktop sidebar
+          timer; the milestone-toast useEffect remains the single source of truth. */}
+      {secondsLeft !== null && !sheetOpen && !timerHidden && (
+        <div
+          aria-live="polite"
+          aria-label="Timer (mobile)"
+          className={`fixed bottom-20 right-6 z-40 flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-sm font-semibold shadow-md lg:hidden ${timerColor}`}
+        >
+          <Clock className="h-3.5 w-3.5" />
+          <span className="tabular-nums">{formatTime(secondsLeft)}</span>
+          {overtime && (
+            <Badge variant="destructive" className="ml-1 text-[10px]">Over time</Badge>
+          )}
+        </div>
+      )}
+
       {/* Mobile: floating answer sheet button */}
       <button
         type="button"

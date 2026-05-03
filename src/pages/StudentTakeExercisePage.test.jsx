@@ -124,6 +124,7 @@ describe('StudentTakeExercisePage', () => {
     getSubmissionMock.mockReset()
     submitAnswersMock.mockReset()
     sessionStorage.clear()
+    localStorage.clear()
   })
 
   // --- Loading and error states ---
@@ -300,7 +301,83 @@ describe('StudentTakeExercisePage', () => {
     })
 
     expect(screen.getByText(/time is up/i)).toBeInTheDocument()
-    expect(screen.getByText(/over time/i)).toBeInTheDocument()
+    // "Over time" badge appears in both the sidebar timer and the mobile timer chip.
+    expect(screen.getAllByText(/over time/i).length).toBeGreaterThan(0)
+
+    vi.useRealTimers()
+  })
+
+  // --- Mobile timer chip (regression: PR #57 hid the mobile timer behind the drawer) ---
+
+  it('renders the mobile timer chip for a timed exercise', async () => {
+    const now = new Date()
+    const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
+    const sub = { ...SUBMISSION, started_at: startedAt }
+
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: sub })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+
+    const mobileTimer = screen.getByLabelText('Timer (mobile)')
+    expect(mobileTimer).toBeInTheDocument()
+    expect(mobileTimer.textContent).toMatch(/^(30:00|29:5\d)/)
+    // Hidden on lg+ via Tailwind utility
+    expect(mobileTimer.className).toMatch(/lg:hidden/)
+  })
+
+  it('does not render the mobile timer chip for an untimed exercise', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, mode: 'untimed' } })
+
+    renderPage('2')
+
+    await screen.findByText('Mixed Quiz')
+
+    expect(screen.queryByLabelText('Timer (mobile)')).not.toBeInTheDocument()
+  })
+
+  it('hides the mobile timer chip when the timer is hidden via the eye toggle', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByLabelText('Timer (mobile)')).toBeInTheDocument()
+
+    // Click the sidebar's "Hide timer" button — should also hide the mobile chip.
+    await user.click(screen.getByRole('button', { name: /hide timer/i }))
+
+    expect(screen.queryByLabelText('Timer (mobile)')).not.toBeInTheDocument()
+  })
+
+  it('shows Over time badge on the mobile timer chip after time expires', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+
+    const now = new Date()
+    const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
+    const sub = { ...SUBMISSION, started_at: startedAt }
+
+    const shortExercise = { ...EXERCISE_MCQ, duration_minutes: 1 }
+    getExerciseMock.mockResolvedValue({ data: shortExercise })
+    getSubmissionMock.mockResolvedValue({ data: sub })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+
+    act(() => {
+      vi.advanceTimersByTime(61_000)
+    })
+
+    const mobileTimer = screen.getByLabelText('Timer (mobile)')
+    // Badge appears in two places (sidebar + mobile); ensure the mobile chip itself contains one.
+    expect(mobileTimer.textContent).toMatch(/over time/i)
 
     vi.useRealTimers()
   })
