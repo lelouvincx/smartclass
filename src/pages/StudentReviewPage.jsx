@@ -133,7 +133,7 @@ export default function StudentReviewPage() {
       </div>
 
       {/* Two-column layout: review content + sidebar */}
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-6">
+      <div className="lg:grid lg:grid-cols-[1fr_clamp(240px,_20rem,_40vw)] lg:items-start lg:gap-6">
         {/* Left: PDF + review table */}
         <PdfSplitPane fileUrl={pdfUrl}>
           <div className="space-y-4">

@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
 import ExtractModelSelect from '@/components/extract-model-select'
+import FileDropzone from '@/components/file-dropzone'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -399,24 +400,24 @@ export default function TeacherCreateExercisePage() {
               {/* Exercise PDF upload */}
               <div className="space-y-1.5">
                 <Label htmlFor="exerciseFile">Exercise PDF (optional)</Label>
-                <input
+                <FileDropzone
                   id="exerciseFile"
-                  type="file"
                   accept=".pdf"
-                  onChange={(e) => setExerciseFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm"
+                  hint="PDF files only"
+                  file={exerciseFile}
+                  onChange={setExerciseFile}
                 />
               </div>
 
               {/* Answer PDF upload + Generate Schema grouped as related actions */}
               <div className="space-y-1.5">
                 <Label htmlFor="answerFile">Answer PDF (recommended)</Label>
-                <input
+                <FileDropzone
                   id="answerFile"
-                  type="file"
                   accept=".pdf"
-                  onChange={(e) => setAnswerFile(e.target.files?.[0] || null)}
-                  className="block w-full text-sm"
+                  hint="PDF files only"
+                  file={answerFile}
+                  onChange={setAnswerFile}
                 />
                 <Button
                   type="button"

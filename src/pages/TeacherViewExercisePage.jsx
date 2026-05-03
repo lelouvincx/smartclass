@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteExercise, getExercise, updateExercise } from '@/lib/api'
+import { createExerciseFileUpload, deleteExercise, getExercise, updateExercise, uploadExerciseFile } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { SchemaTable } from '@/components/schema-table'
 import ExtractModelSelect from '@/components/extract-model-select'
+import FileDropzone from '@/components/file-dropzone'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -221,6 +222,8 @@ export default function TeacherViewExercisePage() {
   const [editDuration, setEditDuration] = useState(60)
   const [editExtractModel, setEditExtractModel] = useState(null)
   const [editRows, setEditRows] = useState([])
+  const [editExerciseFile, setEditExerciseFile] = useState(null)
+  const [editSolutionFile, setEditSolutionFile] = useState(null)
 
   const validatedRows = useMemo(() => validateRows(editRows), [editRows])
   const hasErrors = validatedRows.some((r) => r.errors.length > 0)
@@ -247,12 +250,16 @@ export default function TeacherViewExercisePage() {
     setEditDuration(exercise.duration_minutes)
     setEditExtractModel(exercise.extract_model ?? null)
     setEditRows(schemaToRows(exercise.schema))
+    setEditExerciseFile(null)
+    setEditSolutionFile(null)
     setSaveError('')
     setIsEditing(true)
   }
 
   function cancelEdit() {
     setIsEditing(false)
+    setEditExerciseFile(null)
+    setEditSolutionFile(null)
     setSaveError('')
   }
 
@@ -326,7 +333,26 @@ export default function TeacherViewExercisePage() {
         extract_model: editExtractModel,
       }
       const res = await updateExercise(token, exercise.id, payload)
-      setExercise(res.data)
+      let updatedExercise = res.data
+
+      const fileUploads = [
+        editExerciseFile && { file: editExerciseFile, file_type: 'exercise_pdf' },
+        editSolutionFile && { file: editSolutionFile, file_type: 'solution_pdf' },
+      ].filter(Boolean)
+
+      if (fileUploads.length > 0) {
+        for (const { file, file_type } of fileUploads) {
+          const createRes = await createExerciseFileUpload(token, exercise.id, {
+            file_type,
+            file_name: file.name,
+          })
+          await uploadExerciseFile(token, exercise.id, createRes.data, file)
+        }
+        const refreshed = await getExercise(id, token)
+        updatedExercise = refreshed.data
+      }
+
+      setExercise(updatedExercise)
       setIsEditing(false)
     } catch (e) {
       setSaveError(e.message)
@@ -472,7 +498,7 @@ export default function TeacherViewExercisePage() {
         <CardContent className="pt-5">
           <h2 className="mb-3 text-sm font-semibold">Files</h2>
           {exercise.files?.length > 0 ? (
-            <ul className="space-y-1">
+            <ul className={`space-y-1 ${isEditing ? 'mb-4' : ''}`}>
               {exercise.files.map((f) => (
                 <li key={f.id} className="flex items-center gap-2 text-sm">
                   <Badge variant="secondary" className="text-xs">{f.file_type}</Badge>
@@ -481,7 +507,29 @@ export default function TeacherViewExercisePage() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No files uploaded.</p>
+            <p className={`text-sm text-muted-foreground ${isEditing ? 'mb-4' : ''}`}>No files uploaded.</p>
+          )}
+          {isEditing && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Replace Exercise PDF</Label>
+                <FileDropzone
+                  accept=".pdf"
+                  hint="PDF files only"
+                  file={editExerciseFile}
+                  onChange={setEditExerciseFile}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Replace Solution PDF</Label>
+                <FileDropzone
+                  accept=".pdf"
+                  hint="PDF files only"
+                  file={editSolutionFile}
+                  onChange={setEditSolutionFile}
+                />
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
