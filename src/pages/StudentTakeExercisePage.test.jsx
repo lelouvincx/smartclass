@@ -102,10 +102,12 @@ const SUBMISSION = {
 // --- Render helper ---
 
 function renderPage(exerciseId = '1') {
+  sessionStorage.setItem(`submission_${exerciseId}`, '10')
   return render(
-    <MemoryRouter initialEntries={[`/student/exercises/${exerciseId}`]}>
+    <MemoryRouter initialEntries={[`/student/exercises/${exerciseId}/take`]}>
       <Routes>
-        <Route path="/student/exercises/:id" element={<StudentTakeExercisePage />} />
+        <Route path="/student/exercises/:id/take" element={<StudentTakeExercisePage />} />
+        <Route path="/student/exercises/:id" element={<div>Exercise landing</div>} />
         <Route path="/student/exercises" element={<div>Exercises list</div>} />
       </Routes>
     </MemoryRouter>,
@@ -127,7 +129,7 @@ describe('StudentTakeExercisePage', () => {
 
   it('shows loading indicator while fetching', () => {
     getExerciseMock.mockImplementation(() => new Promise(() => {}))
-    createSubmissionMock.mockImplementation(() => new Promise(() => {}))
+    getSubmissionMock.mockImplementation(() => new Promise(() => {}))
 
     renderPage()
 
@@ -136,27 +138,33 @@ describe('StudentTakeExercisePage', () => {
 
   it('shows error message when exercise fetch fails', async () => {
     getExerciseMock.mockRejectedValue(new Error('Exercise not found'))
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
     expect(await screen.findByText(/exercise not found/i)).toBeInTheDocument()
   })
 
-  it('shows error message when create submission fails', async () => {
+  it('redirects to exercise landing when no sessionStorage entry exists', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockRejectedValue(new Error('Already submitted'))
+    // sessionStorage empty — do NOT call renderPage (which pre-populates it)
+    render(
+      <MemoryRouter initialEntries={['/student/exercises/1/take']}>
+        <Routes>
+          <Route path="/student/exercises/:id/take" element={<StudentTakeExercisePage />} />
+          <Route path="/student/exercises/:id" element={<div>Exercise landing</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
 
-    renderPage()
-
-    expect(await screen.findByText(/already submitted/i)).toBeInTheDocument()
+    expect(await screen.findByText('Exercise landing')).toBeInTheDocument()
   })
 
   // --- Exercise rendering ---
 
   it('renders exercise title and question count after loading', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -167,7 +175,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows distinct question count (not raw schema row count) for exercises with boolean sub-rows', async () => {
     // EXERCISE_MIXED has 6 schema rows: 1 mcq + 4 boolean sub-rows + 1 numeric = 3 distinct questions
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
     renderPage('2')
 
@@ -177,7 +185,7 @@ describe('StudentTakeExercisePage', () => {
 
   it('renders MCQ option buttons for mcq-type questions', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -191,7 +199,7 @@ describe('StudentTakeExercisePage', () => {
 
   it('renders 4 True/False sub-question rows for boolean-type questions', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
     renderPage('2')
 
@@ -210,7 +218,7 @@ describe('StudentTakeExercisePage', () => {
 
   it('renders numeric input for numeric-type questions', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
     renderPage('2')
 
@@ -227,7 +235,7 @@ describe('StudentTakeExercisePage', () => {
     const sub = { ...SUBMISSION, started_at: startedAt }
 
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: sub })
+    getSubmissionMock.mockResolvedValue({ data: sub })
 
     renderPage()
 
@@ -239,7 +247,7 @@ describe('StudentTakeExercisePage', () => {
 
   it('does not show timer for untimed exercise', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, mode: 'untimed' } })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, mode: 'untimed' } })
 
     renderPage('2')
 
@@ -256,7 +264,7 @@ describe('StudentTakeExercisePage', () => {
     const sub = { ...SUBMISSION, started_at: startedAt }
 
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: sub })
+    getSubmissionMock.mockResolvedValue({ data: sub })
 
     renderPage()
 
@@ -280,7 +288,7 @@ describe('StudentTakeExercisePage', () => {
 
     const shortExercise = { ...EXERCISE_MCQ, duration_minutes: 1 }
     getExerciseMock.mockResolvedValue({ data: shortExercise })
-    createSubmissionMock.mockResolvedValue({ data: sub })
+    getSubmissionMock.mockResolvedValue({ data: sub })
 
     renderPage()
 
@@ -301,7 +309,7 @@ describe('StudentTakeExercisePage', () => {
   it('allows selecting an MCQ option', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -316,7 +324,7 @@ describe('StudentTakeExercisePage', () => {
   it('allows selecting a boolean sub-question option', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, mode: 'untimed' } })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, mode: 'untimed' } })
 
     renderPage('2')
 
@@ -331,7 +339,7 @@ describe('StudentTakeExercisePage', () => {
   it('allows entering a numeric answer', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
     renderPage('2')
 
@@ -348,7 +356,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows confirm dialog when submit button is clicked', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -362,7 +370,7 @@ describe('StudentTakeExercisePage', () => {
   it('hides confirm dialog when cancel is clicked', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -376,7 +384,7 @@ describe('StudentTakeExercisePage', () => {
   it('calls submitAnswers with correct payload including sub_id for boolean', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
-    createSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed', total_questions: 3 } })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed', total_questions: 3 } })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -415,7 +423,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows submitted view with read-only answer table after success', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -442,7 +450,7 @@ describe('StudentTakeExercisePage', () => {
   it('question inputs are gone after submission (submitted view shows table)', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -468,7 +476,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows submit error when submitAnswers API fails', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockRejectedValue(new Error('Submission already exists'))
 
     renderPage()
@@ -483,7 +491,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows dash for unanswered questions in submitted view', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -512,7 +520,7 @@ describe('StudentTakeExercisePage', () => {
   it('registers a beforeunload listener while exercise is in progress', async () => {
     const addEventSpy = vi.spyOn(window, 'addEventListener')
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -528,7 +536,7 @@ describe('StudentTakeExercisePage', () => {
     const user = userEvent.setup()
     const removeEventSpy = vi.spyOn(window, 'removeEventListener')
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -555,7 +563,7 @@ describe('StudentTakeExercisePage', () => {
 
   it('shows Back button as a warning prompt instead of a plain link while in progress', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -567,7 +575,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows an in-page leave warning when Back button is clicked mid-exercise', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -582,7 +590,7 @@ describe('StudentTakeExercisePage', () => {
   it('navigates away when user confirms leave', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -596,7 +604,7 @@ describe('StudentTakeExercisePage', () => {
   it('dismisses leave warning when user cancels', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
 
@@ -611,7 +619,7 @@ describe('StudentTakeExercisePage', () => {
   it('Back button is disabled while submission is in flight', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockImplementation(() => new Promise(() => {}))
 
     renderPage()
@@ -627,7 +635,7 @@ describe('StudentTakeExercisePage', () => {
   it('Back button is a plain link (no warning) after exercise is submitted', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -654,7 +662,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows score in submitted view when API returns a score', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -681,7 +689,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows correctness indicator (✓) for correct answers in submitted view', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -708,7 +716,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows correctness indicator (✗) for wrong answers in submitted view', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -735,7 +743,7 @@ describe('StudentTakeExercisePage', () => {
   it('shows no score badge when score is null (legacy submissions)', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     submitAnswersMock.mockResolvedValue({
       data: {
         id: 10,
@@ -768,7 +776,7 @@ describe('StudentTakeExercisePage', () => {
 
     it('renders the input mode toggle and defaults to manual', async () => {
       getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
       renderPage()
       await screen.findByText('Algebra Quiz')
@@ -784,7 +792,7 @@ describe('StudentTakeExercisePage', () => {
     it('shows the upload panel when switching to photo mode', async () => {
       const user = userEvent.setup()
       getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
       renderPage()
       await screen.findByText('Algebra Quiz')
@@ -796,7 +804,7 @@ describe('StudentTakeExercisePage', () => {
     it('merges extracted answers into the form and shows confidence dots', async () => {
       const user = userEvent.setup()
       getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
       renderPage()
       await screen.findByText('Algebra Quiz')
@@ -821,7 +829,7 @@ describe('StudentTakeExercisePage', () => {
     it('clears the confidence dot on a cell after the student edits it manually', async () => {
       const user = userEvent.setup()
       getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      createSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
       renderPage()
       await screen.findByText('Algebra Quiz')

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle, Clock, Eye, EyeOff, ImageIcon, Pencil } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
-import { createSubmission, getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
+import { getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -276,9 +276,8 @@ export default function StudentTakeExercisePage() {
         }
 
         if (!sub) {
-          const subRes = await createSubmission(token, { exercise_id: Number(id) })
-          sub = subRes.data
-          sessionStorage.setItem(storageKey, String(sub.id))
+          navigate(`/student/exercises/${id}`, { replace: true })
+          return
         }
 
         setSubmission(sub)
