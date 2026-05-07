@@ -102,7 +102,7 @@ RFC: [`docs/plans/2026-05-03-exercise-experience-polish.md`](docs/plans/2026-05-
 
 - [ ] Each answer includes an explanation field (image/markdown with math notation supported) created when uploading exercises
 - [x] Teacher: create accounts for students ([#63](https://github.com/lelouvincx/smartclass/pull/63))
-- [ ] Teacher: approves pending accounts
+- [x] Teacher: approves pending accounts ([#64](https://github.com/lelouvincx/smartclass/pull/64))
 - [ ] Auth: forget password
 - [ ] Auth: change password (teacher and student, teacher can reset student passwords)
 - [ ] LLM prompt for extraction

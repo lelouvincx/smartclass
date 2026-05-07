@@ -359,6 +359,13 @@
 - **One-at-a-time**: Single phone input only. Bulk creation is future work.
 - **Pending approval**: Deferred to follow-up PR (next queueing item). The page's filter already supports "Pending" tab — only the per-row approve button is missing.
 
+### Approve Pending Accounts (v0.5, PR #64)
+
+- **Endpoint**: Reuses existing `PUT /api/users/:id/approve`. Idempotent — approving an already-active student returns 200 with "already active" message.
+- **UI**: Per-row "Approve" button in the Students table (visible only for pending rows). Click fires API call, success toast via `sonner`, list reloads automatically.
+- **Loading state**: Button shows `Spinner` + "Approving..." and is `disabled` per shadcn patterns.
+- **No confirmation dialog**: Low-stakes action — teacher sees the phone number before clicking, and the endpoint is idempotent.
+
 ### Default 150 % Zoom (v0.4.5, PR #59)
 
 - **Implementation**: `html { font-size: 150% }` in `src/index.css`. Cascades through every Tailwind/shadcn `rem`-based unit.
