@@ -242,6 +242,13 @@ export function createStudent(token, payload) {
   })
 }
 
+export function approveStudent(token, userId) {
+  return request(`/api/users/${userId}/approve`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+  })
+}
+
 export function listMySubmissions(token, { exerciseId, limit, offset } = {}) {
   const params = new URLSearchParams()
   if (exerciseId) params.set('exercise_id', exerciseId)

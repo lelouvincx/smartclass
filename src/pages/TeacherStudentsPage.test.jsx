@@ -6,18 +6,27 @@ import { vi } from 'vitest'
 import TeacherStudentsPage from './TeacherStudentsPage'
 
 const createStudentMock = vi.fn()
+const approveStudentMock = vi.fn()
 const listStudentsMock = vi.fn()
 const logoutMock = vi.fn()
 const navigateMock = vi.fn()
+
+const toastMock = vi.hoisted(() => ({
+  success: vi.fn(),
+  error: vi.fn(),
+}))
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     createStudent: (...args) => createStudentMock(...args),
+    approveStudent: (...args) => approveStudentMock(...args),
     listStudents: (...args) => listStudentsMock(...args),
   }
 })
+
+vi.mock('sonner', () => ({ toast: toastMock }))
 
 vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({
@@ -38,9 +47,12 @@ vi.mock('react-router-dom', async (importOriginal) => {
 describe('TeacherStudentsPage', () => {
   beforeEach(() => {
     createStudentMock.mockReset()
+    approveStudentMock.mockReset()
     listStudentsMock.mockReset()
     logoutMock.mockReset()
     navigateMock.mockReset()
+    toastMock.success.mockReset()
+    toastMock.error.mockReset()
   })
 
   it('renders empty state when there are no students', async () => {
@@ -187,6 +199,121 @@ describe('TeacherStudentsPage', () => {
 
     await waitFor(() => {
       expect(listStudentsMock).toHaveBeenCalledWith('test-token', { status: 'pending' })
+    })
+  })
+
+  describe('approve pending student', () => {
+    beforeEach(() => {
+      listStudentsMock.mockResolvedValue({
+        data: [
+          { id: 1, phone: '+84123456789', role: 'student', status: 'pending', created_at: '2026-05-07 10:00:00' },
+          { id: 2, phone: '+84987654321', role: 'student', status: 'active', created_at: '2026-05-06 09:00:00' },
+        ],
+      })
+    })
+
+    it('shows Approve button only on pending rows', async () => {
+      render(
+        <MemoryRouter>
+          <TeacherStudentsPage />
+        </MemoryRouter>,
+      )
+
+      await screen.findByText('+84123456789')
+
+      const buttons = screen.getAllByRole('button', { name: /approve/i })
+      expect(buttons).toHaveLength(1)
+    })
+
+    it('calls approveStudent on click and reloads list', async () => {
+      const user = userEvent.setup()
+      approveStudentMock.mockResolvedValue({
+        data: { id: 1, status: 'active' },
+        message: 'Student approved successfully.',
+      })
+
+      render(
+        <MemoryRouter>
+          <TeacherStudentsPage />
+        </MemoryRouter>,
+      )
+
+      await screen.findByText('+84123456789')
+
+      await user.click(screen.getByRole('button', { name: /approve/i }))
+
+      await waitFor(() => {
+        expect(approveStudentMock).toHaveBeenCalledWith('test-token', 1)
+      })
+
+      await waitFor(() => {
+        expect(listStudentsMock).toHaveBeenCalledTimes(2)
+      })
+    })
+
+    it('shows success toast on approve', async () => {
+      const user = userEvent.setup()
+      approveStudentMock.mockResolvedValue({
+        data: { id: 1, status: 'active' },
+        message: 'Student approved successfully.',
+      })
+
+      render(
+        <MemoryRouter>
+          <TeacherStudentsPage />
+        </MemoryRouter>,
+      )
+
+      await screen.findByText('+84123456789')
+      await user.click(screen.getByRole('button', { name: /approve/i }))
+
+      await waitFor(() => {
+        expect(toastMock.success).toHaveBeenCalledWith('Student approved successfully.')
+      })
+    })
+
+    it('shows error toast on approve failure', async () => {
+      const user = userEvent.setup()
+      approveStudentMock.mockRejectedValue(new Error('User not found.'))
+
+      render(
+        <MemoryRouter>
+          <TeacherStudentsPage />
+        </MemoryRouter>,
+      )
+
+      await screen.findByText('+84123456789')
+      await user.click(screen.getByRole('button', { name: /approve/i }))
+
+      await waitFor(() => {
+        expect(toastMock.error).toHaveBeenCalledWith('User not found.')
+      })
+    })
+
+    it('disables approve button while approving', async () => {
+      const user = userEvent.setup()
+
+      let resolveApprove
+      approveStudentMock.mockImplementation(
+        () => new Promise((resolve) => { resolveApprove = resolve }),
+      )
+
+      render(
+        <MemoryRouter>
+          <TeacherStudentsPage />
+        </MemoryRouter>,
+      )
+
+      await screen.findByText('+84123456789')
+
+      await user.click(screen.getByRole('button', { name: /approve/i }))
+
+      expect(screen.getByRole('button', { name: /approving/i })).toBeDisabled()
+
+      resolveApprove({
+        data: { id: 1, status: 'active' },
+        message: 'Student approved successfully.',
+      })
     })
   })
 })

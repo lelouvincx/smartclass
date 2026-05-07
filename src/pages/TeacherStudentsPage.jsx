@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { listStudents, createStudent } from '@/lib/api'
+import { listStudents, createStudent, approveStudent } from '@/lib/api'
+import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -39,6 +41,7 @@ export default function TeacherStudentsPage() {
   const [statusFilter, setStatusFilter] = useState(null)
   const [phone, setPhone] = useState('')
   const [creating, setCreating] = useState(false)
+  const [approvingId, setApprovingId] = useState(null)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
@@ -60,6 +63,19 @@ export default function TeacherStudentsPage() {
 
   function handleFilterChange(filterValue) {
     setStatusFilter(filterValue === statusFilter ? null : filterValue)
+  }
+
+  async function handleApprove(studentId) {
+    setApprovingId(studentId)
+    try {
+      const res = await approveStudent(token, studentId)
+      toast.success(res.message || 'Student approved successfully.')
+      await loadStudents()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setApprovingId(null)
+    }
   }
 
   async function handleCreate(e) {
@@ -159,6 +175,7 @@ export default function TeacherStudentsPage() {
                   <TableHead>Phone</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="hidden sm:table-cell">Created</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -172,6 +189,23 @@ export default function TeacherStudentsPage() {
                     </TableCell>
                     <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
                       {formatDate(s.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {s.status === 'pending' ? (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleApprove(s.id)}
+                          disabled={approvingId === s.id}
+                        >
+                          {approvingId === s.id ? (
+                            <Spinner data-icon="inline-start" />
+                          ) : null}
+                          {approvingId === s.id ? 'Approving...' : 'Approve'}
+                        </Button>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
