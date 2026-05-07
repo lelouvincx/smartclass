@@ -133,12 +133,13 @@ export default function StudentReviewPage() {
       </div>
 
       {/* Two-column layout: review content + sidebar */}
-      <div className="lg:grid lg:grid-cols-[1fr_clamp(240px,_20rem,_40vw)] lg:items-start lg:gap-6">
+      <div className="flex flex-col-reverse lg:grid lg:grid-cols-[1fr_clamp(240px,_20rem,_40vw)] lg:items-start lg:gap-6 gap-6">
         {/* Left: PDF + review table */}
-        <PdfSplitPane fileUrl={pdfUrl}>
-          <div className="space-y-4">
-            <Card>
-              <CardContent className="p-0">
+        <div className="min-w-0">
+          <PdfSplitPane fileUrl={pdfUrl}>
+            <div className="space-y-4">
+              <Card>
+                <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="min-w-full border-collapse text-sm">
                     <thead className="bg-muted text-left text-muted-foreground">
@@ -177,17 +178,18 @@ export default function StudentReviewPage() {
                   </table>
                 </div>
               </CardContent>
-            </Card>
+              </Card>
 
-            <p className="text-sm text-muted-foreground">
-              {correctCount} / {totalAnswerRows} answer rows correct
-            </p>
-          </div>
-        </PdfSplitPane>
+              <p className="text-sm text-muted-foreground">
+                {correctCount} / {totalAnswerRows} answer rows correct
+              </p>
+            </div>
+          </PdfSplitPane>
+        </div>
 
-        {/* Right: sticky review sidebar (desktop only) */}
-        <div className="hidden lg:block">
-          <div className="sticky top-4">
+        {/* Right: sticky review sidebar (desktop + mobile) */}
+        <div className="w-full">
+          <div className="lg:sticky lg:top-4">
             <Card>
               <CardContent className="pt-5">
                 <SubmissionReviewSidebar submission={submission} questionRefs={questionRefs} />

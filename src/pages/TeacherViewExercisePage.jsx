@@ -407,8 +407,8 @@ export default function TeacherViewExercisePage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditing ? (
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
+                <div className="space-y-4 pr-32">
+                  <div className="space-y-2">
                     <Label htmlFor="edit-title">Exercise title</Label>
                     <Input
                       id="edit-title"
@@ -417,25 +417,28 @@ export default function TeacherViewExercisePage() {
                       onChange={(e) => setEditTitle(e.target.value)}
                     />
                   </div>
-                  <div className="flex flex-wrap gap-4">
-                    <div className="flex items-center gap-2">
-                      <Label htmlFor="edit-timed">Timed</Label>
-                      <Switch
-                        id="edit-timed"
-                        aria-label="Timed mode toggle"
-                        checked={editIsTimed}
-                        onCheckedChange={setEditIsTimed}
-                      />
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-timed">Mode</Label>
+                      <div className="flex h-10 items-center justify-between rounded-md border bg-background px-3">
+                        <span className="text-sm">{editIsTimed ? 'Timed mode' : 'Untimed mode'}</span>
+                        <Switch
+                          id="edit-timed"
+                          aria-label="Timed mode toggle"
+                          checked={editIsTimed}
+                          onCheckedChange={setEditIsTimed}
+                        />
+                      </div>
                     </div>
                     {editIsTimed && (
-                      <div className="flex items-center gap-2">
+                      <div className="space-y-2">
                         <Label htmlFor="edit-duration">Duration (min)</Label>
                         <Input
                           id="edit-duration"
                           type="number"
                           value={editDuration}
                           onChange={(e) => setEditDuration(e.target.value)}
-                          className="h-9 w-24"
+                          className="h-10 w-full"
                         />
                       </div>
                     )}
