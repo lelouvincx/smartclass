@@ -220,6 +220,28 @@ export function extractAnswersFromImage(token, submissionId, imageFile, model, {
   })
 }
 
+export function listStudents(token, { status } = {}) {
+  const params = new URLSearchParams()
+  if (status) params.set('status', status)
+
+  const query = params.toString()
+  const url = `/api/users${query ? `?${query}` : ''}`
+
+  return request(url, {
+    headers: authHeaders(token),
+  })
+}
+
+export function createStudent(token, payload) {
+  return request('/api/users', {
+    method: 'POST',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
 export function listMySubmissions(token, { exerciseId, limit, offset } = {}) {
   const params = new URLSearchParams()
   if (exerciseId) params.set('exercise_id', exerciseId)

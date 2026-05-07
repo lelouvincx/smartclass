@@ -101,7 +101,7 @@ RFC: [`docs/plans/2026-05-03-exercise-experience-polish.md`](docs/plans/2026-05-
 ### Queueing
 
 - [ ] Each answer includes an explanation field (image/markdown with math notation supported) created when uploading exercises
-- [ ] Teacher: create accounts for students
+- [x] Teacher: create accounts for students ([#63](https://github.com/lelouvincx/smartclass/pull/63))
 - [ ] Teacher: approves pending accounts
 - [ ] Auth: forget password
 - [ ] Auth: change password (teacher and student, teacher can reset student passwords)

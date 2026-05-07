@@ -350,6 +350,15 @@
 - **New primitive**: `src/components/file-dropzone.jsx` — drag/drop, click, and keyboard-activated file picker. Used by `TeacherCreateExercisePage` and `TeacherViewExercisePage` (edit mode) for replacing exercise/solution PDFs.
 - **Divergence from RFC**: The RFC said this primitive would be **extracted from** `AnswerImageUpload`. In practice the new `FileDropzone` is a parallel implementation; `answer-image-upload.jsx` still has its own `onDrop`/`onDragOver` handlers. Consolidation is tracked in `docs/tech-debt.md`.
 
+### Student Management Page (v0.5, PR #63)
+
+- **Page**: `/teacher/students` (`TeacherStudentsPage.jsx`) — list students by status + create new student accounts.
+- **Backend**: Zero changes. Reuses existing `GET /api/users` (with `?status=` filter) and `POST /api/users` endpoints.
+- **Create flow**: Teacher enters phone number → `POST /api/users` → student created with `status = 'active'` and default password `123`. Immediate login possible (no approval needed for teacher-created accounts).
+- **List filters**: Status toggle buttons (Active / Pending) call `GET /api/users?status=...`. No default filter (shows all).
+- **One-at-a-time**: Single phone input only. Bulk creation is future work.
+- **Pending approval**: Deferred to follow-up PR (next queueing item). The page's filter already supports "Pending" tab — only the per-row approve button is missing.
+
 ### Default 150 % Zoom (v0.4.5, PR #59)
 
 - **Implementation**: `html { font-size: 150% }` in `src/index.css`. Cascades through every Tailwind/shadcn `rem`-based unit.

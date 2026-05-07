@@ -19,6 +19,9 @@ export default function TeacherDashboardPage() {
             <Button variant="outline" asChild>
               <Link to="/teacher/exercises/new">Create Exercise</Link>
             </Button>
+            <Button variant="outline" asChild>
+              <Link to="/teacher/students">Manage Students</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

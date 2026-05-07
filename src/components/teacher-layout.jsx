@@ -30,6 +30,13 @@ export function TeacherLayout() {
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={() => navigate('/teacher/students')}
+              >
+                Students
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => navigate('/teacher/exercises')}
               >
                 Exercises
