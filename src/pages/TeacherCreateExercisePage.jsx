@@ -334,9 +334,9 @@ export default function TeacherCreateExercisePage() {
         {/* Metadata card */}
         <Card>
           <CardContent className="pt-5">
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2">
               {/* Title — required */}
-              <div className="md:col-span-2 space-y-1.5">
+              <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="title">
                   Exercise title <span aria-hidden="true" className="text-destructive">*</span>
                 </Label>
@@ -349,9 +349,9 @@ export default function TeacherCreateExercisePage() {
               </div>
 
               {/* Timed mode toggle */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label>Mode</Label>
-                <div className="flex items-center justify-between rounded-md border bg-background p-2">
+                <div className="flex h-10 items-center justify-between rounded-md border bg-background px-3">
                   <span className="text-sm">{isTimed ? 'Timed mode' : 'Untimed mode'}</span>
                   <Switch
                     id="timedToggle"
@@ -363,42 +363,45 @@ export default function TeacherCreateExercisePage() {
               </div>
 
               {/* Duration — required when timed, with quick-select presets */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label htmlFor="duration">
                   Duration (minutes){isTimed && <span aria-hidden="true" className="text-destructive"> *</span>}
                 </Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  value={durationMinutes}
-                  onChange={(e) => setDurationMinutes(e.target.value)}
-                  disabled={!isTimed}
-                />
-                {isTimed && (
-                  <div className="flex gap-1.5" role="group" aria-label="Quick duration presets">
-                    {[60, 90, 120].map((mins) => (
-                      <Button
-                        key={mins}
-                        type="button"
-                        variant={Number(durationMinutes) === mins ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={() => setDurationMinutes(mins)}
-                      >
-                        {mins} min
-                      </Button>
-                    ))}
-                  </div>
-                )}
+                <div className="flex gap-2">
+                  <Input
+                    id="duration"
+                    type="number"
+                    value={durationMinutes}
+                    onChange={(e) => setDurationMinutes(e.target.value)}
+                    disabled={!isTimed}
+                    className="w-24"
+                  />
+                  {isTimed && (
+                    <div className="flex flex-1 gap-1.5 items-center" role="group" aria-label="Quick duration presets">
+                      {[60, 90, 120].map((mins) => (
+                        <Button
+                          key={mins}
+                          type="button"
+                          variant={Number(durationMinutes) === mins ? 'default' : 'outline'}
+                          size="sm"
+                          className="h-10 px-3 text-sm flex-1"
+                          onClick={() => setDurationMinutes(mins)}
+                        >
+                          {mins}m
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Image-extraction model picker — teacher-only choice */}
-              <div className="md:col-span-3">
+              <div className="md:col-span-2 space-y-2">
                 <ExtractModelSelect value={extractModel} onChange={setExtractModel} />
               </div>
 
               {/* Exercise PDF upload */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label htmlFor="exerciseFile">Exercise PDF (optional)</Label>
                 <FileDropzone
                   id="exerciseFile"
@@ -410,7 +413,7 @@ export default function TeacherCreateExercisePage() {
               </div>
 
               {/* Answer PDF upload + Generate Schema grouped as related actions */}
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <Label htmlFor="answerFile">Answer PDF (recommended)</Label>
                 <FileDropzone
                   id="answerFile"
@@ -425,7 +428,7 @@ export default function TeacherCreateExercisePage() {
                   size="sm"
                   disabled={!answerFile || isParsing}
                   onClick={handleParseSchema}
-                  className="w-full"
+                  className="w-full mt-2"
                 >
                   {isParsing ? (
                     <>

@@ -62,12 +62,12 @@ export function PdfSplitPane({ fileUrl, children }) {
       <div
         className={cn(
           'gap-6',
-          !collapsed && 'lg:grid lg:grid-cols-[3fr_2fr]',
+          !collapsed && 'lg:flex lg:flex-row lg:items-start lg:w-full lg:max-w-full',
         )}
       >
         {/* PDF pane */}
         {!collapsed && (
-          <div className="mb-4 lg:mb-0">
+          <div className="mb-4 lg:mb-0 lg:flex-[3] lg:min-w-0">
             <div className="sticky top-20 h-[calc(100vh-7rem)] overflow-hidden rounded-lg border bg-muted">
               <iframe
                 src={fileUrl}
@@ -79,7 +79,7 @@ export function PdfSplitPane({ fileUrl, children }) {
         )}
 
         {/* Content pane */}
-        <div>{children}</div>
+        <div className={cn('w-full min-w-0', !collapsed && 'lg:flex-[2]')}>{children}</div>
       </div>
     </div>
   )

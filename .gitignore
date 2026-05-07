@@ -6,3 +6,6 @@ dist/
 .envrc
 .DS_Store
 agent-sessions
+.playwright-cli
+backend.log
+frontend.log
