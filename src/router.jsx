@@ -22,6 +22,7 @@ import StudentSummaryPage from '@/pages/StudentSummaryPage'
 import TeacherCreateExercisePage from '@/pages/TeacherCreateExercisePage'
 import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
 import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
+import TeacherStudentsPage from '@/pages/TeacherStudentsPage'
 import TeacherViewExercisePage from '@/pages/TeacherViewExercisePage'
 
 function PublicOnlyRoute({ children }) {
@@ -87,6 +88,7 @@ export function AppRoutes() {
         }
       >
         <Route index element={<TeacherDashboardPage />} />
+        <Route path="students" element={<TeacherStudentsPage />} />
         <Route path="exercises" element={<TeacherExercisesPage />} />
         <Route path="exercises/new" element={<TeacherCreateExercisePage />} />
         <Route path="exercises/:id" element={<TeacherViewExercisePage />} />

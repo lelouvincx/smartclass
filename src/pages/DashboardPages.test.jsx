@@ -20,6 +20,7 @@ describe('dashboard placeholders', () => {
     expect(screen.getByText('Teacher Dashboard')).toBeInTheDocument()
     expect(screen.getByText('Manage Exercises')).toBeInTheDocument()
     expect(screen.getByText('Create Exercise')).toBeInTheDocument()
+    expect(screen.getByText('Manage Students')).toBeInTheDocument()
   })
 
   it('renders student dashboard with quick actions', () => {
