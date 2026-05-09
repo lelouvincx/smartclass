@@ -67,7 +67,7 @@ describe('QuestionNavGrid', () => {
     expect(screen.getByLabelText('Jump to question 3')).toHaveTextContent('3')
   })
 
-  it('shows n:LETTER for answered MCQ cell', () => {
+  it('shows just the index number for answered MCQ cell (no letter)', () => {
     render(
       <QuestionNavGrid
         schema={SCHEMA_MCQ}
@@ -77,11 +77,13 @@ describe('QuestionNavGrid', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent('1:B')
-    expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent('2')
+    // Cell text is always the index — answered state is conveyed via the fill color.
+    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent(/^1$/)
+    expect(screen.getByLabelText('Jump to question 1')).not.toHaveTextContent(':')
+    expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent(/^2$/)
   })
 
-  it('shows n:VALUE (truncated to 4 chars) for answered numeric cell', () => {
+  it('shows just the index number for answered numeric cell (no value)', () => {
     render(
       <QuestionNavGrid
         schema={SCHEMA_NUMERIC}
@@ -91,11 +93,12 @@ describe('QuestionNavGrid', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent('1:1234')
-    expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent('2:42')
+    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent(/^1$/)
+    expect(screen.getByLabelText('Jump to question 1')).not.toHaveTextContent('1234')
+    expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent(/^2$/)
   })
 
-  it('shows n:✓ for boolean when all 4 sub-rows answered', () => {
+  it('shows just the index number for boolean when all 4 sub-rows answered (no checkmark)', () => {
     render(
       <QuestionNavGrid
         schema={SCHEMA_BOOLEAN}
@@ -105,7 +108,8 @@ describe('QuestionNavGrid', () => {
       />,
     )
 
-    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent('1:✓')
+    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent(/^1$/)
+    expect(screen.getByLabelText('Jump to question 1')).not.toHaveTextContent('✓')
   })
 
   it('shows unanswered for boolean when only some sub-rows answered', () => {
@@ -165,10 +169,10 @@ describe('QuestionNavGrid', () => {
       />,
     )
 
-    // Display indices should be 1, 2, 3 (not the q_id values)
-    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent('1:A')
-    expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent('2:✓')
-    expect(screen.getByLabelText('Jump to question 3')).toHaveTextContent('3')
+    // Display indices 1, 2, 3 — always plain numbers, no decoration.
+    expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent(/^1$/)
+    expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent(/^2$/)
+    expect(screen.getByLabelText('Jump to question 3')).toHaveTextContent(/^3$/)
   })
 })
 
