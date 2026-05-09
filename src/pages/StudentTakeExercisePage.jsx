@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, Clock, Eye, EyeOff, ImageIcon, LayoutGrid, Pencil } from 'lucide-react'
+import { AlertTriangle, Clock, Eye, EyeOff, ImageIcon, Pencil } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
@@ -16,7 +16,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { PdfSplitPane } from '@/components/pdf-split-pane'
 import AnswerImageUpload from '@/components/answer-image-upload'
 import { QuestionNavGrid, countUnanswered } from '@/components/question-nav-grid'
@@ -229,7 +228,6 @@ export default function StudentTakeExercisePage() {
   const [submitError, setSubmitError] = useState('')
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
-  const [sheetOpen, setSheetOpen] = useState(false)
 
   // Tracks the currently "focused" question for the nav grid highlight
   const [currentQId, setCurrentQId] = useState(null)
@@ -458,7 +456,6 @@ export default function StudentTakeExercisePage() {
   // --- Nav grid jump ---
   function handleJump(qId) {
     setCurrentQId(qId)
-    setSheetOpen(false)
     questionRefs.current[qId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
@@ -597,7 +594,8 @@ export default function StudentTakeExercisePage() {
     ? `You have ${unansweredCount} unanswered question${unansweredCount === 1 ? '' : 's'}. Submit anyway?`
     : 'You cannot change your answers after submitting.'
 
-  // Sidebar content shared between desktop and mobile sheet
+  // Answer-sheet content (timer + nav grid + submit/exit) — always visible
+  // at the top of the right pane on all breakpoints.
   function renderSidebar() {
     return (
       <div className="space-y-4">
@@ -690,90 +688,83 @@ export default function StudentTakeExercisePage() {
         </CardContent>
       </Card>
 
-      {/* Two-column layout: main content + sidebar */}
-      <div className="lg:grid lg:grid-cols-[1fr_clamp(240px,_20rem,_40vw)] lg:items-start lg:gap-6">
-        {/* Left: PDF + questions */}
-        <div>
-          <PdfSplitPane fileUrl={pdfUrl}>
-            <div className="space-y-4">
-              {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
-              <Card>
-                <CardContent className="space-y-3 pt-5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold">Input mode</p>
-                      <p className="text-xs text-muted-foreground">
-                        Type answers manually, or upload a photo of your answer sheet to auto-fill.
-                      </p>
-                    </div>
-                    <ButtonGroup aria-label="Input mode">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={inputMode === 'manual' ? 'default' : 'outline'}
-                        onClick={() => setInputMode('manual')}
-                        aria-pressed={inputMode === 'manual'}
-                      >
-                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                        Manual
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={inputMode === 'photo' ? 'default' : 'outline'}
-                        onClick={() => setInputMode('photo')}
-                        aria-pressed={inputMode === 'photo'}
-                      >
-                        <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                        Upload photo
-                      </Button>
-                    </ButtonGroup>
-                  </div>
-
-                  {inputMode === 'photo' && submission && (
-                    <AnswerImageUpload
-                      submissionId={submission.id}
-                      onExtracted={handleExtracted}
-                      disabled={isSubmitting}
-                    />
-                  )}
-                </CardContent>
-              </Card>
-
-              {questionGroups.map((group, idx) => (
-                <div
-                  key={group.q_id}
-                  ref={(el) => { questionRefs.current[group.q_id] = el }}
-                >
-                  <Card>
-                    <CardContent className="pt-5">
-                      <p className="mb-3 text-sm font-semibold">
-                        {idx + 1}. Question {group.q_id}
-                      </p>
-                      {renderQuestionInput(group)}
-                    </CardContent>
-                  </Card>
-                </div>
-              ))}
-
-              {submitError && (
-                <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>
-              )}
-            </div>
-          </PdfSplitPane>
-        </div>
-
-        {/* Right: sticky sidebar (desktop only) */}
-        <div className="hidden lg:block">
-          <div className="sticky top-4">
+      {/* Two-pane layout: PDF (left) | answer-sheet + questions (right). 50/50 on lg+. */}
+      <PdfSplitPane fileUrl={pdfUrl}>
+        <div className="space-y-4">
+          {/* Always-visible answer sheet (timer + nav grid + Submit/Exit), sticky on lg+ */}
+          <div className="lg:sticky lg:top-20 lg:z-10">
             <Card>
               <CardContent className="pt-5">
                 {renderSidebar()}
               </CardContent>
             </Card>
           </div>
+
+          {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
+          <Card>
+            <CardContent className="space-y-3 pt-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold">Input mode</p>
+                  <p className="text-xs text-muted-foreground">
+                    Type answers manually, or upload a photo of your answer sheet to auto-fill.
+                  </p>
+                </div>
+                <ButtonGroup aria-label="Input mode">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={inputMode === 'manual' ? 'default' : 'outline'}
+                    onClick={() => setInputMode('manual')}
+                    aria-pressed={inputMode === 'manual'}
+                  >
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                    Manual
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={inputMode === 'photo' ? 'default' : 'outline'}
+                    onClick={() => setInputMode('photo')}
+                    aria-pressed={inputMode === 'photo'}
+                  >
+                    <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+                    Upload photo
+                  </Button>
+                </ButtonGroup>
+              </div>
+
+              {inputMode === 'photo' && submission && (
+                <AnswerImageUpload
+                  submissionId={submission.id}
+                  onExtracted={handleExtracted}
+                  disabled={isSubmitting}
+                />
+              )}
+            </CardContent>
+          </Card>
+
+          {questionGroups.map((group, idx) => (
+            <div
+              key={group.q_id}
+              ref={(el) => { questionRefs.current[group.q_id] = el }}
+            >
+              <Card>
+                <CardContent className="pt-5">
+                  <p className="mb-3 text-sm font-semibold">
+                    {idx + 1}. Question {group.q_id}
+                  </p>
+                  {renderQuestionInput(group)}
+                </CardContent>
+              </Card>
+            </div>
+          ))}
+
+          {submitError && (
+            <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>
+          )}
         </div>
-      </div>
+      </PdfSplitPane>
 
       {/* Dialogs */}
       <Dialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
@@ -805,44 +796,6 @@ export default function StudentTakeExercisePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Mobile: persistent timer chip — visible while the answer-sheet drawer is closed.
-          Reuses the same secondsLeft / overtime / timerHidden state as the desktop sidebar
-          timer; the milestone-toast useEffect remains the single source of truth. */}
-      {secondsLeft !== null && !sheetOpen && !timerHidden && (
-        <div
-          aria-live="polite"
-          aria-label="Timer (mobile)"
-          className={`fixed bottom-20 right-6 z-40 flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-sm font-semibold shadow-md lg:hidden ${timerColor}`}
-        >
-          <Clock className="h-3.5 w-3.5" />
-          <span className="tabular-nums">{formatTime(secondsLeft)}</span>
-          {overtime && (
-            <Badge variant="destructive" className="ml-1 text-[10px]">Over time</Badge>
-          )}
-        </div>
-      )}
-
-      {/* Mobile: floating answer sheet button */}
-      <button
-        type="button"
-        aria-label="Open answer sheet"
-        onClick={() => setSheetOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg lg:hidden"
-      >
-        <LayoutGrid className="h-4 w-4" />
-        Answer Sheet
-      </button>
-
-      {/* Mobile: bottom sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>Answer Sheet</SheetTitle>
-          </SheetHeader>
-          {renderSidebar()}
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }

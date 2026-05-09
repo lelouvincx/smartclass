@@ -132,4 +132,17 @@ describe('StudentReviewPage', () => {
 
     expect(await screen.findByText(/network error/i)).toBeInTheDocument()
   })
+
+  it('renders review summary inside the content pane (no separate sidebar column)', async () => {
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    renderReviewPage()
+
+    await screen.findByText('Algebra Quiz')
+
+    // The review-sidebar content (score/time/counters) lives inside the
+    // PdfSplitPane's content pane, not in a separate outer column.
+    const contentPane = screen.getByTestId('content-pane')
+    // Score (e.g., "7.5 / 10") rendered by SubmissionReviewSidebar.
+    expect(contentPane.textContent).toMatch(/7\.5/)
+  })
 })

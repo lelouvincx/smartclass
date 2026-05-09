@@ -111,4 +111,43 @@ describe('PdfSplitPane', () => {
     // Should start hidden — no iframe
     expect(screen.queryByTitle('Exercise PDF')).not.toBeInTheDocument()
   })
+
+  it('uses a 50/50 grid layout when PDF is visible', () => {
+    render(
+      <PdfSplitPane fileUrl="/api/files/42">
+        <div>Content</div>
+      </PdfSplitPane>
+    )
+
+    const pdfPane = screen.getByTestId('pdf-pane')
+    const contentPane = screen.getByTestId('content-pane')
+
+    expect(pdfPane).toBeInTheDocument()
+    expect(contentPane).toBeInTheDocument()
+
+    // Layout container should request equal columns on lg+
+    const grid = pdfPane.parentElement
+    expect(grid.className).toMatch(/lg:grid-cols-2/)
+
+    // Old 60/40 ratio classes must be gone
+    expect(pdfPane.className).not.toMatch(/flex-\[3\]/)
+    expect(contentPane.className).not.toMatch(/flex-\[2\]/)
+  })
+
+  it('content pane fills full width when PDF is hidden', () => {
+    render(
+      <PdfSplitPane fileUrl="/api/files/42">
+        <div>Content</div>
+      </PdfSplitPane>
+    )
+
+    const toggleButton = screen.getByRole('button', { name: /pdf/i })
+    fireEvent.click(toggleButton) // hide
+
+    expect(screen.queryByTestId('pdf-pane')).not.toBeInTheDocument()
+
+    const contentPane = screen.getByTestId('content-pane')
+    // No 2-col grid when PDF is hidden — content gets the full width
+    expect(contentPane.parentElement.className).not.toMatch(/lg:grid-cols-2/)
+  })
 })
