@@ -1,32 +1,25 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 
-function truncate(val, len) {
-  const s = String(val)
-  return s.length > len ? s.slice(0, len) : s
-}
-
 function getCellContent(qId, schema, answers, displayIdx) {
   const subRows = schema.filter((r) => r.q_id === qId)
   const type = subRows[0]?.type
+  const text = String(displayIdx)
 
   if (type === 'mcq') {
     const a = answers[qId]
-    if (!a) return { answered: false, text: String(displayIdx) }
-    return { answered: true, text: `${displayIdx}:${a}` }
+    return { answered: !!a, text }
   }
 
   if (type === 'numeric') {
     const a = answers[qId]
-    if (a === '' || a == null) return { answered: false, text: String(displayIdx) }
-    return { answered: true, text: `${displayIdx}:${truncate(String(a), 4)}` }
+    return { answered: !(a === '' || a == null), text }
   }
 
   // boolean: all sub-rows must have a non-empty answer
   const subAns = answers[qId] || {}
   const allAnswered = subRows.every((r) => subAns[r.sub_id] !== '' && subAns[r.sub_id] != null)
-  if (!allAnswered) return { answered: false, text: String(displayIdx) }
-  return { answered: true, text: `${displayIdx}:✓` }
+  return { answered: allAnswered, text }
 }
 
 export function countUnanswered(schema, answers) {

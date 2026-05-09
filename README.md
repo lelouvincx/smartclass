@@ -104,6 +104,7 @@ RFC: [`docs/plans/2026-05-03-exercise-experience-polish.md`](docs/plans/2026-05-
 - [x] Teacher: create accounts for students ([#63](https://github.com/lelouvincx/smartclass/pull/63))
 - [x] Teacher: approves pending accounts ([#64](https://github.com/lelouvincx/smartclass/pull/64))
 - [x] Take/review page: consolidate 3-panel (PDF | questions | sidebar) → 2-panel (PDF 50% | right pane with sticky answer-sheet on top + questions below) so the PDF is readable ([#66](https://github.com/lelouvincx/smartclass/pull/66))
+- [x] Take page: single-question view — only the question selected from the answer-sheet nav grid is rendered, with Previous/Next buttons in its footer ([#67](https://github.com/lelouvincx/smartclass/pull/67))
 - [ ] Auth: forget password
 - [ ] Auth: change password (teacher and student, teacher can reset student passwords)
 - [ ] LLM prompt for extraction
