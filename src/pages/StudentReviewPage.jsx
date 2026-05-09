@@ -132,72 +132,65 @@ export default function StudentReviewPage() {
         </div>
       </div>
 
-      {/* Two-column layout: review content + sidebar */}
-      <div className="flex flex-col-reverse lg:grid lg:grid-cols-[1fr_clamp(240px,_20rem,_40vw)] lg:items-start lg:gap-6 gap-6">
-        {/* Left: PDF + review table */}
-        <div className="min-w-0">
-          <PdfSplitPane fileUrl={pdfUrl}>
-            <div className="space-y-4">
-              <Card>
-                <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="min-w-full border-collapse text-sm">
-                    <thead className="bg-muted text-left text-muted-foreground">
-                      <tr>
-                        <th className="px-4 py-2">Question</th>
-                        <th className="px-4 py-2">Your Answer</th>
-                        <th className="px-4 py-2">Correct Answer</th>
-                        <th className="px-4 py-2 text-center">Result</th>
-                      </tr>
-                    </thead>
-                    {questionGroups.map((group) => {
-                      const ans = group.type !== 'boolean'
-                        ? answers.find((a) => a.q_id === group.q_id && !a.sub_id)
-                        : null
-                      return (
-                        <tbody
-                          key={group.q_id}
-                          ref={(el) => { questionRefs.current[group.q_id] = el }}
-                        >
-                          {group.type === 'boolean' ? (
-                            <BooleanResultGroup
-                              group={group}
-                              submittedAnswers={answers}
-                              schemaAnswers={answers}
-                            />
-                          ) : (
-                            <McqNumericResultRow
-                              question={{ ...group, is_correct: ans?.is_correct ?? null }}
-                              answer={ans?.submitted_answer ?? null}
-                              correctAnswer={ans?.correct_answer}
-                            />
-                          )}
-                        </tbody>
-                      )
-                    })}
-                  </table>
-                </div>
-              </CardContent>
-              </Card>
-
-              <p className="text-sm text-muted-foreground">
-                {correctCount} / {totalAnswerRows} answer rows correct
-              </p>
-            </div>
-          </PdfSplitPane>
-        </div>
-
-        {/* Right: sticky review sidebar (desktop + mobile) */}
-        <div className="w-full">
-          <div className="lg:sticky lg:top-4">
+      {/* Two-pane layout: PDF (left) | review-sidebar + answers table (right). 50/50 on lg+. */}
+      <PdfSplitPane fileUrl={pdfUrl}>
+        <div className="space-y-4">
+          {/* Always-visible review summary (score, counters, per-question status), sticky on lg+ */}
+          <div className="lg:sticky lg:top-20 lg:z-10">
             <Card>
               <CardContent className="pt-5">
                 <SubmissionReviewSidebar submission={submission} questionRefs={questionRefs} />
               </CardContent>
             </Card>
           </div>
+
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="min-w-full border-collapse text-sm">
+                  <thead className="bg-muted text-left text-muted-foreground">
+                    <tr>
+                      <th className="px-4 py-2">Question</th>
+                      <th className="px-4 py-2">Your Answer</th>
+                      <th className="px-4 py-2">Correct Answer</th>
+                      <th className="px-4 py-2 text-center">Result</th>
+                    </tr>
+                  </thead>
+                  {questionGroups.map((group) => {
+                    const ans = group.type !== 'boolean'
+                      ? answers.find((a) => a.q_id === group.q_id && !a.sub_id)
+                      : null
+                    return (
+                      <tbody
+                        key={group.q_id}
+                        ref={(el) => { questionRefs.current[group.q_id] = el }}
+                      >
+                        {group.type === 'boolean' ? (
+                          <BooleanResultGroup
+                            group={group}
+                            submittedAnswers={answers}
+                            schemaAnswers={answers}
+                          />
+                        ) : (
+                          <McqNumericResultRow
+                            question={{ ...group, is_correct: ans?.is_correct ?? null }}
+                            answer={ans?.submitted_answer ?? null}
+                            correctAnswer={ans?.correct_answer}
+                          />
+                        )}
+                      </tbody>
+                    )
+                  })}
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          <p className="text-sm text-muted-foreground">
+            {correctCount} / {totalAnswerRows} answer rows correct
+          </p>
         </div>
-      </div>
+      </PdfSplitPane>
     </div>
   )
 }

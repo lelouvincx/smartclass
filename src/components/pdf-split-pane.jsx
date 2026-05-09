@@ -12,8 +12,9 @@ const STORAGE_KEY = 'smartclass-take-pdf-visible'
  *   fileUrl {string|null} — URL for the PDF iframe. If null, renders children only.
  *   children {ReactNode}  — the right-pane content (answer form or review).
  *
- * Desktop (lg+): side-by-side grid, PDF on left, children on right.
+ * Desktop (lg+): 50/50 grid, PDF on left, children on right.
  * Mobile (<lg):  PDF in a collapsible section above children.
+ * When PDF is hidden, children pane fills the full width.
  * Toggle state persisted to localStorage (key: smartclass-take-pdf-visible, default: visible).
  */
 export function PdfSplitPane({ fileUrl, children }) {
@@ -58,16 +59,16 @@ export function PdfSplitPane({ fileUrl, children }) {
         </Button>
       </div>
 
-      {/* Split layout — PDF gets 3 parts, content gets 2 parts (60/40) */}
+      {/* Split layout — 50/50 on lg+ when PDF is visible. */}
       <div
         className={cn(
           'gap-6',
-          !collapsed && 'lg:flex lg:flex-row lg:items-start lg:w-full lg:max-w-full',
+          !collapsed && 'lg:grid lg:grid-cols-2 lg:items-start',
         )}
       >
         {/* PDF pane */}
         {!collapsed && (
-          <div className="mb-4 lg:mb-0 lg:flex-[3] lg:min-w-0">
+          <div data-testid="pdf-pane" className="mb-4 lg:mb-0 lg:min-w-0">
             <div className="sticky top-20 h-[calc(100vh-7rem)] overflow-hidden rounded-lg border bg-muted">
               <iframe
                 src={fileUrl}
@@ -79,7 +80,7 @@ export function PdfSplitPane({ fileUrl, children }) {
         )}
 
         {/* Content pane */}
-        <div className={cn('w-full min-w-0', !collapsed && 'lg:flex-[2]')}>{children}</div>
+        <div data-testid="content-pane" className="w-full min-w-0">{children}</div>
       </div>
     </div>
   )
