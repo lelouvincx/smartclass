@@ -229,10 +229,9 @@ export default function StudentTakeExercisePage() {
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
 
-  // Tracks the currently "focused" question for the nav grid highlight
+  // The currently displayed question (single-question view).
+  // The student picks a question by clicking a cell in the nav grid.
   const [currentQId, setCurrentQId] = useState(null)
-  // Refs for scroll-to-question via the nav grid
-  const questionRefs = useRef({})
 
   // Image-extraction state (v0.4)
   //   inputMode             — 'manual' | 'photo'
@@ -454,9 +453,9 @@ export default function StudentTakeExercisePage() {
   }, [extractedConfidence])
 
   // --- Nav grid jump ---
+  // In single-question view, "jump" simply swaps the displayed question.
   function handleJump(qId) {
     setCurrentQId(qId)
-    questionRefs.current[qId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   // --- Submit flow ---
@@ -744,21 +743,45 @@ export default function StudentTakeExercisePage() {
             </CardContent>
           </Card>
 
-          {questionGroups.map((group, idx) => (
-            <div
-              key={group.q_id}
-              ref={(el) => { questionRefs.current[group.q_id] = el }}
-            >
+          {/* Single-question view — student picks via the nav grid above. */}
+          {(() => {
+            const idx = questionGroups.findIndex((g) => g.q_id === currentQId)
+            const group = idx >= 0 ? questionGroups[idx] : null
+            if (!group) return null
+            return (
               <Card>
-                <CardContent className="pt-5">
-                  <p className="mb-3 text-sm font-semibold">
+                <CardContent className="space-y-4 pt-5">
+                  <p className="text-sm font-semibold">
                     {idx + 1}. Question {group.q_id}
                   </p>
                   {renderQuestionInput(group)}
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleJump(questionGroups[idx - 1].q_id)}
+                      disabled={idx === 0}
+                    >
+                      ← Previous
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Question {idx + 1} of {questionGroups.length}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleJump(questionGroups[idx + 1].q_id)}
+                      disabled={idx === questionGroups.length - 1}
+                    >
+                      Next →
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
-            </div>
-          ))}
+            )
+          })()}
 
           {submitError && (
             <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>

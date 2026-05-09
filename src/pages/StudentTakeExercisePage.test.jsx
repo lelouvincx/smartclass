@@ -174,6 +174,37 @@ describe('StudentTakeExercisePage', () => {
     expect(screen.getByText(/2 questions/i)).toBeInTheDocument()
   })
 
+  // --- Single-question view (clicking nav cell shows that question) ---
+
+  it('renders only the selected question, not the full list', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    // Default = first question. Q1 visible, Q2 not.
+    expect(screen.getByText(/^1\. Question 1$/)).toBeInTheDocument()
+    expect(screen.queryByText(/^2\. Question 2$/)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Question 2 option A')).not.toBeInTheDocument()
+  })
+
+  it('shows the clicked question after clicking a nav grid cell', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
+
+    expect(screen.getByText(/^2\. Question 2$/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 2 option A')).toBeInTheDocument()
+    // Q1 no longer in DOM
+    expect(screen.queryByText(/^1\. Question 1$/)).not.toBeInTheDocument()
+  })
+
   it('shows distinct question count (not raw schema row count) for exercises with boolean sub-rows', async () => {
     // EXERCISE_MIXED has 6 schema rows: 1 mcq + 4 boolean sub-rows + 1 numeric = 3 distinct questions
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
@@ -200,12 +231,16 @@ describe('StudentTakeExercisePage', () => {
   })
 
   it('renders 4 True/False sub-question rows for boolean-type questions', async () => {
+    const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
     getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
     renderPage('2')
 
     await screen.findByText('Mixed Quiz')
+
+    // Q2 is the boolean question — navigate to it via the nav grid
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
 
     // Should show True/False radios for each sub-question (a,b,c,d) of q_id=2
     expect(screen.getByLabelText('Question 2 sub a True')).toBeInTheDocument()
@@ -219,12 +254,15 @@ describe('StudentTakeExercisePage', () => {
   })
 
   it('renders numeric input for numeric-type questions', async () => {
+    const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
     getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, exercise_id: 2, mode: 'untimed' } })
 
     renderPage('2')
 
     await screen.findByText('Mixed Quiz')
+
+    await user.click(screen.getByRole('button', { name: /jump to question 3/i }))
 
     expect(screen.getByLabelText('Question 3 numeric answer')).toBeInTheDocument()
   })
@@ -369,6 +407,8 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Mixed Quiz')
 
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
+
     const trueOptionA = screen.getByLabelText('Question 2 sub a True')
     await user.click(trueOptionA)
 
@@ -383,6 +423,8 @@ describe('StudentTakeExercisePage', () => {
     renderPage('2')
 
     await screen.findByText('Mixed Quiz')
+
+    await user.click(screen.getByRole('button', { name: /jump to question 3/i }))
 
     const numInput = screen.getByLabelText('Question 3 numeric answer')
     await user.type(numInput, '42')
@@ -443,7 +485,11 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Mixed Quiz')
 
+    // Q1 = mcq (default view); pick B
     await user.click(screen.getByLabelText('Question 1 option B'))
+
+    // Navigate to Q2 (boolean), pick sub a True
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
     await user.click(screen.getByLabelText('Question 2 sub a True'))
 
     await user.click(screen.getByRole('button', { name: /^Submit$/i }))
@@ -660,12 +706,13 @@ describe('StudentTakeExercisePage', () => {
       await user.click(screen.getByRole('button', { name: /Upload photo/i }))
       await user.click(screen.getByTestId('stub-extract-fire'))
 
-      // Q1 → B selected (high confidence dot)
+      // Default view = Q1. Q1 → B selected (high confidence dot).
       const q1B = screen.getByRole('button', { name: 'Question 1 option B' })
       expect(q1B).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
 
-      // Q2 → C selected (low confidence dot — 0.4)
+      // Navigate to Q2 — should be C (low confidence — 0.4).
+      await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
       const q2C = screen.getByRole('button', { name: 'Question 2 option C' })
       expect(q2C).toHaveAttribute('aria-pressed', 'true')
       expect(screen.getByLabelText(/low confidence/i)).toBeInTheDocument()
@@ -685,14 +732,15 @@ describe('StudentTakeExercisePage', () => {
       await user.click(screen.getByRole('button', { name: /Upload photo/i }))
       await user.click(screen.getByTestId('stub-extract-fire'))
 
-      // Q1 starts with the high-confidence dot (Q2 also has a low-conf dot)
+      // Q1 starts with the high-confidence dot
       expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
 
       // Student manually picks A for Q1 — the high-confidence dot disappears
       await user.click(screen.getByRole('button', { name: 'Question 1 option A' }))
       expect(screen.queryByLabelText(/high confidence/i)).not.toBeInTheDocument()
 
-      // Q2 still has its low-confidence dot
+      // Navigate to Q2 — its low-confidence dot is still there
+      await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
       expect(screen.getByLabelText(/low confidence/i)).toBeInTheDocument()
     })
   })
