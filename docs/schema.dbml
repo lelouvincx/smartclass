@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0007_add_submission_files
+// Last updated: migration 0009_add_google_link
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -13,6 +13,9 @@ Table users {
   id         integer [pk, increment]
   phone      text    [not null, unique, note: 'E.164 format, e.g. +84865481769']
   password_hash text [not null]
+  email      text    [note: 'Reserved for future profile (Roadmap)']
+  google_sub text    [unique, note: 'Google OIDC stable user id (RFC-7); link-only']
+  google_email text  [note: 'Snapshot of Google email at link/login (RFC-7)']
   role       text    [not null, note: 'teacher | student']
   status     text    [not null, default: 'pending', note: 'pending | active | disabled']
   created_at text    [not null, default: 'CURRENT_TIMESTAMP']

@@ -1,3 +1,11 @@
+---
+rfc: RFC-6
+title: v0.4.5 — Exercise Experience Polish
+date: 2026-05-03
+status: Shipped
+dependencies: [RFC-4, RFC-5]
+---
+
 # RFC: v0.4.5 — Exercise Experience Polish
 
 **Date:** 2026-05-03

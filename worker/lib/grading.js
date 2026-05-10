@@ -1,7 +1,7 @@
 /**
  * Auto-grading logic for SmartClass submissions.
  *
- * See docs/plans/2026-03-16-grading-logic.md for the full design document
+ * See docs/plans/RFC-2-2026-03-16-grading-logic.md for the full design document
  * and rationale for every decision made here.
  *
  * Quick reference:

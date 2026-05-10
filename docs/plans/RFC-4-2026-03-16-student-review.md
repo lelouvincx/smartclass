@@ -1,3 +1,11 @@
+---
+rfc: RFC-4
+title: v0.3 — Student Review
+date: 2026-03-16
+status: Shipped
+dependencies: [RFC-1, RFC-2]
+---
+
 # RFC: v0.3 — Student Review
 
 **Date:** 2026-03-16

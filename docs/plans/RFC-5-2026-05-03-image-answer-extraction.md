@@ -1,3 +1,11 @@
+---
+rfc: RFC-5
+title: v0.4 — Image-based Answer Extraction (LLM, no OCR)
+date: 2026-05-03
+status: Shipped
+dependencies: [RFC-1, RFC-2]
+---
+
 # RFC: v0.4 — Image-based Answer Extraction (LLM, no OCR)
 
 **Date:** 2026-05-03

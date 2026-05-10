@@ -34,7 +34,7 @@
 - **Storage**: Cloudflare R2 for PDFs and uploaded images. Client uploads via presigned URLs.
 - **Auth**: Phone number (`+84xxx`) + password. Teacher creates students (default pw `123`) or student self-registers (pending approval). Guest = no login, data in IndexedDB.
 - **Project structure**: `src/` (frontend), `worker/` (backend API), `wrangler.toml` (Cloudflare config).
-- **Design doc**: `docs/plans/2026-03-08-architecture-design.md`.
+- **Design doc**: `docs/plans/RFC-1-2026-03-08-architecture-design.md`.
 
 ## Code Style
 
@@ -199,7 +199,7 @@
 ### Auto-Grading (v0.2)
 
 - **Trigger**: Runs synchronously inside `PUT /api/submissions/:id/submit`, immediately after answers are inserted.
-- **Implementation**: `worker/lib/grading.js` — pure function `gradeSubmission(schema, answers)`, no DB access. See `docs/plans/2026-03-16-grading-logic.md` for the full design doc.
+- **Implementation**: `worker/lib/grading.js` — pure function `gradeSubmission(schema, answers)`, no DB access. See `docs/plans/RFC-2-2026-03-16-grading-logic.md` for the full design doc.
 - **MCQ**: exact string match (`submitted === correct`), both normalized to uppercase A/B/C/D. **0.25 pts** if correct.
 - **Numeric**: numeric equality within tolerance `|Number(s) - Number(c)| < 0.01` — handles `42.0 === 42` and similar rounding. **0.5 pts** if correct.
 - **Boolean**: per-sub-question `is_correct`, then non-linear partial credit: `{0:0, 1:0.1, 2:0.25, 3:0.5, 4:1.0}` points per question (max **1.0 pt**).
@@ -284,13 +284,13 @@
 - **Shared layouts**: `src/components/student-layout.jsx` and `src/components/teacher-layout.jsx` provide sticky header with nav, user phone, mode toggle, and logout. Router uses nested `<Outlet />` pattern.
 - **Mode toggle**: `src/components/mode-toggle.jsx` — dropdown with Light/Dark/System options using `useTheme()` hook.
 - **Migration**: Complete. Phase 1 (infra), Phase 2 (components + layouts), Phase 3 (all pages) — PRs #37, #38, #39.
-- **RFC**: `docs/plans/2026-03-16-shadcn-ui-migration.md`.
+- **RFC**: `docs/plans/RFC-3-2026-03-16-shadcn-ui-migration.md`.
 
 ### Image-based Answer Extraction (v0.4, PRs #52/#53/#54)
 
 - **Goal**: Let students submit a photo of a filled answer sheet instead of clicking A/B/C/D for every question. Extraction populates the form; the student reviews and corrects before submitting.
 - **Engine**: Multimodal LLM via OpenRouter — no client-side OCR (Tesseract.js was rejected for poor handwriting accuracy, ~2 MB WASM bundle, no schema awareness). Default model `x-ai/grok-4.1-fast`; allowlist also includes `google/gemini-2.5-flash` and `openai/gpt-4o-mini`. Cost per submission ≈ $0.0007.
-- **RFC**: `docs/plans/2026-05-03-image-answer-extraction.md` covers the full design rationale, prompt skeleton, edge cases, and cost breakdown.
+- **RFC**: `docs/plans/RFC-5-2026-05-03-image-answer-extraction.md` covers the full design rationale, prompt skeleton, edge cases, and cost breakdown.
 
 #### Endpoint and storage
 

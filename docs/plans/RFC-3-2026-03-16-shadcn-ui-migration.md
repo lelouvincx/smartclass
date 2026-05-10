@@ -1,3 +1,11 @@
+---
+rfc: RFC-3
+title: Migrate to shadcn/ui + Tailwind v4 + Dark Mode
+date: 2026-03-16
+status: Complete
+dependencies: [RFC-1]
+---
+
 # RFC: Migrate to shadcn/ui + Tailwind v4 + Dark Mode
 
 **Date:** 2026-03-16

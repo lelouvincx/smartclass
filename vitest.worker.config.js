@@ -21,6 +21,8 @@ export default defineWorkersConfig(async () => {
             bindings: {
               JWT_SECRET: 'test-secret-key-for-integration-tests',
               JWT_EXPIRES_IN: '7d',
+              GOOGLE_CLIENT_ID: 'test-google-client-id.apps.googleusercontent.com',
+              GOOGLE_CLIENT_SECRET: 'test-google-client-secret',
               TEST_MIGRATIONS: migrations,
             },
           },
