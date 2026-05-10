@@ -249,6 +249,16 @@ export function approveStudent(token, userId) {
   })
 }
 
+export function loginWithGoogle(payload) {
+  return request('/api/auth/google/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  })
+}
+
 export function listMySubmissions(token, { exerciseId, limit, offset } = {}) {
   const params = new URLSearchParams()
   if (exerciseId) params.set('exercise_id', exerciseId)

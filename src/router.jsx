@@ -12,6 +12,7 @@ import { StudentLayout } from '@/components/student-layout'
 import { TeacherLayout } from '@/components/teacher-layout'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
+import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
 import StudentDashboardPage from '@/pages/StudentDashboardPage'
 import StudentExercisesPage from '@/pages/StudentExercisesPage'
 import StudentExerciseLandingPage from '@/pages/StudentExerciseLandingPage'
@@ -77,6 +78,7 @@ export function AppRoutes() {
           </PublicOnlyRoute>
         }
       />
+      <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
 
       {/* Teacher routes with shared layout */}
       <Route

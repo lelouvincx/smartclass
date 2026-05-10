@@ -5,8 +5,9 @@ import { getDefaultPathForRole } from '@/lib/navigation'
 import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldGroup, FieldError, FieldSeparator } from '@/components/ui/field'
+import GoogleSignInButton from '@/components/google-signin-button'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -53,34 +54,40 @@ export default function LoginPage() {
           <CardDescription>Sign in with your phone number.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0xxxxxxxxx or +84xxxxxxxxx"
-              />
-            </div>
+          <form onSubmit={handleSubmit}>
+            <FieldGroup>
+              <Field orientation="vertical">
+                <Input
+                  id="phone"
+                  type="text"
+                  aria-label="Phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0xxxxxxxxx or +84xxxxxxxxx"
+                />
+              </Field>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+              <Field orientation="vertical">
+                <Input
+                  id="password"
+                  type="password"
+                  aria-label="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
+              {error && <FieldError>{error}</FieldError>}
 
-            <Button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? 'Signing in...' : 'Sign In'}
-            </Button>
+              <Button type="submit" disabled={isSubmitting} className="w-full">
+                {isSubmitting ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </FieldGroup>
           </form>
+
+          <FieldSeparator className="my-4">or</FieldSeparator>
+
+          <GoogleSignInButton mode="login" className="w-full" />
 
           <p className="mt-5 text-sm text-muted-foreground">
             No account?{' '}
