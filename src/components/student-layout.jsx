@@ -2,7 +2,7 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { ModeToggle } from '@/components/mode-toggle'
-import { LogOut } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 
 export function StudentLayout() {
   const navigate = useNavigate()
@@ -50,6 +50,9 @@ export function StudentLayout() {
               </span>
             )}
             <ModeToggle />
+            <Button variant="ghost" size="icon-sm" onClick={() => navigate('/settings')} aria-label="Settings">
+              <Settings className="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Logout</span>

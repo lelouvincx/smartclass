@@ -3,68 +3,105 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/lib/auth-context'
 import { getDefaultPathForRole } from '@/lib/navigation'
 import { consumeStoredParams } from '@/lib/google-oauth'
-import { loginWithGoogle } from '@/lib/api'
+import { linkGoogle, loginWithGoogle } from '@/lib/api'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { toast } from 'sonner'
 
 export default function GoogleCallbackPage() {
   const [searchParams] = useSearchParams()
-  const { loginWithGoogleResponse } = useAuth()
+  const { token, isLoading, loginWithGoogleResponse } = useAuth()
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [errorTitle, setErrorTitle] = useState('')
+  const [storedParams] = useState(() => {
+    const errorParam = searchParams.get('error')
+    if (errorParam === 'access_denied') return { cancelled: true }
+
+    const code = searchParams.get('code')
+    const returnedState = searchParams.get('state')
+    const stored = consumeStoredParams()
+
+    return { cancelled: false, code, returnedState, stored }
+  })
 
   useEffect(() => {
-    let cancelled = false
+    const { cancelled, code, returnedState, stored } = storedParams
+    if (!stored) return
+
+    if (cancelled) {
+      setStatus('cancelled')
+      return
+    }
+
+    if (!code) {
+      setError('No authorization code received from Google.')
+      setStatus('error')
+      return
+    }
+
+    if (!stored.state || !stored.verifier || stored.state !== returnedState) {
+      setError('State mismatch. This may be a CSRF attempt.')
+      setStatus('error')
+      return
+    }
+
+    // For link mode: wait until auth is hydrated (token available)
+    if (stored.mode === 'link' && isLoading) {
+      return
+    }
+
+    if (stored.mode === 'link' && !token) {
+      setError('You must be signed in to link a Google account.')
+      setErrorTitle('Not authenticated')
+      setStatus('error')
+      return
+    }
+
+    let cancelledEffect = false
 
     async function handleCallback() {
-      const errorParam = searchParams.get('error')
-      if (errorParam === 'access_denied') {
-        setStatus('cancelled')
-        return
-      }
-
-      const code = searchParams.get('code')
-      const returnedState = searchParams.get('state')
-
-      const stored = consumeStoredParams()
-
-      if (!code) {
-        setError('No authorization code received from Google.')
-        setStatus('error')
-        return
-      }
-
-      if (!stored.state || !stored.verifier || stored.state !== returnedState) {
-        setError('State mismatch. This may be a CSRF attempt.')
-        setStatus('error')
-        return
+      const payload = {
+        code,
+        code_verifier: stored.verifier,
+        redirect_uri: window.location.origin + '/auth/google/callback',
       }
 
       try {
-        const response = await loginWithGoogle({
-          code,
-          code_verifier: stored.verifier,
-          redirect_uri: window.location.origin + '/auth/google/callback',
-          expected_nonce: stored.nonce,
-        })
-
-        if (cancelled) return
-
-        loginWithGoogleResponse(response.data)
-        const target = getDefaultPathForRole(response.data.user.role)
-        window.location.replace(target)
+        if (stored.mode === 'link') {
+          await linkGoogle(token, payload)
+          if (cancelledEffect) return
+          toast.success('Google account linked.')
+          window.location.replace('/settings')
+        } else {
+          const response = await loginWithGoogle({
+            ...payload,
+            expected_nonce: stored.nonce,
+          })
+          if (cancelledEffect) return
+          loginWithGoogleResponse(response.data)
+          const target = getDefaultPathForRole(response.data.user.role)
+          window.location.replace(target)
+        }
       } catch (err) {
-        if (cancelled) return
+        if (cancelledEffect) return
         setError(err.message)
 
-        if (err.message?.includes('NO_LINKED_ACCOUNT') || err.message?.includes('linked')) {
-          setErrorTitle('No linked account')
-        } else if (err.message?.includes('pending')) {
-          setErrorTitle('Account pending')
+        if (stored.mode === 'link') {
+          if (err.message?.includes('GOOGLE_SUB_TAKEN') || err.message?.includes('already linked')) {
+            setErrorTitle('Already linked')
+          } else {
+            setErrorTitle('Link failed')
+          }
         } else {
-          setErrorTitle('Sign-in failed')
+          if (err.message?.includes('NO_LINKED_ACCOUNT') || err.message?.includes('linked')) {
+            setErrorTitle('No linked account')
+          } else if (err.message?.includes('pending')) {
+            setErrorTitle('Account pending')
+          } else {
+            setErrorTitle('Sign-in failed')
+          }
         }
 
         setStatus('error')
@@ -72,8 +109,8 @@ export default function GoogleCallbackPage() {
     }
 
     handleCallback()
-    return () => { cancelled = true }
-  }, [searchParams, loginWithGoogleResponse])
+    return () => { cancelledEffect = true }
+  }, [storedParams, isLoading, token, loginWithGoogleResponse])
 
   if (status === 'loading') {
     return (

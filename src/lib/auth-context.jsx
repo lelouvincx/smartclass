@@ -45,6 +45,12 @@ export function AuthProvider({ children }) {
     setUser(data.user)
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    if (!token) return
+    const response = await getMe(token)
+    setUser(response.data)
+  }, [token])
+
   const logout = useCallback(() => {
     clearStoredToken()
     setToken(null)
@@ -59,9 +65,10 @@ export function AuthProvider({ children }) {
       isAuthenticated: Boolean(token && user),
       login,
       loginWithGoogleResponse,
+      refreshUser,
       logout,
     }),
-    [isLoading, token, user, login, loginWithGoogleResponse, logout],
+    [isLoading, token, user, login, loginWithGoogleResponse, refreshUser, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
