@@ -62,7 +62,7 @@ Status: done.
 
 ### v0.4 — Image-based answer extraction (vision LLM, no OCR)
 
-RFC: [`docs/plans/2026-05-03-image-answer-extraction.md`](docs/plans/2026-05-03-image-answer-extraction.md). After comparing Tesseract.js vs. a multimodal LLM, we shipped vision-LLM extraction (Grok 4.1 Fast via OpenRouter, with Gemini fallback) — handles handwriting, schema-aware, and ~$0.0007/submission.
+RFC: [`docs/plans/RFC-5-2026-05-03-image-answer-extraction.md`](docs/plans/RFC-5-2026-05-03-image-answer-extraction.md). After comparing Tesseract.js vs. a multimodal LLM, we shipped vision-LLM extraction (Grok 4.1 Fast via OpenRouter, with Gemini fallback) — handles handwriting, schema-aware, and ~$0.0007/submission.
 
 - [x] PR A — DB + endpoint scaffold: `submission_files` table (migration 0007), `worker/lib/extract-models.js` allowlist, `POST /api/submissions/:id/extract` (auth, ownership, 20 MB cap, jpg/png) ([#52](https://github.com/lelouvincx/smartclass/pull/52))
 - [x] PR B — Vision LLM + validator: `requestAnswersFromImage` in `worker/lib/openrouter.js`, `worker/lib/extract-validator.js` (schema filter, type normalization, missing-row backfill), Gemini retry fallback ([#53](https://github.com/lelouvincx/smartclass/pull/53))
@@ -73,7 +73,7 @@ RFC: [`docs/plans/2026-05-03-image-answer-extraction.md`](docs/plans/2026-05-03-
 
 ### v0.4.5 — Exercise experience polish
 
-RFC: [`docs/plans/2026-05-03-exercise-experience-polish.md`](docs/plans/2026-05-03-exercise-experience-polish.md). UX polish pass on the existing take/review loop driven by post-v0.4 customer feedback and a Shub.edu.vn benchmark. No new product surface; no DB migrations.
+RFC: [`docs/plans/RFC-6-2026-05-03-exercise-experience-polish.md`](docs/plans/RFC-6-2026-05-03-exercise-experience-polish.md). UX polish pass on the existing take/review loop driven by post-v0.4 customer feedback and a Shub.edu.vn benchmark. No new product surface; no DB migrations.
 
 - [x] PR A — Routing split + pre-start landing card: new `StudentExerciseLandingPage` at `/student/exercises/:id`, take session moves to `/student/exercises/:id/take`. Submission created on **Start** click instead of mount; timer accuracy preserved via `started_at` ([#56](https://github.com/lelouvincx/smartclass/pull/56))
 - [x] PR B — Two-column take layout + question nav grid + skipped state: sticky right sidebar (desktop) / bottom Sheet drawer (mobile) with timer, navigation grid (`n:LETTER` / `n:VALUE` / `n:✓`), submit, exit. Dynamic unanswered count in submit dialog. New `'skipped'` correctness state (grey `−`) distinct from incorrect (red `✗`) ([#57](https://github.com/lelouvincx/smartclass/pull/57))

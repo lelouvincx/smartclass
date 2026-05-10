@@ -1,3 +1,11 @@
+---
+rfc: RFC-2
+title: Grading Logic Design
+date: 2026-03-16
+status: Implemented (v0.2)
+dependencies: [RFC-1]
+---
+
 # Grading Logic Design
 
 **Date:** 2026-03-16  

@@ -1,3 +1,11 @@
+---
+rfc: RFC-1
+title: SmartClass Architecture Design
+date: 2026-03-08
+status: Approved
+dependencies: []
+---
+
 # SmartClass Architecture Design
 
 **Date:** 2026-03-08
