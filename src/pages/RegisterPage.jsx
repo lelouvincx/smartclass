@@ -4,8 +4,8 @@ import { register } from '@/lib/api'
 import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldGroup, FieldError } from '@/components/ui/field'
 
 export default function RegisterPage() {
   const [phone, setPhone] = useState('')
@@ -64,44 +64,48 @@ export default function RegisterPage() {
           <CardDescription>Create your account for teacher approval.</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0xxxxxxxxx or +84xxxxxxxxx"
-              />
-            </div>
+          <form onSubmit={handleSubmit}>
+            <FieldGroup>
+              <Field orientation="vertical">
+                <Input
+                  id="phone"
+                  type="text"
+                  aria-label="Phone"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="0xxxxxxxxx or +84xxxxxxxxx"
+                />
+              </Field>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+              <Field orientation="vertical">
+                <Input
+                  id="password"
+                  type="password"
+                  aria-label="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="confirm-password">Confirm Password</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
+              <Field orientation="vertical">
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  aria-label="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </Field>
 
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            {successMessage && <p className="text-sm text-emerald-700 dark:text-emerald-400">{successMessage}</p>}
+              {error && <FieldError>{error}</FieldError>}
+              {successMessage && (
+                <p className="text-sm text-emerald-700 dark:text-emerald-400">{successMessage}</p>
+              )}
 
-            <Button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? 'Submitting...' : 'Register'}
-            </Button>
+              <Button type="submit" disabled={isSubmitting} className="w-full">
+                {isSubmitting ? 'Submitting...' : 'Register'}
+              </Button>
+            </FieldGroup>
           </form>
 
           <p className="mt-5 text-sm text-muted-foreground">

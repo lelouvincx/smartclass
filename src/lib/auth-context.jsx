@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { getMe, login as loginRequest } from './api'
+import { getMe, login as loginRequest, loginWithGoogle as loginWithGoogleRequest } from './api'
 import { clearStoredToken, getStoredToken, setStoredToken } from './auth'
 
 const AuthContext = createContext(null)
@@ -39,6 +39,12 @@ export function AuthProvider({ children }) {
     return response
   }, [])
 
+  const loginWithGoogleResponse = useCallback((data) => {
+    setStoredToken(data.token)
+    setToken(data.token)
+    setUser(data.user)
+  }, [])
+
   const logout = useCallback(() => {
     clearStoredToken()
     setToken(null)
@@ -52,9 +58,10 @@ export function AuthProvider({ children }) {
       isLoading,
       isAuthenticated: Boolean(token && user),
       login,
+      loginWithGoogleResponse,
       logout,
     }),
-    [isLoading, token, user, login, logout],
+    [isLoading, token, user, login, loginWithGoogleResponse, logout],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

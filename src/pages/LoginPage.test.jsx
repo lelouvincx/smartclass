@@ -13,6 +13,14 @@ vi.mock('../lib/auth-context', () => ({
   }),
 }))
 
+vi.mock('../components/google-signin-button', () => ({
+  default: ({ mode, className }) => (
+    <button data-testid="google-signin-btn" data-mode={mode} className={className}>
+      Continue with Google
+    </button>
+  ),
+}))
+
 describe('LoginPage', () => {
   beforeEach(() => {
     loginMock.mockReset()
@@ -67,5 +75,16 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: 'Sign In' }))
 
     expect(await screen.findByText('Invalid phone or password.')).toBeInTheDocument()
+  })
+
+  it('renders Google sign-in button', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByTestId('google-signin-btn')).toBeInTheDocument()
+    expect(screen.getByTestId('google-signin-btn')).toHaveAttribute('data-mode', 'login')
   })
 })
