@@ -26,7 +26,9 @@ async function exchangeAndVerify(c, body) {
     if (e.code === 'GOOGLE_UNAVAILABLE') {
       return { error: jsonError(c, 502, 'GOOGLE_UNAVAILABLE', 'Google is temporarily unavailable.') }
     }
-    return { error: jsonError(c, 400, 'INVALID_GOOGLE_CODE', 'Google rejected the authorization code.') }
+    const detail = e.message?.includes('Token exchange rejected') ? e.message : `Google rejected the authorization code (${e.message || 'unknown'}).`
+    console.error('Google token exchange failed:', detail)
+    return { error: jsonError(c, 400, 'INVALID_GOOGLE_CODE', detail) }
   }
 
   if (!tokens?.id_token) {
