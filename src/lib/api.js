@@ -259,6 +259,23 @@ export function loginWithGoogle(payload) {
   })
 }
 
+export function linkGoogle(token, payload) {
+  return request('/api/auth/google/link', {
+    method: 'POST',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function unlinkGoogle(token) {
+  return request('/api/auth/google/link', {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
 export function listMySubmissions(token, { exerciseId, limit, offset } = {}) {
   const params = new URLSearchParams()
   if (exerciseId) params.set('exercise_id', exerciseId)

@@ -397,12 +397,13 @@
 - **Tests**: Added `'renders only the selected question, not the full list'` (Q1 visible; Q2 not in DOM) and `'shows the clicked question after clicking a nav grid cell'`. **6 existing tests** that asserted Q2/Q3-specific elements (boolean sub-rows, numeric input, submit payload, image-extraction confidence dots) were updated to first click `Jump to question N` before the assertions.
 - **Out of scope**: `StudentReviewPage` keeps the full table view — post-grade review benefits from seeing all answers at once.
 
-### Google OAuth Link & Sign-In (v0.5, PRs #68/#69)
+### Google OAuth Link & Sign-In (v0.5, PRs #68/#69/#70)
 
 - **Design doc**: `docs/plans/RFC-7-2026-05-10-google-oauth-login.md`.
 - **Account model**: Phone-first — all accounts created via phone (teacher or self-register). Google is **link-only**, never auto-provisions. `google_sub` + `google_email` columns are nullable add-ons; `phone` + `password_hash` stay NOT NULL.
 - **Provider**: Google OIDC, Authorization Code + PKCE. No SDK — Workers use `fetch` + Web Crypto (RS256 JWKS verification). SPA builds auth URL with public `client_id`; secret stays server-side.
 - **Frontend PKCE**: `src/lib/google-oauth.js` — `generatePkcePair()` (SHA-256, base64url), `buildAuthUrl()`, state/nonce/verifier in `sessionStorage`. No server round-trip needed to initiate.
 - **Login flow**: "Continue with Google" on login page → Google consent → callback page validates state + nonce → `POST /api/auth/google/login` → if `google_sub` matches linked user → mint JWT (same shape as phone login). No match → 404 `NO_LINKED_ACCOUNT`.
+- **Link flow**: Settings page → "Connect Google" → same callback page in `mode=link` → `POST /api/auth/google/link` (requireAuth) → `refreshUser()` → toast.
+- **Unlink**: Settings page → "Disconnect" → Dialog confirm → `DELETE /api/auth/google/link` → `refreshUser()`.
 - **Security**: `state` (CSRF), `nonce` (id_token replay), PKCE — all `sessionStorage`-only. Strict checks on `iss`/`aud`/`exp`/`email_verified`. JWKS cached 1h in module memory with stale fallback. Teacher role never auto-granted.
-- **Future**: PR C adds `/settings` page for link/unlink Google from an existing account. Login-only for PR B.

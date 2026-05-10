@@ -25,6 +25,7 @@ import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
 import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
 import TeacherStudentsPage from '@/pages/TeacherStudentsPage'
 import TeacherViewExercisePage from '@/pages/TeacherViewExercisePage'
+import SettingsPage from '@/pages/SettingsPage'
 
 function PublicOnlyRoute({ children }) {
   const { isLoading, user } = useAuth()
@@ -79,6 +80,14 @@ export function AppRoutes() {
         }
       />
       <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoleRoute>
+            <SettingsPage />
+          </ProtectedRoleRoute>
+        }
+      />
 
       {/* Teacher routes with shared layout */}
       <Route
