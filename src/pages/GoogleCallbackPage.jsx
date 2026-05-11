@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/lib/auth-context'
 import { getDefaultPathForRole } from '@/lib/navigation'
@@ -25,10 +25,13 @@ export default function GoogleCallbackPage() {
 
     return { cancelled: false, code, returnedState, stored }
   })
+  const hasAttempted = useRef(false)
 
   useEffect(() => {
     const { cancelled, code, returnedState, stored } = storedParams
     if (!stored) return
+
+    if (hasAttempted.current) return
 
     if (cancelled) {
       setStatus('cancelled')
@@ -60,6 +63,7 @@ export default function GoogleCallbackPage() {
     }
 
     let cancelledEffect = false
+    hasAttempted.current = true
 
     async function handleCallback() {
       const payload = {
