@@ -25,7 +25,6 @@ export default function GoogleCallbackPage() {
 
     return { cancelled: false, code, returnedState, stored }
   })
-
   const hasAttempted = useRef(false)
 
   useEffect(() => {
