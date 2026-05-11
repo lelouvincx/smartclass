@@ -28,23 +28,26 @@ export default function GoogleCallbackPage() {
   const hasAttempted = useRef(false)
 
   useEffect(() => {
+    if (hasAttempted.current) return
+
     const { cancelled, code, returnedState, stored } = storedParams
     if (!stored) return
 
-    if (hasAttempted.current) return
-
     if (cancelled) {
+      hasAttempted.current = true
       setStatus('cancelled')
       return
     }
 
     if (!code) {
+      hasAttempted.current = true
       setError('No authorization code received from Google.')
       setStatus('error')
       return
     }
 
     if (!stored.state || !stored.verifier || stored.state !== returnedState) {
+      hasAttempted.current = true
       setError('State mismatch. This may be a CSRF attempt.')
       setStatus('error')
       return
@@ -56,13 +59,13 @@ export default function GoogleCallbackPage() {
     }
 
     if (stored.mode === 'link' && !token) {
+      hasAttempted.current = true
       setError('You must be signed in to link a Google account.')
       setErrorTitle('Not authenticated')
       setStatus('error')
       return
     }
 
-    let cancelledEffect = false
     hasAttempted.current = true
 
     async function handleCallback() {
@@ -75,7 +78,6 @@ export default function GoogleCallbackPage() {
       try {
         if (stored.mode === 'link') {
           await linkGoogle(token, payload)
-          if (cancelledEffect) return
           toast.success('Google account linked.')
           window.location.replace('/settings')
         } else {
@@ -83,13 +85,11 @@ export default function GoogleCallbackPage() {
             ...payload,
             expected_nonce: stored.nonce,
           })
-          if (cancelledEffect) return
           loginWithGoogleResponse(response.data)
           const target = getDefaultPathForRole(response.data.user.role)
           window.location.replace(target)
         }
       } catch (err) {
-        if (cancelledEffect) return
         setError(err.message)
 
         if (stored.mode === 'link') {
@@ -113,7 +113,6 @@ export default function GoogleCallbackPage() {
     }
 
     handleCallback()
-    return () => { cancelledEffect = true }
   }, [storedParams, isLoading, token, loginWithGoogleResponse])
 
   if (status === 'loading') {
