@@ -1,4 +1,4 @@
-name: Auto Merge
+name: Post PR Approval
 
 on:
   pull_request_review:
