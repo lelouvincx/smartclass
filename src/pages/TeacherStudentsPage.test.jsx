@@ -64,7 +64,7 @@ describe('TeacherStudentsPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText(/no students yet/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /no students yet/i })).toBeInTheDocument()
   })
 
   it('renders student list table', async () => {

@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { ClipboardList, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/design-system/empty-state'
+import { PageHeader } from '@/design-system/page-header'
 import { cn } from '@/lib/utils'
 
 export default function StudentExercisesPage() {
@@ -36,15 +38,13 @@ export default function StudentExercisesPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Exercises</h1>
-            <p className="text-sm text-muted-foreground">Browse and start exercises</p>
-          </div>
-          <div className="flex items-center gap-2">
+      <PageHeader
+        title="Exercises"
+        description="Browse and start exercises"
+        actions={
+          <>
             {lastRefreshed && !isLoading && (
-              <span className="text-xs text-muted-foreground" aria-label="Last refreshed time">
+              <span className="self-center text-xs text-muted-foreground" aria-label="Last refreshed time">
                 Updated {lastRefreshed.toLocaleTimeString()}
               </span>
             )}
@@ -57,9 +57,9 @@ export default function StudentExercisesPage() {
             >
               <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
             </Button>
-          </div>
-        </div>
-      </Card>
+          </>
+        }
+      />
 
       <Card>
         {isLoading && (
@@ -71,9 +71,11 @@ export default function StudentExercisesPage() {
         )}
 
         {!isLoading && !error && items.length === 0 && (
-          <div className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">No exercises yet. Check back soon!</p>
-          </div>
+          <EmptyState
+            icon={ClipboardList}
+            title="No exercises yet"
+            description="Check back soon! New exercises will appear here when they are ready."
+          />
         )}
 
         {!isLoading && !error && items.length > 0 && (

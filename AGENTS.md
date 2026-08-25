@@ -366,11 +366,11 @@
 - **Loading state**: Button shows `Spinner` + "Approving..." and is `disabled` per shadcn patterns.
 - **No confirmation dialog**: Low-stakes action — teacher sees the phone number before clicking, and the endpoint is idempotent.
 
-### Default 150 % Zoom (v0.4.5, PR #59)
+### Default 125 % Zoom (revised 2026-08-25)
 
-- **Implementation**: `html { font-size: 150% }` in `src/index.css`. Cascades through every Tailwind/shadcn `rem`-based unit.
+- **Implementation**: `html { font-size: 125% }` in `src/index.css`. Cascades through every Tailwind/shadcn `rem`-based unit.
 - **Sidebar override**: take-page and review-page sidebars use `clamp(240px, 20rem, 40vw)` instead of a fixed `320px` so the sidebar tracks the zoom on small viewports without overflowing on large ones.
-- **Rationale**: customer feedback — the v0.4 page-margin fix (`max-w-4xl px-8`) leaves too much vertical real estate unused. Scaling root font-size reclaims it as readable type without touching layout containers. Tailwind's px-based breakpoints (`lg: 1024px`) are unaffected, but content sized in `rem` is now 1.5× larger — keep this in mind when adding dense layouts.
+- **Rationale**: 150% made the LMS-informed application shell feel oversized. The 125% baseline retains larger, readable controls while restoring useful information density. Tailwind's px-based breakpoints (`lg: 1024px`) remain unaffected, while `rem`-based content renders at 1.25× the browser default.
 
 ### Image-Extraction Model Allowlist Trim (v0.4.5, PR #59)
 

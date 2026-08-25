@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react'
+import { History } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { listMySubmissions } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/design-system/empty-state'
+import { PageHeader } from '@/design-system/page-header'
 import {
   Table,
   TableBody,
@@ -82,12 +85,10 @@ export default function StudentSubmissionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Submission History</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review your past exercise attempts and scores.
-        </p>
-      </div>
+      <PageHeader
+        title="Submission History"
+        description="Review your past exercise attempts and scores."
+      />
 
       <Card>
         <CardContent className="p-0">
@@ -107,15 +108,16 @@ export default function StudentSubmissionsPage() {
               </Button>
             </div>
           ) : submissions.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 py-12 text-center">
-              <p className="text-sm font-medium">No submissions yet.</p>
-              <p className="text-sm text-muted-foreground">
-                Start an exercise to see your results here!
-              </p>
-              <Button variant="outline" size="sm" asChild className="mt-2">
-                <Link to="/student/exercises">Browse Exercises</Link>
-              </Button>
-            </div>
+            <EmptyState
+              icon={History}
+              title="No submissions yet."
+              description="Start an exercise to see your results here!"
+              action={
+                <Button variant="outline" asChild>
+                  <Link to="/student/exercises">Browse Exercises</Link>
+                </Button>
+              }
+            />
           ) : (
             <div className="overflow-x-auto">
               <Table>

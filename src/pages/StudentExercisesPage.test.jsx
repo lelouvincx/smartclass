@@ -47,7 +47,7 @@ describe('StudentExercisesPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText(/no exercises yet/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /no exercises yet/i })).toBeInTheDocument()
     expect(screen.getByText(/check back soon/i)).toBeInTheDocument()
   })
 

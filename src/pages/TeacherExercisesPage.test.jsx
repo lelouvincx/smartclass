@@ -42,7 +42,7 @@ describe('TeacherExercisesPage', () => {
   it('renders empty state when there are no exercises', async () => {
     listExercisesMock.mockResolvedValue({ data: [] })
     renderPage()
-    expect(await screen.findByText('No exercises yet.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'No exercises yet.' })).toBeInTheDocument()
   })
 
   it('renders exercise rows', async () => {
