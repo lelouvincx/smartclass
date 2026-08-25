@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react'
+import { Users } from 'lucide-react'
 import { listStudents, createStudent, approveStudent } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
@@ -8,6 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { EmptyState } from '@/design-system/empty-state'
+import { PageHeader } from '@/design-system/page-header'
 import {
   Table,
   TableBody,
@@ -104,10 +107,7 @@ export default function TeacherStudentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Students</h1>
-        <p className="text-sm text-muted-foreground">Manage student accounts.</p>
-      </div>
+      <PageHeader title="Students" description="Manage student accounts." />
 
       <Card>
         <CardHeader className="pb-4">
@@ -167,7 +167,13 @@ export default function TeacherStudentsPage() {
           {loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
           ) : students.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No students yet.</p>
+            <EmptyState
+              icon={Users}
+              title="No students yet."
+              description={statusFilter
+                ? `No ${statusFilter} students match this filter.`
+                : 'Create a student account to start building your class.'}
+            />
           ) : (
             <Table>
               <TableHeader>

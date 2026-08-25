@@ -1,30 +1,36 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ClipboardList, Plus, Users } from 'lucide-react'
+import { ActionCard } from '@/design-system/action-card'
+import { PageHeader } from '@/design-system/page-header'
 
 export default function TeacherDashboardPage() {
   return (
-    <div className="max-w-3xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>Teacher Dashboard</CardTitle>
-          <CardDescription>Create and manage exercises for your students.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <Button asChild>
-              <Link to="/teacher/exercises">Manage Exercises</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/teacher/exercises/new">Create Exercise</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/teacher/students">Manage Students</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+    <div className="max-w-4xl space-y-8">
+      <PageHeader
+        title="Teacher Dashboard"
+        description="Create and manage exercises for your students."
+      />
+
+      <section aria-label="Teacher quick actions" className="grid gap-4 sm:grid-cols-2">
+        <ActionCard
+          to="/teacher/exercises"
+          icon={ClipboardList}
+          title="Manage Exercises"
+          description="Review, publish, and organize class exercises"
+        />
+        <ActionCard
+          to="/teacher/exercises/new"
+          icon={Plus}
+          title="Create Exercise"
+          description="Prepare a new exercise for your students"
+        />
+        <ActionCard
+          to="/teacher/students"
+          icon={Users}
+          title="Manage Students"
+          description="View students and their learning activity"
+        />
+      </section>
     </div>
   )
 }

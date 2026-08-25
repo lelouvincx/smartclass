@@ -17,10 +17,10 @@ describe('dashboard placeholders', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Teacher Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Manage Exercises')).toBeInTheDocument()
-    expect(screen.getByText('Create Exercise')).toBeInTheDocument()
-    expect(screen.getByText('Manage Students')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Teacher Dashboard', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /manage exercises/i })).toHaveAttribute('href', '/teacher/exercises')
+    expect(screen.getByRole('link', { name: /create exercise/i })).toHaveAttribute('href', '/teacher/exercises/new')
+    expect(screen.getByRole('link', { name: /manage students/i })).toHaveAttribute('href', '/teacher/students')
   })
 
   it('renders student dashboard with quick actions', () => {
@@ -30,8 +30,9 @@ describe('dashboard placeholders', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByText('Student Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Browse Exercises')).toBeInTheDocument()
-    expect(screen.getByText('View History')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Student Dashboard', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Student quick actions' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /browse exercises/i })).toHaveAttribute('href', '/student/exercises')
+    expect(screen.getByRole('link', { name: /view history/i })).toHaveAttribute('href', '/student/submissions')
   })
 })

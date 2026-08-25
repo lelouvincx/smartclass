@@ -4,48 +4,13 @@ on:
   pull_request_review:
     types: [submitted]
 
+permissions:
+  contents: read
+
 jobs:
-  auto-merge:
+  approval:
     if: github.event.review.state == 'approved'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
-      - name: Merge pull request
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.LELOUVINCX_BOT_TOKEN }}
-          script: |
-            const pr = context.payload.pull_request;
-
-            // Collect all commits on this PR for the squash message body
-            const { data: commits } = await github.rest.pulls.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              per_page: 100,
-            });
-
-            const commitLines = commits
-              .map(c => {
-                const lines = c.commit.message.trimEnd().split('\n');
-                const title = `* ${lines[0]} (${c.sha.slice(0, 7)})`;
-                const body = lines.slice(1).join('\n').trimEnd();
-                return body ? `${title}\n${body.split('\n').map(l => `  ${l}`).join('\n')}` : title;
-              })
-              .join('\n');
-
-            const commitMessage = [
-              'Commits:',
-              commitLines,
-            ].join('\n');
-
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              merge_method: 'squash',
-              commit_title: `${pr.title} (#${pr.number})`,
-              commit_message: commitMessage,
-            });
+      - name: Record approval
+        run: echo "Approval recorded for PR #${{ github.event.pull_request.number }}"

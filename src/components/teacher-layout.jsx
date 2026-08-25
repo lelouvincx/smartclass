@@ -1,8 +1,14 @@
 import { Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/lib/auth-context'
-import { Button } from '@/components/ui/button'
-import { ModeToggle } from '@/components/mode-toggle'
-import { LogOut, Plus, Settings } from 'lucide-react'
+import { AppShell } from '@/design-system/app-shell'
+import { ClipboardList, LayoutDashboard, Plus, Users } from 'lucide-react'
+
+const TEACHER_NAVIGATION = [
+  { label: 'Dashboard', to: '/teacher', icon: LayoutDashboard, end: true },
+  { label: 'Students', to: '/teacher/students', icon: Users },
+  { label: 'Exercises', to: '/teacher/exercises', icon: ClipboardList, end: true },
+  { label: 'Create', to: '/teacher/exercises/new', icon: Plus },
+]
 
 export function TeacherLayout() {
   const navigate = useNavigate()
@@ -14,63 +20,13 @@ export function TeacherLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-8">
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-semibold">SmartClass</span>
-            <nav className="hidden items-center gap-1 sm:flex">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/teacher')}
-              >
-                Dashboard
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/teacher/students')}
-              >
-                Students
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/teacher/exercises')}
-              >
-                Exercises
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/teacher/exercises/new')}
-              >
-                <Plus className="h-4 w-4" />
-                Create
-              </Button>
-            </nav>
-          </div>
-          <div className="flex items-center gap-2">
-            {user?.phone && (
-              <span className="hidden text-sm text-muted-foreground sm:inline">
-                {user.phone}
-              </span>
-            )}
-            <ModeToggle />
-            <Button variant="ghost" size="icon-sm" onClick={() => navigate('/settings')} aria-label="Settings">
-              <Settings className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </Button>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-4xl px-8 py-6">
-        <Outlet />
-      </main>
-    </div>
+    <AppShell
+      items={TEACHER_NAVIGATION}
+      workspaceLabel="Teacher"
+      userLabel={user?.phone}
+      onLogout={handleLogout}
+    >
+      <Outlet />
+    </AppShell>
   )
 }

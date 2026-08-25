@@ -27,15 +27,19 @@ function SheetOverlay({ className, ...props }) {
   )
 }
 
-function SheetContent({ className, children, ...props }) {
+function SheetContent({ className, children, side = "bottom", ...props }) {
+  const sideClasses = side === "left"
+    ? "inset-y-0 left-0 flex h-dvh w-[min(20rem,85vw)] flex-col overflow-y-auto border-r bg-background p-0 shadow-lg data-open:slide-in-from-left data-closed:slide-out-to-left"
+    : "inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t bg-background p-6 shadow-lg data-open:slide-in-from-bottom data-closed:slide-out-to-bottom"
+
   return (
     <SheetPortal>
       <SheetOverlay />
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t bg-background p-6 shadow-lg",
-          "data-open:animate-in data-open:slide-in-from-bottom data-closed:animate-out data-closed:slide-out-to-bottom duration-300",
+          "fixed z-50 data-open:animate-in data-closed:animate-out duration-300",
+          sideClasses,
           className,
         )}
         {...props}
@@ -45,7 +49,7 @@ function SheetContent({ className, children, ...props }) {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="absolute right-4 top-4 text-muted-foreground"
+            className="absolute right-4 top-4 size-[44px] text-muted-foreground"
           >
             <XIcon />
             <span className="sr-only">Close</span>

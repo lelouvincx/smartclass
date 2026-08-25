@@ -1,0 +1,100 @@
+name: Merge Approved PR
+
+on:
+  workflow_run:
+    workflows: ["Post PR Approval"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify approval and merge pull request
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const run = context.payload.workflow_run;
+
+            if (run.event !== 'pull_request_review') {
+              core.notice('The triggering run was not a pull request review.');
+              return;
+            }
+
+            const pull = run.pull_requests[0];
+
+            if (!pull) {
+              core.notice('The triggering workflow is not associated with a pull request.');
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const { data: pr } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: pull.number,
+            });
+
+            if (pr.state !== 'open') {
+              core.notice(`PR #${pr.number} is no longer open.`);
+              return;
+            }
+
+            if (pr.head.sha !== run.head_sha) {
+              core.notice(`PR #${pr.number} changed after the reviewed commit.`);
+              return;
+            }
+
+            const result = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    reviewDecision
+                  }
+                }
+              }
+            `, {
+              owner,
+              repo,
+              number: pr.number,
+            });
+
+            if (result.repository.pullRequest.reviewDecision !== 'APPROVED') {
+              core.notice(`PR #${pr.number} does not currently have an approving review.`);
+              return;
+            }
+
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner,
+              repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+
+            const commitLines = commits
+              .map(c => {
+                const lines = c.commit.message.trimEnd().split('\n');
+                const title = `* ${lines[0]} (${c.sha.slice(0, 7)})`;
+                const body = lines.slice(1).join('\n').trimEnd();
+                return body ? `${title}\n${body.split('\n').map(l => `  ${l}`).join('\n')}` : title;
+              })
+              .join('\n');
+
+            const commitMessage = [
+              'Commits:',
+              commitLines,
+            ].join('\n');
+
+            await github.rest.pulls.merge({
+              owner,
+              repo,
+              pull_number: pr.number,
+              merge_method: 'squash',
+              commit_title: `${pr.title} (#${pr.number})`,
+              commit_message: commitMessage,
+            });

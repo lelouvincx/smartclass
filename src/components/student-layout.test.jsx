@@ -1,5 +1,6 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi, describe, it, expect } from 'vitest'
 import { StudentLayout } from './student-layout'
@@ -8,28 +9,33 @@ vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({ user: { phone: '+84900000001' }, logout: vi.fn() }),
 }))
 
-function renderLayout() {
+function renderLayout(initialEntry = '/student') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <StudentLayout />
     </MemoryRouter>,
   )
 }
 
-describe('StudentLayout spacing', () => {
-  it('renders the header container with max-w-4xl and px-8', () => {
-    renderLayout()
-    const headerInner = screen
-      .getByText('SmartClass')
-      .closest('div[class*="max-w-"]')
-    expect(headerInner.className).toContain('max-w-4xl')
-    expect(headerInner.className).toContain('px-8')
+describe('StudentLayout navigation', () => {
+  it('marks the current destination in the student navigation', () => {
+    renderLayout('/student/exercises')
+
+    const navigation = screen.getByRole('navigation', { name: 'Student navigation' })
+    expect(within(navigation).getByRole('link', { name: 'Exercises' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
   })
 
-  it('renders the main content container with max-w-4xl and px-8', () => {
+  it('opens a labelled mobile navigation dialog', async () => {
+    const user = userEvent.setup()
     renderLayout()
-    const main = document.querySelector('main')
-    expect(main.className).toContain('max-w-4xl')
-    expect(main.className).toContain('px-8')
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+
+    const dialog = screen.getByRole('dialog', { name: 'Student navigation' })
+    expect(within(dialog).getByRole('link', { name: 'History' })).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 })

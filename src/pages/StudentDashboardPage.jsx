@@ -1,40 +1,27 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { ClipboardList, History } from 'lucide-react'
+import { ActionCard } from '@/design-system/action-card'
+import { PageHeader } from '@/design-system/page-header'
 
 export default function StudentDashboardPage() {
   return (
-    <div className="max-w-3xl space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Student Dashboard</CardTitle>
-          <CardDescription>Welcome to SmartClass</CardDescription>
-        </CardHeader>
-      </Card>
+    <div className="max-w-4xl space-y-8">
+      <PageHeader title="Student Dashboard" description="Welcome to SmartClass" />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Link
-              to="/student/exercises"
-              className="block rounded-lg border p-4 transition-colors hover:bg-muted"
-            >
-              <h3 className="font-medium">Browse Exercises</h3>
-              <p className="mt-1 text-sm text-muted-foreground">View and start available exercises</p>
-            </Link>
-            <Link
-              to="/student/submissions"
-              className="block rounded-lg border p-4 transition-colors hover:bg-muted"
-            >
-              <h3 className="font-medium">View History</h3>
-              <p className="mt-1 text-sm text-muted-foreground">Review your past submissions and scores</p>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+      <section aria-label="Student quick actions" className="grid gap-4 sm:grid-cols-2">
+        <ActionCard
+          to="/student/exercises"
+          icon={ClipboardList}
+          title="Browse Exercises"
+          description="View and start available exercises"
+        />
+        <ActionCard
+          to="/student/submissions"
+          icon={History}
+          title="View History"
+          description="Review your past submissions and scores"
+        />
+      </section>
     </div>
   )
 }

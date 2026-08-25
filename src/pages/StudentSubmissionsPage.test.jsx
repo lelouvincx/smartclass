@@ -63,7 +63,7 @@ describe('StudentSubmissionsPage', () => {
       </MemoryRouter>
     )
 
-    expect(await screen.findByText(/no submissions yet/i)).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: /no submissions yet/i })).toBeInTheDocument()
   })
 
   it('renders a table row for each submission', async () => {

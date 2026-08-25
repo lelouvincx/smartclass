@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react'
-import { RefreshCw, Plus } from 'lucide-react'
+import { ClipboardList, RefreshCw, Plus } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { EmptyState } from '@/design-system/empty-state'
+import { PageHeader } from '@/design-system/page-header'
 import { cn } from '@/lib/utils'
 
 export default function TeacherExercisesPage() {
@@ -35,15 +37,13 @@ export default function TeacherExercisesPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold">Exercises</h1>
-            <p className="text-sm text-muted-foreground">Manage exercise metadata and monitor schema/file completeness.</p>
-          </div>
-          <div className="flex items-center gap-2">
+      <PageHeader
+        title="Exercises"
+        description="Manage exercise metadata and monitor schema/file completeness."
+        actions={
+          <>
             {lastRefreshed && !isLoading && (
-              <span className="text-xs text-muted-foreground" aria-label="Last refreshed time">
+              <span className="self-center text-xs text-muted-foreground" aria-label="Last refreshed time">
                 Updated {lastRefreshed.toLocaleTimeString()}
               </span>
             )}
@@ -62,9 +62,9 @@ export default function TeacherExercisesPage() {
                 Create Exercise
               </Link>
             </Button>
-          </div>
-        </div>
-      </Card>
+          </>
+        }
+      />
 
       <Card>
         {isLoading && (
@@ -76,12 +76,16 @@ export default function TeacherExercisesPage() {
         )}
 
         {!isLoading && !error && items.length === 0 && (
-          <div className="p-8 text-center">
-            <p className="text-sm text-muted-foreground">No exercises yet.</p>
-            <Button asChild className="mt-4">
-              <Link to="/teacher/exercises/new">Create your first exercise</Link>
-            </Button>
-          </div>
+          <EmptyState
+            icon={ClipboardList}
+            title="No exercises yet."
+            description="Create an exercise to start building your class library."
+            action={
+              <Button asChild>
+                <Link to="/teacher/exercises/new">Create your first exercise</Link>
+              </Button>
+            }
+          />
         )}
 
         {!isLoading && !error && items.length > 0 && (

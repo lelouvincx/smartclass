@@ -92,6 +92,7 @@ RFC: [`docs/plans/RFC-6-2026-05-03-exercise-experience-polish.md`](docs/plans/RF
 
 ### v0.6 — Guest mode & polish
 
+- [x] Design-system foundation: Google-format `DESIGN.md`, semantic tokens, responsive app shell, shared page headers/action cards/empty states, and 125% default scale ([#75](https://github.com/lelouvincx/smartclass/pull/75))
 - [ ] Guest access: no login, browse exercises/lectures, submit with results saved in IndexedDB
 - [ ] Prompt guest to register after engagement
 - [ ] UI polish and mobile responsiveness
