@@ -68,6 +68,20 @@
 
 ## Design Decisions
 
+### Amp Orb Development (PR #76)
+
+- **Toolchain**: Node.js 26.8.1 is pinned with mise and matched in CI.
+- **Lifecycle**: `.agents/setup` installs dependencies, applies local D1 migrations, and seeds local fixtures. `.agents/resume` runs the canonical agent-skills resume hook before reapplying the idempotent local seeds.
+- **Services**: `.amp/services.yaml` supervises the Worker API and Vite frontend. Vite proxies `/api` to the local Worker so one portal exposes the complete app.
+- **Fixture boundary**: Orb setup uses only local D1 state. Canonical exercise seeds omit file rows because their R2 objects are not present locally.
+
+### Teacher Lecture Management (v0.5, PR #76)
+
+- **Read access**: `GET /api/lectures` is public for future student and guest lecture browsing.
+- **Write access**: Create, update, delete, and reorder operations require a teacher JWT.
+- **Ordering**: Reordering sends every lecture ID and updates all order indexes atomically with `DB.batch()`.
+- **Responsive lists**: Teacher lecture, student, and exercise management use one card/list DOM that reflows on narrow viewports instead of horizontally scrolling tables.
+
 ### Timed vs. Untimed Exercises (v0.2)
 
 - **Derived state**: `is_timed` is not a DB column. It is derived from `duration_minutes > 0`.

@@ -85,7 +85,7 @@ RFC: [`docs/plans/RFC-6-2026-05-03-exercise-experience-polish.md`](docs/plans/RF
 ### v0.5 — Lectures
 
 - [ ] Plan guest mode: design IndexedDB storage, guest route access, and data model for anonymous exercise completion (implementation in v0.6)
-- [ ] Teacher: add/edit/reorder YouTube lectures with named sections (chapters, solutions)
+- [x] Teacher: add/edit/reorder YouTube lectures with named sections (chapters, solutions) ([#76](https://github.com/lelouvincx/smartclass/pull/76))
 - [ ] Student: browse and watch lecture videos
 
 > **Ship:** full learning experience with exercises + video lectures.
