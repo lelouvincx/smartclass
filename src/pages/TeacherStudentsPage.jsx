@@ -11,14 +11,6 @@ import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 
 const STATUS_FILTERS = [
   { label: 'Active', value: 'active' },
@@ -117,9 +109,9 @@ export default function TeacherStudentsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleCreate} className="flex gap-2">
+          <form onSubmit={handleCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-1.5">
-              <Label htmlFor="phone" className="sr-only">Phone number</Label>
+              <Label htmlFor="phone">Phone number</Label>
               <Input
                 id="phone"
                 placeholder="+84xxx or 0xxx"
@@ -175,48 +167,42 @@ export default function TeacherStudentsPage() {
                 : 'Create a student account to start building your class.'}
             />
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="hidden sm:table-cell">Created</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="font-mono text-sm">{s.phone}</TableCell>
-                    <TableCell>
-                      <Badge variant={STATUS_VARIANT[s.status] || 'outline'}>
-                        {s.status.charAt(0).toUpperCase() + s.status.slice(1)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
-                      {formatDate(s.created_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {s.status === 'pending' ? (
-                        <Button
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleApprove(s.id)}
-                          disabled={approvingId === s.id}
-                        >
-                          {approvingId === s.id ? (
-                            <Spinner data-icon="inline-start" />
-                          ) : null}
-                          {approvingId === s.id ? 'Approving...' : 'Approve'}
-                        </Button>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <div data-testid="responsive-student-list" className="grid gap-3" aria-label="Students">
+              {students.map((student) => (
+                <div
+                  key={student.id}
+                  className="grid min-w-0 gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+                >
+                  <div className="min-w-0">
+                    <p className="min-w-0 truncate font-mono text-sm">{student.phone}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Created {formatDate(student.created_at)}
+                    </p>
+                  </div>
+                  <Badge className="w-fit" variant={STATUS_VARIANT[student.status] || 'outline'}>
+                    {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+                  </Badge>
+                  <div className="sm:min-w-24 sm:text-right">
+                    {student.status === 'pending' ? (
+                      <Button
+                        className="w-full sm:w-auto"
+                        size="sm"
+                        variant="default"
+                        onClick={() => handleApprove(student.id)}
+                        disabled={approvingId === student.id}
+                      >
+                        {approvingId === student.id ? (
+                          <Spinner data-icon="inline-start" />
+                        ) : null}
+                        {approvingId === student.id ? 'Approving...' : 'Approve'}
+                      </Button>
+                    ) : (
+                      <span className="hidden text-sm text-muted-foreground sm:inline">—</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </CardContent>
       </Card>

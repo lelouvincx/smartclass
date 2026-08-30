@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787'
 
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, options)
@@ -92,6 +92,47 @@ export function uploadExerciseFile(token, exerciseId, metadata, file) {
 
 export function listExercises() {
   return request('/api/exercises')
+}
+
+export function listLectures() {
+  return request('/api/lectures')
+}
+
+export function createLecture(token, payload) {
+  return request('/api/lectures', {
+    method: 'POST',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateLecture(token, id, payload) {
+  return request(`/api/lectures/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateLectureOrder(token, ids) {
+  return request('/api/lectures/order', {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify({ ids }),
+  })
+}
+
+export function deleteLecture(token, id) {
+  return request(`/api/lectures/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
 }
 
 export function updateExercise(token, id, payload) {

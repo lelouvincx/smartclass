@@ -89,33 +89,27 @@ export default function TeacherExercisesPage() {
         )}
 
         {!isLoading && !error && items.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-sm">
-              <thead className="bg-muted text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Duration</th>
-                  <th className="px-4 py-3">Questions</th>
-                  <th className="px-4 py-3">Files</th>
-                  <th className="px-4 py-3">Updated</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="cursor-pointer border-t hover:bg-muted/50"
-                    onClick={() => navigate(`/teacher/exercises/${item.id}`)}
-                  >
-                    <td className="px-4 py-3 font-medium">{item.title}</td>
-                    <td className="px-4 py-3">{item.duration_minutes} min</td>
-                    <td className="px-4 py-3">{item.question_count}</td>
-                    <td className="px-4 py-3">{item.file_count}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{item.updated_at}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div data-testid="responsive-exercise-list" className="grid divide-y" aria-label="Exercises">
+            {items.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="grid min-w-0 gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                onClick={() => navigate(`/teacher/exercises/${item.id}`)}
+              >
+                <span className="min-w-0">
+                  <span className="min-w-0 break-words font-medium">{item.title}</span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    Updated {item.updated_at}
+                  </span>
+                </span>
+                <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground sm:justify-end">
+                  <span>{item.duration_minutes} min</span>
+                  <span>{item.question_count} questions</span>
+                  <span>{item.file_count} files</span>
+                </span>
+              </button>
+            ))}
           </div>
         )}
       </Card>

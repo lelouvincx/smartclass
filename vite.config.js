@@ -9,6 +9,17 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  server: {
+    allowedHosts: process.env.AMP_ORB ? true : undefined,
+    proxy: process.env.API_TARGET
+      ? {
+          '/api': {
+            target: process.env.API_TARGET,
+            changeOrigin: true,
+          },
+        }
+      : undefined,
+  },
   test: {
     environment: 'jsdom',
     globals: true,

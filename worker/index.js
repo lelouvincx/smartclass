@@ -6,6 +6,7 @@ import exercisesRoutes from './routes/exercises.js'
 import uploadRoutes from './routes/upload.js'
 import submissionsRoutes from './routes/submissions.js'
 import filesRoutes from './routes/files.js'
+import lecturesRoutes from './routes/lectures.js'
 import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from './lib/extract-models.js'
 
 const app = new Hono()
@@ -58,6 +59,7 @@ app.route('/api/exercises', exercisesRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/submissions', submissionsRoutes)
 app.route('/api/files', filesRoutes)
+app.route('/api/lectures', lecturesRoutes)
 
 app.onError((error, c) => {
   console.error('Unhandled worker error:', error)

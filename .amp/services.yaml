@@ -1,0 +1,21 @@
+services:
+  api:
+    command: >-
+      secret_file=.wrangler/orb-jwt-secret;
+      mkdir -p .wrangler;
+      if [ ! -s "$secret_file" ]; then openssl rand -hex 32 > "$secret_file"; fi;
+      npm run dev:api -- --ip 0.0.0.0 --port "$PORT"
+      --var "JWT_SECRET:$(cat "$secret_file")"
+      --var JWT_EXPIRES_IN:7d
+    port: 8787
+    health: /api/health
+  web:
+    command: npm run dev -- --host 0.0.0.0 --port "$PORT"
+    env:
+      API_TARGET: http://127.0.0.1:8787
+      VITE_API_BASE_URL: ""
+    health: /api/health
+    portal:
+      title: SmartClass
+      description: Local SmartClass app backed by the Orb's D1 and R2 emulators.
+    agent: control
