@@ -22,15 +22,21 @@ If your database name is different, replace `smartclass` with your D1 database n
 
 ## Seeds
 
-Bootstrap teacher account (idempotent):
+Bootstrap teacher, sample student accounts, and canonical exercises with answer schemas (idempotent):
 
 ```bash
 # Local
 npx wrangler d1 execute smartclass --local --file worker/db/seeds/0001_seed_teacher.sql
+npx wrangler d1 execute smartclass --local --file worker/db/seeds/0002_seed_students.sql
+npx wrangler d1 execute smartclass --local --file worker/db/seeds/0003_seed_exercises.sql
 
 # Remote
 npx wrangler d1 execute smartclass --remote --file worker/db/seeds/0001_seed_teacher.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/seeds/0002_seed_students.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/seeds/0003_seed_exercises.sql
 ```
+
+The exercise seed excludes `exercise_files` rows because their R2 objects are not available in a fresh local environment.
 
 Default teacher credentials:
 - Phone: `+84865481769`

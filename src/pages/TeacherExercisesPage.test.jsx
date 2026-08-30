@@ -63,7 +63,9 @@ describe('TeacherExercisesPage', () => {
 
     expect(await screen.findByText('Physics Quiz')).toBeInTheDocument()
     expect(screen.getByText('45 min')).toBeInTheDocument()
-    expect(screen.getByText('20')).toBeInTheDocument()
+    expect(screen.getByText('20 questions')).toBeInTheDocument()
+    expect(screen.getByTestId('responsive-exercise-list')).toHaveClass('grid')
+    expect(screen.getByText('Physics Quiz')).toHaveClass('min-w-0')
   })
 
   it('reloads list when refresh icon button is clicked', async () => {

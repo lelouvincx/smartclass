@@ -85,6 +85,8 @@ describe('TeacherStudentsPage', () => {
     expect(screen.getByText('+84987654321')).toBeInTheDocument()
     expect(screen.getAllByText('Active').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Pending').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByTestId('responsive-student-list')).toHaveClass('grid')
+    expect(screen.getByText('+84123456789')).toHaveClass('min-w-0')
   })
 
   it('renders create student form', async () => {

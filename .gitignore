@@ -6,7 +6,9 @@ dist/
 .envrc
 .DS_Store
 agent-sessions
-.amp/
+.amp/in/
+.amp/orb-auth-artifacts/
+.amp/portals/
 .playwright-cli
 backend.log
 frontend.log

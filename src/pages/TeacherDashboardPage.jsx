@@ -1,5 +1,5 @@
 import React from 'react'
-import { ClipboardList, Plus, Users } from 'lucide-react'
+import { BookOpen, ClipboardList, Plus, Users } from 'lucide-react'
 import { ActionCard } from '@/design-system/action-card'
 import { PageHeader } from '@/design-system/page-header'
 
@@ -29,6 +29,12 @@ export default function TeacherDashboardPage() {
           icon={Users}
           title="Manage Students"
           description="View students and their learning activity"
+        />
+        <ActionCard
+          to="/teacher/lectures"
+          icon={BookOpen}
+          title="Manage Lectures"
+          description="Organize YouTube lessons into class sections"
         />
       </section>
     </div>
