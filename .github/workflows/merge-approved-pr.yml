@@ -17,7 +17,7 @@ jobs:
       - name: Verify approval and merge pull request
         uses: actions/github-script@v8
         with:
-          github-token: ${{ github.token }}
+          github-token: ${{ secrets.LELOUVINCX_BOT_TOKEN }}
           script: |
             const run = context.payload.workflow_run;
 
