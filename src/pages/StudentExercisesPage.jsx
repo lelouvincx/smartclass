@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { ClipboardList, RefreshCw } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -10,8 +10,6 @@ import { PageHeader } from '@/design-system/page-header'
 import { cn } from '@/lib/utils'
 
 export default function StudentExercisesPage() {
-  const navigate = useNavigate()
-
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -51,6 +49,7 @@ export default function StudentExercisesPage() {
             <Button
               variant="outline"
               size="icon"
+              className="size-[48px]"
               onClick={loadExercises}
               disabled={isLoading}
               aria-label="Refresh exercises"
@@ -79,45 +78,70 @@ export default function StudentExercisesPage() {
         )}
 
         {!isLoading && !error && items.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-sm">
-              <thead className="bg-muted text-left text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Duration</th>
-                  <th className="px-4 py-3">Questions</th>
-                  <th className="px-4 py-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} className="border-t">
-                    <td className="px-4 py-3 font-medium">{item.title}</td>
-                    <td className="px-4 py-3">
-                      {item.is_timed ? (
-                        <span>
-                          <Badge variant="default" className="mr-2">Timed</Badge>
-                          {item.duration_minutes} min
-                        </span>
-                      ) : (
-                        <Badge variant="secondary">Untimed</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">{item.question_count}</td>
-                    <td className="px-4 py-3">
-                      <Button
-                        variant="link"
-                        size="sm"
-                        onClick={() => navigate(`/student/exercises/${item.id}`)}
-                      >
-                        Start
-                      </Button>
-                    </td>
+          <>
+            <div className="hidden sm:block">
+              <table className="min-w-full border-collapse text-sm">
+                <caption className="sr-only">Available exercises</caption>
+                <thead className="bg-muted text-left text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="px-4 py-3">Title</th>
+                    <th scope="col" className="px-4 py-3">Duration</th>
+                    <th scope="col" className="px-4 py-3">Questions</th>
+                    <th scope="col" className="px-4 py-3">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t">
+                      <th scope="row" className="px-4 py-3 text-left font-medium">{item.title}</th>
+                      <td className="px-4 py-3">
+                        {item.is_timed ? (
+                          <span>
+                            <Badge variant="default" className="mr-2">Timed</Badge>
+                            {item.duration_minutes} min
+                          </span>
+                        ) : (
+                          <Badge variant="secondary">Untimed</Badge>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">{item.question_count}</td>
+                      <td className="px-4 py-3">
+                        <Button asChild variant="link" size="sm">
+                          <Link to={`/student/exercises/${item.id}`} aria-label={`Start ${item.title}`}>
+                            Start
+                          </Link>
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <ul className="divide-y sm:hidden" aria-label="Available exercises compact view">
+              {items.map((item) => (
+                <li key={item.id} className="space-y-3 p-4">
+                  <p className="font-medium">{item.title}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    {item.is_timed ? (
+                      <>
+                        <Badge variant="default">Timed</Badge>
+                        <span>{item.duration_minutes} min</span>
+                      </>
+                    ) : (
+                      <Badge variant="secondary">Untimed</Badge>
+                    )}
+                    <span className="text-muted-foreground">{item.question_count} questions</span>
+                  </div>
+                  <Button asChild size="sm" className="min-h-[48px] w-full">
+                    <Link to={`/student/exercises/${item.id}`} aria-label={`Start ${item.title}`}>
+                      Start
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Card>
     </div>

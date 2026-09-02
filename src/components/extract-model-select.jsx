@@ -27,7 +27,6 @@ const DEFAULT_SENTINEL = '__default__'
  */
 export default function ExtractModelSelect({ value, onChange, disabled = false, labelHint }) {
   const [models, setModels] = useState([])
-  const [defaultId, setDefaultId] = useState(null)
   const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
@@ -36,11 +35,10 @@ export default function ExtractModelSelect({ value, onChange, disabled = false, 
       .then((res) => {
         if (cancelled) return
         setModels(res.data?.models || [])
-        setDefaultId(res.data?.default || null)
       })
       .catch((err) => {
         if (cancelled) return
-        setLoadError(err.message || 'Failed to load models')
+        setLoadError('Couldn’t load model choices')
       })
     return () => {
       cancelled = true
@@ -65,7 +63,7 @@ export default function ExtractModelSelect({ value, onChange, disabled = false, 
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={DEFAULT_SENTINEL}>
-            Use server default{defaultId ? ` (${defaultId})` : ''}
+            Recommended (default)
           </SelectItem>
           {models.map((m) => (
             <SelectItem key={m.id} value={m.id}>

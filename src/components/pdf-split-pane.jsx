@@ -1,9 +1,22 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
 const STORAGE_KEY = 'smartclass-take-pdf-visible'
+const MOBILE_QUERY = '(max-width: 1023px)'
+
+function getInitialVisibility() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored !== null) return stored !== 'false'
+    return typeof window.matchMedia === 'function'
+      ? !window.matchMedia(MOBILE_QUERY).matches
+      : true
+  } catch {
+    return true
+  }
+}
 
 /**
  * PdfSplitPane — wraps content alongside an inline PDF viewer.
@@ -15,17 +28,23 @@ const STORAGE_KEY = 'smartclass-take-pdf-visible'
  * Desktop (lg+): 50/50 grid, PDF on left, children on right.
  * Mobile (<lg):  PDF in a collapsible section above children.
  * When PDF is hidden, children pane fills the full width.
- * Toggle state persisted to localStorage (key: smartclass-take-pdf-visible, default: visible).
+ * Explicit toggle state is persisted. Without a preference, it defaults hidden on mobile and visible on desktop.
  */
 export function PdfSplitPane({ fileUrl, children }) {
-  const [pdfVisible, setPdfVisible] = useState(() => {
+  const [pdfVisible, setPdfVisible] = useState(getInitialVisibility)
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      return stored === null ? true : stored !== 'false'
+      if (localStorage.getItem(STORAGE_KEY) !== null) return
     } catch {
-      return true
+      return
     }
-  })
+    const media = window.matchMedia(MOBILE_QUERY)
+    const handleChange = (event) => setPdfVisible(!event.matches)
+    media.addEventListener?.('change', handleChange)
+    return () => media.removeEventListener?.('change', handleChange)
+  }, [])
 
   function togglePdfVisible() {
     const next = !pdfVisible
@@ -69,7 +88,7 @@ export function PdfSplitPane({ fileUrl, children }) {
         {/* PDF pane */}
         {!collapsed && (
           <div data-testid="pdf-pane" className="mb-4 lg:mb-0 lg:min-w-0">
-            <div className="sticky top-20 h-[calc(100vh-7rem)] overflow-hidden rounded-lg border bg-muted">
+            <div className="h-[50vh] max-h-[50vh] overflow-hidden rounded-lg border bg-muted lg:sticky lg:top-20 lg:h-[calc(100vh-7rem)] lg:max-h-none">
               <iframe
                 src={fileUrl}
                 title="Exercise PDF"

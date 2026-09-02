@@ -45,7 +45,7 @@ describe('TeacherExercisesPage', () => {
     expect(await screen.findByRole('heading', { name: 'No exercises yet.' })).toBeInTheDocument()
   })
 
-  it('renders exercise rows', async () => {
+  it('renders accessible desktop table and compact mobile list', async () => {
     listExercisesMock.mockResolvedValue({
       data: [
         {
@@ -61,11 +61,22 @@ describe('TeacherExercisesPage', () => {
 
     renderPage()
 
-    expect(await screen.findByText('Physics Quiz')).toBeInTheDocument()
-    expect(screen.getByText('45 min')).toBeInTheDocument()
-    expect(screen.getByText('20 questions')).toBeInTheDocument()
-    expect(screen.getByTestId('responsive-exercise-list')).toHaveClass('grid')
-    expect(screen.getByText('Physics Quiz')).toHaveClass('min-w-0')
+    expect(await screen.findByRole('table', { name: 'Teacher exercise library' })).toBeInTheDocument()
+    expect(screen.getAllByText('Physics Quiz')).toHaveLength(2)
+    expect(screen.getAllByText('45 min')).toHaveLength(2)
+    expect(screen.getAllByText('20')).toHaveLength(2)
+    expect(screen.getAllByRole('link', { name: /view physics quiz/i })).toHaveLength(2)
+    expect(screen.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('scope', 'col')
+    expect(screen.queryByText('2026-03-11 19:00:00')).not.toBeInTheDocument()
+  })
+
+  it('shows zero duration as Untimed', async () => {
+    listExercisesMock.mockResolvedValue({ data: [{
+      id: 2, title: 'Untimed Quiz', duration_minutes: 0, question_count: 1,
+      file_count: 0, updated_at: '2026-03-11 19:00:00',
+    }] })
+    renderPage()
+    expect(await screen.findAllByText('Untimed')).toHaveLength(2)
   })
 
   it('reloads list when refresh icon button is clicked', async () => {
@@ -103,7 +114,7 @@ describe('TeacherExercisesPage', () => {
     expect(screen.getByLabelText('Last refreshed time').textContent).toMatch(/Updated \d{1,2}:\d{2}:\d{2}/)
   })
 
-  it('navigates to exercise detail when a row is clicked', async () => {
+  it('navigates to exercise detail through a semantic link', async () => {
     const user = userEvent.setup()
     listExercisesMock.mockResolvedValue({
       data: [
@@ -120,8 +131,8 @@ describe('TeacherExercisesPage', () => {
 
     renderPage()
 
-    await screen.findByText('Chemistry Quiz')
-    await user.click(screen.getByText('Chemistry Quiz'))
+    const links = await screen.findAllByRole('link', { name: /view chemistry quiz/i })
+    await user.click(links[0])
 
     expect(await screen.findByText('Exercise detail')).toBeInTheDocument()
   })

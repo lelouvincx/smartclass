@@ -34,10 +34,12 @@ export function QuestionNavGrid({ schema, answers, currentQId, onJump }) {
   const qIds = [...new Set(schema.map((r) => r.q_id))]
   return (
     <div>
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="mb-2 text-sm font-semibold text-foreground">
         Answer Sheet
       </p>
-      <div className="grid grid-cols-5 gap-1">
+      <div className="grid grid-cols-5 gap-2">
+        <span id="question-answered-status" className="sr-only">Answered</span>
+        <span id="question-unanswered-status" className="sr-only">Unanswered</span>
         {qIds.map((qId, idx) => {
           const { answered, text } = getCellContent(qId, schema, answers, idx + 1)
           const isCurrent = qId === currentQId
@@ -46,10 +48,12 @@ export function QuestionNavGrid({ schema, answers, currentQId, onJump }) {
               key={qId}
               type="button"
               aria-label={`Jump to question ${idx + 1}`}
+              aria-describedby={answered ? 'question-answered-status' : 'question-unanswered-status'}
+              aria-current={isCurrent ? 'step' : undefined}
               onClick={() => onJump(qId)}
               className={cn(
-                'flex h-9 w-full items-center justify-center rounded text-xs font-medium transition-colors',
-                isCurrent && 'ring-2 ring-primary',
+                'flex min-h-[var(--sc-component-question-target)] w-full items-center justify-center rounded-[var(--sc-shape-md)] text-sm font-medium transition-[color,background-color,border-color,box-shadow] duration-[var(--sc-motion-duration-short)]',
+                isCurrent && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
                 answered
                   ? 'bg-primary/15 text-primary'
                   : 'border border-muted-foreground/30 text-muted-foreground hover:bg-muted',

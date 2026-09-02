@@ -78,7 +78,7 @@ export default function FileDropzone({
           type="button"
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0"
+          className="size-[48px] shrink-0"
           onClick={handleClear}
           disabled={disabled}
           aria-label="Remove file"

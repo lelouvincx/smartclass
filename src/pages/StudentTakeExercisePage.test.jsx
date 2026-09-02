@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import StudentTakeExercisePage from './StudentTakeExercisePage'
+import { setSubmissionPointer, submissionDraftKey } from '../lib/submission-draft'
 
 // --- Mocks ---
 
@@ -11,6 +12,7 @@ const getExerciseMock = vi.fn()
 const createSubmissionMock = vi.fn()
 const getSubmissionMock = vi.fn()
 const submitAnswersMock = vi.fn()
+let delayedExtraction
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
@@ -26,6 +28,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({
     token: 'test-token',
+    user: { id: 7 },
   }),
 }))
 
@@ -41,24 +44,26 @@ vi.mock('sonner', () => ({ toast: toastMock }))
 // + merge. Stub it with a button that triggers a known extraction payload.
 vi.mock('@/components/answer-image-upload', () => ({
   __esModule: true,
-  default: ({ onExtracted }) => (
-    <button
-      type="button"
-      data-testid="stub-extract-fire"
-      onClick={() =>
-        onExtracted({
-          extracted: [
-            { q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 },
-            { q_id: 2, sub_id: null, answer: 'C', confidence: 0.4 },
-          ],
-          warnings: [],
-          model_used: 'x-ai/grok-4.1-fast',
-        })
-      }
-    >
-      stub extract
-    </button>
-  ),
+  default: ({ onExtracted }) => {
+    const payload = {
+      extracted: [
+        { q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 },
+        { q_id: 2, sub_id: null, answer: 'C', confidence: 0.4 },
+      ],
+      warnings: [],
+      model_used: 'x-ai/grok-4.1-fast',
+    }
+    return (
+      <>
+        <button type="button" data-testid="stub-extract-fire" onClick={() => onExtracted(payload)}>
+          stub extract
+        </button>
+        <button type="button" onClick={() => { delayedExtraction = () => onExtracted(payload) }}>
+          start delayed extraction
+        </button>
+      </>
+    )
+  },
 }))
 
 // --- Fixtures ---
@@ -102,7 +107,7 @@ const SUBMISSION = {
 // --- Render helper ---
 
 function renderPage(exerciseId = '1') {
-  sessionStorage.setItem(`submission_${exerciseId}`, '10')
+  setSubmissionPointer(7, exerciseId, '10')
   return render(
     <MemoryRouter initialEntries={[`/student/exercises/${exerciseId}/take`]}>
       <Routes>
@@ -123,6 +128,7 @@ describe('StudentTakeExercisePage', () => {
     createSubmissionMock.mockReset()
     getSubmissionMock.mockReset()
     submitAnswersMock.mockReset()
+    delayedExtraction = null
     sessionStorage.clear()
     localStorage.clear()
   })
@@ -398,6 +404,24 @@ describe('StudentTakeExercisePage', () => {
     expect(optionB).toHaveAttribute('aria-pressed', 'true')
   })
 
+  it('restores answers after leaving and refreshing the same in-progress attempt', async () => {
+    sessionStorage.setItem(submissionDraftKey(7, 10), JSON.stringify({
+      version: 1,
+      accountId: '7',
+      submissionId: '10',
+      answers: { 1: 'B', 999: 'A' },
+      extractedConfidence: { '1:': 0.9, '999:': 1 },
+    }))
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    expect(screen.getByLabelText('Question 1 option B')).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Question 999 option A')).not.toBeInTheDocument()
+  })
+
   it('allows selecting a boolean sub-question option', async () => {
     const user = userEvent.setup()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MIXED })
@@ -542,7 +566,47 @@ describe('StudentTakeExercisePage', () => {
     await user.click(screen.getByRole('button', { name: /^Submit$/i }))
     await user.click(screen.getByRole('button', { name: /yes, submit/i }))
 
-    expect(await screen.findByText(/submission already exists/i)).toBeInTheDocument()
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(/submission already exists/i)
+    const submit = screen.getByRole('button', { name: /^Submit$/i })
+    expect(alert.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('recovers when submission succeeds but the submit response is lost', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock
+      .mockResolvedValueOnce({ data: SUBMISSION })
+      .mockResolvedValueOnce({ data: { ...SUBMISSION, submitted_at: '2026-03-15 10:05:00' } })
+    submitAnswersMock.mockRejectedValue(new Error('Connection lost'))
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+
+    expect(await screen.findByText('Summary page')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('keeps the timer running after a rejected submit and clears the error on retry', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval', 'Date'] })
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    const startedAt = new Date().toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION, started_at: startedAt } })
+    submitAnswersMock.mockRejectedValueOnce(new Error('Try again')).mockImplementation(() => new Promise(() => {}))
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    await user.click(screen.getByRole('button', { name: /yes, submit/i }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Try again')
+
+    act(() => vi.advanceTimersByTime(2000))
+    expect(screen.getByLabelText('Timer')).toHaveTextContent('29:58')
+    await user.click(screen.getByRole('button', { name: /^Submit$/i }))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    vi.useRealTimers()
   })
 
 
@@ -612,7 +676,7 @@ describe('StudentTakeExercisePage', () => {
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText(/leave this exercise/i)).toBeInTheDocument()
-    expect(screen.getByText(/your answers will be lost/i)).toBeInTheDocument()
+    expect(screen.getByText(/answers remain saved for this browser session/i)).toBeInTheDocument()
   })
 
   it('navigates away when user confirms leave', async () => {
@@ -742,6 +806,45 @@ describe('StudentTakeExercisePage', () => {
       // Navigate to Q2 — its low-confidence dot is still there
       await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
       expect(screen.getByLabelText(/low confidence/i)).toBeInTheDocument()
+    })
+
+    it('fills blanks without replacing manual answers and reports both counts', async () => {
+      const user = userEvent.setup()
+      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+      renderPage()
+      await screen.findByText('Algebra Quiz')
+      await user.click(screen.getByLabelText('Question 1 option A'))
+      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
+      await user.click(screen.getByTestId('stub-extract-fire'))
+
+      expect(screen.getByLabelText('Question 1 option A')).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.queryByLabelText(/high confidence/i)).not.toBeInTheDocument()
+      await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
+      expect(screen.getByLabelText('Question 2 option C')).toHaveAttribute('aria-pressed', 'true')
+      expect(toastMock.success).toHaveBeenCalledWith(
+        expect.stringMatching(/Filled 1 answer; kept 1 existing/),
+        expect.any(Object),
+      )
+    })
+
+    it('keeps an answer entered while photo extraction is running', async () => {
+      const user = userEvent.setup()
+      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+      renderPage()
+      await screen.findByText('Algebra Quiz')
+      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
+      await user.click(screen.getByRole('button', { name: /start delayed extraction/i }))
+      await user.click(screen.getByLabelText('Question 1 option A'))
+
+      act(() => delayedExtraction())
+
+      expect(screen.getByLabelText('Question 1 option A')).toHaveAttribute('aria-pressed', 'true')
+      expect(toastMock.success).toHaveBeenCalledWith(
+        expect.stringMatching(/Filled 1 answer; kept 1 existing/),
+        expect.any(Object),
+      )
     })
   })
 })

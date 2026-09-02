@@ -23,6 +23,7 @@ export default function TeacherDashboardPage() {
           icon={Plus}
           title="Create Exercise"
           description="Prepare a new exercise for your students"
+          emphasis
         />
         <ActionCard
           to="/teacher/students"

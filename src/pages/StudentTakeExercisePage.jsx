@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, Clock, Eye, EyeOff, ImageIcon, Pencil } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Eye, EyeOff, ImageIcon, Pencil, X } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
@@ -19,6 +19,12 @@ import {
 import { PdfSplitPane } from '@/components/pdf-split-pane'
 import AnswerImageUpload from '@/components/answer-image-upload'
 import { QuestionNavGrid, countUnanswered } from '@/components/question-nav-grid'
+import {
+  clearSubmissionState,
+  getSubmissionPointer,
+  loadSubmissionDraft,
+  saveSubmissionDraft,
+} from '@/lib/submission-draft'
 
 // Build a stable key for an answer cell (matches the worker's (q_id, sub_id) pair).
 function cellKey(qId, subId) {
@@ -107,6 +113,7 @@ function McqInput({ qId, value, onChange, submitted, confidence }) {
             key={opt}
             type="button"
             size="sm"
+            className="min-h-[48px] min-w-[48px]"
             variant={value === opt ? 'default' : 'outline'}
             disabled={submitted}
             onClick={() => !submitted && onChange(opt)}
@@ -118,14 +125,16 @@ function McqInput({ qId, value, onChange, submitted, confidence }) {
         ))}
       </ButtonGroup>
       {value && !submitted && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           aria-label={`Clear answer for question ${qId}`}
           onClick={() => onChange('')}
-          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="text-muted-foreground"
         >
-          ×
-        </button>
+          <X aria-hidden="true" />
+        </Button>
       )}
       <ConfidenceDot confidence={confidence} />
     </div>
@@ -144,24 +153,24 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, s
               <Button
                 type="button"
                 size="sm"
+                className={val === '1' ? 'min-h-[48px] bg-success text-white hover:bg-success/90' : 'min-h-[48px]'}
                 variant={val === '1' ? 'default' : 'outline'}
                 disabled={submitted}
                 onClick={() => !submitted && onSubChange(sub_id, '1')}
                 aria-pressed={val === '1'}
                 aria-label={`Question ${qId} sub ${sub_id} True`}
-                className={val === '1' ? 'bg-success text-white hover:bg-success/90' : ''}
               >
                 True
               </Button>
               <Button
                 type="button"
                 size="sm"
+                className={val === '0' ? 'min-h-[48px] bg-destructive text-white hover:bg-destructive/90' : 'min-h-[48px]'}
                 variant={val === '0' ? 'default' : 'outline'}
                 disabled={submitted}
                 onClick={() => !submitted && onSubChange(sub_id, '0')}
                 aria-pressed={val === '0'}
                 aria-label={`Question ${qId} sub ${sub_id} False`}
-                className={val === '0' ? 'bg-destructive text-white hover:bg-destructive/90' : ''}
               >
                 False
               </Button>
@@ -184,7 +193,7 @@ function NumericInput({ qId, value, onChange, submitted, confidence }) {
         disabled={submitted}
         placeholder="Enter a number"
         aria-label={`Question ${qId} numeric answer`}
-        className="w-40 rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-hidden disabled:bg-muted disabled:text-muted-foreground"
+        className="min-h-[48px] w-40 rounded-[var(--sc-component-control-shape)] border border-input bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:bg-muted disabled:text-muted-foreground"
       />
       <ConfidenceDot confidence={confidence} />
     </div>
@@ -195,7 +204,8 @@ function NumericInput({ qId, value, onChange, submitted, confidence }) {
 
 export default function StudentTakeExercisePage() {
   const { id } = useParams()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const accountId = user.id
   const navigate = useNavigate()
 
   const [isLoading, setIsLoading] = useState(true)
@@ -204,6 +214,7 @@ export default function StudentTakeExercisePage() {
   const [exercise, setExercise] = useState(null)
   const [questionGroups, setQuestionGroups] = useState([])
   const [answers, setAnswers] = useState({})
+  const answersRef = useRef(answers)
   const [submission, setSubmission] = useState(null)
 
   const [secondsLeft, setSecondsLeft] = useState(null)
@@ -238,6 +249,11 @@ export default function StudentTakeExercisePage() {
   //   extractedConfidence   — { [cellKey]: number } — auto-filled cells; cleared on manual edit
   const [inputMode, setInputMode] = useState('manual')
   const [extractedConfidence, setExtractedConfidence] = useState({})
+  const [draftReady, setDraftReady] = useState(false)
+
+  useEffect(() => {
+    answersRef.current = answers
+  }, [answers])
 
   // --- Init ---
   useEffect(() => {
@@ -267,18 +283,21 @@ export default function StudentTakeExercisePage() {
         }
         setAnswers(initial)
 
-        const storageKey = `submission_${id}`
         let sub = null
 
-        const savedSubId = sessionStorage.getItem(storageKey)
+        const savedSubId = getSubmissionPointer(accountId, id)
         if (savedSubId) {
           try {
             const existingRes = await getSubmission(token, savedSubId)
             if (existingRes.data && !existingRes.data.submitted_at) {
               sub = existingRes.data
+            } else {
+              clearSubmissionState(accountId, id, savedSubId)
             }
-          } catch {
-            // not found or inaccessible
+          } catch (submissionError) {
+            if ([403, 404].includes(submissionError.status)) {
+              clearSubmissionState(accountId, id, savedSubId)
+            }
           }
         }
 
@@ -288,6 +307,26 @@ export default function StudentTakeExercisePage() {
         }
 
         setSubmission(sub)
+        const draft = loadSubmissionDraft({
+          accountId,
+          submissionId: sub.id,
+          schema: ex.schema,
+        })
+        if (draft) {
+          setAnswers((current) => {
+            const restored = { ...current }
+            for (const group of groups) {
+              if (group.type === 'boolean') {
+                restored[group.q_id] = { ...current[group.q_id], ...draft.answers[group.q_id] }
+              } else if (draft.answers[group.q_id] !== undefined) {
+                restored[group.q_id] = draft.answers[group.q_id]
+              }
+            }
+            return restored
+          })
+          setExtractedConfidence(draft.extractedConfidence)
+        }
+        setDraftReady(true)
 
         if (ex.is_timed && ex.duration_minutes > 0) {
           const startedAt = new Date(sub.started_at + 'Z')
@@ -308,7 +347,17 @@ export default function StudentTakeExercisePage() {
     }
 
     init()
-  }, [id, token])
+  }, [accountId, id, navigate, token])
+
+  useEffect(() => {
+    if (!draftReady || !submission) return
+    saveSubmissionDraft({
+      accountId,
+      submissionId: submission.id,
+      answers,
+      extractedConfidence,
+    })
+  }, [accountId, answers, draftReady, extractedConfidence, submission])
 
   // --- beforeunload + popstate guard ---
   useEffect(() => {
@@ -403,40 +452,51 @@ export default function StudentTakeExercisePage() {
         return
       }
 
-      setAnswers((prev) => {
-        const next = { ...prev }
-        for (const row of extracted) {
-          if (row.answer === null || row.answer === undefined) continue
-          if (row.sub_id) {
-            next[row.q_id] = { ...(next[row.q_id] || {}), [row.sub_id]: row.answer }
-          } else {
-            next[row.q_id] = row.answer
-          }
+      const schemaByCell = new Map(
+        questionGroups.flatMap((group) => group.type === 'boolean'
+          ? group.subRows.map((row) => [cellKey(group.q_id, row.sub_id), row.type])
+          : [[cellKey(group.q_id, null), group.type]]),
+      )
+      const nextAnswers = { ...answersRef.current }
+      const newlyFilled = []
+      let kept = 0
+      for (const row of extracted) {
+        if (row.answer === null || row.answer === undefined) continue
+        const key = cellKey(row.q_id, row.sub_id)
+        const type = schemaByCell.get(key)
+        if (!['mcq', 'numeric', 'boolean'].includes(type)) continue
+        const existing = row.sub_id
+          ? nextAnswers[row.q_id]?.[row.sub_id]
+          : nextAnswers[row.q_id]
+        if (existing !== '' && existing !== undefined && existing !== null) {
+          kept++
+          continue
         }
-        return next
-      })
-
+        if (row.sub_id) {
+          nextAnswers[row.q_id] = { ...(nextAnswers[row.q_id] || {}), [row.sub_id]: row.answer }
+        } else {
+          nextAnswers[row.q_id] = row.answer
+        }
+        newlyFilled.push(row)
+      }
+      answersRef.current = nextAnswers
+      setAnswers(nextAnswers)
       setExtractedConfidence((prev) => {
         const next = { ...prev }
-        for (const row of extracted) {
-          if (row.answer === null || row.answer === undefined) continue
-          next[cellKey(row.q_id, row.sub_id)] = Number(row.confidence) || 0
-        }
+        for (const row of newlyFilled) next[cellKey(row.q_id, row.sub_id)] = Number(row.confidence) || 0
         return next
       })
 
-      const filled = extracted.filter((r) => r.answer !== null && r.answer !== undefined).length
-      const lowConf = extracted.filter(
-        (r) => (r.answer !== null && r.answer !== undefined) && Number(r.confidence) < 0.5,
-      ).length
+      const filled = newlyFilled.length
+      const lowConf = newlyFilled.filter((r) => Number(r.confidence) < 0.5).length
       const wMsg = warnings && warnings.length > 0 ? ` · ${warnings.length} warning${warnings.length > 1 ? 's' : ''}` : ''
       const lowMsg = lowConf > 0 ? ` · ${lowConf} low-confidence` : ''
       toast.success(
-        `Pre-filled ${filled} answer${filled === 1 ? '' : 's'}${lowMsg}${wMsg}. Please review.`,
+        `Filled ${filled} answer${filled === 1 ? '' : 's'}; kept ${kept} existing${lowMsg}${wMsg}. Please review.`,
         { duration: 6000 },
       )
     },
-    [],
+    [questionGroups],
   )
 
   // Per-question confidence lookup for boolean sub-rows.
@@ -460,6 +520,7 @@ export default function StudentTakeExercisePage() {
 
   // --- Submit flow ---
   function handleSubmitClick() {
+    setSubmitError('')
     setShowConfirm(true)
   }
 
@@ -473,8 +534,6 @@ export default function StudentTakeExercisePage() {
     setSubmitError('')
 
     try {
-      clearInterval(timerRef.current)
-
       const answersPayload = []
       for (const group of questionGroups) {
         if (group.type === 'boolean') {
@@ -497,9 +556,21 @@ export default function StudentTakeExercisePage() {
       }
 
       await submitAnswers(token, submission.id, answersPayload)
-      sessionStorage.removeItem(`submission_${id}`)
+      clearInterval(timerRef.current)
+      clearSubmissionState(accountId, id, submission.id)
       navigate(`/student/submissions/${submission.id}/summary`)
     } catch (err) {
+      try {
+        const latest = await getSubmission(token, submission.id)
+        if (latest.data?.submitted_at) {
+          clearInterval(timerRef.current)
+          clearSubmissionState(accountId, id, submission.id)
+          navigate(`/student/submissions/${submission.id}/summary`)
+          return
+        }
+      } catch {
+        // Keep the local draft and original failure so the student can retry.
+      }
       setSubmitError(err.message)
     } finally {
       setIsSubmitting(false)
@@ -604,7 +675,6 @@ export default function StudentTakeExercisePage() {
             <div className="flex items-center justify-between">
               <div
                 className={`flex items-center gap-2 ${timerColor}`}
-                aria-live="polite"
                 aria-label="Timer"
               >
                 <Clock className="h-4 w-4" />
@@ -621,7 +691,7 @@ export default function StudentTakeExercisePage() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground"
+                className="text-muted-foreground"
                 onClick={toggleTimerHidden}
                 aria-label={timerHidden ? 'Show timer' : 'Hide timer'}
                 title={timerHidden ? 'Show timer' : 'Hide timer'}
@@ -644,6 +714,11 @@ export default function StudentTakeExercisePage() {
 
         {/* Actions */}
         <div className="flex flex-col gap-2">
+          {submitError && (
+            <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              {submitError}
+            </p>
+          )}
           <Button
             onClick={handleSubmitClick}
             disabled={isSubmitting}
@@ -713,6 +788,7 @@ export default function StudentTakeExercisePage() {
                   <Button
                     type="button"
                     size="sm"
+                    className="min-h-[48px]"
                     variant={inputMode === 'manual' ? 'default' : 'outline'}
                     onClick={() => setInputMode('manual')}
                     aria-pressed={inputMode === 'manual'}
@@ -723,6 +799,7 @@ export default function StudentTakeExercisePage() {
                   <Button
                     type="button"
                     size="sm"
+                    className="min-h-[48px]"
                     variant={inputMode === 'photo' ? 'default' : 'outline'}
                     onClick={() => setInputMode('photo')}
                     aria-pressed={inputMode === 'photo'}
@@ -759,11 +836,11 @@ export default function StudentTakeExercisePage() {
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
                       onClick={() => handleJump(questionGroups[idx - 1].q_id)}
                       disabled={idx === 0}
                     >
-                      ← Previous
+                      <ArrowLeft aria-hidden="true" />
+                      Previous
                     </Button>
                     <span className="text-xs text-muted-foreground">
                       Question {idx + 1} of {questionGroups.length}
@@ -771,11 +848,11 @@ export default function StudentTakeExercisePage() {
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
                       onClick={() => handleJump(questionGroups[idx + 1].q_id)}
                       disabled={idx === questionGroups.length - 1}
                     >
-                      Next →
+                      Next
+                      <ArrowRight aria-hidden="true" />
                     </Button>
                   </div>
                 </CardContent>
@@ -783,9 +860,6 @@ export default function StudentTakeExercisePage() {
             )
           })()}
 
-          {submitError && (
-            <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">{submitError}</p>
-          )}
         </div>
       </PdfSplitPane>
 
@@ -795,7 +869,7 @@ export default function StudentTakeExercisePage() {
           <DialogHeader>
             <DialogTitle>Leave this exercise?</DialogTitle>
             <DialogDescription>
-              Your answers will be lost if you leave now.
+              Your answers remain saved for this browser session, so you can resume later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

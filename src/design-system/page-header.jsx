@@ -10,7 +10,9 @@ export function PageHeader({ title, description, actions, className }) {
       )}
     >
       <div className="min-w-0 space-y-1.5">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">{title}</h1>
+        <h1 className="text-[length:var(--sc-type-headline-size)] leading-[var(--sc-type-headline-line-height)] font-[var(--sc-type-headline-weight)] tracking-[-0.03em] text-foreground text-balance">
+          {title}
+        </h1>
         {description && (
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{description}</p>
         )}

@@ -7,7 +7,6 @@ import StudentExercisesPage from './StudentExercisesPage'
 
 const listExercisesMock = vi.fn()
 const logoutMock = vi.fn()
-const navigateMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
@@ -23,19 +22,10 @@ vi.mock('../lib/auth-context', () => ({
   }),
 }))
 
-vi.mock('react-router-dom', async (importOriginal) => {
-  const actual = await importOriginal()
-  return {
-    ...actual,
-    useNavigate: () => navigateMock,
-  }
-})
-
 describe('StudentExercisesPage', () => {
   beforeEach(() => {
     listExercisesMock.mockReset()
     logoutMock.mockReset()
-    navigateMock.mockReset()
   })
 
   it('renders empty state with encouraging message when there are no exercises', async () => {
@@ -51,7 +41,7 @@ describe('StudentExercisesPage', () => {
     expect(screen.getByText(/check back soon/i)).toBeInTheDocument()
   })
 
-  it('renders exercise list in table with metadata', async () => {
+  it('renders an accessible table and compact mobile list with metadata', async () => {
     listExercisesMock.mockResolvedValue({
       data: [
         {
@@ -71,9 +61,13 @@ describe('StudentExercisesPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText('Algebra Quiz')).toBeInTheDocument()
-    expect(screen.getByText('30 min')).toBeInTheDocument()
+    expect(await screen.findByRole('table', { name: 'Available exercises' })).toBeInTheDocument()
+    expect(screen.getAllByText('Algebra Quiz')).toHaveLength(2)
+    expect(screen.getAllByText('30 min')).toHaveLength(2)
     expect(screen.getByText('15')).toBeInTheDocument()
+    expect(screen.getByText('15 questions')).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /start algebra quiz/i })).toHaveLength(2)
+    expect(screen.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('scope', 'col')
   })
 
   it('shows timed badge for timed exercises and untimed for untimed exercises', async () => {
@@ -90,17 +84,16 @@ describe('StudentExercisesPage', () => {
       </MemoryRouter>,
     )
 
-    await screen.findByText('Timed Quiz')
-    
+    expect(await screen.findAllByText('Timed Quiz')).toHaveLength(2)
+
     const timedBadges = screen.getAllByText('Timed')
-    expect(timedBadges).toHaveLength(1)
-    
+    expect(timedBadges).toHaveLength(2)
+
     const untimedBadges = screen.getAllByText('Untimed')
-    expect(untimedBadges).toHaveLength(1)
+    expect(untimedBadges).toHaveLength(2)
   })
 
-  it('navigates to exercise page when start button clicked', async () => {
-    const user = userEvent.setup()
+  it('links to the exercise page from each Start action', async () => {
     listExercisesMock.mockResolvedValue({
       data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1 }],
     })
@@ -111,9 +104,9 @@ describe('StudentExercisesPage', () => {
       </MemoryRouter>,
     )
 
-    await user.click(await screen.findByRole('button', { name: /start/i }))
-
-    expect(navigateMock).toHaveBeenCalledWith('/student/exercises/42')
+    const startLinks = await screen.findAllByRole('link', { name: /start quiz/i })
+    expect(startLinks).toHaveLength(2)
+    expect(startLinks[0]).toHaveAttribute('href', '/student/exercises/42')
   })
 
   it('displays error message when API fails', async () => {

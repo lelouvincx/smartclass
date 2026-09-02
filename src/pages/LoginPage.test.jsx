@@ -26,6 +26,26 @@ describe('LoginPage', () => {
     loginMock.mockReset()
   })
 
+  it('exposes labelled, autofill-ready fields with persistent phone guidance', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    const phone = screen.getByLabelText('Phone')
+    const password = screen.getByLabelText('Password')
+
+    expect(phone).toHaveAttribute('type', 'tel')
+    expect(phone).toHaveAttribute('inputmode', 'tel')
+    expect(phone).toHaveAttribute('autocomplete', 'username')
+    expect(phone).toHaveAttribute('aria-describedby', 'login-phone-help')
+    expect(phone).toBeRequired()
+    expect(password).toHaveAttribute('autocomplete', 'current-password')
+    expect(password).toBeRequired()
+    expect(screen.getByText('Use 0xxxxxxxxx or +84xxxxxxxxx format.')).toBeVisible()
+  })
+
   it('validates phone format before calling API', async () => {
     const user = userEvent.setup()
 
@@ -39,7 +59,13 @@ describe('LoginPage', () => {
     await user.type(screen.getByLabelText('Password'), '123')
     await user.click(screen.getByRole('button', { name: 'Sign In' }))
 
-    expect(screen.getByText('Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')).toBeInTheDocument()
+    const error = screen.getByRole('alert')
+    expect(error).toHaveTextContent('Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')
+    expect(screen.getByLabelText('Phone')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByLabelText('Phone')).toHaveAttribute(
+      'aria-describedby',
+      'login-phone-help login-error',
+    )
     expect(loginMock).not.toHaveBeenCalled()
   })
 

@@ -23,6 +23,12 @@ import FileDropzone from '@/components/file-dropzone'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
+const TYPE_LABELS = { mcq: 'Multiple choice', boolean: 'True/False', numeric: 'Number' }
+const FILE_TYPE_LABELS = {
+  exercise_pdf: 'Exercise PDF',
+  solution_pdf: 'Solution PDF',
+  reference_image: 'Reference image',
+}
 
 // ── Schema helpers ─────────────────────────────────────────────────────────────
 
@@ -55,26 +61,26 @@ function validateRows(rows) {
     const qid = Number.parseInt(String(row.q_id), 10)
 
     if (!row.q_id || Number.isNaN(qid) || qid <= 0) {
-      errors.push('q_id must be a positive integer')
+      errors.push('Question number must be a positive integer')
     }
 
     if (row.type === 'boolean') {
       if (!row.sub_id || !BOOLEAN_SUB_IDS.includes(row.sub_id)) {
-        errors.push('boolean sub_id must be a, b, c, or d')
+        errors.push('True/False parts must be a, b, c, or d')
       } else if (!['0', '1'].includes(row.correct_answer)) {
         errors.push('select True (1) or False (0)')
       }
     } else {
       if ((qidCounts.get(String(row.q_id)) || 0) > 1) {
-        errors.push('q_id must be unique')
+        errors.push('Question number must be unique')
       }
       const answer = normalizeAnswer(row.type, row.correct_answer)
       if (!answer) {
-        errors.push('correct_answer is required')
+        errors.push('Correct answer is required')
       } else if (row.type === 'mcq' && !['A', 'B', 'C', 'D'].includes(answer)) {
-        errors.push('MCQ answer must be A, B, C, or D')
+        errors.push('Multiple choice answer must be A, B, C, or D')
       } else if (row.type === 'numeric' && Number.isNaN(Number(answer))) {
-        errors.push('Numeric answer must be a valid number')
+        errors.push('Number answer must be a valid number')
       }
     }
 
@@ -156,10 +162,10 @@ function ViewSchemaTable({ schema }) {
       <table className="min-w-full border-collapse text-sm">
         <thead>
           <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            <th className="px-4 py-2">Q#</th>
+            <th className="px-4 py-2">Question number</th>
             <th className="px-4 py-2">Sub</th>
             <th className="px-4 py-2">Type</th>
-            <th className="px-4 py-2">Correct Answer</th>
+            <th className="px-4 py-2">Correct answer</th>
           </tr>
         </thead>
         <tbody>
@@ -169,7 +175,7 @@ function ViewSchemaTable({ schema }) {
                 <tr key={`${g.q_id}-${sub.sub_id}`} className="border-t">
                   <td className="px-4 py-2 text-muted-foreground">{i === 0 ? g.q_id : ''}</td>
                   <td className="px-4 py-2 font-mono text-muted-foreground">{sub.sub_id}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? 'boolean' : ''}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? TYPE_LABELS.boolean : ''}</td>
                   <td className="px-4 py-2 font-medium">
                     {sub.correct_answer === '1' ? (
                       <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-success/15 text-success">
@@ -188,7 +194,7 @@ function ViewSchemaTable({ schema }) {
               <tr key={g.q_id} className="border-t">
                 <td className="px-4 py-2 text-muted-foreground">{g.q_id}</td>
                 <td className="px-4 py-2 text-muted-foreground">—</td>
-                <td className="px-4 py-2 text-muted-foreground">{g.type}</td>
+                <td className="px-4 py-2 text-muted-foreground">{TYPE_LABELS[g.type] || 'Custom'}</td>
                 <td className="px-4 py-2 font-medium">{g.correct_answer}</td>
               </tr>
             )
@@ -321,7 +327,7 @@ export default function TeacherViewExercisePage() {
     if (editIsTimed && (!editDuration || Number(editDuration) <= 0)) {
       setSaveError('Duration must be a positive number'); return
     }
-    if (hasErrors) { setSaveError('Please fix all schema errors before saving'); return }
+    if (hasErrors) { setSaveError('Please fix all answer key errors before saving'); return }
 
     setIsSaving(true)
     try {
@@ -454,13 +460,13 @@ export default function TeacherViewExercisePage() {
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <MetaBadge isTimed={isTimed} durationMinutes={exercise.duration_minutes} />
                     <span className="text-sm text-muted-foreground">
-                      {exercise.schema?.length ?? 0} schema row{exercise.schema?.length !== 1 ? 's' : ''}
+                      {new Set((exercise.schema || []).map((row) => row.q_id)).size} question{new Set((exercise.schema || []).map((row) => row.q_id)).size !== 1 ? 's' : ''}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Extraction model:{' '}
+                    Answer reading:{' '}
                     <span className="font-medium text-foreground">
-                      {exercise.extract_model || 'server default'}
+                      {exercise.extract_model ? 'Custom' : 'Recommended'}
                     </span>
                   </p>
                 </>
@@ -504,7 +510,7 @@ export default function TeacherViewExercisePage() {
             <ul className={`space-y-1 ${isEditing ? 'mb-4' : ''}`}>
               {exercise.files.map((f) => (
                 <li key={f.id} className="flex items-center gap-2 text-sm">
-                  <Badge variant="secondary" className="text-xs">{f.file_type}</Badge>
+                  <Badge variant="secondary" className="text-xs">{FILE_TYPE_LABELS[f.file_type] || 'File'}</Badge>
                   <span>{f.file_name}</span>
                 </li>
               ))}
@@ -537,14 +543,14 @@ export default function TeacherViewExercisePage() {
         </CardContent>
       </Card>
 
-      {/* Schema card */}
+      {/* Answer key card */}
       <Card>
         <CardHeader className="border-b px-5 py-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Answer Schema</h2>
+            <h2 className="text-sm font-semibold">Answer key</h2>
             {isEditing && (
               <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-                Add Row
+                Add question
               </Button>
             )}
           </div>
@@ -574,7 +580,7 @@ export default function TeacherViewExercisePage() {
           <DialogHeader>
             <DialogTitle>Delete this exercise?</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. All submissions and schema data will be permanently deleted.
+              This action cannot be undone. All submissions and answer key data will be permanently deleted.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5 py-2">

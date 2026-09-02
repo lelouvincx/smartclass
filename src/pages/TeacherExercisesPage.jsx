@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { ClipboardList, RefreshCw, Plus } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -8,9 +8,17 @@ import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { cn } from '@/lib/utils'
 
-export default function TeacherExercisesPage() {
-  const navigate = useNavigate()
+function formatDuration(minutes) {
+  return Number(minutes) > 0 ? `${minutes} min` : 'Untimed'
+}
 
+function formatUpdatedAt(value) {
+  if (!value) return '—'
+  const date = new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`)
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
+}
+
+export default function TeacherExercisesPage() {
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -39,7 +47,7 @@ export default function TeacherExercisesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Exercises"
-        description="Manage exercise metadata and monitor schema/file completeness."
+        description="Manage exercises and check that answer keys and files are complete."
         actions={
           <>
             {lastRefreshed && !isLoading && (
@@ -50,6 +58,7 @@ export default function TeacherExercisesPage() {
             <Button
               variant="outline"
               size="icon"
+              className="size-[48px]"
               onClick={loadExercises}
               disabled={isLoading}
               aria-label="Refresh exercises"
@@ -89,28 +98,72 @@ export default function TeacherExercisesPage() {
         )}
 
         {!isLoading && !error && items.length > 0 && (
-          <div data-testid="responsive-exercise-list" className="grid divide-y" aria-label="Exercises">
-            {items.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className="grid min-w-0 gap-3 px-4 py-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-                onClick={() => navigate(`/teacher/exercises/${item.id}`)}
-              >
-                <span className="min-w-0">
-                  <span className="min-w-0 break-words font-medium">{item.title}</span>
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    Updated {item.updated_at}
-                  </span>
-                </span>
-                <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground sm:justify-end">
-                  <span>{item.duration_minutes} min</span>
-                  <span>{item.question_count} questions</span>
-                  <span>{item.file_count} files</span>
-                </span>
-              </button>
-            ))}
-          </div>
+          <>
+            <div className="hidden sm:block">
+              <table className="min-w-full border-collapse text-sm">
+                <caption className="sr-only">Teacher exercise library</caption>
+                <thead className="bg-muted text-left text-muted-foreground">
+                  <tr>
+                    <th scope="col" className="px-3 py-3 lg:px-4">Title</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">Duration</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">Questions</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">Files</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">Updated</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((item) => (
+                    <tr key={item.id} className="border-t hover:bg-muted/50">
+                      <th scope="row" className="px-3 py-3 text-left font-medium lg:px-4">
+                        <Link
+                          to={`/teacher/exercises/${item.id}`}
+                          aria-label={`View ${item.title}`}
+                          className="text-primary underline-offset-4 hover:underline"
+                        >
+                          {item.title}
+                        </Link>
+                      </th>
+                      <td className="px-3 py-3 lg:px-4">{formatDuration(item.duration_minutes)}</td>
+                      <td className="px-3 py-3 lg:px-4">{item.question_count}</td>
+                      <td className="px-3 py-3 lg:px-4">{item.file_count}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-muted-foreground lg:px-4">{formatUpdatedAt(item.updated_at)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <ul className="divide-y sm:hidden" aria-label="Teacher exercise library compact view">
+              {items.map((item) => (
+                <li key={item.id} className="space-y-3 p-4">
+                  <p className="font-medium">{item.title}</p>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <div>
+                      <dt className="text-muted-foreground">Duration</dt>
+                      <dd>{formatDuration(item.duration_minutes)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Questions</dt>
+                      <dd>{item.question_count}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Files</dt>
+                      <dd>{item.file_count}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-muted-foreground">Updated</dt>
+                      <dd className="whitespace-nowrap">{formatUpdatedAt(item.updated_at)}</dd>
+                    </div>
+                  </dl>
+                  <Button asChild size="sm" className="min-h-[48px] w-full">
+                    <Link to={`/teacher/exercises/${item.id}`} aria-label={`View ${item.title}`}>
+                      View
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </>
         )}
       </Card>
     </div>
