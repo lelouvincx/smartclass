@@ -14,6 +14,7 @@ export default function StudentDashboardPage() {
           icon={ClipboardList}
           title="Browse Exercises"
           description="View and start available exercises"
+          emphasis
         />
         <ActionCard
           to="/student/submissions"

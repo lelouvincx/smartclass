@@ -21,11 +21,14 @@ describe('StudentLayout navigation', () => {
   it('marks the current destination in the student navigation', () => {
     renderLayout('/student/exercises')
 
-    const navigation = screen.getByRole('navigation', { name: 'Student navigation' })
-    expect(within(navigation).getByRole('link', { name: 'Exercises' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
+    const navigations = screen.getAllByRole('navigation', { name: 'Student navigation' })
+    expect(navigations).toHaveLength(2)
+    navigations.forEach((navigation) => {
+      expect(within(navigation).getByRole('link', { name: 'Exercises' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+    })
   })
 
   it('opens a labelled mobile navigation dialog', async () => {

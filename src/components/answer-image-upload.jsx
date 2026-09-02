@@ -239,7 +239,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                     <button
                       type="button"
                       onClick={() => setShowWarnings((v) => !v)}
-                      className="flex items-center gap-1 text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
+                      className="flex min-h-[var(--sc-component-hit-target)] min-w-[var(--sc-component-hit-target)] items-center gap-1 text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
                     >
                       <AlertCircle className="h-3.5 w-3.5" />
                       {warnings.length} warning{warnings.length > 1 ? 's' : ''}

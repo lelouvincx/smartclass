@@ -56,7 +56,7 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Quiz 1')
-    await user.type(screen.getByLabelText(/answer-/), 'B')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', {
@@ -81,7 +81,7 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    expect(screen.getByRole('button', { name: /Generate Schema/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Read answers from PDF/ })).toBeDisabled()
   })
 
   it('saves untimed exercise without duration value', async () => {
@@ -97,7 +97,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.type(screen.getByLabelText(/exercise title/i), 'Untimed Quiz')
     await user.click(screen.getByLabelText('Timed mode toggle'))
     expect(screen.getByLabelText(/duration \(minutes\)/i)).toBeDisabled()
-    await user.type(screen.getByLabelText(/answer-/), 'C')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', {
@@ -126,7 +126,7 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Timed Quiz')
     await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
-    await user.type(screen.getByLabelText(/answer-/), 'A')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(screen.getByText('Duration must be a positive number')).toBeInTheDocument()
@@ -149,11 +149,11 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Fallback Quiz')
     await user.upload(screen.getByLabelText('Answer PDF (recommended)'), answerPdf)
-    await user.click(screen.getByRole('button', { name: /Generate Schema/ }))
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
     expect(await screen.findByText('OpenRouter unavailable')).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText(/answer-/), 'D')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'D')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
@@ -169,18 +169,18 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     // Change the initial row type to boolean (initial q_id = '1')
-    const typeSelect = screen.getByLabelText(/type-/)
+    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
     await user.selectOptions(typeSelect, 'boolean')
 
     // Should now show 4 sub-question toggles labeled a,b,c,d for q_id=1
-    expect(screen.getByLabelText(/sub-q 1 a true/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/sub-q 1 a false/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/sub-q 1 b true/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/sub-q 1 b false/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/sub-q 1 c true/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/sub-q 1 c false/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/sub-q 1 d true/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/sub-q 1 d false/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part a, true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part a, false/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part b, true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part b, false/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part c, true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part c, false/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part d, true/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/question 1, part d, false/i)).toBeInTheDocument()
   })
 
   it('saves boolean question with sub-questions in schema payload', async () => {
@@ -196,14 +196,14 @@ describe('TeacherCreateExercisePage', () => {
     await user.type(screen.getByLabelText(/exercise title/i), 'Bool Quiz')
 
     // Change to boolean type (initial q_id = '1')
-    const typeSelect = screen.getByLabelText(/type-/)
+    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
     await user.selectOptions(typeSelect, 'boolean')
 
     // Select answers: a=1, b=0, c=1, d=0
-    await user.click(screen.getByLabelText(/sub-q 1 a true/i))
-    await user.click(screen.getByLabelText(/sub-q 1 b false/i))
-    await user.click(screen.getByLabelText(/sub-q 1 c true/i))
-    await user.click(screen.getByLabelText(/sub-q 1 d false/i))
+    await user.click(screen.getByLabelText(/question 1, part a, true/i))
+    await user.click(screen.getByLabelText(/question 1, part b, false/i))
+    await user.click(screen.getByLabelText(/question 1, part c, true/i))
+    await user.click(screen.getByLabelText(/question 1, part d, false/i))
 
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
@@ -232,13 +232,13 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Bool Quiz')
 
-    const typeSelect = screen.getByLabelText(/type-/)
+    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
     await user.selectOptions(typeSelect, 'boolean')
 
     // Don't select any sub-question answers (q_id=1)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
-    expect(screen.getByText(/please fix all schema errors/i)).toBeInTheDocument()
+    expect(screen.getByText(/please fix all answer key errors/i)).toBeInTheDocument()
     expect(createExerciseMock).not.toHaveBeenCalled()
   })
 
@@ -250,8 +250,31 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     // Default state: 1 MCQ row → 1 drag handle
-    await screen.findByLabelText(/q-id-/)
-    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
+    await screen.findByLabelText(/question number 1/i)
+    const handles = screen.getAllByRole('button', { name: /move question/i })
     expect(handles.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('freezes the form and links to the created exercise when an upload fails', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 505 } })
+    createExerciseFileUploadMock.mockRejectedValue(new Error('Upload setup failed'))
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Upload Quiz')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
+    await user.upload(
+      screen.getByLabelText('Exercise PDF (optional)'),
+      new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(await screen.findByRole('heading', { name: 'Exercise created, but a file could not be uploaded' })).toBeInTheDocument()
+    expect(screen.getByText(/questions\.pdf/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Open created exercise' })).toHaveAttribute('href', '/teacher/exercises/505')
+    expect(screen.getByRole('link', { name: 'Back to exercises' })).toHaveAttribute('href', '/teacher/exercises')
+    expect(screen.queryByRole('button', { name: 'Save Exercise' })).not.toBeInTheDocument()
+    expect(createExerciseMock).toHaveBeenCalledTimes(1)
   })
 })

@@ -6,11 +6,20 @@ import { PdfSplitPane } from './pdf-split-pane'
 // localStorage mock is provided by jsdom automatically
 
 describe('PdfSplitPane', () => {
+  let originalMatchMedia
+
   beforeEach(() => {
+    originalMatchMedia = window.matchMedia
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })
     localStorage.clear()
   })
 
   afterEach(() => {
+    window.matchMedia = originalMatchMedia
     localStorage.clear()
   })
 
@@ -110,6 +119,22 @@ describe('PdfSplitPane', () => {
 
     // Should start hidden — no iframe
     expect(screen.queryByTitle('Exercise PDF')).not.toBeInTheDocument()
+  })
+
+  it('defaults collapsed on mobile when there is no saved preference', () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })
+    render(<PdfSplitPane fileUrl="/api/files/42"><div>Content</div></PdfSplitPane>)
+    expect(screen.queryByTitle('Exercise PDF')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show PDF' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('uses an approximately half-viewport-height mobile viewer when expanded', () => {
+    render(<PdfSplitPane fileUrl="/api/files/42"><div>Content</div></PdfSplitPane>)
+    expect(screen.getByTitle('Exercise PDF').parentElement.className).toMatch(/h-\[50vh\].*max-h-\[50vh\]/)
   })
 
   it('uses a 50/50 grid layout when PDF is visible', () => {

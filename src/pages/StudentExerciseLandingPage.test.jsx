@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import StudentExerciseLandingPage from './StudentExerciseLandingPage'
+import { setSubmissionPointer, submissionPointerKey } from '../lib/submission-draft'
 
 // --- Mocks ---
 
@@ -24,7 +25,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 })
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({ token: 'test-token' }),
+  useAuth: () => ({ token: 'test-token', user: { id: 7 } }),
 }))
 
 // --- Fixtures ---
@@ -156,7 +157,7 @@ describe('StudentExerciseLandingPage', () => {
     await user.click(screen.getByRole('button', { name: /^Start$/i }))
 
     expect(createSubmissionMock).toHaveBeenCalledWith('test-token', { exercise_id: 1 })
-    expect(sessionStorage.getItem('submission_1')).toBe('99')
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('99')
     expect(await screen.findByText('Take page')).toBeInTheDocument()
   })
 
@@ -175,8 +176,8 @@ describe('StudentExerciseLandingPage', () => {
 
   // --- Resumable submission ---
 
-  it('shows Resume + Start new buttons when an in-progress submission exists', async () => {
-    sessionStorage.setItem('submission_1', '50')
+  it('shows Resume + Start over buttons when an in-progress submission exists', async () => {
+    setSubmissionPointer(7, 1, '50')
     getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
     getSubmissionMock.mockResolvedValue({ data: { id: 50, submitted_at: null } })
 
@@ -184,12 +185,24 @@ describe('StudentExerciseLandingPage', () => {
     await screen.findByText('Algebra Quiz')
 
     expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /start new/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start over/i })).toBeInTheDocument()
+  })
+
+  it('preserves a saved attempt when its status check fails temporarily', async () => {
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    getSubmissionMock.mockRejectedValue(Object.assign(new Error('Service unavailable'), { status: 503 }))
+
+    renderPage()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn’t check your saved attempt/i)
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('50')
   })
 
   it('navigates to /take when Resume is clicked (without creating a new submission)', async () => {
     const user = userEvent.setup()
-    sessionStorage.setItem('submission_1', '50')
+    setSubmissionPointer(7, 1, '50')
     getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
     getSubmissionMock.mockResolvedValue({ data: { id: 50, submitted_at: null } })
 
@@ -201,8 +214,59 @@ describe('StudentExerciseLandingPage', () => {
     expect(await screen.findByText('Take page')).toBeInTheDocument()
   })
 
+  it('confirms Start over before creating and replaces state only after success', async () => {
+    const user = userEvent.setup()
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    getSubmissionMock.mockResolvedValue({ data: { id: 50, submitted_at: null } })
+    createSubmissionMock.mockResolvedValue({ data: { id: 51 } })
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+    expect(createSubmissionMock).not.toHaveBeenCalled()
+    expect(screen.getByText((_, element) => (
+      element?.textContent === 'Your current answers will be cleared. The timer will restart.'
+    ))).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^start over$/i }))
+
+    expect(createSubmissionMock).toHaveBeenCalledTimes(1)
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('51')
+  })
+
+  it('does not mention restarting a timer for an untimed attempt', async () => {
+    const user = userEvent.setup()
+    setSubmissionPointer(7, 2, '50')
+    getExerciseMock.mockResolvedValue({ data: UNTIMED_EXERCISE })
+    getSubmissionMock.mockResolvedValue({ data: { id: 50, submitted_at: null } })
+    renderPage('2')
+    await screen.findByText('Practice Quiz')
+
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+
+    expect(screen.getByText('Your current answers will be cleared.')).toBeInTheDocument()
+    expect(screen.queryByText(/timer will restart/i)).not.toBeInTheDocument()
+  })
+
+  it('preserves Resume and the old pointer when Start over fails', async () => {
+    const user = userEvent.setup()
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    getSubmissionMock.mockResolvedValue({ data: { id: 50, submitted_at: null } })
+    createSubmissionMock.mockRejectedValue(new Error('Network down'))
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+    await user.click(screen.getByRole('button', { name: /^start over$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network down')
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('50')
+  })
+
   it('clears stale sessionStorage when the saved submission is already submitted', async () => {
-    sessionStorage.setItem('submission_1', '50')
+    setSubmissionPointer(7, 1, '50')
     getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
     getSubmissionMock.mockResolvedValue({
       data: { id: 50, submitted_at: '2026-03-15 10:05:00' },
@@ -212,21 +276,21 @@ describe('StudentExerciseLandingPage', () => {
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    expect(sessionStorage.getItem('submission_1')).toBeNull()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBeNull()
     // Falls through to "no resumable" branch
     expect(screen.queryByRole('button', { name: /resume/i })).not.toBeInTheDocument()
   })
 
-  it('clears stale sessionStorage when getSubmission throws', async () => {
-    sessionStorage.setItem('submission_1', '50')
+  it('clears stale sessionStorage when getSubmission confirms it is missing', async () => {
+    setSubmissionPointer(7, 1, '50')
     getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
-    getSubmissionMock.mockRejectedValue(new Error('not found'))
+    getSubmissionMock.mockRejectedValue(Object.assign(new Error('not found'), { status: 404 }))
     listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
 
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    expect(sessionStorage.getItem('submission_1')).toBeNull()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBeNull()
   })
 
   // --- Already-submitted banner ---

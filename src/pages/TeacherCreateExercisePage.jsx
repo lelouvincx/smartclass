@@ -66,27 +66,27 @@ function validateRows(rows) {
     const qid = Number.parseInt(String(row.q_id), 10)
 
     if (!row.q_id || Number.isNaN(qid) || qid <= 0) {
-      errors.push('q_id must be a positive integer')
+      errors.push('Question number must be a positive integer')
     }
 
     if (row.type === 'boolean') {
       if (!row.sub_id || !BOOLEAN_SUB_IDS.includes(row.sub_id)) {
-        errors.push('boolean sub_id must be a, b, c, or d')
+        errors.push('True/False parts must be a, b, c, or d')
       } else if (!['0', '1'].includes(row.correct_answer)) {
         errors.push('select True (1) or False (0)')
       }
     } else {
       if (qidCounts.get(String(row.q_id)) > 1) {
-        errors.push('q_id must be unique')
+        errors.push('Question number must be unique')
       }
 
       const answer = normalizeAnswer(row.type, row.correct_answer)
       if (!answer) {
-        errors.push('correct_answer is required')
+        errors.push('Correct answer is required')
       } else if (row.type === 'mcq' && !['A', 'B', 'C', 'D'].includes(answer)) {
-        errors.push('MCQ answer must be A, B, C, or D')
+        errors.push('Multiple choice answer must be A, B, C, or D')
       } else if (row.type === 'numeric' && Number.isNaN(Number(answer))) {
-        errors.push('Numeric answer must be a valid number')
+        errors.push('Number answer must be a valid number')
       }
     }
 
@@ -171,10 +171,12 @@ export default function TeacherCreateExercisePage() {
   const [isParsing, setIsParsing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [showWarningConfirm, setShowWarningConfirm] = useState(false)
+  const [createdExerciseId, setCreatedExerciseId] = useState(null)
+  const [failedUploadName, setFailedUploadName] = useState('')
 
   const validatedRows = useMemo(() => validateRows(rows), [rows])
   const stats = useMemo(() => {
-    const total = validatedRows.length
+    const total = new Set(validatedRows.map((row) => String(row.q_id))).size
     const errorsCount = validatedRows.filter((row) => row.errors.length > 0).length
     const warningsCount = validatedRows.filter((row) => row.warnings.length > 0).length
     return { total, errorsCount, warningsCount }
@@ -251,7 +253,7 @@ export default function TeacherCreateExercisePage() {
     try {
       const sourceText = await extractTextFromPdf(answerFile)
       if (!sourceText || sourceText.length < 10) {
-        throw new Error('Could not extract enough text from PDF. Continue with manual schema entry.')
+        throw new Error('Could not read enough text from the PDF. Continue by entering the answer key manually.')
       }
       const response = await parseExerciseSchema(token, { source_text: sourceText })
       const makeId = () =>
@@ -280,11 +282,17 @@ export default function TeacherCreateExercisePage() {
       { file: answerFile, file_type: 'solution_pdf' },
     ].filter((entry) => Boolean(entry.file))
     for (const entry of files) {
-      const createResponse = await createExerciseFileUpload(token, exerciseId, {
-        file_type: entry.file_type,
-        file_name: entry.file.name,
-      })
-      await uploadExerciseFile(token, exerciseId, createResponse.data, entry.file)
+      try {
+        const createResponse = await createExerciseFileUpload(token, exerciseId, {
+          file_type: entry.file_type,
+          file_name: entry.file.name,
+        })
+        await uploadExerciseFile(token, exerciseId, createResponse.data, entry.file)
+      } catch (uploadError) {
+        const failure = new Error(uploadError?.message || 'File upload failed', { cause: uploadError })
+        failure.failedFileName = entry.file.name
+        throw failure
+      }
     }
   }
 
@@ -300,7 +308,15 @@ export default function TeacherCreateExercisePage() {
         extract_model: extractModel,
       }
       const createResponse = await createExercise(token, payload)
-      await uploadFiles(createResponse.data.id)
+      const exerciseId = createResponse.data.id
+      try {
+        await uploadFiles(exerciseId)
+      } catch (uploadError) {
+        setCreatedExerciseId(exerciseId)
+        setFailedUploadName(uploadError.failedFileName || '')
+        setIsSaving(false)
+        return
+      }
       navigate('/teacher/exercises', { replace: true })
     } catch (saveError) {
       setError(saveError.message)
@@ -316,18 +332,39 @@ export default function TeacherCreateExercisePage() {
     if (isTimed && (!durationMinutes || Number(durationMinutes) <= 0)) {
       setError('Duration must be a positive number'); return
     }
-    if (validatedRows.length === 0) { setError('At least one schema row is required'); return }
-    if (stats.errorsCount > 0) { setError('Please fix all schema errors before saving'); return }
+    if (validatedRows.length === 0) { setError('At least one question is required'); return }
+    if (stats.errorsCount > 0) { setError('Please fix all answer key errors before saving'); return }
     if (stats.warningsCount > 0) { setShowWarningConfirm(true); return }
 
     await saveExercise()
+  }
+
+  if (createdExerciseId) {
+    return (
+      <Card className="max-w-2xl border-destructive/50">
+        <CardHeader>
+          <h1 className="text-xl font-semibold">Exercise created, but a file could not be uploaded</h1>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            The exercise was saved. {failedUploadName
+              ? <>The file “{failedUploadName}” was not uploaded.</>
+              : 'A file could not be uploaded.'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild><Link to={`/teacher/exercises/${createdExerciseId}`}>Open created exercise</Link></Button>
+            <Button asChild variant="outline"><Link to="/teacher/exercises">Back to exercises</Link></Button>
+          </div>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold">Create Exercise</h1>
-        <p className="text-sm text-muted-foreground">Upload answer PDF for auto-schema generation, or continue manually.</p>
+        <p className="text-sm text-muted-foreground">Upload an answer PDF to read the answers, or enter them manually.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -412,7 +449,7 @@ export default function TeacherCreateExercisePage() {
                 />
               </div>
 
-              {/* Answer PDF upload + Generate Schema grouped as related actions */}
+              {/* Answer PDF upload + answer extraction grouped as related actions */}
               <div className="space-y-2">
                 <Label htmlFor="answerFile">Answer PDF (recommended)</Label>
                 <FileDropzone
@@ -433,10 +470,10 @@ export default function TeacherCreateExercisePage() {
                   {isParsing ? (
                     <>
                       <Spinner className="mr-1.5" />
-                      Generating schema...
+                      Reading answers...
                     </>
                   ) : (
-                    '✨ Generate Schema'
+                    '✨ Read answers from PDF'
                   )}
                 </Button>
               </div>
@@ -446,7 +483,7 @@ export default function TeacherCreateExercisePage() {
 
         {!answerFile && (
           <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-            Manual schema entry is available, but uploading an answer PDF is recommended for faster setup.
+            You can enter the answer key manually, but uploading an answer PDF is faster.
           </p>
         )}
 
@@ -472,7 +509,7 @@ export default function TeacherCreateExercisePage() {
                   </Button>
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-                  Add Row
+                  Add question
                 </Button>
               </div>
             </div>

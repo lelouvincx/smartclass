@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { getMe, login as loginRequest, loginWithGoogle as loginWithGoogleRequest } from './api'
 import { clearStoredToken, getStoredToken, setStoredToken } from './auth'
+import { clearAllSubmissionDrafts } from './submission-draft'
 
 const AuthContext = createContext(null)
 
@@ -52,6 +53,7 @@ export function AuthProvider({ children }) {
   }, [token])
 
   const logout = useCallback(() => {
+    clearAllSubmissionDrafts()
     clearStoredToken()
     setToken(null)
     setUser(null)

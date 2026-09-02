@@ -22,13 +22,13 @@ import { cn } from '@/lib/utils'
 
 // ── DragHandleButton ────────────────────────────────────────────────────────────
 
-function DragHandleButton({ listeners, attributes, isDragging }) {
+function DragHandleButton({ listeners, attributes, isDragging, questionNumber }) {
   return (
     <button
       type="button"
-      aria-label="Drag to reorder"
+      aria-label={`Move question ${questionNumber}`}
       className={cn(
-        'flex cursor-grab touch-none items-center text-muted-foreground/40 transition-colors active:cursor-grabbing',
+        'flex size-[48px] cursor-grab touch-none items-center justify-center text-muted-foreground/40 transition-colors active:cursor-grabbing',
         isDragging && 'cursor-grabbing text-muted-foreground',
       )}
       {...listeners}
@@ -66,39 +66,39 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
       className={cn('border-t align-top', isDragging && 'bg-muted/60')}
     >
       <td className="w-7 px-1 py-2">
-        <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} />
+        <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={row.q_id} />
       </td>
 
       <td className="px-3 py-2">
         <Input
-          aria-label={`q-id-${row.id}`}
+          aria-label={`Question number ${row.q_id}`}
           type="text"
           value={row.q_id}
           onChange={(e) => onUpdateRow(row.id, 'q_id', e.target.value)}
-          className="h-9 w-20"
+          className="min-h-[48px] w-20"
         />
       </td>
 
       <td className="px-3 py-2">
         <select
-          aria-label={`type-${row.id}`}
+          aria-label={`Answer type for question ${row.q_id}`}
           value={row.type}
           onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-          className="h-9 rounded-md border bg-background px-2 text-sm"
+          className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
         >
-          <option value="mcq">mcq</option>
-          <option value="boolean">boolean</option>
-          <option value="numeric">numeric</option>
+          <option value="mcq">Multiple choice</option>
+          <option value="boolean">True/False</option>
+          <option value="numeric">Number</option>
         </select>
       </td>
 
       <td className="px-3 py-2">
         <Input
-          aria-label={`answer-${row.id}`}
+          aria-label={`Correct answer for question ${row.q_id}`}
           type="text"
           value={row.correct_answer}
           onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
-          className="h-9 w-36"
+          className="min-h-[48px] w-36"
         />
       </td>
 
@@ -169,7 +169,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           {/* Drag handle cell — only on first sub-row */}
           <td className="w-7 px-1 py-2">
             {i === 0 && (
-              <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} />
+              <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={row.q_id} />
             )}
           </td>
 
@@ -177,11 +177,11 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           <td className="px-3 py-2">
             {i === 0 ? (
               <Input
-                aria-label={`q-id-${row.id}`}
+                aria-label={`Question number ${row.q_id}`}
                 type="text"
                 value={row.q_id}
                 onChange={(e) => onUpdateQid(row.id, e.target.value)}
-                className="h-9 w-20"
+                className="min-h-[48px] w-20"
               />
             ) : (
               <span className="px-2 text-sm text-muted-foreground">{row.q_id}</span>
@@ -192,17 +192,17 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           <td className="px-3 py-2">
             {i === 0 ? (
               <select
-                aria-label={`type-${row.id}`}
+                aria-label={`Answer type for question ${row.q_id}`}
                 value="boolean"
                 onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-                className="h-9 rounded-md border bg-background px-2 text-sm"
+                className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
               >
-                <option value="mcq">mcq</option>
-                <option value="boolean">boolean</option>
-                <option value="numeric">numeric</option>
+                <option value="mcq">Multiple choice</option>
+                <option value="boolean">True/False</option>
+                <option value="numeric">Number</option>
               </select>
             ) : (
-              <span className="text-sm text-muted-foreground">boolean</span>
+              <span className="text-sm text-muted-foreground">True/False</span>
             )}
           </td>
 
@@ -210,25 +210,25 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           <td className="px-3 py-2">
             <div className="flex items-center gap-3">
               <span className="w-4 text-sm font-medium text-muted-foreground">{row.sub_id}.</span>
-              <label className="flex items-center gap-1 text-sm">
+              <label className="flex min-h-[48px] items-center gap-1 text-sm">
                 <input
                   type="radio"
                   name={`bool-${row.id}`}
                   value="1"
                   checked={row.correct_answer === '1'}
                   onChange={() => onUpdateRow(row.id, 'correct_answer', '1')}
-                  aria-label={`sub-q ${row.q_id} ${row.sub_id} true`}
+                  aria-label={`Question ${row.q_id}, part ${row.sub_id}, True`}
                 />
                 True
               </label>
-              <label className="flex items-center gap-1 text-sm">
+              <label className="flex min-h-[48px] items-center gap-1 text-sm">
                 <input
                   type="radio"
                   name={`bool-${row.id}`}
                   value="0"
                   checked={row.correct_answer === '0'}
                   onChange={() => onUpdateRow(row.id, 'correct_answer', '0')}
-                  aria-label={`sub-q ${row.q_id} ${row.sub_id} false`}
+                  aria-label={`Question ${row.q_id}, part ${row.sub_id}, False`}
                 />
                 False
               </label>
@@ -336,9 +336,9 @@ export function SchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow, onReo
           <thead>
             <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <th className="w-7 px-1 py-2" />
-              <th className="px-3 py-2">q_id</th>
-              <th className="px-3 py-2">type</th>
-              <th className="px-3 py-2">correct_answer</th>
+              <th className="px-3 py-2">Question number</th>
+              <th className="px-3 py-2">Type</th>
+              <th className="px-3 py-2">Correct answer</th>
               {showConfidenceCol && <th className="px-3 py-2">confidence</th>}
               <th className="px-3 py-2">status</th>
               <th className="px-3 py-2">actions</th>

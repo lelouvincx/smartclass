@@ -26,12 +26,27 @@
   }
   body {
     @apply bg-background text-foreground;
+    caret-color: var(--sc-primary);
     margin: 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   html {
     @apply font-sans;
+    background-color: var(--sc-surface);
     font-size: 125%;
+  }
+  ::selection {
+    background: var(--sc-primary-container);
+    color: var(--sc-on-primary-container);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --sc-motion-duration-short: 1ms;
+    --sc-motion-duration-medium: 1ms;
+    --sc-motion-duration-long: 1ms;
+    --sc-motion-expressive: var(--sc-motion-standard);
   }
 }

@@ -82,14 +82,14 @@ export default function StudentSummaryPage() {
     score === null || score === undefined
       ? 'text-foreground'
       : score >= 7
-      ? 'text-green-600 dark:text-green-400'
+      ? 'text-success'
       : score >= 4
-      ? 'text-yellow-600 dark:text-yellow-400'
+      ? 'text-warning'
       : 'text-destructive'
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Card>
+      <Card className="border-primary/15">
         <CardContent className="space-y-6 pt-6">
           <div>
             <h1 className="text-2xl font-semibold">{exercise_title}</h1>
@@ -97,9 +97,19 @@ export default function StudentSummaryPage() {
           </div>
 
           {score !== null && score !== undefined && (
-            <div className="py-4 text-center">
-              <p className={`text-6xl font-bold tabular-nums ${scoreColor}`}>{score}</p>
-              <p className="mt-1 text-sm text-muted-foreground">/ 10</p>
+            <div
+              role="meter"
+              aria-label="Score"
+              aria-valuemin={0}
+              aria-valuemax={10}
+              aria-valuenow={score}
+              aria-valuetext={`${score} out of 10`}
+              className="mx-auto flex min-h-52 max-w-sm flex-col items-center justify-center rounded-[var(--sc-component-focal-shape)] bg-sc-primary-container px-6 py-8 text-center text-sc-on-primary-container transition-[border-radius,transform] duration-[var(--sc-motion-duration-long)] ease-[var(--sc-motion-expressive)] motion-safe:hover:scale-[1.01]"
+            >
+              <p className={`text-[length:var(--sc-type-display-size)] leading-[var(--sc-type-display-line-height)] font-[var(--sc-type-display-weight)] tracking-[-0.04em] tabular-nums ${scoreColor}`}>
+                {score}
+              </p>
+              <p className="mt-2 text-sm font-medium text-sc-on-primary-container/75">out of 10</p>
             </div>
           )}
 
@@ -108,28 +118,31 @@ export default function StudentSummaryPage() {
               <span aria-label="correct count" className="text-2xl font-bold text-success">
                 {counts.correct}
               </span>
-              <span className="text-xs text-muted-foreground">Correct</span>
+              <span className="text-xs text-muted-foreground">Correct parts</span>
             </div>
             <div className="flex flex-col items-center gap-1">
               <span aria-label="incorrect count" className="text-2xl font-bold text-destructive">
                 {counts.incorrect}
               </span>
-              <span className="text-xs text-muted-foreground">Incorrect</span>
+              <span className="text-xs text-muted-foreground">Incorrect parts</span>
             </div>
             <div className="flex flex-col items-center gap-1">
               <span aria-label="skipped count" className="text-2xl font-bold text-muted-foreground">
                 {counts.skipped}
               </span>
-              <span className="text-xs text-muted-foreground">Skipped</span>
+              <span className="text-xs text-muted-foreground">Skipped parts</span>
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            True/False questions may contain multiple parts, and each part is counted separately.
+          </p>
 
           <p className="text-sm text-muted-foreground">
             Time taken:{' '}
             <span className="font-medium text-foreground">{timeTaken}</span>
           </p>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild>
               <Link to={`/student/submissions/${id}/review`}>View detailed results</Link>
             </Button>

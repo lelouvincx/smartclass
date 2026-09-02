@@ -20,14 +20,17 @@ describe('TeacherLayout navigation', () => {
   it('marks the current destination in the teacher navigation', () => {
     renderLayout('/teacher/students')
 
-    const navigation = screen.getByRole('navigation', { name: 'Teacher navigation' })
-    expect(within(navigation).getByRole('link', { name: 'Students' })).toHaveAttribute(
-      'aria-current',
-      'page',
-    )
-    expect(within(navigation).getByRole('link', { name: 'Create' })).toHaveAttribute(
-      'href',
-      '/teacher/exercises/new',
-    )
+    const navigations = screen.getAllByRole('navigation', { name: 'Teacher navigation' })
+    expect(navigations).toHaveLength(2)
+    navigations.forEach((navigation) => {
+      expect(within(navigation).getByRole('link', { name: 'Students' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      )
+      expect(within(navigation).getByRole('link', { name: 'Create' })).toHaveAttribute(
+        'href',
+        '/teacher/exercises/new',
+      )
+    })
   })
 })

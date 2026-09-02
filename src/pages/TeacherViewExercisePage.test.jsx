@@ -133,6 +133,8 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByText('b')).toBeInTheDocument()
     expect(screen.getByText('c')).toBeInTheDocument()
     expect(screen.getByText('d')).toBeInTheDocument()
+    expect(screen.getByText('2 questions')).toBeInTheDocument()
+    expect(screen.getByText('True/False')).toBeInTheDocument()
   })
 
   it('renders uploaded files list in view mode', async () => {
@@ -141,6 +143,16 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Biology Quiz')
     expect(screen.getByText('biology.pdf')).toBeInTheDocument()
+    expect(screen.getByText('Exercise PDF')).toBeInTheDocument()
+  })
+
+  it('never exposes the raw extraction model identifier', async () => {
+    getExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, extract_model: 'provider/private-model-id' } })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    expect(screen.getByText('Custom')).toBeInTheDocument()
+    expect(screen.queryByText('provider/private-model-id')).not.toBeInTheDocument()
   })
 
   it('shows "No files uploaded" when files array is empty', async () => {
@@ -330,7 +342,7 @@ describe('TeacherViewExercisePage', () => {
     await screen.findByText('Physics Quiz')
     await user.click(screen.getByRole('button', { name: /edit/i }))
 
-    const handles = screen.getAllByRole('button', { name: /drag to reorder/i })
+    const handles = screen.getAllByRole('button', { name: /move question/i })
     // EXERCISE_MCQ has 2 rows (q_id 1 and 2)
     expect(handles).toHaveLength(2)
   })

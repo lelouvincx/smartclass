@@ -67,6 +67,36 @@ describe('TeacherStudentsPage', () => {
     expect(await screen.findByRole('heading', { name: /no students yet/i })).toBeInTheDocument()
   })
 
+  it('shows a load error instead of the empty state and retries with the active filter', async () => {
+    const user = userEvent.setup()
+    listStudentsMock
+      .mockRejectedValueOnce(new Error('Network failed'))
+      .mockResolvedValueOnce({ data: [] })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    expect(await screen.findByText('Couldn’t load students')).toBeInTheDocument()
+    expect(screen.queryByText(/No students yet/i)).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Pending' }))
+    expect(await screen.findByText(/No pending students match this filter/i)).toBeInTheDocument()
+    expect(listStudentsMock).toHaveBeenLastCalledWith('test-token', { status: 'pending' })
+  })
+
+  it('does not show rows from a different filter when the filtered request fails', async () => {
+    const user = userEvent.setup()
+    listStudentsMock
+      .mockResolvedValueOnce({ data: [{ id: 1, phone: '+84123456789', status: 'active', created_at: '2026-05-07' }] })
+      .mockRejectedValueOnce(new Error('Network failed'))
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+    await screen.findByText('+84123456789')
+    await user.click(screen.getByRole('button', { name: 'Active' }))
+
+    expect(await screen.findByText('Couldn’t load students')).toBeInTheDocument()
+    expect(screen.queryByText('+84123456789')).not.toBeInTheDocument()
+    expect(screen.queryByText(/No students yet/i)).not.toBeInTheDocument()
+  })
+
   it('renders student list table', async () => {
     listStudentsMock.mockResolvedValue({
       data: [

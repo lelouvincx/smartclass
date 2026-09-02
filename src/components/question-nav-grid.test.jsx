@@ -173,6 +173,8 @@ describe('QuestionNavGrid', () => {
     expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent(/^1$/)
     expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent(/^2$/)
     expect(screen.getByLabelText('Jump to question 3')).toHaveTextContent(/^3$/)
+    expect(screen.getByLabelText('Jump to question 1')).toHaveAccessibleDescription('Answered')
+    expect(screen.getByLabelText('Jump to question 3')).toHaveAccessibleDescription('Unanswered')
   })
 })
 

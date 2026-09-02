@@ -89,14 +89,15 @@ describe('StudentSummaryPage', () => {
     renderPage()
     await screen.findByText('Algebra Quiz')
     expect(screen.getByText('7.5')).toBeInTheDocument()
-    expect(screen.getByText('/ 10')).toBeInTheDocument()
+    expect(screen.getByText('out of 10')).toBeInTheDocument()
+    expect(screen.getByRole('meter', { name: 'Score' })).toHaveAttribute('aria-valuetext', '7.5 out of 10')
   })
 
   it('does not show score section when score is null', async () => {
     getSubmissionMock.mockResolvedValue({ data: { ...SUBMISSION_MCQ, score: null } })
     renderPage()
     await screen.findByText('Algebra Quiz')
-    expect(screen.queryByText('/ 10')).not.toBeInTheDocument()
+    expect(screen.queryByText('out of 10')).not.toBeInTheDocument()
   })
 
   it('shows correct, incorrect, and skipped counts', async () => {
@@ -108,6 +109,10 @@ describe('StudentSummaryPage', () => {
     expect(screen.getByLabelText('correct count')).toHaveTextContent('1')
     expect(screen.getByLabelText('incorrect count')).toHaveTextContent('1')
     expect(screen.getByLabelText('skipped count')).toHaveTextContent('1')
+    expect(screen.getByText('Correct parts')).toBeInTheDocument()
+    expect(screen.getByText('Incorrect parts')).toBeInTheDocument()
+    expect(screen.getByText('Skipped parts')).toBeInTheDocument()
+    expect(screen.getByText(/True\/False questions may contain multiple parts/i)).toBeInTheDocument()
   })
 
   it('counts boolean sub-rows individually', async () => {

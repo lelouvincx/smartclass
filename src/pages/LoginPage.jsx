@@ -6,7 +6,14 @@ import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Field, FieldGroup, FieldError, FieldSeparator } from '@/components/ui/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from '@/components/ui/field'
 import GoogleSignInButton from '@/components/google-signin-button'
 
 export default function LoginPage() {
@@ -16,14 +23,17 @@ export default function LoginPage() {
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [invalidField, setInvalidField] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   async function handleSubmit(event) {
     event.preventDefault()
     setError('')
+    setInvalidField('')
 
     if (!phone || !password) {
       setError('Phone and password are required.')
+      setInvalidField('all')
       return
     }
 
@@ -31,6 +41,7 @@ export default function LoginPage() {
 
     if (!PHONE_REGEX.test(normalizedPhone)) {
       setError('Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')
+      setInvalidField('phone')
       return
     }
 
@@ -41,6 +52,7 @@ export default function LoginPage() {
       navigate(getDefaultPathForRole(response.data.user.role), { replace: true })
     } catch (submitError) {
       setError(submitError.message)
+      setInvalidField('all')
     } finally {
       setIsSubmitting(false)
     }
@@ -56,28 +68,42 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit}>
             <FieldGroup>
-              <Field orientation="vertical">
+              <Field orientation="vertical" data-invalid={invalidField === 'phone' || invalidField === 'all'}>
+                <FieldLabel htmlFor="login-phone">Phone</FieldLabel>
                 <Input
-                  id="phone"
-                  type="text"
-                  aria-label="Phone"
+                  id="login-phone"
+                  name="phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="username"
+                  required
+                  aria-invalid={invalidField === 'phone' || invalidField === 'all'}
+                  aria-describedby={`login-phone-help${error ? ' login-error' : ''}`}
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="0xxxxxxxxx or +84xxxxxxxxx"
                 />
+                <FieldDescription id="login-phone-help">
+                  Use 0xxxxxxxxx or +84xxxxxxxxx format.
+                </FieldDescription>
               </Field>
 
-              <Field orientation="vertical">
+              <Field orientation="vertical" data-invalid={invalidField === 'password' || invalidField === 'all'}>
+                <FieldLabel htmlFor="current-password">Password</FieldLabel>
                 <Input
-                  id="password"
+                  id="current-password"
+                  name="password"
                   type="password"
-                  aria-label="Password"
+                  autoComplete="current-password"
+                  required
+                  aria-invalid={invalidField === 'password' || invalidField === 'all'}
+                  aria-describedby={error ? 'login-error' : undefined}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </Field>
 
-              {error && <FieldError>{error}</FieldError>}
+              {error && <FieldError id="login-error">{error}</FieldError>}
 
               <Button type="submit" disabled={isSubmitting} className="w-full">
                 {isSubmitting ? 'Signing in...' : 'Sign In'}

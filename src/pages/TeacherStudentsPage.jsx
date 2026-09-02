@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Users } from 'lucide-react'
 import { listStudents, createStudent, approveStudent } from '@/lib/api'
 import { toast } from 'sonner'
@@ -31,24 +31,33 @@ function formatDate(isoStr) {
 
 export default function TeacherStudentsPage() {
   const { token } = useAuth()
+  const requestIdRef = useRef(0)
   const [students, setStudents] = useState([])
+  const [loadedFilter, setLoadedFilter] = useState(undefined)
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState(null)
   const [phone, setPhone] = useState('')
   const [creating, setCreating] = useState(false)
   const [approvingId, setApprovingId] = useState(null)
-  const [error, setError] = useState('')
+  const [createError, setCreateError] = useState('')
+  const [listLoadError, setListLoadError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
 
   const loadStudents = useCallback(async () => {
+    const requestId = ++requestIdRef.current
+    const requestedFilter = statusFilter
     setLoading(true)
+    setListLoadError('')
     try {
-      const res = await listStudents(token, { status: statusFilter })
+      const res = await listStudents(token, { status: requestedFilter })
+      if (requestId !== requestIdRef.current) return
       setStudents(res.data || [])
-    } catch {
-      setStudents([])
+      setLoadedFilter(requestedFilter)
+    } catch (loadError) {
+      if (requestId !== requestIdRef.current) return
+      setListLoadError(loadError.message || 'Could not load students')
     } finally {
-      setLoading(false)
+      if (requestId === requestIdRef.current) setLoading(false)
     }
   }, [token, statusFilter])
 
@@ -59,6 +68,8 @@ export default function TeacherStudentsPage() {
   function handleFilterChange(filterValue) {
     setStatusFilter(filterValue === statusFilter ? null : filterValue)
   }
+
+  const hasCurrentRows = loadedFilter === statusFilter
 
   async function handleApprove(studentId) {
     setApprovingId(studentId)
@@ -75,12 +86,12 @@ export default function TeacherStudentsPage() {
 
   async function handleCreate(e) {
     e.preventDefault()
-    setError('')
+    setCreateError('')
     setSuccessMessage('')
 
     const trimmed = phone.trim()
     if (!trimmed) {
-      setError('Phone is required.')
+      setCreateError('Phone is required.')
       return
     }
 
@@ -91,7 +102,7 @@ export default function TeacherStudentsPage() {
       setSuccessMessage(res.message || 'Student created.')
       await loadStudents()
     } catch (err) {
-      setError(err.message)
+      setCreateError(err.message)
     } finally {
       setCreating(false)
     }
@@ -118,7 +129,7 @@ export default function TeacherStudentsPage() {
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value)
-                  if (error) setError('')
+                  if (createError) setCreateError('')
                 }}
                 disabled={creating}
               />
@@ -127,8 +138,8 @@ export default function TeacherStudentsPage() {
               {creating ? 'Creating...' : 'Create Student'}
             </Button>
           </form>
-          {error && (
-            <p className="mt-2 text-sm text-destructive">{error}</p>
+          {createError && (
+            <p className="mt-2 text-sm text-destructive">{createError}</p>
           )}
           {successMessage && (
             <p className="mt-2 text-sm text-green-600 dark:text-green-400">{successMessage}</p>
@@ -156,9 +167,14 @@ export default function TeacherStudentsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {loading ? (
+          {loading && !hasCurrentRows ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
-          ) : students.length === 0 ? (
+          ) : listLoadError && !hasCurrentRows ? (
+            <div className="space-y-3 py-8 text-center">
+              <p className="font-medium">Couldn’t load students</p>
+              <Button type="button" variant="outline" onClick={loadStudents}>Retry</Button>
+            </div>
+          ) : hasCurrentRows && students.length === 0 ? (
             <EmptyState
               icon={Users}
               title="No students yet."
@@ -166,44 +182,52 @@ export default function TeacherStudentsPage() {
                 ? `No ${statusFilter} students match this filter.`
                 : 'Create a student account to start building your class.'}
             />
-          ) : (
-            <div data-testid="responsive-student-list" className="grid gap-3" aria-label="Students">
-              {students.map((student) => (
-                <div
-                  key={student.id}
-                  className="grid min-w-0 gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
-                >
-                  <div className="min-w-0">
-                    <p className="min-w-0 truncate font-mono text-sm">{student.phone}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Created {formatDate(student.created_at)}
-                    </p>
-                  </div>
-                  <Badge className="w-fit" variant={STATUS_VARIANT[student.status] || 'outline'}>
-                    {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
-                  </Badge>
-                  <div className="sm:min-w-24 sm:text-right">
-                    {student.status === 'pending' ? (
-                      <Button
-                        className="w-full sm:w-auto"
-                        size="sm"
-                        variant="default"
-                        onClick={() => handleApprove(student.id)}
-                        disabled={approvingId === student.id}
-                      >
-                        {approvingId === student.id ? (
-                          <Spinner data-icon="inline-start" />
-                        ) : null}
-                        {approvingId === student.id ? 'Approving...' : 'Approve'}
-                      </Button>
-                    ) : (
-                      <span className="hidden text-sm text-muted-foreground sm:inline">—</span>
-                    )}
-                  </div>
+          ) : hasCurrentRows ? (
+            <>
+              {listLoadError && (
+                <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-destructive/40 p-3">
+                  <p className="text-sm text-destructive">Couldn’t load students. Showing the previous results.</p>
+                  <Button type="button" variant="outline" size="sm" onClick={loadStudents}>Retry</Button>
                 </div>
-              ))}
-            </div>
-          )}
+              )}
+              <div data-testid="responsive-student-list" className="grid gap-3" aria-label="Students">
+                {students.map((student) => (
+                  <div
+                    key={student.id}
+                    className="grid min-w-0 gap-3 rounded-lg border p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+                  >
+                    <div className="min-w-0">
+                      <p className="min-w-0 truncate font-mono text-sm">{student.phone}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Created {formatDate(student.created_at)}
+                      </p>
+                    </div>
+                    <Badge className="w-fit" variant={STATUS_VARIANT[student.status] || 'outline'}>
+                      {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+                    </Badge>
+                    <div className="sm:min-w-24 sm:text-right">
+                      {student.status === 'pending' ? (
+                        <Button
+                          className="w-full sm:w-auto"
+                          size="sm"
+                          variant="default"
+                          onClick={() => handleApprove(student.id)}
+                          disabled={approvingId === student.id}
+                        >
+                          {approvingId === student.id ? (
+                            <Spinner data-icon="inline-start" />
+                          ) : null}
+                          {approvingId === student.id ? 'Approving...' : 'Approve'}
+                        </Button>
+                      ) : (
+                        <span className="hidden text-sm text-muted-foreground sm:inline">—</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
         </CardContent>
       </Card>
     </div>

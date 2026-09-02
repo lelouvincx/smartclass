@@ -6,10 +6,24 @@ import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  clearSubmissionState,
+  getSubmissionPointer,
+  setSubmissionPointer,
+} from '@/lib/submission-draft'
 
 export default function StudentExerciseLandingPage() {
   const { id } = useParams()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const accountId = user.id
   const navigate = useNavigate()
 
   const [isLoading, setIsLoading] = useState(true)
@@ -19,6 +33,9 @@ export default function StudentExerciseLandingPage() {
   const [hasResumable, setHasResumable] = useState(false)
   const [submittedSubmissionId, setSubmittedSubmissionId] = useState(null)
   const [isStarting, setIsStarting] = useState(false)
+  const [startError, setStartError] = useState('')
+  const [showStartOver, setShowStartOver] = useState(false)
+  const [resumableSubmissionId, setResumableSubmissionId] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -32,19 +49,27 @@ export default function StudentExerciseLandingPage() {
         const uniqueQIds = new Set((ex.schema || []).map((r) => r.q_id))
         setQuestionCount(uniqueQIds.size)
 
-        const savedSubId = sessionStorage.getItem(`submission_${id}`)
+        const savedSubId = getSubmissionPointer(accountId, id)
         let resumable = false
         if (savedSubId) {
           try {
             const subRes = await getSubmission(token, savedSubId)
             if (subRes.data && !subRes.data.submitted_at) {
               setHasResumable(true)
+              setResumableSubmissionId(savedSubId)
               resumable = true
             } else {
-              sessionStorage.removeItem(`submission_${id}`)
+              clearSubmissionState(accountId, id, savedSubId)
             }
-          } catch {
-            sessionStorage.removeItem(`submission_${id}`)
+          } catch (submissionError) {
+            if ([403, 404].includes(submissionError.status)) {
+              clearSubmissionState(accountId, id, savedSubId)
+            } else {
+              setHasResumable(true)
+              setResumableSubmissionId(savedSubId)
+              setStartError('Couldn’t check your saved attempt. Try Resume again.')
+              resumable = true
+            }
           }
         }
 
@@ -66,16 +91,19 @@ export default function StudentExerciseLandingPage() {
       }
     }
     load()
-  }, [id, token])
+  }, [accountId, id, token])
 
-  async function handleStart() {
+  async function handleStart({ replacing = false } = {}) {
     setIsStarting(true)
+    setStartError('')
     try {
       const subRes = await createSubmission(token, { exercise_id: Number(id) })
-      sessionStorage.setItem(`submission_${id}`, String(subRes.data.id))
+      if (replacing) clearSubmissionState(accountId, id, resumableSubmissionId)
+      setSubmissionPointer(accountId, id, subRes.data.id)
       navigate(`/student/exercises/${id}/take`)
     } catch (err) {
-      setError(err.message)
+      setStartError(err.message)
+      setShowStartOver(false)
       setIsStarting(false)
     }
   }
@@ -107,9 +135,18 @@ export default function StudentExerciseLandingPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <Card>
+      <Card className="border-primary/15 bg-sc-primary-container/45">
         <CardContent className="space-y-6 pt-6">
-          <h1 className="text-2xl font-semibold">{exercise.title}</h1>
+          <div className="space-y-2">
+            <h1 className="text-[length:var(--sc-type-headline-size)] leading-[var(--sc-type-headline-line-height)] font-[var(--sc-type-headline-weight)] tracking-[-0.03em] text-balance">
+              {exercise.title}
+            </h1>
+            <p className="max-w-xl text-sm text-sc-on-primary-container/75">
+              {hasResumable
+                ? 'You have an attempt in progress. Resume it when you are ready.'
+                : 'Review the exercise details before you begin. Your attempt starts only when you choose Start.'}
+            </p>
+          </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm">
             {exercise.is_timed ? (
@@ -144,26 +181,50 @@ export default function StudentExerciseLandingPage() {
               </div>
             </div>
           ) : (
-            <div className="flex gap-3">
+            <div className="space-y-3">
+              {startError && <p role="alert" className="text-sm text-destructive">{startError}</p>}
+              <div className="flex flex-col gap-3 sm:flex-row">
               {hasResumable ? (
                 <>
-                  <Button onClick={handleResume}>Resume</Button>
-                  <Button variant="outline" onClick={handleStart} disabled={isStarting}>
-                    {isStarting ? 'Starting...' : 'Start new'}
+                  <Button className="min-h-[48px] px-5" onClick={handleResume}>Resume</Button>
+                  <Button variant="outline" onClick={() => setShowStartOver(true)} disabled={isStarting}>
+                    {isStarting ? 'Starting...' : 'Start over'}
                   </Button>
                 </>
               ) : (
-                <Button onClick={handleStart} disabled={isStarting}>
+                <Button className="min-h-[48px] px-6 text-base" onClick={() => handleStart()} disabled={isStarting}>
                   {isStarting ? 'Starting...' : 'Start'}
                 </Button>
               )}
               <Button variant="ghost" asChild>
                 <Link to="/student/exercises">Back</Link>
               </Button>
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
+      <Dialog open={showStartOver} onOpenChange={setShowStartOver}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start over?</DialogTitle>
+            <DialogDescription>
+              Your current answers will be cleared.
+              {exercise.is_timed ? ' The timer will restart.' : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowStartOver(false)}>Keep current attempt</Button>
+            <Button
+              variant="destructive"
+              disabled={isStarting}
+              onClick={() => handleStart({ replacing: true })}
+            >
+              {isStarting ? 'Starting...' : 'Start over'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

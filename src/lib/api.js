@@ -5,7 +5,10 @@ async function request(path, options = {}) {
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
-    throw new Error(data?.error?.message || 'Request failed')
+    const error = new Error(data?.error?.message || 'Request failed')
+    error.status = response.status
+    error.code = data?.error?.code
+    throw error
   }
 
   return data
