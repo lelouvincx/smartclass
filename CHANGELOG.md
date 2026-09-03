@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Add a dedicated, prioritized, and versioned todo list, link it from the README, and document the task lifecycle from planned work to completed change. [#83](https://github.com/lelouvincx/smartclass/pull/83)
+- Add a dedicated, prioritized, and versioned todo list, link it from the README, and document the task lifecycle from planned work to completed change. [#84](https://github.com/lelouvincx/smartclass/pull/84)
 - Add Google sign-in and account linking, including settings to link and unlink an account. [#68](https://github.com/lelouvincx/smartclass/pull/68) [#69](https://github.com/lelouvincx/smartclass/pull/69) [#70](https://github.com/lelouvincx/smartclass/pull/70)
 - Add a changelog, move shipped-change history out of the README, and enforce changelog updates for every pull request. [#82](https://github.com/lelouvincx/smartclass/pull/82)
 - Let teachers create student accounts and approve pending accounts. [#63](https://github.com/lelouvincx/smartclass/pull/63) [#64](https://github.com/lelouvincx/smartclass/pull/64)
@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Ignore the local `.amp` and `.impeccable` runtime directories. [#83](https://github.com/lelouvincx/smartclass/pull/83)
+- Ignore the local `.amp` and `.impeccable` runtime directories. [#84](https://github.com/lelouvincx/smartclass/pull/84)
 - Consolidate the take and review experience into a two-panel PDF and answer layout. [#66](https://github.com/lelouvincx/smartclass/pull/66)
 - Show one selected question at a time on the take page, with Previous and Next controls. [#67](https://github.com/lelouvincx/smartclass/pull/67)
 
