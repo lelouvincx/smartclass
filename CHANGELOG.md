@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add a dedicated, prioritized, and versioned todo list, link it from the README, and document the task lifecycle from planned work to completed change. [#83](https://github.com/lelouvincx/smartclass/pull/83)
+- Add Google sign-in and account linking, including settings to link and unlink an account. [#68](https://github.com/lelouvincx/smartclass/pull/68) [#69](https://github.com/lelouvincx/smartclass/pull/69) [#70](https://github.com/lelouvincx/smartclass/pull/70)
 - Add a changelog, move shipped-change history out of the README, and enforce changelog updates for every pull request. [#82](https://github.com/lelouvincx/smartclass/pull/82)
 - Let teachers create student accounts and approve pending accounts. [#63](https://github.com/lelouvincx/smartclass/pull/63) [#64](https://github.com/lelouvincx/smartclass/pull/64)
 - Let teachers add, edit, and reorder YouTube lectures with named sections. [#76](https://github.com/lelouvincx/smartclass/pull/76)
@@ -15,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Ignore the local `.amp` and `.impeccable` runtime directories. [#83](https://github.com/lelouvincx/smartclass/pull/83)
 - Consolidate the take and review experience into a two-panel PDF and answer layout. [#66](https://github.com/lelouvincx/smartclass/pull/66)
 - Show one selected question at a time on the take page, with Previous and Next controls. [#67](https://github.com/lelouvincx/smartclass/pull/67)
 
@@ -47,6 +50,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add schema-aware vision LLM extraction with validation, normalization, missing-row backfill, and Gemini retry fallback. [#53](https://github.com/lelouvincx/smartclass/pull/53)
 - Add student photo uploads with progress, cancellation, retry, confidence indicators, and a Manual/Photo mode switch. [#54](https://github.com/lelouvincx/smartclass/pull/54)
 
+### Changed
+
+- Increase page margins for more readable teacher and student layouts. [#51](https://github.com/lelouvincx/smartclass/pull/51)
+
 ## [0.3] - 2026-03-16
 
 ### Added
@@ -57,6 +64,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add graded submission details with correct answers, exercise context, and files. [#44](https://github.com/lelouvincx/smartclass/pull/44)
 - Add student submission history and detailed result review pages. [#46](https://github.com/lelouvincx/smartclass/pull/46) [#47](https://github.com/lelouvincx/smartclass/pull/47)
 - Add submission history navigation and a dashboard quick action. [#48](https://github.com/lelouvincx/smartclass/pull/48)
+- Add drag-and-drop reordering for teacher answer-schema rows. [#41](https://github.com/lelouvincx/smartclass/pull/41)
+
+### Changed
+
+- Let students hide the timer, show exercise-list refresh timestamps, group schema generation with its upload, add common duration choices and required-field markers, normalize local phone numbers, and use semantic correctness colors. [#40](https://github.com/lelouvincx/smartclass/pull/40)
 
 ## [0.2] - 2026-03-16
 

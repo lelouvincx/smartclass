@@ -10,45 +10,11 @@ An assessment platform for teaching and learning, built on Cloudflare.
 - **Student**: take timed or untimed exercises, submit answers (manual form, scanner/OCR, image upload), get auto-graded, review past results, watch lecture videos
 - **Guest**: browse exercises and lectures, submit exercises with results saved locally — no login required
 
-<details>
+## Project status
 
-<summary><h2>Roadmap</h2></summary>
-
-Each milestone produces a usable, deployable version.
-Completed milestones and shipped changes are recorded in [`CHANGELOG.md`](CHANGELOG.md).
-
-### v0.5 — Lectures
-
-- [ ] Plan guest mode: design IndexedDB storage, guest route access, and data model for anonymous exercise completion (implementation in v0.6)
-- [ ] Student: browse and watch lecture videos
-
-> **Ship:** full learning experience with exercises + video lectures.
-
-### v0.6 — Guest mode & polish
-
-- [ ] Guest access: no login, browse exercises/lectures, submit with results saved in IndexedDB
-- [ ] Prompt guest to register after engagement
-- [ ] UI polish and mobile responsiveness
-
-> **Ship:** anonymous users can try the platform — ready for marketing.
-
-### Queueing
-
-- [ ] Each answer includes an explanation field (image/markdown with math notation supported) created when uploading exercises
-- [ ] Auth: forget password
-- [ ] Auth: change password (teacher and student, teacher can reset student passwords)
-- [ ] LLM prompt for extraction
-- [ ] Additional user fields: name, class/grade, other social media links, profile image, email
-- [ ] Teacher: view student list with stats (exercises taken, average score, last active)
-- [ ] Teacher: view individual student profiles with submission history and performance trends
-- [ ] Auth: connect with google acconts for easier login and account recovery
-- [ ] Idea: students can submit an offline exercise by scanning a QR code on the exercise sheet, which opens a submission form pre-filled with the exercise ID and student info (if logged in) — this allows for easy offline-to-online transition without manual input of exercise details.
-  - [ ] Generate QR code for each exercise
-- [ ] Buy domain and set things up
-- [ ] Cost analysis and estimation dashboard
-- [ ] Structure logging system for best debugging and monitoring in production
-
-</details>
+- [`PRODUCT.md`](PRODUCT.md) describes shipped product behavior.
+- [`TODO.md`](TODO.md) tracks planned work.
+- [`CHANGELOG.md`](CHANGELOG.md) records completed changes.
 
 ## Tech Stack
 
