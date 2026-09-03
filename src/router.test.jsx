@@ -1,7 +1,8 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
+import { changeLanguage } from './i18n'
 import { AppRoutes } from './router'
 
 const useAuthMock = vi.fn()
@@ -11,7 +12,26 @@ vi.mock('./lib/auth-context', () => ({
   useAuth: () => useAuthMock(),
 }))
 
+afterEach(() => act(() => changeLanguage('en')))
+
 describe('route guards', () => {
+  it('keeps the unauthenticated loading state in English', async () => {
+    await act(() => changeLanguage('vi'))
+    useAuthMock.mockReturnValue({
+      isLoading: true,
+      user: null,
+      logout: vi.fn(),
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <AppRoutes />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Loading...')).toBeInTheDocument()
+  })
+
   it('redirects unauthenticated user from /teacher to login', () => {
     useAuthMock.mockReturnValue({
       isLoading: false,

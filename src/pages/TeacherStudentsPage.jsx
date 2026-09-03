@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Users } from 'lucide-react'
 import { listStudents, createStudent, approveStudent } from '@/lib/api'
 import { toast } from 'sonner'
@@ -11,10 +12,11 @@ import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
+import { formatFullDate } from '@/lib/format'
 
 const STATUS_FILTERS = [
-  { label: 'Active', value: 'active' },
-  { label: 'Pending', value: 'pending' },
+  'active',
+  'pending',
 ]
 
 const STATUS_VARIANT = {
@@ -23,13 +25,14 @@ const STATUS_VARIANT = {
   disabled: 'outline',
 }
 
-function formatDate(isoStr) {
+function formatCreatedDate(isoStr, language) {
   if (!isoStr) return '—'
   const d = new Date(isoStr)
-  return d.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' })
+  return formatFullDate(d, language)
 }
 
 export default function TeacherStudentsPage() {
+  const { t, i18n } = useTranslation()
   const { token } = useAuth()
   const requestIdRef = useRef(0)
   const [students, setStudents] = useState([])
@@ -55,11 +58,11 @@ export default function TeacherStudentsPage() {
       setLoadedFilter(requestedFilter)
     } catch (loadError) {
       if (requestId !== requestIdRef.current) return
-      setListLoadError(loadError.message || 'Could not load students')
+      setListLoadError(loadError.message || t('teacher.students.loadError'))
     } finally {
       if (requestId === requestIdRef.current) setLoading(false)
     }
-  }, [token, statusFilter])
+  }, [token, statusFilter, t])
 
   useEffect(() => {
     loadStudents()
@@ -75,7 +78,7 @@ export default function TeacherStudentsPage() {
     setApprovingId(studentId)
     try {
       const res = await approveStudent(token, studentId)
-      toast.success(res.message || 'Student approved successfully.')
+      toast.success(res.message || t('teacher.students.approvedFallback'))
       await loadStudents()
     } catch (err) {
       toast.error(err.message)
@@ -91,7 +94,7 @@ export default function TeacherStudentsPage() {
 
     const trimmed = phone.trim()
     if (!trimmed) {
-      setCreateError('Phone is required.')
+      setCreateError(t('teacher.students.phoneRequired'))
       return
     }
 
@@ -99,7 +102,7 @@ export default function TeacherStudentsPage() {
     try {
       const res = await createStudent(token, { phone: trimmed })
       setPhone('')
-      setSuccessMessage(res.message || 'Student created.')
+      setSuccessMessage(res.message || t('teacher.students.createdFallback'))
       await loadStudents()
     } catch (err) {
       setCreateError(err.message)
@@ -110,22 +113,22 @@ export default function TeacherStudentsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Students" description="Manage student accounts." />
+      <PageHeader title={t('teacher.students.title')} description={t('teacher.students.description')} />
 
       <Card>
         <CardHeader className="pb-4">
-          <CardTitle className="text-lg">Create Student</CardTitle>
+          <CardTitle className="text-lg">{t('teacher.students.createTitle')}</CardTitle>
           <CardDescription>
-            Enter a phone number to create a new student account. Default password is 123.
+            {t('teacher.students.createDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleCreate} className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex-1 space-y-1.5">
-              <Label htmlFor="phone">Phone number</Label>
+              <Label htmlFor="phone">{t('teacher.students.phone')}</Label>
               <Input
                 id="phone"
-                placeholder="+84xxx or 0xxx"
+                placeholder={t('teacher.students.phonePlaceholder')}
                 value={phone}
                 onChange={(e) => {
                   setPhone(e.target.value)
@@ -135,7 +138,7 @@ export default function TeacherStudentsPage() {
               />
             </div>
             <Button type="submit" disabled={creating}>
-              {creating ? 'Creating...' : 'Create Student'}
+              {creating ? t('teacher.students.creating') : t('teacher.students.create')}
             </Button>
           </form>
           {createError && (
@@ -150,17 +153,17 @@ export default function TeacherStudentsPage() {
       <Card>
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg">Student List</CardTitle>
+            <CardTitle className="text-lg">{t('teacher.students.listTitle')}</CardTitle>
             <div className="flex gap-1">
-              {STATUS_FILTERS.map((f) => (
+              {STATUS_FILTERS.map((status) => (
                 <Button
-                  key={f.value}
-                  variant={statusFilter === f.value ? 'default' : 'outline'}
+                  key={status}
+                  variant={statusFilter === status ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => handleFilterChange(f.value)}
-                  aria-label={f.label}
+                  onClick={() => handleFilterChange(status)}
+                  aria-label={t(`teacher.students.${status}`)}
                 >
-                  {f.label}
+                  {t(`teacher.students.${status}`)}
                 </Button>
               ))}
             </div>
@@ -168,29 +171,29 @@ export default function TeacherStudentsPage() {
         </CardHeader>
         <CardContent>
           {loading && !hasCurrentRows ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">{t('teacher.students.loading')}</p>
           ) : listLoadError && !hasCurrentRows ? (
             <div className="space-y-3 py-8 text-center">
-              <p className="font-medium">Couldn’t load students</p>
-              <Button type="button" variant="outline" onClick={loadStudents}>Retry</Button>
+              <p className="font-medium">{t('teacher.students.loadError')}</p>
+              <Button type="button" variant="outline" onClick={loadStudents}>{t('teacher.students.retry')}</Button>
             </div>
           ) : hasCurrentRows && students.length === 0 ? (
             <EmptyState
               icon={Users}
-              title="No students yet."
+              title={t('teacher.students.empty')}
               description={statusFilter
-                ? `No ${statusFilter} students match this filter.`
-                : 'Create a student account to start building your class.'}
+                ? t('teacher.students.emptyFiltered', { status: t(`teacher.students.${statusFilter}`).toLocaleLowerCase(i18n.resolvedLanguage) })
+                : t('teacher.students.emptyDescription')}
             />
           ) : hasCurrentRows ? (
             <>
               {listLoadError && (
                 <div className="mb-3 flex items-center justify-between gap-3 rounded-md border border-destructive/40 p-3">
-                  <p className="text-sm text-destructive">Couldn’t load students. Showing the previous results.</p>
-                  <Button type="button" variant="outline" size="sm" onClick={loadStudents}>Retry</Button>
+                  <p className="text-sm text-destructive">{t('teacher.students.staleError')}</p>
+                  <Button type="button" variant="outline" size="sm" onClick={loadStudents}>{t('teacher.students.retry')}</Button>
                 </div>
               )}
-              <div data-testid="responsive-student-list" className="grid gap-3" aria-label="Students">
+              <div data-testid="responsive-student-list" className="grid gap-3" aria-label={t('teacher.students.listLabel')}>
                 {students.map((student) => (
                   <div
                     key={student.id}
@@ -199,11 +202,11 @@ export default function TeacherStudentsPage() {
                     <div className="min-w-0">
                       <p className="min-w-0 truncate font-mono text-sm">{student.phone}</p>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        Created {formatDate(student.created_at)}
+                        {t('teacher.students.created', { date: formatCreatedDate(student.created_at, i18n.resolvedLanguage) })}
                       </p>
                     </div>
                     <Badge className="w-fit" variant={STATUS_VARIANT[student.status] || 'outline'}>
-                      {student.status.charAt(0).toUpperCase() + student.status.slice(1)}
+                      {t(`teacher.students.${student.status}`, { defaultValue: student.status })}
                     </Badge>
                     <div className="sm:min-w-24 sm:text-right">
                       {student.status === 'pending' ? (
@@ -215,9 +218,9 @@ export default function TeacherStudentsPage() {
                           disabled={approvingId === student.id}
                         >
                           {approvingId === student.id ? (
-                            <Spinner data-icon="inline-start" />
+                            <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
                           ) : null}
-                          {approvingId === student.id ? 'Approving...' : 'Approve'}
+                          {approvingId === student.id ? t('teacher.students.approving') : t('teacher.students.approve')}
                         </Button>
                       ) : (
                         <span className="hidden text-sm text-muted-foreground sm:inline">—</span>

@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
+import { changeLanguage } from '@/i18n'
 import { linkGoogle, unlinkGoogle } from '@/lib/api'
 import { startGoogleFlow } from '@/lib/google-oauth'
 import { getDefaultPathForRole } from '@/lib/navigation'
@@ -19,6 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Spinner } from '@/components/ui/spinner'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { ArrowLeft, UnlinkIcon } from 'lucide-react'
 
@@ -36,6 +39,7 @@ function GoogleGIcon({ className }) {
 export default function SettingsPage() {
   const navigate = useNavigate()
   const { user, token, refreshUser } = useAuth()
+  const { i18n, t } = useTranslation()
   const [isUnlinking, setIsUnlinking] = useState(false)
   const [showDisconnect, setShowDisconnect] = useState(false)
 
@@ -50,7 +54,7 @@ export default function SettingsPage() {
     try {
       await unlinkGoogle(token)
       await refreshUser()
-      toast.success('Google account disconnected.')
+      toast.success(t('settings.accounts.disconnected'))
     } catch (e) {
       toast.error(e.message)
     } finally {
@@ -64,10 +68,10 @@ export default function SettingsPage() {
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-8">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon-sm" onClick={() => navigate(getDefaultPathForRole(user?.role))} aria-label="Back">
+            <Button variant="ghost" size="icon-sm" onClick={() => navigate(getDefaultPathForRole(user?.role))} aria-label={t('settings.back')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-semibold">Settings</span>
+            <span className="text-sm font-semibold">{t('settings.title')}</span>
           </div>
           <div className="flex items-center gap-2">
             {user?.phone && (
@@ -79,11 +83,29 @@ export default function SettingsPage() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-lg px-8 py-6">
+      <main className="mx-auto grid max-w-lg gap-6 px-8 py-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('settings.language.title')}</CardTitle>
+            <CardDescription>{t('settings.language.description')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Label htmlFor="language">{t('settings.language.label')}</Label>
+            <select
+              id="language"
+              value={i18n.resolvedLanguage}
+              onChange={(event) => changeLanguage(event.target.value)}
+              className="mt-2 min-h-[var(--sc-component-hit-target)] w-full rounded-[var(--sc-component-control-shape)] border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            >
+              <option value="en">{t('settings.language.english')}</option>
+              <option value="vi">{t('settings.language.vietnamese')}</option>
+            </select>
+          </CardContent>
+        </Card>
         <Card>
         <CardHeader>
-          <CardTitle>Connected accounts</CardTitle>
-          <CardDescription>Link your Google account for easier sign-in and account recovery.</CardDescription>
+          <CardTitle>{t('settings.accounts.title')}</CardTitle>
+          <CardDescription>{t('settings.accounts.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           {isLinked ? (
@@ -93,7 +115,7 @@ export default function SettingsPage() {
                 <div className="min-w-0 flex flex-col sm:flex-row sm:items-center sm:gap-2">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Google</span>
-                    <Badge variant="secondary">Linked</Badge>
+                    <Badge variant="secondary">{t('settings.accounts.linked')}</Badge>
                   </div>
                   <span className="truncate text-sm text-muted-foreground">{user.google_email}</span>
                 </div>
@@ -103,21 +125,21 @@ export default function SettingsPage() {
                 <DialogTrigger asChild>
                   <Button variant="destructive" size="sm" className="shrink-0">
                     <UnlinkIcon className="size-4" />
-                    Disconnect
+                    {t('settings.accounts.disconnect')}
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent closeLabel={t('common.close')}>
                   <DialogHeader>
-                    <DialogTitle>Disconnect Google?</DialogTitle>
+                    <DialogTitle>{t('settings.accounts.disconnectTitle')}</DialogTitle>
                     <DialogDescription>
-                      You will no longer be able to sign in with Google. Your phone login will still work.
+                      {t('settings.accounts.disconnectDescription')}
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowDisconnect(false)}>Cancel</Button>
+                    <Button variant="outline" onClick={() => setShowDisconnect(false)}>{t('settings.accounts.cancel')}</Button>
                     <Button variant="destructive" onClick={handleDisconnect} disabled={isUnlinking}>
-                      {isUnlinking && <Spinner className="mr-1" />}
-                      Disconnect
+                      {isUnlinking && <Spinner className="mr-1" aria-label={t('common.loading')} />}
+                      {t('settings.accounts.disconnect')}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -129,14 +151,14 @@ export default function SettingsPage() {
                 <EmptyMedia variant="icon">
                   <GoogleGIcon className="size-4" />
                 </EmptyMedia>
-                <EmptyTitle>Not linked</EmptyTitle>
+                <EmptyTitle>{t('settings.accounts.notLinked')}</EmptyTitle>
                 <EmptyDescription>
-                  Connect your Google account to sign in with one click and recover access if you forget your password.
+                  {t('settings.accounts.notLinkedDescription')}
                 </EmptyDescription>
               </EmptyHeader>
               <Button variant="outline" onClick={handleConnect}>
                 <GoogleGIcon className="size-4" />
-                Connect Google
+                {t('settings.accounts.connect')}
               </Button>
             </Empty>
           )}

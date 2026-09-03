@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ClipboardList, RefreshCw } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
@@ -8,8 +9,10 @@ import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { cn } from '@/lib/utils'
+import { formatDuration, formatTime } from '@/lib/format'
 
 export default function StudentExercisesPage() {
+  const { t, i18n } = useTranslation()
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -37,13 +40,13 @@ export default function StudentExercisesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Exercises"
-        description="Browse and start exercises"
+        title={t('student.exercises.title')}
+        description={t('student.exercises.description')}
         actions={
           <>
             {lastRefreshed && !isLoading && (
-              <span className="self-center text-xs text-muted-foreground" aria-label="Last refreshed time">
-                Updated {lastRefreshed.toLocaleTimeString()}
+              <span className="self-center text-xs text-muted-foreground" aria-label={t('student.exercises.refreshed')}>
+                {t('student.exercises.updated', { time: formatTime(lastRefreshed, i18n.resolvedLanguage) })}
               </span>
             )}
             <Button
@@ -52,7 +55,7 @@ export default function StudentExercisesPage() {
               className="size-[48px]"
               onClick={loadExercises}
               disabled={isLoading}
-              aria-label="Refresh exercises"
+              aria-label={t('student.exercises.refresh')}
             >
               <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
             </Button>
@@ -62,7 +65,7 @@ export default function StudentExercisesPage() {
 
       <Card>
         {isLoading && (
-          <p className="p-5 text-sm text-muted-foreground">Loading exercises...</p>
+          <p className="p-5 text-sm text-muted-foreground">{t('student.exercises.loading')}</p>
         )}
 
         {!isLoading && error && (
@@ -72,8 +75,8 @@ export default function StudentExercisesPage() {
         {!isLoading && !error && items.length === 0 && (
           <EmptyState
             icon={ClipboardList}
-            title="No exercises yet"
-            description="Check back soon! New exercises will appear here when they are ready."
+            title={t('student.exercises.empty')}
+            description={t('student.exercises.emptyDescription')}
           />
         )}
 
@@ -81,13 +84,13 @@ export default function StudentExercisesPage() {
           <>
             <div className="hidden sm:block">
               <table className="min-w-full border-collapse text-sm">
-                <caption className="sr-only">Available exercises</caption>
+                <caption className="sr-only">{t('student.exercises.available')}</caption>
                 <thead className="bg-muted text-left text-muted-foreground">
                   <tr>
-                    <th scope="col" className="px-4 py-3">Title</th>
-                    <th scope="col" className="px-4 py-3">Duration</th>
-                    <th scope="col" className="px-4 py-3">Questions</th>
-                    <th scope="col" className="px-4 py-3">Actions</th>
+                    <th scope="col" className="px-4 py-3">{t('student.exercises.titleColumn')}</th>
+                    <th scope="col" className="px-4 py-3">{t('student.exercises.duration')}</th>
+                    <th scope="col" className="px-4 py-3">{t('student.exercises.questions')}</th>
+                    <th scope="col" className="px-4 py-3">{t('student.exercises.actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -97,18 +100,18 @@ export default function StudentExercisesPage() {
                       <td className="px-4 py-3">
                         {item.is_timed ? (
                           <span>
-                            <Badge variant="default" className="mr-2">Timed</Badge>
-                            {item.duration_minutes} min
+                            <Badge variant="default" className="mr-2">{t('student.exercises.timed')}</Badge>
+                            {formatDuration(item.duration_minutes, i18n.resolvedLanguage)}
                           </span>
                         ) : (
-                          <Badge variant="secondary">Untimed</Badge>
+                          <Badge variant="secondary">{t('student.exercises.untimed')}</Badge>
                         )}
                       </td>
                       <td className="px-4 py-3">{item.question_count}</td>
                       <td className="px-4 py-3">
                         <Button asChild variant="link" size="sm">
-                          <Link to={`/student/exercises/${item.id}`} aria-label={`Start ${item.title}`}>
-                            Start
+                          <Link to={`/student/exercises/${item.id}`} aria-label={t('student.exercises.startExercise', { title: item.title })}>
+                            {t('student.exercises.start')}
                           </Link>
                         </Button>
                       </td>
@@ -118,24 +121,24 @@ export default function StudentExercisesPage() {
               </table>
             </div>
 
-            <ul className="divide-y sm:hidden" aria-label="Available exercises compact view">
+            <ul className="divide-y sm:hidden" aria-label={t('student.exercises.compact')}>
               {items.map((item) => (
                 <li key={item.id} className="space-y-3 p-4">
                   <p className="font-medium">{item.title}</p>
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     {item.is_timed ? (
                       <>
-                        <Badge variant="default">Timed</Badge>
-                        <span>{item.duration_minutes} min</span>
+                        <Badge variant="default">{t('student.exercises.timed')}</Badge>
+                        <span>{formatDuration(item.duration_minutes, i18n.resolvedLanguage)}</span>
                       </>
                     ) : (
-                      <Badge variant="secondary">Untimed</Badge>
+                      <Badge variant="secondary">{t('student.exercises.untimed')}</Badge>
                     )}
-                    <span className="text-muted-foreground">{item.question_count} questions</span>
+                    <span className="text-muted-foreground">{t('student.exercises.questionCount', { count: item.question_count })}</span>
                   </div>
                   <Button asChild size="sm" className="min-h-[48px] w-full">
-                    <Link to={`/student/exercises/${item.id}`} aria-label={`Start ${item.title}`}>
-                      Start
+                    <Link to={`/student/exercises/${item.id}`} aria-label={t('student.exercises.startExercise', { title: item.title })}>
+                      {t('student.exercises.start')}
                     </Link>
                   </Button>
                 </li>

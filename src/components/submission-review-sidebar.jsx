@@ -1,13 +1,15 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { computeStatus } from '@/components/answer-result'
 import { MCQ_POINTS, NUMERIC_POINTS, BOOLEAN_SCORE_TABLE } from '@/lib/grading-display'
+import { formatDateTime } from '@/lib/format'
 
-function StatusDot({ status }) {
+function StatusDot({ status, t }) {
   if (status === 'correct')
-    return <span aria-label="correct" className="inline-block h-2.5 w-2.5 rounded-full bg-success" />
+    return <span aria-label={t('student.results.correct')} className="inline-block h-2.5 w-2.5 rounded-full bg-success" />
   if (status === 'incorrect')
-    return <span aria-label="wrong" className="inline-block h-2.5 w-2.5 rounded-full bg-destructive" />
-  return <span aria-label="skipped" className="inline-block h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
+    return <span aria-label={t('student.results.incorrect')} className="inline-block h-2.5 w-2.5 rounded-full bg-destructive" />
+  return <span aria-label={t('student.results.skipped')} className="inline-block h-2.5 w-2.5 rounded-full bg-muted-foreground/40" />
 }
 
 function formatTimeTaken(started_at, submitted_at) {
@@ -74,6 +76,7 @@ function rowPts(row) {
 }
 
 export function SubmissionReviewSidebar({ submission, questionRefs }) {
+  const { t, i18n } = useTranslation()
   if (!submission) return null
 
   const { score, submitted_at, started_at, answers = [] } = submission
@@ -99,7 +102,7 @@ export function SubmissionReviewSidebar({ submission, questionRefs }) {
 
   const timeTaken = formatTimeTaken(started_at, submitted_at)
   const submittedDate = submitted_at
-    ? new Date(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z')).toLocaleString()
+    ? formatDateTime(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z'), i18n.resolvedLanguage)
     : '—'
 
   const rows = buildSidebarRows(answers)
@@ -114,18 +117,18 @@ export function SubmissionReviewSidebar({ submission, questionRefs }) {
             <p className="text-sm text-muted-foreground">/ 10</p>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">No score available</p>
+          <p className="text-sm text-muted-foreground">{t('student.results.noScore')}</p>
         )}
       </div>
 
       {/* Time + submitted */}
       <div className="space-y-1 rounded-lg border bg-card p-3 text-xs text-muted-foreground">
         <p>
-          Time taken:{' '}
+          {t('student.results.timeTaken')}{' '}
           <span className="font-medium text-foreground">{timeTaken}</span>
         </p>
         <p>
-          Submitted:{' '}
+          {t('student.results.submittedLabel')}{' '}
           <span className="font-medium text-foreground">{submittedDate}</span>
         </p>
       </div>
@@ -150,7 +153,7 @@ export function SubmissionReviewSidebar({ submission, questionRefs }) {
       {rows.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Questions
+            {t('student.results.questions')}
           </p>
           <div className="overflow-hidden rounded-lg border">
             <table className="w-full text-xs">
@@ -171,7 +174,7 @@ export function SubmissionReviewSidebar({ submission, questionRefs }) {
                       }
                     >
                       <td className="px-2 py-2">
-                        <StatusDot status={status} />
+                        <StatusDot status={status} t={t} />
                       </td>
                       <td className="px-2 py-2 font-medium text-muted-foreground">{idx + 1}</td>
                       <td className="px-2 py-2 font-medium">{chosen}</td>

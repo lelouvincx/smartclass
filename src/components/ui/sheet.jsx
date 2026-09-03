@@ -27,7 +27,7 @@ function SheetOverlay({ className, ...props }) {
   )
 }
 
-function SheetContent({ className, children, side = "bottom", ...props }) {
+function SheetContent({ className, children, side = "bottom", closeLabel = "Close", ...props }) {
   const sideClasses = side === "left"
     ? "inset-y-0 left-0 flex h-dvh w-[min(20rem,85vw)] flex-col overflow-y-auto rounded-e-[var(--sc-component-focal-shape)] border-r bg-background p-0 shadow-lg data-open:slide-in-from-left data-closed:slide-out-to-left"
     : "inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t bg-background p-6 shadow-lg data-open:slide-in-from-bottom data-closed:slide-out-to-bottom"
@@ -52,7 +52,7 @@ function SheetContent({ className, children, side = "bottom", ...props }) {
             className="absolute right-4 top-4 size-[48px] text-muted-foreground"
           >
             <XIcon />
-            <span className="sr-only">Close</span>
+            <span className="sr-only">{closeLabel}</span>
           </Button>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>

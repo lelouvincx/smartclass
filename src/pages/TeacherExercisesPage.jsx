@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ClipboardList, RefreshCw, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
@@ -7,18 +8,16 @@ import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { cn } from '@/lib/utils'
+import { formatDateTime, formatDuration, formatTime } from '@/lib/format'
 
-function formatDuration(minutes) {
-  return Number(minutes) > 0 ? `${minutes} min` : 'Untimed'
-}
-
-function formatUpdatedAt(value) {
+function formatUpdatedAt(value, language) {
   if (!value) return '—'
   const date = new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`)
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? '—' : formatDateTime(date, language)
 }
 
 export default function TeacherExercisesPage() {
+  const { t, i18n } = useTranslation()
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -46,13 +45,13 @@ export default function TeacherExercisesPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Exercises"
-        description="Manage exercises and check that answer keys and files are complete."
+        title={t('teacher.exercises.title')}
+        description={t('teacher.exercises.description')}
         actions={
           <>
             {lastRefreshed && !isLoading && (
-              <span className="self-center text-xs text-muted-foreground" aria-label="Last refreshed time">
-                Updated {lastRefreshed.toLocaleTimeString()}
+              <span className="self-center text-xs text-muted-foreground" aria-label={t('teacher.exercises.lastRefreshed')}>
+                {t('teacher.exercises.updatedTime', { time: formatTime(lastRefreshed, i18n.resolvedLanguage) })}
               </span>
             )}
             <Button
@@ -61,14 +60,14 @@ export default function TeacherExercisesPage() {
               className="size-[48px]"
               onClick={loadExercises}
               disabled={isLoading}
-              aria-label="Refresh exercises"
+              aria-label={t('teacher.exercises.refresh')}
             >
               <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
             </Button>
             <Button asChild>
               <Link to="/teacher/exercises/new">
                 <Plus className="h-4 w-4" />
-                Create Exercise
+                {t('teacher.exercises.create')}
               </Link>
             </Button>
           </>
@@ -77,7 +76,7 @@ export default function TeacherExercisesPage() {
 
       <Card className="py-0">
         {isLoading && (
-          <p className="p-5 text-sm text-muted-foreground">Loading exercises...</p>
+          <p className="p-5 text-sm text-muted-foreground">{t('teacher.exercises.loading')}</p>
         )}
 
         {!isLoading && error && (
@@ -87,11 +86,11 @@ export default function TeacherExercisesPage() {
         {!isLoading && !error && items.length === 0 && (
           <EmptyState
             icon={ClipboardList}
-            title="No exercises yet."
-            description="Create an exercise to start building your class library."
+            title={t('teacher.exercises.empty')}
+            description={t('teacher.exercises.emptyDescription')}
             action={
               <Button asChild>
-                <Link to="/teacher/exercises/new">Create your first exercise</Link>
+                <Link to="/teacher/exercises/new">{t('teacher.exercises.createFirst')}</Link>
               </Button>
             }
           />
@@ -101,14 +100,14 @@ export default function TeacherExercisesPage() {
           <>
             <div className="hidden sm:block">
               <table className="min-w-full border-collapse text-sm">
-                <caption className="sr-only">Teacher exercise library</caption>
+                <caption className="sr-only">{t('teacher.exercises.library')}</caption>
                 <thead className="bg-muted text-left text-muted-foreground">
                   <tr>
-                    <th scope="col" className="px-3 py-3 lg:px-4">Title</th>
-                    <th scope="col" className="px-3 py-3 lg:px-4">Duration</th>
-                    <th scope="col" className="px-3 py-3 lg:px-4">Questions</th>
-                    <th scope="col" className="px-3 py-3 lg:px-4">Files</th>
-                    <th scope="col" className="px-3 py-3 lg:px-4">Updated</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.titleColumn')}</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.duration')}</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.questions')}</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.files')}</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.updated')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -117,47 +116,47 @@ export default function TeacherExercisesPage() {
                       <th scope="row" className="px-3 py-3 text-left font-medium lg:px-4">
                         <Link
                           to={`/teacher/exercises/${item.id}`}
-                          aria-label={`View ${item.title}`}
+                          aria-label={t('teacher.exercises.viewNamed', { title: item.title })}
                           className="text-primary underline-offset-4 hover:underline"
                         >
                           {item.title}
                         </Link>
                       </th>
-                      <td className="px-3 py-3 lg:px-4">{formatDuration(item.duration_minutes)}</td>
+                      <td className="px-3 py-3 lg:px-4">{Number(item.duration_minutes) > 0 ? formatDuration(item.duration_minutes, i18n.resolvedLanguage) : t('teacher.exercises.untimed')}</td>
                       <td className="px-3 py-3 lg:px-4">{item.question_count}</td>
                       <td className="px-3 py-3 lg:px-4">{item.file_count}</td>
-                      <td className="whitespace-nowrap px-3 py-3 text-muted-foreground lg:px-4">{formatUpdatedAt(item.updated_at)}</td>
+                      <td className="whitespace-nowrap px-3 py-3 text-muted-foreground lg:px-4">{formatUpdatedAt(item.updated_at, i18n.resolvedLanguage)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <ul className="divide-y sm:hidden" aria-label="Teacher exercise library compact view">
+            <ul className="divide-y sm:hidden" aria-label={t('teacher.exercises.compactLibrary')}>
               {items.map((item) => (
                 <li key={item.id} className="space-y-3 p-4">
                   <p className="font-medium">{item.title}</p>
                   <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                     <div>
-                      <dt className="text-muted-foreground">Duration</dt>
-                      <dd>{formatDuration(item.duration_minutes)}</dd>
+                      <dt className="text-muted-foreground">{t('teacher.exercises.duration')}</dt>
+                      <dd>{Number(item.duration_minutes) > 0 ? formatDuration(item.duration_minutes, i18n.resolvedLanguage) : t('teacher.exercises.untimed')}</dd>
                     </div>
                     <div>
-                      <dt className="text-muted-foreground">Questions</dt>
+                      <dt className="text-muted-foreground">{t('teacher.exercises.questions')}</dt>
                       <dd>{item.question_count}</dd>
                     </div>
                     <div>
-                      <dt className="text-muted-foreground">Files</dt>
+                      <dt className="text-muted-foreground">{t('teacher.exercises.files')}</dt>
                       <dd>{item.file_count}</dd>
                     </div>
                     <div className="col-span-2">
-                      <dt className="text-muted-foreground">Updated</dt>
-                      <dd className="whitespace-nowrap">{formatUpdatedAt(item.updated_at)}</dd>
+                      <dt className="text-muted-foreground">{t('teacher.exercises.updated')}</dt>
+                      <dd className="whitespace-nowrap">{formatUpdatedAt(item.updated_at, i18n.resolvedLanguage)}</dd>
                     </div>
                   </dl>
                   <Button asChild size="sm" className="min-h-[48px] w-full">
-                    <Link to={`/teacher/exercises/${item.id}`} aria-label={`View ${item.title}`}>
-                      View
+                    <Link to={`/teacher/exercises/${item.id}`} aria-label={t('teacher.exercises.viewNamed', { title: item.title })}>
+                      {t('teacher.exercises.view')}
                     </Link>
                   </Button>
                 </li>

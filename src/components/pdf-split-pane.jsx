@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -31,6 +32,7 @@ function getInitialVisibility() {
  * Explicit toggle state is persisted. Without a preference, it defaults hidden on mobile and visible on desktop.
  */
 export function PdfSplitPane({ fileUrl, children }) {
+  const { t } = useTranslation()
   const [pdfVisible, setPdfVisible] = useState(getInitialVisibility)
 
   useEffect(() => {
@@ -70,11 +72,11 @@ export function PdfSplitPane({ fileUrl, children }) {
           variant="outline"
           size="sm"
           onClick={togglePdfVisible}
-          aria-label={collapsed ? 'Show PDF' : 'Hide PDF'}
+          aria-label={collapsed ? t('student.pdf.show') : t('student.pdf.hide')}
           aria-expanded={!collapsed}
         >
           <FileText className="mr-1 h-4 w-4" />
-          {collapsed ? 'Show PDF' : 'Hide PDF'}
+          {collapsed ? t('student.pdf.show') : t('student.pdf.hide')}
         </Button>
       </div>
 
@@ -91,7 +93,7 @@ export function PdfSplitPane({ fileUrl, children }) {
             <div className="h-[50vh] max-h-[50vh] overflow-hidden rounded-lg border bg-muted lg:sticky lg:top-20 lg:h-[calc(100vh-7rem)] lg:max-h-none">
               <iframe
                 src={fileUrl}
-                title="Exercise PDF"
+                title={t('student.pdf.title')}
                 className="h-full w-full"
               />
             </div>
