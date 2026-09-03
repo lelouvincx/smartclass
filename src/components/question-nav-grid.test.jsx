@@ -36,6 +36,23 @@ const SCHEMA_MIXED = [
 // --- Tests: QuestionNavGrid ---
 
 describe('QuestionNavGrid', () => {
+  it('shows answered progress and a visible legend for every navigation state', () => {
+    render(
+      <QuestionNavGrid
+        schema={SCHEMA_MCQ}
+        answers={{ 1: 'A', 2: '', 3: '' }}
+        currentQId={2}
+        onJump={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('1 of 3 answered')).toBeVisible()
+    const legend = screen.getByLabelText('Question status legend')
+    expect(legend).toHaveTextContent('Current')
+    expect(legend).toHaveTextContent('Answered')
+    expect(legend).toHaveTextContent('Unanswered')
+  })
+
   it('renders one cell per unique question id', () => {
     const onJump = vi.fn()
     render(

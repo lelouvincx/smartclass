@@ -60,6 +60,14 @@ describe('TeacherLecturesPage', () => {
     vi.restoreAllMocks()
   })
 
+  it('renders the empty state flush with its card edges', async () => {
+    listLecturesMock.mockResolvedValue({ data: [] })
+    renderPage()
+
+    const emptyHeading = await screen.findByRole('heading', { name: 'No lectures yet.' })
+    expect(emptyHeading.closest('[data-slot="card"]')).toHaveClass('gap-0', 'py-0')
+  })
+
   it('lists lectures and creates a new lecture through the form', async () => {
     const user = userEvent.setup()
     createLectureMock.mockResolvedValue({ data: { id: 3 } })

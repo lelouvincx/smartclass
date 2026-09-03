@@ -762,71 +762,64 @@ export default function StudentTakeExercisePage() {
         </CardContent>
       </Card>
 
-      {/* Two-pane layout: PDF (left) | answer-sheet + questions (right). 50/50 on lg+. */}
+      {/* Two-pane layout: PDF (left) | attempt controls (right). */}
       <PdfSplitPane fileUrl={pdfUrl}>
-        <div className="space-y-4">
-          {/* Always-visible answer sheet (timer + nav grid + Submit/Exit), sticky on lg+ */}
-          <div className="lg:sticky lg:top-20 lg:z-10">
+        <div className="flex flex-col gap-4">
+          {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
+          <div data-testid="take-input-mode" className="order-1 lg:order-2">
             <Card>
-              <CardContent className="pt-5">
-                {renderSidebar()}
+              <CardContent className="space-y-3 pt-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold">{t('student.take.inputMode')}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t('student.take.inputDescription')}
+                    </p>
+                  </div>
+                  <ButtonGroup aria-label={t('student.take.inputMode')}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="min-h-[48px]"
+                      variant={inputMode === 'manual' ? 'default' : 'outline'}
+                      onClick={() => setInputMode('manual')}
+                      aria-pressed={inputMode === 'manual'}
+                    >
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
+                      {t('student.take.manual')}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="min-h-[48px]"
+                      variant={inputMode === 'photo' ? 'default' : 'outline'}
+                      onClick={() => setInputMode('photo')}
+                      aria-pressed={inputMode === 'photo'}
+                    >
+                      <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+                      {t('student.take.uploadPhoto')}
+                    </Button>
+                  </ButtonGroup>
+                </div>
+
+                {inputMode === 'photo' && submission && (
+                  <AnswerImageUpload
+                    submissionId={submission.id}
+                    onExtracted={handleExtracted}
+                    disabled={isSubmitting}
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
-          <Card>
-            <CardContent className="space-y-3 pt-5">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold">{t('student.take.inputMode')}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {t('student.take.inputDescription')}
-                  </p>
-                </div>
-                <ButtonGroup aria-label={t('student.take.inputMode')}>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="min-h-[48px]"
-                    variant={inputMode === 'manual' ? 'default' : 'outline'}
-                    onClick={() => setInputMode('manual')}
-                    aria-pressed={inputMode === 'manual'}
-                  >
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                    {t('student.take.manual')}
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    className="min-h-[48px]"
-                    variant={inputMode === 'photo' ? 'default' : 'outline'}
-                    onClick={() => setInputMode('photo')}
-                    aria-pressed={inputMode === 'photo'}
-                  >
-                    <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                    {t('student.take.uploadPhoto')}
-                  </Button>
-                </ButtonGroup>
-              </div>
-
-              {inputMode === 'photo' && submission && (
-                <AnswerImageUpload
-                  submissionId={submission.id}
-                  onExtracted={handleExtracted}
-                  disabled={isSubmitting}
-                />
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Single-question view — student picks via the nav grid above. */}
+          {/* Single-question view — first on mobile to minimize scrolling before answering. */}
           {(() => {
             const idx = questionGroups.findIndex((g) => g.q_id === currentQId)
             const group = idx >= 0 ? questionGroups[idx] : null
             if (!group) return null
             return (
-              <Card>
+              <Card data-testid="take-current-question" className="order-2 lg:order-3">
                 <CardContent className="space-y-4 pt-5">
                   <p className="text-sm font-semibold">
                     {t('student.take.questionTitle', { index: idx + 1, id: group.q_id })}
@@ -860,6 +853,14 @@ export default function StudentTakeExercisePage() {
             )
           })()}
 
+          {/* Desktop keeps the answer sheet first and sticky; mobile reaches it after the current input. */}
+          <div data-testid="take-answer-sheet" className="order-3 lg:order-1 lg:sticky lg:top-20 lg:z-10">
+            <Card>
+              <CardContent className="pt-5">
+                {renderSidebar()}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </PdfSplitPane>
 

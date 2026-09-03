@@ -4,8 +4,11 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
 import StudentExercisesPage from './StudentExercisesPage'
+import { setSubmissionPointer } from '@/lib/submission-draft'
 
 const listExercisesMock = vi.fn()
+const listMySubmissionsMock = vi.fn()
+const getSubmissionMock = vi.fn()
 const logoutMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
@@ -13,11 +16,15 @@ vi.mock('../lib/api', async (importOriginal) => {
   return {
     ...actual,
     listExercises: (...args) => listExercisesMock(...args),
+    listMySubmissions: (...args) => listMySubmissionsMock(...args),
+    getSubmission: (...args) => getSubmissionMock(...args),
   }
 })
 
 vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({
+    token: 'student-token',
+    user: { id: 7 },
     logout: logoutMock,
   }),
 }))
@@ -25,7 +32,11 @@ vi.mock('../lib/auth-context', () => ({
 describe('StudentExercisesPage', () => {
   beforeEach(() => {
     listExercisesMock.mockReset()
+    listMySubmissionsMock.mockReset()
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+    getSubmissionMock.mockReset()
     logoutMock.mockReset()
+    sessionStorage.clear()
   })
 
   it('renders empty state with encouraging message when there are no exercises', async () => {
@@ -107,6 +118,43 @@ describe('StudentExercisesPage', () => {
     const startLinks = await screen.findAllByRole('link', { name: /start quiz/i })
     expect(startLinks).toHaveLength(2)
     expect(startLinks[0]).toHaveAttribute('href', '/student/exercises/42')
+  })
+
+  it('labels an in-progress exercise as Resume', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1 }],
+    })
+    setSubmissionPointer(7, 42, 99)
+    getSubmissionMock.mockResolvedValue({ data: { id: 99, exercise_id: 42, submitted_at: null } })
+
+    render(
+      <MemoryRouter>
+        <StudentExercisesPage />
+      </MemoryRouter>,
+    )
+
+    const resumeLinks = await screen.findAllByRole('link', { name: /resume quiz/i })
+    expect(resumeLinks).toHaveLength(2)
+    expect(resumeLinks[0]).toHaveAttribute('href', '/student/exercises/42/take')
+  })
+
+  it('labels a completed exercise as View result', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1 }],
+    })
+    listMySubmissionsMock.mockResolvedValue({
+      data: { submissions: [{ id: 88, exercise_id: 42, submitted_at: '2026-09-03 05:00:00' }] },
+    })
+
+    render(
+      <MemoryRouter>
+        <StudentExercisesPage />
+      </MemoryRouter>,
+    )
+
+    const resultLinks = await screen.findAllByRole('link', { name: /view quiz result/i })
+    expect(resultLinks).toHaveLength(2)
+    expect(resultLinks[0]).toHaveAttribute('href', '/student/submissions/88/summary')
   })
 
   it('displays error message when API fails', async () => {

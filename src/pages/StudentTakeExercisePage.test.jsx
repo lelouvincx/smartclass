@@ -369,7 +369,7 @@ describe('StudentTakeExercisePage', () => {
     expect(screen.getAllByRole('button', { name: /^Submit$/i })).toHaveLength(1)
   })
 
-  it('renders the answer-sheet (timer + Submit) above the first question card', async () => {
+  it('keeps the current question before the answer sheet in mobile document order', async () => {
     const now = new Date()
     const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
     const sub = { ...SUBMISSION, started_at: startedAt }
@@ -380,11 +380,24 @@ describe('StudentTakeExercisePage', () => {
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    const timer = screen.getByLabelText('Timer')
     const firstQuestion = screen.getByText(/^1\. Question 1$/)
+    const answerSheet = screen.getByText('Answer Sheet')
+    const submit = screen.getByRole('button', { name: /^Submit$/i })
 
-    // Document order: timer (in answer-sheet card) precedes the first question card.
-    expect(timer.compareDocumentPosition(firstQuestion) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(firstQuestion.compareDocumentPosition(answerSheet) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(firstQuestion.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('visually restores the answer sheet first in the desktop right pane', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByTestId('take-answer-sheet')).toHaveClass('lg:order-1')
+    expect(screen.getByTestId('take-input-mode')).toHaveClass('lg:order-2')
+    expect(screen.getByTestId('take-current-question')).toHaveClass('lg:order-3')
   })
 
   // --- Answering questions ---
