@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Use Material 3's default Roboto typeface throughout the application. [#87](https://github.com/lelouvincx/smartclass/pull/87)
 - Ignore the local `.amp` and `.impeccable` runtime directories. [#82](https://github.com/lelouvincx/smartclass/pull/82)
 - Consolidate the take and review experience into a two-panel PDF and answer layout. [#66](https://github.com/lelouvincx/smartclass/pull/66)
 - Show one selected question at a time on the take page, with Previous and Next controls. [#67](https://github.com/lelouvincx/smartclass/pull/67)

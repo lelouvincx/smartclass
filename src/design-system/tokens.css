@@ -81,7 +81,7 @@
   --sc-shape-lg: 14px;
   --sc-shape-xl: 20px;
   --sc-shape-full: 9999px;
-  --sc-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  --sc-font-family: 'Roboto', 'Noto Sans', sans-serif;
   --sc-type-label-size: 0.75rem;
   --sc-type-label-line-height: 1rem;
   --sc-type-body-size: 0.875rem;
