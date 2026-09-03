@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Replace the student PDF iframe with synchronized isolated-question images and answer controls, including adjacent-image preloading and a compact mobile answer-sheet drawer. [#91](https://github.com/lelouvincx/smartclass/pull/91)
+- Align expanded lecture previews with their disclosure controls on desktop. [#90](https://github.com/lelouvincx/smartclass/pull/90)
 - Make dashboards task-aware, show truthful exercise actions, prioritize the current question on mobile attempts, and clarify answer progress. [#89](https://github.com/lelouvincx/smartclass/pull/89)
 - Use Material 3's default Roboto typeface throughout the application. [#87](https://github.com/lelouvincx/smartclass/pull/87)
 - Add explicit bot PR and post-merge workflow triggers to repository instructions. [#86](https://github.com/lelouvincx/smartclass/pull/86)
