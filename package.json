@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "wrangler dev",
-    "build": "vite build",
+    "build": "node scripts/stamp-worker-version.js && vite build",
     "test": "NODE_OPTIONS=--no-webstorage vitest run --maxWorkers=4",
     "test:watch": "NODE_OPTIONS=--no-webstorage vitest",
     "test:worker": "vitest run --config vitest.worker-unit.config.js",
