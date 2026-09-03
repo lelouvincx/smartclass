@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   DndContext,
   closestCenter,
@@ -23,10 +24,11 @@ import { cn } from '@/lib/utils'
 // ── DragHandleButton ────────────────────────────────────────────────────────────
 
 function DragHandleButton({ listeners, attributes, isDragging, questionNumber }) {
+  const { t } = useTranslation()
   return (
     <button
       type="button"
-      aria-label={`Move question ${questionNumber}`}
+      aria-label={t('teacher.schema.moveQuestion', { number: questionNumber })}
       className={cn(
         'flex size-[48px] cursor-grab touch-none items-center justify-center text-muted-foreground/40 transition-colors active:cursor-grabbing',
         isDragging && 'cursor-grabbing text-muted-foreground',
@@ -42,6 +44,7 @@ function DragHandleButton({ listeners, attributes, isDragging, questionNumber })
 // ── SortableStandardRow ─────────────────────────────────────────────────────────
 
 function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) {
+  const { t } = useTranslation()
   const {
     attributes,
     listeners,
@@ -71,7 +74,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
 
       <td className="px-3 py-2">
         <Input
-          aria-label={`Question number ${row.q_id}`}
+          aria-label={t('teacher.schema.questionNumberAria', { number: row.q_id })}
           type="text"
           value={row.q_id}
           onChange={(e) => onUpdateRow(row.id, 'q_id', e.target.value)}
@@ -81,20 +84,20 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
 
       <td className="px-3 py-2">
         <select
-          aria-label={`Answer type for question ${row.q_id}`}
+          aria-label={t('teacher.schema.answerTypeAria', { number: row.q_id })}
           value={row.type}
           onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
           className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
         >
-          <option value="mcq">Multiple choice</option>
-          <option value="boolean">True/False</option>
-          <option value="numeric">Number</option>
+          <option value="mcq">{t('teacher.schema.multipleChoice')}</option>
+          <option value="boolean">{t('teacher.schema.trueFalse')}</option>
+          <option value="numeric">{t('teacher.schema.number')}</option>
         </select>
       </td>
 
       <td className="px-3 py-2">
         <Input
-          aria-label={`Correct answer for question ${row.q_id}`}
+          aria-label={t('teacher.schema.correctAnswerAria', { number: row.q_id })}
           type="text"
           value={row.correct_answer}
           onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
@@ -113,7 +116,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
           ? <span className="text-xs text-destructive">{row.errors[0]}</span>
           : row.warnings?.length > 0
           ? <span className="text-xs text-amber-600">{row.warnings[0]}</span>
-          : <span className="text-xs text-emerald-700 dark:text-emerald-400">Valid</span>
+          : <span className="text-xs text-emerald-700 dark:text-emerald-400">{t('teacher.schema.valid')}</span>
         }
       </td>
 
@@ -125,7 +128,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
           onClick={() => onDeleteRow(row.id)}
           className="text-destructive hover:text-destructive"
         >
-          Delete
+          {t('teacher.schema.delete')}
         </Button>
       </td>
     </tr>
@@ -137,6 +140,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
 // are attached only to the first <tr>; the remaining rows follow visually.
 
 function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow, showConfidence }) {
+  const { t } = useTranslation()
   const firstRow = groupRows[0]
   const qid = String(firstRow.q_id)
 
@@ -177,7 +181,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           <td className="px-3 py-2">
             {i === 0 ? (
               <Input
-                aria-label={`Question number ${row.q_id}`}
+                aria-label={t('teacher.schema.questionNumberAria', { number: row.q_id })}
                 type="text"
                 value={row.q_id}
                 onChange={(e) => onUpdateQid(row.id, e.target.value)}
@@ -192,17 +196,17 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           <td className="px-3 py-2">
             {i === 0 ? (
               <select
-                aria-label={`Answer type for question ${row.q_id}`}
+                aria-label={t('teacher.schema.answerTypeAria', { number: row.q_id })}
                 value="boolean"
                 onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
                 className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
               >
-                <option value="mcq">Multiple choice</option>
-                <option value="boolean">True/False</option>
-                <option value="numeric">Number</option>
+                <option value="mcq">{t('teacher.schema.multipleChoice')}</option>
+                <option value="boolean">{t('teacher.schema.trueFalse')}</option>
+                <option value="numeric">{t('teacher.schema.number')}</option>
               </select>
             ) : (
-              <span className="text-sm text-muted-foreground">True/False</span>
+              <span className="text-sm text-muted-foreground">{t('teacher.schema.trueFalse')}</span>
             )}
           </td>
 
@@ -217,9 +221,9 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
                   value="1"
                   checked={row.correct_answer === '1'}
                   onChange={() => onUpdateRow(row.id, 'correct_answer', '1')}
-                  aria-label={`Question ${row.q_id}, part ${row.sub_id}, True`}
+                  aria-label={t('teacher.schema.questionPartTrue', { number: row.q_id, part: row.sub_id })}
                 />
-                True
+                {t('teacher.schema.true')}
               </label>
               <label className="flex min-h-[48px] items-center gap-1 text-sm">
                 <input
@@ -228,9 +232,9 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
                   value="0"
                   checked={row.correct_answer === '0'}
                   onChange={() => onUpdateRow(row.id, 'correct_answer', '0')}
-                  aria-label={`Question ${row.q_id}, part ${row.sub_id}, False`}
+                  aria-label={t('teacher.schema.questionPartFalse', { number: row.q_id, part: row.sub_id })}
                 />
-                False
+                {t('teacher.schema.false')}
               </label>
             </div>
           </td>
@@ -246,7 +250,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
               ? <span className="text-xs text-destructive">{row.errors[0]}</span>
               : row.warnings?.length > 0
               ? <span className="text-xs text-amber-600">{row.warnings[0]}</span>
-              : <span className="text-xs text-emerald-700 dark:text-emerald-400">Valid</span>
+              : <span className="text-xs text-emerald-700 dark:text-emerald-400">{t('teacher.schema.valid')}</span>
             }
           </td>
 
@@ -259,7 +263,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
                 onClick={() => onDeleteRow(row.id)}
                 className="text-destructive hover:text-destructive"
               >
-                Delete
+                {t('teacher.schema.delete')}
               </Button>
             )}
           </td>
@@ -282,6 +286,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
 //   showConfidence — boolean (default false)
 
 export function SchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow, onReorder, showConfidence = false }) {
+  const { t } = useTranslation()
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -336,12 +341,12 @@ export function SchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow, onReo
           <thead>
             <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <th className="w-7 px-1 py-2" />
-              <th className="px-3 py-2">Question number</th>
-              <th className="px-3 py-2">Type</th>
-              <th className="px-3 py-2">Correct answer</th>
-              {showConfidenceCol && <th className="px-3 py-2">confidence</th>}
-              <th className="px-3 py-2">status</th>
-              <th className="px-3 py-2">actions</th>
+              <th className="px-3 py-2">{t('teacher.schema.questionNumber')}</th>
+              <th className="px-3 py-2">{t('teacher.schema.type')}</th>
+              <th className="px-3 py-2">{t('teacher.schema.correctAnswer')}</th>
+              {showConfidenceCol && <th className="px-3 py-2">{t('teacher.schema.confidence')}</th>}
+              <th className="px-3 py-2">{t('teacher.schema.status')}</th>
+              <th className="px-3 py-2">{t('teacher.schema.actions')}</th>
             </tr>
           </thead>
           <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>

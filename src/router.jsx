@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   BrowserRouter,
   Navigate,
@@ -45,9 +46,10 @@ function PublicOnlyRoute({ children }) {
 function ProtectedRoleRoute({ children }) {
   const location = useLocation()
   const { isLoading, user } = useAuth()
+  const { t } = useTranslation()
 
   if (isLoading) {
-    return <p className="p-6">Loading...</p>
+    return <p className="p-6">{t('common.loading')}</p>
   }
 
   if (!user) {

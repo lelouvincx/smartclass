@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { History } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { listMySubmissions } from '@/lib/api'
@@ -8,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
+import { formatRelativeTime } from '@/lib/format'
 import {
   Table,
   TableBody,
@@ -16,26 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-
-/**
- * Format a date string as relative time ("2 hours ago") or absolute ("Mar 15").
- */
-function formatDate(dateStr) {
-  const date = new Date(dateStr + (dateStr.endsWith('Z') ? '' : 'Z'))
-  const now = Date.now()
-  const diffMs = now - date.getTime()
-  const diffSec = Math.floor(diffMs / 1000)
-  const diffMin = Math.floor(diffSec / 60)
-  const diffHr = Math.floor(diffMin / 60)
-  const diffDay = Math.floor(diffHr / 24)
-
-  if (diffSec < 60) return 'just now'
-  if (diffMin < 60) return `${diffMin} minute${diffMin !== 1 ? 's' : ''} ago`
-  if (diffHr < 24) return `${diffHr} hour${diffHr !== 1 ? 's' : ''} ago`
-  if (diffDay < 7) return `${diffDay} day${diffDay !== 1 ? 's' : ''} ago`
-
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
 
 /**
  * Score badge with color coding:
@@ -61,6 +43,7 @@ function ScoreBadge({ score }) {
 }
 
 export default function StudentSubmissionsPage() {
+  const { t, i18n } = useTranslation()
   const { token } = useAuth()
   const [submissions, setSubmissions] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -74,7 +57,7 @@ export default function StudentSubmissionsPage() {
         const res = await listMySubmissions(token, {})
         setSubmissions(res.data.submissions)
       } catch (err) {
-        setError(err.message || 'Failed to load submissions')
+        setError(err.message || i18n.t('student.submissions.failed'))
       } finally {
         setIsLoading(false)
       }
@@ -86,15 +69,15 @@ export default function StudentSubmissionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Submission History"
-        description="Review your past exercise attempts and scores."
+        title={t('student.submissions.title')}
+        description={t('student.submissions.description')}
       />
 
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <p className="text-sm text-muted-foreground">Loading submissions...</p>
+              <p className="text-sm text-muted-foreground">{t('student.submissions.loading')}</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center gap-3 py-12">
@@ -104,17 +87,17 @@ export default function StudentSubmissionsPage() {
                 size="sm"
                 onClick={() => window.location.reload()}
               >
-                Retry
+                {t('student.submissions.retry')}
               </Button>
             </div>
           ) : submissions.length === 0 ? (
             <EmptyState
               icon={History}
-              title="No submissions yet."
-              description="Start an exercise to see your results here!"
+              title={t('student.submissions.empty')}
+              description={t('student.submissions.emptyDescription')}
               action={
                 <Button variant="outline" asChild>
-                  <Link to="/student/exercises">Browse Exercises</Link>
+                  <Link to="/student/exercises">{t('student.submissions.browse')}</Link>
                 </Button>
               }
             />
@@ -123,11 +106,11 @@ export default function StudentSubmissionsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Exercise</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead className="hidden sm:table-cell">Mode</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead>{t('student.submissions.exercise')}</TableHead>
+                    <TableHead>{t('student.submissions.score')}</TableHead>
+                    <TableHead className="hidden sm:table-cell">{t('student.submissions.mode')}</TableHead>
+                    <TableHead>{t('student.submissions.date')}</TableHead>
+                    <TableHead className="text-right">{t('student.submissions.action')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -139,16 +122,19 @@ export default function StudentSubmissionsPage() {
                       </TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline" className="text-xs">
-                          {sub.mode}
+                          {t(`student.submissions.${sub.mode}`, { defaultValue: sub.mode })}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(sub.submitted_at)}
+                        {formatRelativeTime(
+                          sub.submitted_at + (sub.submitted_at.endsWith('Z') ? '' : 'Z'),
+                          i18n.resolvedLanguage,
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="outline" size="sm" asChild>
                           <Link to={`/student/submissions/${sub.id}/review`}>
-                            Review
+                            {t('student.submissions.review')}
                           </Link>
                         </Button>
                       </TableCell>

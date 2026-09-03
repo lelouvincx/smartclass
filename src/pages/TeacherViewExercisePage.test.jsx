@@ -121,6 +121,7 @@ describe('TeacherViewExercisePage', () => {
     await screen.findByText('Physics Quiz')
     expect(screen.getByText('B')).toBeInTheDocument()   // MCQ answer
     expect(screen.getByText('42')).toBeInTheDocument()  // numeric answer
+    expect(screen.getByText('Number')).toBeInTheDocument()
   })
 
   it('renders boolean sub-rows with sub_id labels in view mode', async () => {
@@ -151,7 +152,7 @@ describe('TeacherViewExercisePage', () => {
     renderPage()
 
     await screen.findByText('Physics Quiz')
-    expect(screen.getByText('Custom')).toBeInTheDocument()
+    expect(screen.getByText('Answer reading: Custom')).toBeInTheDocument()
     expect(screen.queryByText('provider/private-model-id')).not.toBeInTheDocument()
   })
 
