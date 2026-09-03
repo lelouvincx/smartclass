@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add a production API version endpoint that reports the deployed commit hash and verify it after Worker deployments. [#86](https://github.com/lelouvincx/smartclass/pull/86)
 - Add a dedicated, prioritized, and versioned todo list, link it from the README, and document the task lifecycle from planned work to completed change. [#82](https://github.com/lelouvincx/smartclass/pull/82)
 - Add Google sign-in and account linking, including settings to link and unlink an account. [#68](https://github.com/lelouvincx/smartclass/pull/68) [#69](https://github.com/lelouvincx/smartclass/pull/69) [#70](https://github.com/lelouvincx/smartclass/pull/70)
 - Add a changelog, move shipped-change history out of the README, and enforce changelog updates for every pull request. [#82](https://github.com/lelouvincx/smartclass/pull/82)
