@@ -8,7 +8,7 @@ export function ActionCard({ to, icon: Icon, title, description, emphasis = fals
     <Link
       to={to}
       className={cn(
-        'group flex min-h-28 items-start gap-4 rounded-[var(--sc-component-card-shape)] border p-5 shadow-sm transition-[border-color,background-color,box-shadow,transform,border-radius] duration-[var(--sc-motion-duration-medium)] ease-[var(--sc-motion-expressive)] motion-safe:hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+        'group flex items-start gap-4 rounded-[var(--sc-component-card-shape)] border p-5 shadow-sm transition-[border-color,background-color,box-shadow,transform,border-radius] duration-[var(--sc-motion-duration-medium)] ease-[var(--sc-motion-expressive)] motion-safe:hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
         emphasis
           ? 'border-primary/15 bg-sc-primary-container text-sc-on-primary-container motion-safe:hover:rounded-[var(--sc-component-focal-shape)] hover:border-primary/30'
           : 'bg-card text-card-foreground hover:border-primary/30',
