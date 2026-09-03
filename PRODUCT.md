@@ -1,15 +1,23 @@
 # SmartClass product truth
 
-**Last reviewed:** 2026-08-30
+**Last reviewed:** 2026-09-03
 
 SmartClass is an assessment platform for teaching and learning. It is a focused learning workspace, not a marketing surface.
 
 ## People and core jobs
 
-- **Teachers (administrators)** create and manage student accounts, create exercises from PDFs, define answer schemas, and review the learning workflow.
-- **Students** browse exercises, start timed or untimed attempts, answer manually or use a photo to pre-fill answers, review extracted answers before submission, receive automatic grading, and review past results.
+- **Teachers (administrators)** create and manage student accounts, create exercises from PDFs, define answer schemas, manage an ordered video curriculum, and review the learning workflow.
+- **Students** browse exercises, start timed or untimed attempts, answer manually or use a photo to pre-fill answers, review extracted answers before submission, receive automatic grading, review past results, and follow the video curriculum.
 
-Guest access and the lecture experience remain planned work in [`TODO.md`](TODO.md). Do not describe them as shipped without newer product evidence.
+Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as shipped without newer product evidence.
+
+## Lecture model
+
+- Teachers create, edit, reorder, and delete lectures. Each lecture has a section, title, and supported public YouTube video URL.
+- The lecture order is global. Consecutive lectures with the same section are presented together without changing that order.
+- Teachers can expand one embedded video at a time while managing the curriculum.
+- Students browse the sectioned curriculum and watch each lecture on a dedicated, readable URL with embedded playback and previous/next navigation.
+- Lecture browsing is available only to authenticated teachers and students.
 
 ## Assessment model
 
