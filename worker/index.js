@@ -9,6 +9,7 @@ import filesRoutes from './routes/files.js'
 import lecturesRoutes from './routes/lectures.js'
 import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from './lib/extract-models.js'
 import { jsonSuccess } from './lib/response.js'
+import { BUILD_COMMIT } from './version.js'
 
 const app = new Hono()
 
@@ -46,7 +47,7 @@ app.get('/api/version', (c) => {
   c.header('Cache-Control', 'no-store')
 
   return jsonSuccess(c, {
-    commit: c.env.APP_COMMIT_SHA || 'unknown',
+    commit: c.env.APP_COMMIT_SHA || BUILD_COMMIT,
   })
 })
 
