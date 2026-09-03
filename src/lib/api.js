@@ -1,7 +1,19 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8787'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (
+  import.meta.env.PROD
+    ? 'https://smartclass-api.dinhminhchinh3357.workers.dev'
+    : 'http://localhost:8787'
+)
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options)
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, options)
+  } catch (networkError) {
+    throw new Error(
+      'Couldn’t connect to SmartClass. Check your internet connection and try again.',
+      { cause: networkError },
+    )
+  }
   const data = await response.json().catch(() => null)
 
   if (!response.ok) {
@@ -195,8 +207,7 @@ export function getSubmission(token, submissionId) {
 
 // Returns a URL to serve a file from R2 via the file serve endpoint.
 export function getFileUrl(fileId) {
-  const base = import.meta.env.VITE_API_BASE_URL || ''
-  return `${base}/api/files/${fileId}`
+  return `${API_BASE_URL}/api/files/${fileId}`
 }
 
 /**

@@ -20,4 +20,12 @@ describe('API errors', () => {
       code: 'NOT_FOUND',
     })
   })
+
+  it('replaces browser network errors with an actionable message', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
+
+    await expect(getSubmission('token', 10)).rejects.toThrow(
+      'Couldn’t connect to SmartClass. Check your internet connection and try again.',
+    )
+  })
 })
