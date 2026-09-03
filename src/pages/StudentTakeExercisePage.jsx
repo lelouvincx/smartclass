@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Eye, EyeOff, ImageIcon, Pencil, X } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
@@ -33,24 +34,24 @@ function cellKey(qId, subId) {
 
 // Tri-color confidence dot. Returns null for cells that have been manually
 // edited / verified (the parent passes confidence=null to suppress the dot).
-function ConfidenceDot({ confidence }) {
+function ConfidenceDot({ confidence, t }) {
   if (confidence === null || confidence === undefined) return null
   let color
   let label
   if (confidence >= 0.8) {
     color = 'bg-success'
-    label = 'high confidence'
+    label = t('student.take.highConfidence')
   } else if (confidence >= 0.5) {
     color = 'bg-amber-500'
-    label = 'medium confidence — please review'
+    label = t('student.take.mediumConfidence')
   } else {
     color = 'bg-destructive'
-    label = 'low confidence — please verify'
+    label = t('student.take.lowConfidence')
   }
   return (
     <span
       aria-label={label}
-      title={`Auto-filled (${Math.round(confidence * 100)}% confidence)`}
+      title={t('student.take.autoFilled', { percent: Math.round(confidence * 100) })}
       className={`ml-2 inline-block h-2 w-2 shrink-0 rounded-full ${color}`}
     />
   )
@@ -59,10 +60,8 @@ function ConfidenceDot({ confidence }) {
 // Milestones at which to fire a toast notification (in seconds remaining).
 // Fires once each, tracked via firedMilestones ref.
 const TIMER_MILESTONES = [
-  { at: 1800, message: '30 minutes left', type: 'info' },
-  { at: 600,  message: '10 minutes left', type: 'warning' },
-  { at: 300,  message: '5 minutes left',  type: 'warning' },
-  { at: 60,   message: '1 minute left',   type: 'error' },
+  { at: 1800, key: 'milestone30', type: 'info' }, { at: 600, key: 'milestone10', type: 'warning' },
+  { at: 300, key: 'milestone5', type: 'warning' }, { at: 60, key: 'milestone1', type: 'error' },
 ]
 
 // --- Timer helpers ---
@@ -103,11 +102,11 @@ function groupSchema(schema) {
 
 // --- Question input components ---
 
-function McqInput({ qId, value, onChange, submitted, confidence }) {
+function McqInput({ qId, value, onChange, submitted, confidence, t }) {
   const options = ['A', 'B', 'C', 'D']
   return (
     <div className="flex items-center gap-2">
-      <ButtonGroup aria-label={`Question ${qId} options`}>
+      <ButtonGroup aria-label={t('student.take.options', { id: qId })}>
         {options.map((opt) => (
           <Button
             key={opt}
@@ -118,7 +117,7 @@ function McqInput({ qId, value, onChange, submitted, confidence }) {
             disabled={submitted}
             onClick={() => !submitted && onChange(opt)}
             aria-pressed={value === opt}
-            aria-label={`Question ${qId} option ${opt}`}
+            aria-label={t('student.take.option', { id: qId, option: opt })}
           >
             {opt}
           </Button>
@@ -129,19 +128,19 @@ function McqInput({ qId, value, onChange, submitted, confidence }) {
           type="button"
           variant="ghost"
           size="icon"
-          aria-label={`Clear answer for question ${qId}`}
+          aria-label={t('student.take.clearAnswer', { id: qId })}
           onClick={() => onChange('')}
           className="text-muted-foreground"
         >
           <X aria-hidden="true" />
         </Button>
       )}
-      <ConfidenceDot confidence={confidence} />
+      <ConfidenceDot confidence={confidence} t={t} />
     </div>
   )
 }
 
-function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, subConfidence }) {
+function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, subConfidence, t }) {
   return (
     <div className="space-y-2">
       {subRows.map(({ sub_id }) => {
@@ -149,7 +148,7 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, s
         return (
           <div key={sub_id} className="flex items-center gap-4">
             <span className="w-5 text-sm font-medium text-muted-foreground">{sub_id}.</span>
-            <ButtonGroup aria-label={`Question ${qId} sub-question ${sub_id}`}>
+            <ButtonGroup aria-label={t('student.take.subQuestion', { id: qId, sub: sub_id })}>
               <Button
                 type="button"
                 size="sm"
@@ -158,9 +157,9 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, s
                 disabled={submitted}
                 onClick={() => !submitted && onSubChange(sub_id, '1')}
                 aria-pressed={val === '1'}
-                aria-label={`Question ${qId} sub ${sub_id} True`}
+                aria-label={t('student.take.subOption', { id: qId, sub: sub_id, value: t('student.take.true') })}
               >
-                True
+                {t('student.take.true')}
               </Button>
               <Button
                 type="button"
@@ -170,12 +169,12 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, s
                 disabled={submitted}
                 onClick={() => !submitted && onSubChange(sub_id, '0')}
                 aria-pressed={val === '0'}
-                aria-label={`Question ${qId} sub ${sub_id} False`}
+                aria-label={t('student.take.subOption', { id: qId, sub: sub_id, value: t('student.take.false') })}
               >
-                False
+                {t('student.take.false')}
               </Button>
             </ButtonGroup>
-            <ConfidenceDot confidence={subConfidence?.[sub_id]} />
+            <ConfidenceDot confidence={subConfidence?.[sub_id]} t={t} />
           </div>
         )
       })}
@@ -183,7 +182,7 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, s
   )
 }
 
-function NumericInput({ qId, value, onChange, submitted, confidence }) {
+function NumericInput({ qId, value, onChange, submitted, confidence, t }) {
   return (
     <div className="flex items-center">
       <input
@@ -191,11 +190,11 @@ function NumericInput({ qId, value, onChange, submitted, confidence }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={submitted}
-        placeholder="Enter a number"
-        aria-label={`Question ${qId} numeric answer`}
+        placeholder={t('student.take.numberPlaceholder')}
+        aria-label={t('student.take.numericAnswer', { id: qId })}
         className="min-h-[48px] w-40 rounded-[var(--sc-component-control-shape)] border border-input bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:bg-muted disabled:text-muted-foreground"
       />
-      <ConfidenceDot confidence={confidence} />
+      <ConfidenceDot confidence={confidence} t={t} />
     </div>
   )
 }
@@ -203,6 +202,7 @@ function NumericInput({ qId, value, onChange, submitted, confidence }) {
 // --- Main page ---
 
 export default function StudentTakeExercisePage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const { token, user } = useAuth()
   const accountId = user.id
@@ -387,10 +387,10 @@ export default function StudentTakeExercisePage() {
     if (secondsLeft === null) return
 
     // Fire any milestones that have already passed on mount
-    for (const { at, message, type } of TIMER_MILESTONES) {
+    for (const { at, key, type } of TIMER_MILESTONES) {
       if (secondsLeft <= at && !firedMilestones.current.has(at)) {
         firedMilestones.current.add(at)
-        toast[type](message, { duration: 6000 })
+        toast[type](t(`student.take.${key}`), { duration: 6000 })
       }
     }
 
@@ -402,14 +402,14 @@ export default function StudentTakeExercisePage() {
           setOvertime(true)
           if (!firedMilestones.current.has('overtime')) {
             firedMilestones.current.add('overtime')
-            toast.error("Time's up! You can still submit your answers.", { duration: 8000 })
+            toast.error(t('student.take.timeExpired'), { duration: 8000 })
           }
         }
 
-        for (const { at, message, type } of TIMER_MILESTONES) {
+        for (const { at, key, type } of TIMER_MILESTONES) {
           if (next === at && !firedMilestones.current.has(at)) {
             firedMilestones.current.add(at)
-            toast[type](message, { duration: 6000 })
+            toast[type](t(`student.take.${key}`), { duration: 6000 })
           }
         }
 
@@ -418,7 +418,7 @@ export default function StudentTakeExercisePage() {
     }, 1000)
 
     return () => clearInterval(timerRef.current)
-  }, [secondsLeft === null]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [secondsLeft === null, t]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Answer change handlers ---
   const handleAnswerChange = useCallback((qId, value) => {
@@ -448,7 +448,7 @@ export default function StudentTakeExercisePage() {
   const handleExtracted = useCallback(
     ({ extracted, warnings, model_used }) => {
       if (!Array.isArray(extracted) || extracted.length === 0) {
-        toast.warning('No answers were extracted from the image.')
+        toast.warning(t('student.take.noExtracted'))
         return
       }
 
@@ -489,14 +489,14 @@ export default function StudentTakeExercisePage() {
 
       const filled = newlyFilled.length
       const lowConf = newlyFilled.filter((r) => Number(r.confidence) < 0.5).length
-      const wMsg = warnings && warnings.length > 0 ? ` · ${warnings.length} warning${warnings.length > 1 ? 's' : ''}` : ''
-      const lowMsg = lowConf > 0 ? ` · ${lowConf} low-confidence` : ''
+      const wMsg = warnings && warnings.length > 0 ? ` · ${t('student.take.warningCount', { count: warnings.length })}` : ''
+      const lowMsg = lowConf > 0 ? ` · ${t('student.take.lowConfidenceCount', { count: lowConf })}` : ''
       toast.success(
-        `Filled ${filled} answer${filled === 1 ? '' : 's'}; kept ${kept} existing${lowMsg}${wMsg}. Please review.`,
+        `${t('student.take.extractionSummary', { count: filled, filled, kept })}${lowMsg}${wMsg}`,
         { duration: 6000 },
       )
     },
-    [questionGroups],
+    [questionGroups, t],
   )
 
   // Per-question confidence lookup for boolean sub-rows.
@@ -599,7 +599,7 @@ export default function StudentTakeExercisePage() {
           value={answers[group.q_id] ?? ''}
           onChange={(v) => handleAnswerChange(group.q_id, v)}
           submitted={false}
-          confidence={extractedConfidence[cellKey(group.q_id, null)]}
+          confidence={extractedConfidence[cellKey(group.q_id, null)]} t={t}
         />
       )
     }
@@ -611,7 +611,7 @@ export default function StudentTakeExercisePage() {
           subAnswers={answers[group.q_id] || {}}
           onSubChange={(subId, v) => handleBooleanSubChange(group.q_id, subId, v)}
           submitted={false}
-          subConfidence={booleanSubConfidence[group.q_id]}
+          subConfidence={booleanSubConfidence[group.q_id]} t={t}
         />
       )
     }
@@ -621,7 +621,7 @@ export default function StudentTakeExercisePage() {
         value={answers[group.q_id] ?? ''}
         onChange={(v) => handleAnswerChange(group.q_id, v)}
         submitted={false}
-        confidence={extractedConfidence[cellKey(group.q_id, null)]}
+        confidence={extractedConfidence[cellKey(group.q_id, null)]} t={t}
       />
     )
   }
@@ -631,7 +631,7 @@ export default function StudentTakeExercisePage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Loading exercise...</p>
+        <p className="text-sm text-muted-foreground">{t('student.take.loading')}</p>
       </div>
     )
   }
@@ -642,7 +642,7 @@ export default function StudentTakeExercisePage() {
         <CardContent className="pt-6">
           <p className="text-sm text-destructive">{error}</p>
           <Button variant="outline" asChild className="mt-4">
-            <Link to="/student/exercises">Back to Exercises</Link>
+            <Link to="/student/exercises">{t('student.take.backToExercises')}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -661,8 +661,8 @@ export default function StudentTakeExercisePage() {
 
   const unansweredCount = exercise ? countUnanswered(exercise.schema, answers) : 0
   const confirmMessage = unansweredCount > 0
-    ? `You have ${unansweredCount} unanswered question${unansweredCount === 1 ? '' : 's'}. Submit anyway?`
-    : 'You cannot change your answers after submitting.'
+    ? t('student.take.submitWarning', { count: unansweredCount })
+    : t('student.take.submitFinal')
 
   // Answer-sheet content (timer + nav grid + submit/exit) — always visible
   // at the top of the right pane on all breakpoints.
@@ -675,7 +675,7 @@ export default function StudentTakeExercisePage() {
             <div className="flex items-center justify-between">
               <div
                 className={`flex items-center gap-2 ${timerColor}`}
-                aria-label="Timer"
+                aria-label={t('student.take.timer')}
               >
                 <Clock className="h-4 w-4" />
                 {!timerHidden && (
@@ -684,7 +684,7 @@ export default function StudentTakeExercisePage() {
                   </span>
                 )}
                 {overtime && (
-                  <Badge variant="destructive" className="text-xs">Over time</Badge>
+                  <Badge variant="destructive" className="text-xs">{t('student.take.overtime')}</Badge>
                 )}
               </div>
               <Button
@@ -693,8 +693,8 @@ export default function StudentTakeExercisePage() {
                 size="icon"
                 className="text-muted-foreground"
                 onClick={toggleTimerHidden}
-                aria-label={timerHidden ? 'Show timer' : 'Hide timer'}
-                title={timerHidden ? 'Show timer' : 'Hide timer'}
+                aria-label={timerHidden ? t('student.take.showTimer') : t('student.take.hideTimer')}
+                title={timerHidden ? t('student.take.showTimer') : t('student.take.hideTimer')}
               >
                 {timerHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               </Button>
@@ -724,7 +724,7 @@ export default function StudentTakeExercisePage() {
             disabled={isSubmitting}
             className="w-full"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit'}
+            {isSubmitting ? t('student.take.submitting') : t('student.take.submit')}
           </Button>
           <Button
             variant="ghost"
@@ -732,7 +732,7 @@ export default function StudentTakeExercisePage() {
             disabled={isSubmitting}
             className="w-full"
           >
-            Exit
+            {t('student.take.exit')}
           </Button>
         </div>
       </div>
@@ -748,7 +748,7 @@ export default function StudentTakeExercisePage() {
             <div>
               <h1 className="text-2xl font-semibold">{exercise.title}</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {questionGroups.length} question{questionGroups.length !== 1 ? 's' : ''}
+                {t('student.take.questionCount', { count: questionGroups.length })}
               </p>
             </div>
           </div>
@@ -756,7 +756,7 @@ export default function StudentTakeExercisePage() {
           {overtime && (
             <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              Time is up! You can still submit your answers.
+              {t('student.take.timeExpired')}
             </div>
           )}
         </CardContent>
@@ -779,12 +779,12 @@ export default function StudentTakeExercisePage() {
             <CardContent className="space-y-3 pt-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-semibold">Input mode</p>
+                  <p className="text-sm font-semibold">{t('student.take.inputMode')}</p>
                   <p className="text-xs text-muted-foreground">
-                    Type answers manually, or upload a photo of your answer sheet to auto-fill.
+                    {t('student.take.inputDescription')}
                   </p>
                 </div>
-                <ButtonGroup aria-label="Input mode">
+                <ButtonGroup aria-label={t('student.take.inputMode')}>
                   <Button
                     type="button"
                     size="sm"
@@ -794,7 +794,7 @@ export default function StudentTakeExercisePage() {
                     aria-pressed={inputMode === 'manual'}
                   >
                     <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                    Manual
+                    {t('student.take.manual')}
                   </Button>
                   <Button
                     type="button"
@@ -805,7 +805,7 @@ export default function StudentTakeExercisePage() {
                     aria-pressed={inputMode === 'photo'}
                   >
                     <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                    Upload photo
+                    {t('student.take.uploadPhoto')}
                   </Button>
                 </ButtonGroup>
               </div>
@@ -829,7 +829,7 @@ export default function StudentTakeExercisePage() {
               <Card>
                 <CardContent className="space-y-4 pt-5">
                   <p className="text-sm font-semibold">
-                    {idx + 1}. Question {group.q_id}
+                    {t('student.take.questionTitle', { index: idx + 1, id: group.q_id })}
                   </p>
                   {renderQuestionInput(group)}
                   <div className="flex items-center justify-between border-t pt-3">
@@ -840,10 +840,10 @@ export default function StudentTakeExercisePage() {
                       disabled={idx === 0}
                     >
                       <ArrowLeft aria-hidden="true" />
-                      Previous
+                      {t('student.take.previous')}
                     </Button>
                     <span className="text-xs text-muted-foreground">
-                      Question {idx + 1} of {questionGroups.length}
+                      {t('student.take.questionProgress', { current: idx + 1, total: questionGroups.length })}
                     </span>
                     <Button
                       type="button"
@@ -851,7 +851,7 @@ export default function StudentTakeExercisePage() {
                       onClick={() => handleJump(questionGroups[idx + 1].q_id)}
                       disabled={idx === questionGroups.length - 1}
                     >
-                      Next
+                      {t('student.take.next')}
                       <ArrowRight aria-hidden="true" />
                     </Button>
                   </div>
@@ -865,31 +865,31 @@ export default function StudentTakeExercisePage() {
 
       {/* Dialogs */}
       <Dialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>
-        <DialogContent>
+        <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>
-            <DialogTitle>Leave this exercise?</DialogTitle>
+            <DialogTitle>{t('student.take.leaveTitle')}</DialogTitle>
             <DialogDescription>
-              Your answers remain saved for this browser session, so you can resume later.
+              {t('student.take.leaveDescription')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCancelLeave}>Stay</Button>
-            <Button variant="destructive" onClick={handleConfirmLeave}>Yes, leave</Button>
+            <Button variant="outline" onClick={handleCancelLeave}>{t('student.take.stay')}</Button>
+            <Button variant="destructive" onClick={handleConfirmLeave}>{t('student.take.leave')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-        <DialogContent>
+        <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>
-            <DialogTitle>Submit your answers?</DialogTitle>
+            <DialogTitle>{t('student.take.submitTitle')}</DialogTitle>
             <DialogDescription>
               {confirmMessage}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={handleCancelConfirm}>Cancel</Button>
-            <Button onClick={handleConfirmSubmit}>Yes, submit</Button>
+            <Button variant="outline" onClick={handleCancelConfirm}>{t('student.take.cancel')}</Button>
+            <Button onClick={handleConfirmSubmit}>{t('student.take.confirmSubmit')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { AlertCircle, Camera, ImagePlus, Loader2, RotateCcw, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import FileDropzone from '@/components/file-dropzone'
@@ -41,6 +42,7 @@ function formatSize(bytes) {
  *   disabled     — boolean — disable picker + buttons (e.g., already submitted)
  */
 export default function AnswerImageUpload({ submissionId, onExtracted, disabled = false }) {
+  const { t } = useTranslation()
   const { token } = useAuth()
   const previewUrlRef = useRef(null)
   const abortRef = useRef(null)
@@ -78,12 +80,12 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
 
     // Client-side validation — saves a network round trip on obvious errors.
     if (!ALLOWED_TYPES.has(picked.type)) {
-      setErrorMessage('Only JPEG and PNG images are accepted.')
+      setErrorMessage(t('student.upload.invalidType'))
       setPhase('error')
       return
     }
     if (picked.size > MAX_BYTES) {
-      setErrorMessage(`Image is ${formatMb(picked.size)} MB. Maximum is 20 MB.`)
+      setErrorMessage(t('student.upload.tooLarge', { size: formatMb(picked.size) }))
       setPhase('error')
       return
     }
@@ -98,7 +100,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
     setErrorMessage('')
     setWarnings([])
     setPhase('previewing')
-  }, [])
+  }, [t])
 
   const startExtraction = useCallback(async () => {
     if (!file) return
@@ -137,12 +139,12 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
         setProgress(0)
         return
       }
-      setErrorMessage(err?.message || 'Extraction failed')
+      setErrorMessage(err?.message || t('student.upload.failed'))
       setPhase('error')
     } finally {
       abortRef.current = null
     }
-  }, [file, onExtracted, submissionId, token])
+  }, [file, onExtracted, submissionId, t, token])
 
   const handleCancel = () => {
     abortRef.current?.abort()
@@ -161,10 +163,10 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
             size="sm"
             onClick={clearFile}
             disabled={disabled}
-            aria-label="Replace image"
+            aria-label={t('student.upload.replace')}
           >
             <RotateCcw className="mr-1 h-3.5 w-3.5" />
-            Replace image
+            {t('student.upload.replace')}
           </Button>
         </div>
       )}
@@ -185,10 +187,10 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
           onChange={handleFilePicked}
           accept="image/jpeg,image/jpg,image/png"
           icon={ImagePlus}
-          title="Drop a photo here or click to pick"
-          hint="JPEG or PNG, up to 20 MB · use your camera on mobile"
+          title={t('student.upload.dropTitle')}
+          hint={t('student.upload.dropHint')}
           capture="environment"
-          inputAriaLabel="Pick or capture answer sheet image"
+          inputAriaLabel={t('student.upload.pick')}
           size="lg"
           disabled={disabled || isBusy}
         />
@@ -198,7 +200,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
           {previewUrl && (
             <img
               src={previewUrl}
-              alt="Selected answer sheet"
+              alt={t('student.upload.selected')}
               className="h-32 w-full shrink-0 rounded-md border object-contain sm:h-40 sm:w-40"
             />
           )}
@@ -212,7 +214,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
               {phase === 'uploading' && (
                 <div className="space-y-1">
                   <div className="text-xs text-muted-foreground">
-                    Uploading… {Math.round(progress * 100)}%
+                    {t('student.upload.uploading', { percent: Math.round(progress * 100) })}
                   </div>
                   <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
                     <div
@@ -226,14 +228,14 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
               {phase === 'extracting' && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Extracting answers… (usually 5–15 s)
+                  {t('student.upload.extracting')}
                 </div>
               )}
 
               {phase === 'done' && (
                 <div className="space-y-1 text-xs text-muted-foreground">
                   <div className="text-success">
-                    ✓ Extracted. Review and edit before submitting.
+                    {t('student.upload.extracted')}
                   </div>
                   {warnings.length > 0 && (
                     <button
@@ -242,8 +244,8 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                       className="flex min-h-[var(--sc-component-hit-target)] min-w-[var(--sc-component-hit-target)] items-center gap-1 text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
                     >
                       <AlertCircle className="h-3.5 w-3.5" />
-                      {warnings.length} warning{warnings.length > 1 ? 's' : ''}
-                      {showWarnings ? ' (hide)' : ' (show)'}
+                      {t('student.upload.warning', { count: warnings.length })}
+                      {showWarnings ? t('student.upload.hideWarnings') : t('student.upload.showWarnings')}
                     </button>
                   )}
                   {showWarnings && warnings.length > 0 && (
@@ -270,7 +272,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                 <>
                   <Button type="button" size="sm" onClick={startExtraction} disabled={disabled}>
                     <Camera className="mr-1.5 h-4 w-4" />
-                    Extract answers
+                    {t('student.upload.extract')}
                   </Button>
                   <Button
                     type="button"
@@ -279,18 +281,18 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                     onClick={clearFile}
                     disabled={disabled}
                   >
-                    Remove
+                    {t('student.upload.remove')}
                   </Button>
                 </>
               )}
               {phase === 'uploading' && (
                 <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
                   <X className="mr-1 h-4 w-4" />
-                  Cancel upload
+                  {t('student.upload.cancelUpload')}
                 </Button>
               )}
               {phase === 'extracting' && (
-                <span className="text-xs italic text-muted-foreground">Working…</span>
+                <span className="text-xs italic text-muted-foreground">{t('student.upload.working')}</span>
               )}
               {phase === 'done' && (
                 <Button
@@ -299,16 +301,16 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                   size="sm"
                   onClick={startExtraction}
                   disabled={disabled}
-                  title="Re-run extraction on the same image"
+                  title={t('student.upload.rerunTitle')}
                 >
                   <RotateCcw className="mr-1.5 h-4 w-4" />
-                  Re-extract
+                  {t('student.upload.reextract')}
                 </Button>
               )}
               {phase === 'error' && (
                 <>
                   <Button type="button" size="sm" onClick={startExtraction} disabled={disabled}>
-                    Retry
+                    {t('student.upload.retry')}
                   </Button>
                   <Button
                     type="button"
@@ -317,7 +319,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                     onClick={clearFile}
                     disabled={disabled}
                   >
-                    Pick a different image
+                    {t('student.upload.different')}
                   </Button>
                 </>
               )}

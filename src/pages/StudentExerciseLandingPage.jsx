@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { CheckCircle, Clock } from 'lucide-react'
 import { createSubmission, getExercise, getSubmission, listMySubmissions } from '@/lib/api'
@@ -19,8 +20,10 @@ import {
   getSubmissionPointer,
   setSubmissionPointer,
 } from '@/lib/submission-draft'
+import { formatDuration } from '@/lib/format'
 
 export default function StudentExerciseLandingPage() {
+  const { t, i18n } = useTranslation()
   const { id } = useParams()
   const { token, user } = useAuth()
   const accountId = user.id
@@ -67,7 +70,7 @@ export default function StudentExerciseLandingPage() {
             } else {
               setHasResumable(true)
               setResumableSubmissionId(savedSubId)
-              setStartError('Couldn’t check your saved attempt. Try Resume again.')
+              setStartError(t('student.landing.savedAttemptError'))
               resumable = true
             }
           }
@@ -91,7 +94,7 @@ export default function StudentExerciseLandingPage() {
       }
     }
     load()
-  }, [accountId, id, token])
+  }, [accountId, id, t, token])
 
   async function handleStart({ replacing = false } = {}) {
     setIsStarting(true)
@@ -115,7 +118,7 @@ export default function StudentExerciseLandingPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Loading exercise...</p>
+        <p className="text-sm text-muted-foreground">{t('student.landing.loading')}</p>
       </div>
     )
   }
@@ -126,7 +129,7 @@ export default function StudentExerciseLandingPage() {
         <CardContent className="pt-6">
           <p className="text-sm text-destructive">{error}</p>
           <Button variant="outline" asChild className="mt-4">
-            <Link to="/student/exercises">Back to Exercises</Link>
+            <Link to="/student/exercises">{t('student.landing.backToExercises')}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -143,25 +146,25 @@ export default function StudentExerciseLandingPage() {
             </h1>
             <p className="max-w-xl text-sm text-sc-on-primary-container/75">
               {hasResumable
-                ? 'You have an attempt in progress. Resume it when you are ready.'
-                : 'Review the exercise details before you begin. Your attempt starts only when you choose Start.'}
+                ? t('student.landing.resumeDescription')
+                : t('student.landing.startDescription')}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm">
             {exercise.is_timed ? (
               <>
-                <Badge>Timed</Badge>
+                <Badge>{t('student.exercises.timed')}</Badge>
                 <span className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-4 w-4" />
-                  {exercise.duration_minutes} min
+                  {formatDuration(exercise.duration_minutes, i18n.resolvedLanguage)}
                 </span>
               </>
             ) : (
-              <Badge variant="secondary">Untimed</Badge>
+              <Badge variant="secondary">{t('student.exercises.untimed')}</Badge>
             )}
             <span className="text-muted-foreground">
-              {questionCount} question{questionCount !== 1 ? 's' : ''}
+              {t('student.exercises.questionCount', { count: questionCount })}
             </span>
           </div>
 
@@ -169,14 +172,14 @@ export default function StudentExerciseLandingPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-2 rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
                 <CheckCircle className="h-5 w-5 shrink-0" />
-                You have already submitted this exercise.
+                {t('student.landing.submitted')}
               </div>
               <div className="flex gap-3">
                 <Button asChild>
-                  <Link to={`/student/submissions/${submittedSubmissionId}/summary`}>View result</Link>
+                  <Link to={`/student/submissions/${submittedSubmissionId}/summary`}>{t('student.landing.viewResult')}</Link>
                 </Button>
                 <Button variant="ghost" asChild>
-                  <Link to="/student/exercises">Back</Link>
+                  <Link to="/student/exercises">{t('student.landing.back')}</Link>
                 </Button>
               </div>
             </div>
@@ -186,18 +189,18 @@ export default function StudentExerciseLandingPage() {
               <div className="flex flex-col gap-3 sm:flex-row">
               {hasResumable ? (
                 <>
-                  <Button className="min-h-[48px] px-5" onClick={handleResume}>Resume</Button>
+                  <Button className="min-h-[48px] px-5" onClick={handleResume}>{t('student.landing.resume')}</Button>
                   <Button variant="outline" onClick={() => setShowStartOver(true)} disabled={isStarting}>
-                    {isStarting ? 'Starting...' : 'Start over'}
+                    {isStarting ? t('student.landing.starting') : t('student.landing.startOver')}
                   </Button>
                 </>
               ) : (
                 <Button className="min-h-[48px] px-6 text-base" onClick={() => handleStart()} disabled={isStarting}>
-                  {isStarting ? 'Starting...' : 'Start'}
+                  {isStarting ? t('student.landing.starting') : t('student.exercises.start')}
                 </Button>
               )}
               <Button variant="ghost" asChild>
-                <Link to="/student/exercises">Back</Link>
+                <Link to="/student/exercises">{t('student.landing.back')}</Link>
               </Button>
               </div>
             </div>
@@ -205,22 +208,22 @@ export default function StudentExerciseLandingPage() {
         </CardContent>
       </Card>
       <Dialog open={showStartOver} onOpenChange={setShowStartOver}>
-        <DialogContent>
+        <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>
-            <DialogTitle>Start over?</DialogTitle>
+            <DialogTitle>{t('student.landing.startOverTitle')}</DialogTitle>
             <DialogDescription>
-              Your current answers will be cleared.
-              {exercise.is_timed ? ' The timer will restart.' : ''}
+              {t('student.landing.clearAnswers')}
+              {exercise.is_timed ? t('student.landing.restartTimer') : ''}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowStartOver(false)}>Keep current attempt</Button>
+            <Button variant="outline" onClick={() => setShowStartOver(false)}>{t('student.landing.keepAttempt')}</Button>
             <Button
               variant="destructive"
               disabled={isStarting}
               onClick={() => handleStart({ replacing: true })}
             >
-              {isStarting ? 'Starting...' : 'Start over'}
+              {isStarting ? t('student.landing.starting') : t('student.landing.startOver')}
             </Button>
           </DialogFooter>
         </DialogContent>

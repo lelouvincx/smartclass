@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import TeacherExercisesPage from './TeacherExercisesPage'
+import { changeLanguage } from '@/i18n'
 
 const listExercisesMock = vi.fn()
 const logoutMock = vi.fn()
@@ -34,9 +35,21 @@ function renderPage() {
 }
 
 describe('TeacherExercisesPage', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    await changeLanguage('en')
     listExercisesMock.mockReset()
     logoutMock.mockReset()
+  })
+
+  it('renders teacher exercise copy in Vietnamese', async () => {
+    await changeLanguage('vi')
+    listExercisesMock.mockResolvedValue({ data: [] })
+
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Chưa có bài tập.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Tạo bài tập đầu tiên' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Làm mới danh sách bài tập' })).toBeInTheDocument()
   })
 
   it('renders empty state when there are no exercises', async () => {

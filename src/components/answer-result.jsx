@@ -7,6 +7,7 @@
  */
 
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 
 // --- Utility ---
 
@@ -18,30 +19,32 @@ export function computeStatus(submittedAnswer, isCorrect) {
 }
 
 export function CorrectnessIcon({ status }) {
+  const { t } = useTranslation()
   if (status === 'correct') {
-    return <span aria-label="correct" className="font-bold text-success">✓</span>
+    return <span aria-label={t('student.results.correct')} className="font-bold text-success">✓</span>
   }
   if (status === 'incorrect') {
-    return <span aria-label="wrong" className="font-bold text-destructive">✗</span>
+    return <span aria-label={t('student.results.incorrect')} className="font-bold text-destructive">✗</span>
   }
   if (status === 'skipped') {
-    return <span aria-label="skipped" className="font-bold text-muted-foreground">−</span>
+    return <span aria-label={t('student.results.skipped')} className="font-bold text-muted-foreground">−</span>
   }
   return null
 }
 
 export function BooleanAnswerBadge({ value }) {
+  const { t } = useTranslation()
   if (value === '1') {
     return (
       <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-success/15 text-success">
-        True
+        {t('student.results.true')}
       </span>
     )
   }
   if (value === '0') {
     return (
       <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive">
-        False
+        {t('student.results.false')}
       </span>
     )
   }
@@ -59,12 +62,13 @@ export function BooleanAnswerBadge({ value }) {
  *   correctAnswer   — string|null — correct answer (shown when provided)
  */
 export function McqNumericResultRow({ question, answer, correctAnswer }) {
+  const { t } = useTranslation()
   const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
   const status = computeStatus(answer, question.is_correct)
 
   return (
     <tr className="border-t">
-      <td className="px-4 py-3 text-sm text-muted-foreground">Q{question.q_id}</td>
+      <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: question.q_id })}</td>
       <td className="px-4 py-3 text-sm font-medium">{display}</td>
       {correctAnswer !== undefined && (
         <td className="px-4 py-3 text-sm text-muted-foreground">{correctAnswer ?? '—'}</td>
@@ -85,6 +89,7 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
  *   schemaAnswers   — array of { q_id, sub_id, correct_answer } — optional, shown when provided
  */
 export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
+  const { t } = useTranslation()
   return (
     <>
       {group.subRows.map(({ sub_id }) => {
@@ -94,7 +99,7 @@ export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
 
         return (
           <tr key={sub_id} className="border-t">
-            <td className="px-4 py-3 text-sm text-muted-foreground">Q{group.q_id}{sub_id}</td>
+            <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: `${group.q_id}${sub_id}` })}</td>
             <td className="px-4 py-3 text-sm font-medium">
               <BooleanAnswerBadge value={raw} />
             </td>

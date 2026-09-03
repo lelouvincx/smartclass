@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { getExtractModels } from '@/lib/api'
 import { Label } from '@/components/ui/label'
 import {
@@ -26,6 +27,7 @@ const DEFAULT_SENTINEL = '__default__'
  * model is the server default. The "Use default" option clears the field.
  */
 export default function ExtractModelSelect({ value, onChange, disabled = false, labelHint }) {
+  const { t } = useTranslation()
   const [models, setModels] = useState([])
   const [loadError, setLoadError] = useState('')
 
@@ -38,12 +40,12 @@ export default function ExtractModelSelect({ value, onChange, disabled = false, 
       })
       .catch((err) => {
         if (cancelled) return
-        setLoadError('Couldn’t load model choices')
+        setLoadError(t('teacher.model.loadError'))
       })
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [t])
 
   const selectValue = value == null ? DEFAULT_SENTINEL : value
 
@@ -54,16 +56,16 @@ export default function ExtractModelSelect({ value, onChange, disabled = false, 
   return (
     <div className="space-y-1.5">
       <Label htmlFor="extract-model">
-        Image-extraction model
+        {t('teacher.model.label')}
         {labelHint && <span className="ml-2 text-xs font-normal text-muted-foreground">{labelHint}</span>}
       </Label>
       <Select value={selectValue} onValueChange={handleChange} disabled={disabled}>
-        <SelectTrigger id="extract-model" aria-label="Image-extraction model" className="w-full">
-          <SelectValue placeholder="Loading models…" />
+        <SelectTrigger id="extract-model" aria-label={t('teacher.model.label')} className="w-full">
+          <SelectValue placeholder={t('teacher.model.loading')} />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={DEFAULT_SENTINEL}>
-            Recommended (default)
+            {t('teacher.model.recommended')}
           </SelectItem>
           {models.map((m) => (
             <SelectItem key={m.id} value={m.id}>
@@ -73,7 +75,7 @@ export default function ExtractModelSelect({ value, onChange, disabled = false, 
         </SelectContent>
       </Select>
       <p className="text-xs text-muted-foreground">
-        Used when a student uploads a photo of their answer sheet. Students cannot change this.
+        {t('teacher.model.description')}
       </p>
       {loadError && <p className="text-xs text-destructive">{loadError}</p>}
     </div>

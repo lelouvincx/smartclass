@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { createExerciseFileUpload, deleteExercise, getExercise, updateExercise, uploadExerciseFile } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -19,16 +20,11 @@ import {
 import { SchemaTable } from '@/components/schema-table'
 import ExtractModelSelect from '@/components/extract-model-select'
 import FileDropzone from '@/components/file-dropzone'
+import { formatDuration } from '@/lib/format'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
-const TYPE_LABELS = { mcq: 'Multiple choice', boolean: 'True/False', numeric: 'Number' }
-const FILE_TYPE_LABELS = {
-  exercise_pdf: 'Exercise PDF',
-  solution_pdf: 'Solution PDF',
-  reference_image: 'Reference image',
-}
 
 // ── Schema helpers ─────────────────────────────────────────────────────────────
 
@@ -37,7 +33,7 @@ function normalizeAnswer(type, value) {
   return type === 'mcq' ? trimmed.toUpperCase() : trimmed
 }
 
-function validateRows(rows) {
+function validateRows(rows, t) {
   const qidCounts = new Map()
   rows.forEach((row) => {
     if (row.type !== 'boolean') {
@@ -61,26 +57,26 @@ function validateRows(rows) {
     const qid = Number.parseInt(String(row.q_id), 10)
 
     if (!row.q_id || Number.isNaN(qid) || qid <= 0) {
-      errors.push('Question number must be a positive integer')
+      errors.push(t('teacher.schema.positiveInteger'))
     }
 
     if (row.type === 'boolean') {
       if (!row.sub_id || !BOOLEAN_SUB_IDS.includes(row.sub_id)) {
-        errors.push('True/False parts must be a, b, c, or d')
+        errors.push(t('teacher.schema.booleanParts'))
       } else if (!['0', '1'].includes(row.correct_answer)) {
-        errors.push('select True (1) or False (0)')
+        errors.push(t('teacher.schema.selectBoolean'))
       }
     } else {
       if ((qidCounts.get(String(row.q_id)) || 0) > 1) {
-        errors.push('Question number must be unique')
+        errors.push(t('teacher.schema.uniqueQuestion'))
       }
       const answer = normalizeAnswer(row.type, row.correct_answer)
       if (!answer) {
-        errors.push('Correct answer is required')
+        errors.push(t('teacher.schema.answerRequired'))
       } else if (row.type === 'mcq' && !['A', 'B', 'C', 'D'].includes(answer)) {
-        errors.push('Multiple choice answer must be A, B, C, or D')
+        errors.push(t('teacher.schema.mcqAnswer'))
       } else if (row.type === 'numeric' && Number.isNaN(Number(answer))) {
-        errors.push('Number answer must be a valid number')
+        errors.push(t('teacher.schema.numericAnswer'))
       }
     }
 
@@ -131,13 +127,15 @@ function schemaToRows(schema) {
 // ── View-mode components ───────────────────────────────────────────────────────
 
 function MetaBadge({ isTimed, durationMinutes }) {
+  const { t, i18n } = useTranslation()
   if (isTimed) {
-    return <Badge variant="default">Timed · {durationMinutes} min</Badge>
+    return <Badge variant="default">{t('teacher.view.timed', { duration: formatDuration(durationMinutes, i18n.resolvedLanguage) })}</Badge>
   }
-  return <Badge variant="secondary">Untimed</Badge>
+  return <Badge variant="secondary">{t('teacher.view.untimed')}</Badge>
 }
 
 function ViewSchemaTable({ schema }) {
+  const { t } = useTranslation()
   const groups = useMemo(() => {
     const result = []
     const seen = new Map()
@@ -162,10 +160,10 @@ function ViewSchemaTable({ schema }) {
       <table className="min-w-full border-collapse text-sm">
         <thead>
           <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            <th className="px-4 py-2">Question number</th>
-            <th className="px-4 py-2">Sub</th>
-            <th className="px-4 py-2">Type</th>
-            <th className="px-4 py-2">Correct answer</th>
+            <th className="px-4 py-2">{t('teacher.schema.questionNumber')}</th>
+            <th className="px-4 py-2">{t('teacher.schema.sub')}</th>
+            <th className="px-4 py-2">{t('teacher.schema.type')}</th>
+            <th className="px-4 py-2">{t('teacher.schema.correctAnswer')}</th>
           </tr>
         </thead>
         <tbody>
@@ -175,15 +173,15 @@ function ViewSchemaTable({ schema }) {
                 <tr key={`${g.q_id}-${sub.sub_id}`} className="border-t">
                   <td className="px-4 py-2 text-muted-foreground">{i === 0 ? g.q_id : ''}</td>
                   <td className="px-4 py-2 font-mono text-muted-foreground">{sub.sub_id}</td>
-                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? TYPE_LABELS.boolean : ''}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? t('teacher.schema.trueFalse') : ''}</td>
                   <td className="px-4 py-2 font-medium">
                     {sub.correct_answer === '1' ? (
                       <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-success/15 text-success">
-                        True
+                        {t('teacher.schema.true')}
                       </span>
                     ) : (
                       <span className="rounded px-1.5 py-0.5 text-xs font-semibold bg-destructive/15 text-destructive">
-                        False
+                        {t('teacher.schema.false')}
                       </span>
                     )}
                   </td>
@@ -194,7 +192,13 @@ function ViewSchemaTable({ schema }) {
               <tr key={g.q_id} className="border-t">
                 <td className="px-4 py-2 text-muted-foreground">{g.q_id}</td>
                 <td className="px-4 py-2 text-muted-foreground">—</td>
-                <td className="px-4 py-2 text-muted-foreground">{TYPE_LABELS[g.type] || 'Custom'}</td>
+                <td className="px-4 py-2 text-muted-foreground">
+                  {g.type === 'mcq'
+                    ? t('teacher.schema.multipleChoice')
+                    : g.type === 'numeric'
+                    ? t('teacher.schema.number')
+                    : t('teacher.schema.custom')}
+                </td>
                 <td className="px-4 py-2 font-medium">{g.correct_answer}</td>
               </tr>
             )
@@ -208,6 +212,7 @@ function ViewSchemaTable({ schema }) {
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function TeacherViewExercisePage() {
+  const { t } = useTranslation()
   const { id } = useParams()
   const { token } = useAuth()
   const navigate = useNavigate()
@@ -231,7 +236,7 @@ export default function TeacherViewExercisePage() {
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
 
-  const validatedRows = useMemo(() => validateRows(editRows), [editRows])
+  const validatedRows = useMemo(() => validateRows(editRows, t), [editRows, t])
   const hasErrors = validatedRows.some((r) => r.errors.length > 0)
 
   useEffect(() => {
@@ -323,11 +328,11 @@ export default function TeacherViewExercisePage() {
 
   async function handleSave() {
     setSaveError('')
-    if (!editTitle.trim()) { setSaveError('Title is required'); return }
+    if (!editTitle.trim()) { setSaveError(t('teacher.create.titleRequired')); return }
     if (editIsTimed && (!editDuration || Number(editDuration) <= 0)) {
-      setSaveError('Duration must be a positive number'); return
+      setSaveError(t('teacher.create.durationInvalid')); return
     }
-    if (hasErrors) { setSaveError('Please fix all answer key errors before saving'); return }
+    if (hasErrors) { setSaveError(t('teacher.create.fixErrors')); return }
 
     setIsSaving(true)
     try {
@@ -384,7 +389,7 @@ export default function TeacherViewExercisePage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Loading exercise...</p>
+        <p className="text-sm text-muted-foreground">{t('teacher.view.loading')}</p>
       </div>
     )
   }
@@ -395,7 +400,7 @@ export default function TeacherViewExercisePage() {
         <CardContent className="pt-6">
           <p className="text-sm text-destructive">{error}</p>
           <Button variant="outline" asChild className="mt-4">
-            <Link to="/teacher/exercises">Back to Exercises</Link>
+            <Link to="/teacher/exercises">{t('teacher.view.back')}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -415,7 +420,7 @@ export default function TeacherViewExercisePage() {
               {isEditing ? (
                 <div className="space-y-4 pr-32">
                   <div className="space-y-2">
-                    <Label htmlFor="edit-title">Exercise title</Label>
+                    <Label htmlFor="edit-title">{t('teacher.create.titleLabel')}</Label>
                     <Input
                       id="edit-title"
                       type="text"
@@ -425,12 +430,12 @@ export default function TeacherViewExercisePage() {
                   </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="edit-timed">Mode</Label>
+                      <Label htmlFor="edit-timed">{t('teacher.create.mode')}</Label>
                       <div className="flex h-10 items-center justify-between rounded-md border bg-background px-3">
-                        <span className="text-sm">{editIsTimed ? 'Timed mode' : 'Untimed mode'}</span>
+                        <span className="text-sm">{editIsTimed ? t('teacher.create.timedMode') : t('teacher.create.untimedMode')}</span>
                         <Switch
                           id="edit-timed"
-                          aria-label="Timed mode toggle"
+                          aria-label={t('teacher.create.timedToggle')}
                           checked={editIsTimed}
                           onCheckedChange={setEditIsTimed}
                         />
@@ -438,7 +443,7 @@ export default function TeacherViewExercisePage() {
                     </div>
                     {editIsTimed && (
                       <div className="space-y-2">
-                        <Label htmlFor="edit-duration">Duration (min)</Label>
+                        <Label htmlFor="edit-duration">{t('teacher.create.duration')}</Label>
                         <Input
                           id="edit-duration"
                           type="number"
@@ -460,14 +465,11 @@ export default function TeacherViewExercisePage() {
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <MetaBadge isTimed={isTimed} durationMinutes={exercise.duration_minutes} />
                     <span className="text-sm text-muted-foreground">
-                      {new Set((exercise.schema || []).map((row) => row.q_id)).size} question{new Set((exercise.schema || []).map((row) => row.q_id)).size !== 1 ? 's' : ''}
+                      {t('teacher.view.questionCount', { count: new Set((exercise.schema || []).map((row) => row.q_id)).size })}
                     </span>
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Answer reading:{' '}
-                    <span className="font-medium text-foreground">
-                      {exercise.extract_model ? 'Custom' : 'Recommended'}
-                    </span>
+                    {t('teacher.model.answerReading', { choice: exercise.extract_model ? t('teacher.model.custom') : t('teacher.model.recommendedShort') })}
                   </p>
                 </>
               )}
@@ -478,20 +480,20 @@ export default function TeacherViewExercisePage() {
               {isEditing ? (
                 <>
                   <Button onClick={handleSave} disabled={isSaving}>
-                    {isSaving ? 'Saving...' : 'Save'}
+                    {isSaving ? t('teacher.view.saving') : t('teacher.view.save')}
                   </Button>
                   <Button variant="outline" onClick={cancelEdit} disabled={isSaving}>
-                    Cancel
+                    {t('teacher.view.cancel')}
                   </Button>
                 </>
               ) : (
                 <>
                   <Button variant="outline" asChild>
-                    <Link to="/teacher/exercises">Back to Exercises</Link>
+                    <Link to="/teacher/exercises">{t('teacher.view.back')}</Link>
                   </Button>
-                  <Button variant="outline" onClick={enterEditMode}>Edit</Button>
+                  <Button variant="outline" onClick={enterEditMode}>{t('teacher.view.edit')}</Button>
                   <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
-                    Delete
+                    {t('teacher.view.delete')}
                   </Button>
                 </>
               )}
@@ -505,35 +507,35 @@ export default function TeacherViewExercisePage() {
       {/* Files card */}
       <Card>
         <CardContent className="pt-5">
-          <h2 className="mb-3 text-sm font-semibold">Files</h2>
+          <h2 className="mb-3 text-sm font-semibold">{t('teacher.view.files')}</h2>
           {exercise.files?.length > 0 ? (
             <ul className={`space-y-1 ${isEditing ? 'mb-4' : ''}`}>
               {exercise.files.map((f) => (
                 <li key={f.id} className="flex items-center gap-2 text-sm">
-                  <Badge variant="secondary" className="text-xs">{FILE_TYPE_LABELS[f.file_type] || 'File'}</Badge>
+                  <Badge variant="secondary" className="text-xs">{t(`teacher.file.${f.file_type === 'exercise_pdf' ? 'exercisePdf' : f.file_type === 'solution_pdf' ? 'answerPdf' : f.file_type === 'reference_image' ? 'referenceImage' : 'file'}`)}</Badge>
                   <span>{f.file_name}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className={`text-sm text-muted-foreground ${isEditing ? 'mb-4' : ''}`}>No files uploaded.</p>
+            <p className={`text-sm text-muted-foreground ${isEditing ? 'mb-4' : ''}`}>{t('teacher.view.noFiles')}</p>
           )}
           {isEditing && (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Replace Exercise PDF</Label>
+                <Label className="text-xs text-muted-foreground">{t('teacher.view.replaceExercisePdf')}</Label>
                 <FileDropzone
                   accept=".pdf"
-                  hint="PDF files only"
+                  hint={t('teacher.file.pdfOnly')}
                   file={editExerciseFile}
                   onChange={setEditExerciseFile}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Replace Solution PDF</Label>
+                <Label className="text-xs text-muted-foreground">{t('teacher.view.replaceAnswerPdf')}</Label>
                 <FileDropzone
                   accept=".pdf"
-                  hint="PDF files only"
+                  hint={t('teacher.file.pdfOnly')}
                   file={editSolutionFile}
                   onChange={setEditSolutionFile}
                 />
@@ -547,10 +549,10 @@ export default function TeacherViewExercisePage() {
       <Card>
         <CardHeader className="border-b px-5 py-3">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Answer key</h2>
+            <h2 className="text-sm font-semibold">{t('teacher.view.answerKey')}</h2>
             {isEditing && (
               <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-                Add question
+                {t('teacher.view.addQuestion')}
               </Button>
             )}
           </div>
@@ -576,16 +578,16 @@ export default function TeacherViewExercisePage() {
           if (!open) setDeleteConfirmText('')
         }}
       >
-        <DialogContent>
+        <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>
-            <DialogTitle>Delete this exercise?</DialogTitle>
+            <DialogTitle>{t('teacher.view.deleteTitle')}</DialogTitle>
             <DialogDescription>
-              This action cannot be undone. All submissions and answer key data will be permanently deleted.
+              {t('teacher.view.deleteDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5 py-2">
             <Label htmlFor="delete-confirm">
-              Type <span className="font-mono font-semibold text-destructive">DELETE</span> to confirm
+              {t('teacher.view.deleteInstruction')}
             </Label>
             <Input
               id="delete-confirm"
@@ -602,14 +604,14 @@ export default function TeacherViewExercisePage() {
               onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText('') }}
               disabled={isDeleting}
             >
-              Cancel
+              {t('teacher.view.cancel')}
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
               disabled={isDeleting || deleteConfirmText !== 'DELETE'}
             >
-              {isDeleting ? 'Deleting...' : 'Yes, delete'}
+              {isDeleting ? t('teacher.view.deleting') : t('teacher.view.confirmDelete')}
             </Button>
           </DialogFooter>
         </DialogContent>

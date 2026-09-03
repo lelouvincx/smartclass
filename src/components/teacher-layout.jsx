@@ -1,19 +1,20 @@
 import { Outlet, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
 import { AppShell } from '@/design-system/app-shell'
 import { BookOpen, ClipboardList, LayoutDashboard, Plus, Users } from 'lucide-react'
 
-const TEACHER_NAVIGATION = [
-  { label: 'Dashboard', to: '/teacher', icon: LayoutDashboard, end: true },
-  { label: 'Students', to: '/teacher/students', icon: Users },
-  { label: 'Exercises', to: '/teacher/exercises', icon: ClipboardList, end: true },
-  { label: 'Lectures', to: '/teacher/lectures', icon: BookOpen },
-  { label: 'Create', to: '/teacher/exercises/new', icon: Plus },
-]
-
 export function TeacherLayout() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const { t } = useTranslation()
+  const navigation = [
+    { label: t('common.dashboard'), to: '/teacher', icon: LayoutDashboard, end: true },
+    { label: t('common.students'), to: '/teacher/students', icon: Users },
+    { label: t('common.exercises'), to: '/teacher/exercises', icon: ClipboardList, end: true },
+    { label: t('common.lectures'), to: '/teacher/lectures', icon: BookOpen },
+    { label: t('common.create'), to: '/teacher/exercises/new', icon: Plus },
+  ]
 
   function handleLogout() {
     logout()
@@ -22,8 +23,8 @@ export function TeacherLayout() {
 
   return (
     <AppShell
-      items={TEACHER_NAVIGATION}
-      workspaceLabel="Teacher"
+      items={navigation}
+      workspaceLabel={t('common.teacher')}
       userLabel={user?.phone}
       onLogout={handleLogout}
     >

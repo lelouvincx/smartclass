@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { getSubmission } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { formatDateTime } from '@/lib/format'
 
 function formatTimeTaken(started_at, submitted_at) {
   if (!started_at || !submitted_at) return '—'
@@ -16,6 +18,7 @@ function formatTimeTaken(started_at, submitted_at) {
 }
 
 export default function StudentSummaryPage() {
+  const { t, i18n } = useTranslation()
   const { id } = useParams()
   const { token } = useAuth()
 
@@ -31,7 +34,7 @@ export default function StudentSummaryPage() {
         const res = await getSubmission(token, id)
         setSubmission(res.data)
       } catch (err) {
-        setError(err.message || 'Failed to load summary')
+        setError(err.message || i18n.t('student.results.failedSummary'))
       } finally {
         setIsLoading(false)
       }
@@ -42,7 +45,7 @@ export default function StudentSummaryPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Loading summary...</p>
+        <p className="text-sm text-muted-foreground">{t('student.results.loadingSummary')}</p>
       </div>
     )
   }
@@ -53,7 +56,7 @@ export default function StudentSummaryPage() {
         <CardContent className="pt-6">
           <p className="text-sm text-destructive">{error}</p>
           <Button variant="outline" asChild className="mt-4">
-            <Link to="/student/exercises">Back to Exercises</Link>
+            <Link to="/student/exercises">{t('student.results.backToExercises')}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -75,7 +78,7 @@ export default function StudentSummaryPage() {
   const timeTaken = formatTimeTaken(started_at, submitted_at)
 
   const submittedDate = submitted_at
-    ? new Date(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z')).toLocaleString()
+    ? formatDateTime(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z'), i18n.resolvedLanguage)
     : '—'
 
   const scoreColor =
@@ -93,61 +96,61 @@ export default function StudentSummaryPage() {
         <CardContent className="space-y-6 pt-6">
           <div>
             <h1 className="text-2xl font-semibold">{exercise_title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Submitted {submittedDate}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{t('student.results.submitted', { date: submittedDate })}</p>
           </div>
 
           {score !== null && score !== undefined && (
             <div
               role="meter"
-              aria-label="Score"
+              aria-label={t('student.results.score')}
               aria-valuemin={0}
               aria-valuemax={10}
               aria-valuenow={score}
-              aria-valuetext={`${score} out of 10`}
+              aria-valuetext={t('student.results.scoreOutOf', { score })}
               className="mx-auto flex min-h-52 max-w-sm flex-col items-center justify-center rounded-[var(--sc-component-focal-shape)] bg-sc-primary-container px-6 py-8 text-center text-sc-on-primary-container transition-[border-radius,transform] duration-[var(--sc-motion-duration-long)] ease-[var(--sc-motion-expressive)] motion-safe:hover:scale-[1.01]"
             >
               <p className={`text-[length:var(--sc-type-display-size)] leading-[var(--sc-type-display-line-height)] font-[var(--sc-type-display-weight)] tracking-[-0.04em] tabular-nums ${scoreColor}`}>
                 {score}
               </p>
-              <p className="mt-2 text-sm font-medium text-sc-on-primary-container/75">out of 10</p>
+              <p className="mt-2 text-sm font-medium text-sc-on-primary-container/75">{t('student.results.outOf10')}</p>
             </div>
           )}
 
           <div className="flex justify-around rounded-lg border p-4">
             <div className="flex flex-col items-center gap-1">
-              <span aria-label="correct count" className="text-2xl font-bold text-success">
+              <span aria-label={t('student.results.correctCount')} className="text-2xl font-bold text-success">
                 {counts.correct}
               </span>
-              <span className="text-xs text-muted-foreground">Correct parts</span>
+              <span className="text-xs text-muted-foreground">{t('student.results.correctParts')}</span>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <span aria-label="incorrect count" className="text-2xl font-bold text-destructive">
+              <span aria-label={t('student.results.incorrectCount')} className="text-2xl font-bold text-destructive">
                 {counts.incorrect}
               </span>
-              <span className="text-xs text-muted-foreground">Incorrect parts</span>
+              <span className="text-xs text-muted-foreground">{t('student.results.incorrectParts')}</span>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <span aria-label="skipped count" className="text-2xl font-bold text-muted-foreground">
+              <span aria-label={t('student.results.skippedCount')} className="text-2xl font-bold text-muted-foreground">
                 {counts.skipped}
               </span>
-              <span className="text-xs text-muted-foreground">Skipped parts</span>
+              <span className="text-xs text-muted-foreground">{t('student.results.skippedParts')}</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
-            True/False questions may contain multiple parts, and each part is counted separately.
+            {t('student.results.partsNote')}
           </p>
 
           <p className="text-sm text-muted-foreground">
-            Time taken:{' '}
+            {t('student.results.timeTaken')}{' '}
             <span className="font-medium text-foreground">{timeTaken}</span>
           </p>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild>
-              <Link to={`/student/submissions/${id}/review`}>View detailed results</Link>
+              <Link to={`/student/submissions/${id}/review`}>{t('student.results.detailed')}</Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link to="/student/exercises">Back to Exercises</Link>
+              <Link to="/student/exercises">{t('student.results.backToExercises')}</Link>
             </Button>
           </div>
         </CardContent>
