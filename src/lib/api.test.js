@@ -25,7 +25,7 @@ describe('API errors', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')))
 
     await expect(getSubmission('token', 10)).rejects.toThrow(
-      'Couldn’t connect to SmartClass. Check your internet connection and try again.',
+      'SmartClass can’t reach the server right now. Try again in a moment.',
     )
   })
 })

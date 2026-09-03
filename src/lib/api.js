@@ -10,7 +10,7 @@ async function request(path, options = {}) {
     response = await fetch(`${API_BASE_URL}${path}`, options)
   } catch (networkError) {
     throw new Error(
-      'Couldn’t connect to SmartClass. Check your internet connection and try again.',
+      'SmartClass can’t reach the server right now. Try again in a moment.',
       { cause: networkError },
     )
   }
