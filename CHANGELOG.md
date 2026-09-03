@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Make dashboards task-aware, show truthful exercise actions, prioritize the current question on mobile attempts, and clarify answer progress.
+- Make dashboards task-aware, show truthful exercise actions, prioritize the current question on mobile attempts, and clarify answer progress. [#89](https://github.com/lelouvincx/smartclass/pull/89)
 - Add explicit bot PR and post-merge workflow triggers to repository instructions. [#86](https://github.com/lelouvincx/smartclass/pull/86)
 - Ignore the local `.amp` and `.impeccable` runtime directories. [#82](https://github.com/lelouvincx/smartclass/pull/82)
 - Consolidate the take and review experience into a two-panel PDF and answer layout. [#66](https://github.com/lelouvincx/smartclass/pull/66)
