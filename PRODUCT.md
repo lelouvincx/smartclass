@@ -9,7 +9,7 @@ SmartClass is an assessment platform for teaching and learning. It is a focused 
 - **Teachers (administrators)** create and manage student accounts, create exercises from PDFs, define answer schemas, and review the learning workflow.
 - **Students** browse exercises, start timed or untimed attempts, answer manually or use a photo to pre-fill answers, review extracted answers before submission, receive automatic grading, and review past results.
 
-Guest access and the lecture experience remain roadmap work. Do not describe them as shipped without newer product evidence.
+Guest access and the lecture experience remain planned work in [`TODO.md`](TODO.md). Do not describe them as shipped without newer product evidence.
 
 ## Assessment model
 
@@ -33,8 +33,9 @@ Guest access and the lecture experience remain roadmap work. Do not describe the
 ## Sources of truth
 
 - This document is authoritative for shipped product behavior.
+- [`TODO.md`](TODO.md) tracks planned work and is not evidence of shipped behavior.
 - [`AGENTS.md`](AGENTS.md) contains engineering instructions and points to technical references; it is not a product specification.
 - [`DESIGN.md`](DESIGN.md) is the visual implementation contract.
 - Approved RFCs in [`docs/plans/`](docs/plans/) record decisions, rationale, and migration status.
 
-Roadmaps and RFCs may contain proposed or superseded behavior. When they conflict with this document, use this document for shipped behavior and reconcile the stale reference. Update this document only when stable product truth changes.
+`TODO.md` and RFCs may contain proposed or superseded behavior. When they conflict with this document, use this document for shipped behavior and reconcile the stale reference. Update this document only when stable product truth changes.
