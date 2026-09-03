@@ -1,6 +1,6 @@
 # SmartClass product truth
 
-**Last reviewed:** 2026-08-30
+**Last reviewed:** 2026-09-03
 
 SmartClass is an assessment platform for teaching and learning. It is a focused learning workspace, not a marketing surface.
 
@@ -10,6 +10,12 @@ SmartClass is an assessment platform for teaching and learning. It is a focused 
 - **Students** browse exercises, start timed or untimed attempts, answer manually or use a photo to pre-fill answers, review extracted answers before submission, receive automatic grading, and review past results.
 
 Guest access and the lecture experience remain roadmap work. Do not describe them as shipped without newer product evidence.
+
+## Account access
+
+- Teachers sign in with their phone number and password.
+- A signed-in teacher can change their own password from Settings after verifying their current password.
+- Password changes never target another account; student password changes and teacher-managed password resets remain roadmap work.
 
 ## Assessment model
 

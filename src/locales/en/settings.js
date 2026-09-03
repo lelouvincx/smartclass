@@ -8,6 +8,18 @@ export default {
     english: 'English',
     vietnamese: 'Tiếng Việt',
   },
+  password: {
+    title: 'Change password',
+    description: 'Verify your current password, then choose a new one for your teacher account.',
+    current: 'Current password',
+    new: 'New password',
+    confirm: 'Confirm new password',
+    policy: 'Use at least 3 characters.',
+    mismatch: 'New password confirmation does not match.',
+    submit: 'Change password',
+    changing: 'Changing password...',
+    success: 'Password changed successfully.',
+  },
   accounts: {
     title: 'Connected accounts',
     description: 'Link your Google account for easier sign-in and account recovery.',

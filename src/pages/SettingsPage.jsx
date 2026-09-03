@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
 import { changeLanguage } from '@/i18n'
-import { linkGoogle, unlinkGoogle } from '@/lib/api'
+import { changePassword, unlinkGoogle } from '@/lib/api'
 import { startGoogleFlow } from '@/lib/google-oauth'
 import { getDefaultPathForRole } from '@/lib/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Badge } from '@/components/ui/badge'
 import { ModeToggle } from '@/components/mode-toggle'
 import {
@@ -42,6 +44,12 @@ export default function SettingsPage() {
   const { i18n, t } = useTranslation()
   const [isUnlinking, setIsUnlinking] = useState(false)
   const [showDisconnect, setShowDisconnect] = useState(false)
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordSuccess, setPasswordSuccess] = useState('')
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
 
   const isLinked = Boolean(user?.google_email)
 
@@ -60,6 +68,33 @@ export default function SettingsPage() {
     } finally {
       setIsUnlinking(false)
       setShowDisconnect(false)
+    }
+  }
+
+  async function handlePasswordChange(event) {
+    event.preventDefault()
+    setPasswordError('')
+    setPasswordSuccess('')
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError(t('settings.password.mismatch'))
+      return
+    }
+
+    setIsChangingPassword(true)
+    try {
+      await changePassword(token, {
+        current_password: currentPassword,
+        new_password: newPassword,
+      })
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setPasswordSuccess(t('settings.password.success'))
+    } catch (error) {
+      setPasswordError(error.message)
+    } finally {
+      setIsChangingPassword(false)
     }
   }
 
@@ -102,6 +137,84 @@ export default function SettingsPage() {
             </select>
           </CardContent>
         </Card>
+        {user?.role === 'teacher' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('settings.password.title')}</CardTitle>
+              <CardDescription>{t('settings.password.description')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePasswordChange}>
+                <FieldGroup>
+                  <Field data-invalid={Boolean(passwordError)}>
+                    <FieldLabel htmlFor="settings-current-password">
+                      {t('settings.password.current')}
+                    </FieldLabel>
+                    <Input
+                      id="settings-current-password"
+                      name="current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      required
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={passwordError ? 'password-change-error' : undefined}
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                    />
+                  </Field>
+                  <Field data-invalid={Boolean(passwordError)}>
+                    <FieldLabel htmlFor="settings-new-password">
+                      {t('settings.password.new')}
+                    </FieldLabel>
+                    <FieldDescription id="password-change-policy">
+                      {t('settings.password.policy')}
+                    </FieldDescription>
+                    <Input
+                      id="settings-new-password"
+                      name="new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      minLength={3}
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={`password-change-policy${passwordError ? ' password-change-error' : ''}`}
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                    />
+                  </Field>
+                  <Field data-invalid={Boolean(passwordError)}>
+                    <FieldLabel htmlFor="settings-confirm-password">
+                      {t('settings.password.confirm')}
+                    </FieldLabel>
+                    <Input
+                      id="settings-confirm-password"
+                      name="confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      required
+                      minLength={3}
+                      aria-invalid={Boolean(passwordError)}
+                      aria-describedby={passwordError ? 'password-change-error' : undefined}
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                    />
+                  </Field>
+                  {passwordError && (
+                    <FieldError id="password-change-error">{passwordError}</FieldError>
+                  )}
+                  {passwordSuccess && (
+                    <p role="status" className="text-sm text-success">{passwordSuccess}</p>
+                  )}
+                  <Button type="submit" disabled={isChangingPassword}>
+                    {isChangingPassword
+                      ? t('settings.password.changing')
+                      : t('settings.password.submit')}
+                  </Button>
+                </FieldGroup>
+              </form>
+            </CardContent>
+          </Card>
+        )}
         <Card>
         <CardHeader>
           <CardTitle>{t('settings.accounts.title')}</CardTitle>

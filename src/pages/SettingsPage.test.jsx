@@ -7,16 +7,29 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { changeLanguage } from '@/i18n'
 import SettingsPage from './SettingsPage'
 
-vi.mock('@/lib/auth-context', () => ({
-  useAuth: () => ({
-    user: { phone: '+84900000001', role: 'student', google_email: null },
+const { authState, changePasswordMock } = vi.hoisted(() => ({
+  authState: {
+    user: { phone: '+84900000001', role: 'teacher', google_email: null },
     token: 'token',
     refreshUser: vi.fn(),
-  }),
+  },
+  changePasswordMock: vi.fn(),
+}))
+
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => authState,
+}))
+
+vi.mock('@/lib/api', () => ({
+  changePassword: changePasswordMock,
+  linkGoogle: vi.fn(),
+  unlinkGoogle: vi.fn(),
 }))
 
 afterEach(() => {
   localStorage.clear()
+  changePasswordMock.mockReset()
+  authState.user = { phone: '+84900000001', role: 'teacher', google_email: null }
   return act(() => changeLanguage('en'))
 })
 
@@ -42,5 +55,67 @@ describe('SettingsPage language preference', () => {
     expect(await screen.findByText('Cài đặt')).toBeInTheDocument()
     expect(screen.getByRole('combobox', { name: 'Ngôn ngữ' })).toHaveValue('vi')
     expect(screen.getByText('Tài khoản đã liên kết')).toBeInTheDocument()
+  })
+})
+
+describe('SettingsPage teacher password change', () => {
+  it('provides password-manager-compatible fields only to teachers', () => {
+    const { unmount } = renderPage()
+
+    expect(screen.getByLabelText('Current password')).toHaveAttribute('autocomplete', 'current-password')
+    expect(screen.getByLabelText('New password')).toHaveAttribute('autocomplete', 'new-password')
+    expect(screen.getByLabelText('Confirm new password')).toHaveAttribute('autocomplete', 'new-password')
+    expect(screen.getByLabelText('New password')).toHaveAttribute('minlength', '3')
+
+    unmount()
+    authState.user = { ...authState.user, role: 'student' }
+    renderPage()
+    expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument()
+  })
+
+  it('rejects a mismatched password confirmation before making a request', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await user.type(screen.getByLabelText('Current password'), '123')
+    await user.type(screen.getByLabelText('New password'), 'new-password')
+    await user.type(screen.getByLabelText('Confirm new password'), 'different-password')
+    await user.click(screen.getByRole('button', { name: 'Change password' }))
+
+    expect(await screen.findByText('New password confirmation does not match.')).toBeInTheDocument()
+    expect(changePasswordMock).not.toHaveBeenCalled()
+  })
+
+  it('shows an API error when the current password is incorrect', async () => {
+    const user = userEvent.setup()
+    changePasswordMock.mockRejectedValue(new Error('Current password is incorrect.'))
+    renderPage()
+
+    await user.type(screen.getByLabelText('Current password'), 'wrong-password')
+    await user.type(screen.getByLabelText('New password'), 'new-password')
+    await user.type(screen.getByLabelText('Confirm new password'), 'new-password')
+    await user.click(screen.getByRole('button', { name: 'Change password' }))
+
+    expect(await screen.findByText('Current password is incorrect.')).toBeInTheDocument()
+  })
+
+  it('changes the password and clears all password fields', async () => {
+    const user = userEvent.setup()
+    changePasswordMock.mockResolvedValue({ data: { password_changed: true } })
+    renderPage()
+
+    await user.type(screen.getByLabelText('Current password'), '123')
+    await user.type(screen.getByLabelText('New password'), 'new-password')
+    await user.type(screen.getByLabelText('Confirm new password'), 'new-password')
+    await user.click(screen.getByRole('button', { name: 'Change password' }))
+
+    expect(changePasswordMock).toHaveBeenCalledWith('token', {
+      current_password: '123',
+      new_password: 'new-password',
+    })
+    expect(await screen.findByText('Password changed successfully.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Current password')).toHaveValue('')
+    expect(screen.getByLabelText('New password')).toHaveValue('')
+    expect(screen.getByLabelText('Confirm new password')).toHaveValue('')
   })
 })

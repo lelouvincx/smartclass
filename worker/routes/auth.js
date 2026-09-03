@@ -141,6 +141,45 @@ authRoutes.post('/login', async (c) => {
   })
 })
 
+authRoutes.put('/password', requireAuth, async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const currentPassword = body?.current_password
+  const newPassword = body?.new_password
+
+  if (typeof currentPassword !== 'string' || !currentPassword || typeof newPassword !== 'string' || !newPassword) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Current password and new password are required.')
+  }
+
+  const authUser = c.get('authUser')
+  const user = await c.env.DB.prepare(
+    'SELECT password_hash FROM users WHERE id = ? LIMIT 1',
+  )
+    .bind(authUser.id)
+    .first()
+
+  if (!user) {
+    return jsonError(c, 404, 'NOT_FOUND', 'User not found.')
+  }
+
+  const isCurrentPasswordValid = await verifyPassword(currentPassword, user.password_hash)
+  if (!isCurrentPasswordValid) {
+    return jsonError(c, 401, 'INVALID_CURRENT_PASSWORD', 'Current password is incorrect.')
+  }
+
+  if (newPassword.length < 3) {
+    return jsonError(c, 400, 'WEAK_PASSWORD', 'Password must be at least 3 characters long.')
+  }
+
+  const passwordHash = await hashPassword(newPassword)
+  await c.env.DB.prepare(
+    'UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+  )
+    .bind(passwordHash, authUser.id)
+    .run()
+
+  return jsonSuccess(c, { password_changed: true })
+})
+
 authRoutes.get('/me', requireAuth, async (c) => {
   const authUser = c.get('authUser')
   const user = await c.env.DB.prepare(
