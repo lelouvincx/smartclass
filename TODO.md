@@ -38,7 +38,7 @@ Priorities apply within each version:
 ## v0.8: Account management
 
 - [ ] **P0** Add a forgot-password flow
-- [ ] **P1** Let teachers and students change passwords, and let teachers reset student passwords
+- [ ] **P1** Let students change their own passwords, and let teachers reset student passwords
 - [ ] **P1** Add user profile fields: name, class or grade, social links, profile image, and email
 
 **Outcome:** students and teachers can recover and manage complete accounts without administrator intervention.

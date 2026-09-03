@@ -19,6 +19,12 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 - Students browse the sectioned curriculum and watch each lecture on a dedicated, readable URL with embedded playback and previous/next navigation.
 - Lecture browsing is available only to authenticated teachers and students.
 
+## Account access
+
+- Teachers sign in with their phone number and password.
+- A signed-in teacher can change their own password from Settings after verifying their current password.
+- Password changes never target another account; student password changes and teacher-managed password resets remain roadmap work.
+
 ## Assessment model
 
 - Exercises may be timed or untimed and may include an exercise PDF.

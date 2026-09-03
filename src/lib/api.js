@@ -61,6 +61,16 @@ export function getMe(token) {
   })
 }
 
+export function changePassword(token, payload) {
+  return request('/api/auth/password', {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
 export function parseExerciseSchema(token, payload) {
   return request('/api/exercises/schema/parse', {
     method: 'POST',

@@ -1,12 +1,25 @@
 export default {
   title: 'Cài đặt',
   back: 'Quay lại',
+  sectionToggle: 'Cài đặt {{title}}',
   language: {
     title: 'Ngôn ngữ',
     description: 'Chọn ngôn ngữ sử dụng trong ứng dụng dành cho giáo viên và học sinh.',
     label: 'Ngôn ngữ',
     english: 'English',
     vietnamese: 'Tiếng Việt',
+  },
+  password: {
+    title: 'Đổi mật khẩu',
+    description: 'Xác minh mật khẩu hiện tại, sau đó chọn mật khẩu mới cho tài khoản giáo viên.',
+    current: 'Mật khẩu hiện tại',
+    new: 'Mật khẩu mới',
+    confirm: 'Xác nhận mật khẩu mới',
+    policy: 'Sử dụng ít nhất 3 ký tự.',
+    mismatch: 'Xác nhận mật khẩu mới không khớp.',
+    submit: 'Đổi mật khẩu',
+    changing: 'Đang đổi mật khẩu...',
+    success: 'Đã đổi mật khẩu thành công.',
   },
   accounts: {
     title: 'Tài khoản đã liên kết',
