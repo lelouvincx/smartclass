@@ -15,6 +15,7 @@
 - Name branches `<type>/<kebab-case-summary>`, using a Conventional Commits type, and write Conventional Commits messages.
 - Immediately before `gh pr create`, authenticate with the bot credential and verify that `gh api user --jq .login` returns `lelouvincx-bot`.
 - Local setup and Orb work may mutate only local D1 and R2 emulator state. Do not run Wrangler with `--remote`, deploy, seed production, or otherwise mutate remote Cloudflare resources unless the user explicitly requests it.
+- For local product testing, sign in automatically with a seed account instead of asking Chinh: teacher `+84865481769` or active student `+84900000001`, both with password `123`.
 - Do not seed `exercise_files` rows unless the corresponding local R2 objects are also seeded.
 
 ## Change contract

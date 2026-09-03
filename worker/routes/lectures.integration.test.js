@@ -53,7 +53,9 @@ describe('lectures API', () => {
     const orderResponse = await teacherRequest('/order', 'PUT', { ids: [second.id, first.id] })
     expect(orderResponse.status).toBe(200)
 
-    const listResponse = await app.request('/api/lectures', {}, env)
+    const listResponse = await app.request('/api/lectures', {
+      headers: { Authorization: `Bearer ${studentToken}` },
+    }, env)
     expect(listResponse.status).toBe(200)
     const lectures = (await listResponse.json()).data
       .filter((lecture) => [first.id, second.id].includes(lecture.id))
@@ -72,6 +74,13 @@ describe('lectures API', () => {
     })
     expect(invalidResponse.status).toBe(400)
 
+    const nonVideoResponse = await teacherRequest('/', 'POST', {
+      title: 'Channel page',
+      section_name: 'Chapter 1',
+      youtube_url: 'https://youtube.com/channel/abcdefghijk',
+    })
+    expect(nonVideoResponse.status).toBe(400)
+
     const studentResponse = await app.request('/api/lectures', {
       method: 'POST',
       headers: {
@@ -85,5 +94,11 @@ describe('lectures API', () => {
       }),
     }, env)
     expect(studentResponse.status).toBe(403)
+  })
+
+  it('requires authentication to list lectures', async () => {
+    const response = await app.request('/api/lectures', {}, env)
+
+    expect(response.status).toBe(401)
   })
 })

@@ -8,7 +8,19 @@ function isYouTubeUrl(value) {
   try {
     const url = new URL(value)
     const hostname = url.hostname.toLowerCase().replace(/^www\./, '')
-    return url.protocol === 'https:' && (hostname === 'youtube.com' || hostname === 'youtu.be')
+    let videoId = null
+
+    if (url.protocol !== 'https:') return false
+    if (hostname === 'youtu.be') {
+      videoId = url.pathname.split('/').filter(Boolean)[0]
+    } else if (hostname === 'youtube.com') {
+      if (url.pathname === '/watch') videoId = url.searchParams.get('v')
+      if (url.pathname.startsWith('/shorts/') || url.pathname.startsWith('/embed/')) {
+        videoId = url.pathname.split('/').filter(Boolean)[1]
+      }
+    }
+
+    return /^[\w-]{11}$/.test(videoId || '')
   } catch {
     return false
   }
@@ -26,7 +38,7 @@ function validateLecture(body) {
   }
 
   if (!isYouTubeUrl(lecture.youtube_url)) {
-    return { error: 'YouTube URL must be a valid https://youtube.com or https://youtu.be URL.' }
+    return { error: 'YouTube URL must link to a valid video.' }
   }
 
   return { lecture }
@@ -40,7 +52,7 @@ async function getLecture(db, id) {
   `).bind(id).first()
 }
 
-lecturesRoutes.get('/', async (c) => {
+lecturesRoutes.get('/', requireAuth, async (c) => {
   const result = await c.env.DB.prepare(`
     SELECT id, title, section_name, youtube_url, order_index, created_by, created_at, updated_at
     FROM lectures

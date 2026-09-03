@@ -109,8 +109,10 @@ export function listExercises() {
   return request('/api/exercises')
 }
 
-export function listLectures() {
-  return request('/api/lectures')
+export function listLectures(token) {
+  return request('/api/lectures', {
+    headers: authHeaders(token),
+  })
 }
 
 export function createLecture(token, payload) {

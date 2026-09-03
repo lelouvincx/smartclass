@@ -10,7 +10,6 @@ Priorities apply within each version:
 
 ## v0.5: Lectures
 
-- [ ] **P0** Let students browse and watch lecture videos
 - [ ] **P1** Plan guest mode: design IndexedDB storage, guest route access, and a data model for anonymous exercise completion
 
 **Outcome:** a complete learning experience with exercises and video lectures.

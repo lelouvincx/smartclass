@@ -17,6 +17,8 @@ import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
 import StudentDashboardPage from '@/pages/StudentDashboardPage'
 import StudentExercisesPage from '@/pages/StudentExercisesPage'
 import StudentExerciseLandingPage from '@/pages/StudentExerciseLandingPage'
+import StudentLecturesPage from '@/pages/StudentLecturesPage'
+import StudentLecturePlayerPage from '@/pages/StudentLecturePlayerPage'
 import StudentTakeExercisePage from '@/pages/StudentTakeExercisePage'
 import StudentSubmissionsPage from '@/pages/StudentSubmissionsPage'
 import StudentReviewPage from '@/pages/StudentReviewPage'
@@ -122,6 +124,8 @@ export function AppRoutes() {
         <Route path="exercises" element={<StudentExercisesPage />} />
         <Route path="exercises/:id" element={<StudentExerciseLandingPage />} />
         <Route path="exercises/:id/take" element={<StudentTakeExercisePage />} />
+        <Route path="lectures" element={<StudentLecturesPage />} />
+        <Route path="lectures/:lectureSlug" element={<StudentLecturePlayerPage />} />
         <Route path="submissions" element={<StudentSubmissionsPage />} />
         <Route path="submissions/:id/summary" element={<StudentSummaryPage />} />
         <Route path="submissions/:id/review" element={<StudentReviewPage />} />

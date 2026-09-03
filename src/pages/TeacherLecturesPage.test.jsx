@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -66,10 +66,23 @@ describe('TeacherLecturesPage', () => {
     renderPage()
 
     expect(await screen.findByText('Introduction')).toBeInTheDocument()
-    await user.type(screen.getByLabelText('Lecture title'), 'Exam review')
-    await user.type(screen.getByLabelText('Section'), 'Revision')
-    await user.type(screen.getByLabelText('YouTube URL'), 'https://youtu.be/zyxwvutsrqp')
+    expect(listLecturesMock).toHaveBeenCalledWith('teacher-token')
+    expect(screen.getByRole('heading', { name: 'Chapter 1' })).toBeInTheDocument()
+    expect(screen.queryByTitle('Introduction')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Watch Introduction' }))
+
+    expect(screen.getByTitle('Introduction')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/abcdefghijk',
+    )
+    expect(screen.getByRole('button', { name: 'Hide Introduction video' })).toHaveAttribute('aria-expanded', 'true')
+
     await user.click(screen.getByRole('button', { name: 'Add lecture' }))
+    fireEvent.change(screen.getByLabelText('Lecture title'), { target: { value: 'Exam review' } })
+    fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'Revision' } })
+    fireEvent.change(screen.getByLabelText('YouTube URL'), { target: { value: 'https://youtu.be/zyxwvutsrqp' } })
+    await user.click(screen.getByRole('button', { name: 'Create lecture' }))
 
     await waitFor(() => {
       expect(createLectureMock).toHaveBeenCalledWith('teacher-token', {
