@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Add a changelog and enforce changelog updates for every pull request. [PR pending]
+- Add a changelog and enforce changelog updates for every pull request. [#82](https://github.com/lelouvincx/smartclass/pull/82)
 
 ### Changed
 
