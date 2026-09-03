@@ -52,7 +52,7 @@ Vietnamese copy uses formal, neutral wording:
 
 The implementation includes an English–Vietnamese terminology glossary. Oracle reviews the complete glossary and translated copy after the first full draft; concrete findings are resolved before final verification.
 
-#### Approved terminology glossary
+#### Terminology glossary (approved by Oracle)
 
 | English concept | Vietnamese term |
 | --- | --- |
@@ -78,6 +78,10 @@ Locale controls presentation, not timezone. Dates and times continue to use the 
 ### API boundary
 
 API error and success messages remain server-owned English. Frontend-owned validation, fallback, toast, and status messages are localized. This release makes no Worker or database changes.
+
+#### Follow-up TODO
+
+- [ ] Add an authenticated-app feedback button that sends feedback to `bot@lelouvincx.com`. The feedback interface follows the selected language; technical messages remain English.
 
 ### Technical approach
 
