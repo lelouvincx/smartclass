@@ -75,7 +75,7 @@ function rowPts(row) {
   return row.answer.is_correct === 1 ? MCQ_POINTS : 0
 }
 
-export function SubmissionReviewSidebar({ submission, questionRefs }) {
+export function SubmissionReviewSidebar({ submission, currentQId, onJump }) {
   const { t, i18n } = useTranslation()
   if (!submission) return null
 
@@ -163,22 +163,21 @@ export function SubmissionReviewSidebar({ submission, questionRefs }) {
                   const chosen = rowChosen(row)
                   const pts = rowPts(row)
                   return (
-                    <tr
-                      key={row.q_id}
-                      className="cursor-pointer border-t transition-colors first:border-t-0 hover:bg-muted"
-                      onClick={() =>
-                        questionRefs?.current?.[row.q_id]?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'center',
-                        })
-                      }
-                    >
-                      <td className="px-2 py-2">
-                        <StatusDot status={status} t={t} />
+                    <tr key={row.q_id} className="border-t first:border-t-0">
+                      <td colSpan={4} className="p-0">
+                        <button
+                          type="button"
+                          aria-label={t('student.results.reviewQuestion', { number: row.q_id })}
+                          aria-current={currentQId === row.q_id ? 'step' : undefined}
+                          onClick={() => onJump?.(row.q_id)}
+                          className={`grid min-h-[48px] w-full grid-cols-[1.25rem_2rem_1fr_2.5rem] items-center px-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${currentQId === row.q_id ? 'bg-primary/10' : ''}`}
+                        >
+                          <span><StatusDot status={status} t={t} /></span>
+                          <span className="font-medium text-muted-foreground">{idx + 1}</span>
+                          <span className="font-medium">{chosen}</span>
+                          <span className="text-right text-muted-foreground">{pts}</span>
+                        </button>
                       </td>
-                      <td className="px-2 py-2 font-medium text-muted-foreground">{idx + 1}</td>
-                      <td className="px-2 py-2 font-medium">{chosen}</td>
-                      <td className="px-2 py-2 text-right text-muted-foreground">{pts}</td>
                     </tr>
                   )
                 })}

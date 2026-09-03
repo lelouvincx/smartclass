@@ -50,4 +50,15 @@ describe('language preference', () => {
 
     expect(vietnameseKeys).toEqual(englishKeys)
   })
+
+  it('uses the teacher-facing Vietnamese correct-answer label', () => {
+    expect(resources.vi.translation.teacher.questionViews.answerReviewTitle).toBe('Kiểm tra đáp án')
+    expect(resources.vi.translation.teacher.questionViews.currentAnswer).toBe('Đáp án cuối cùng')
+  })
+
+  it('uses the concise Vietnamese save label for exercise activation', () => {
+    expect(resources.vi.translation.teacher.questionViews.confirmTitle).toBe('Kiểm tra lần cuối')
+    expect(resources.vi.translation.teacher.questionViews.confirmAnswers).toBe('Lưu')
+    expect(resources.vi.translation.teacher.questionViews.confirm).toBe('Xác nhận và kích hoạt')
+  })
 })

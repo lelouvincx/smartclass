@@ -12,7 +12,9 @@ const getExerciseMock = vi.fn()
 const createSubmissionMock = vi.fn()
 const getSubmissionMock = vi.fn()
 const submitAnswersMock = vi.fn()
+const getQuestionAssetBlobMock = vi.fn()
 let delayedExtraction
+let desktopViewport
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
@@ -22,6 +24,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     createSubmission: (...args) => createSubmissionMock(...args),
     getSubmission: (...args) => getSubmissionMock(...args),
     submitAnswers: (...args) => submitAnswersMock(...args),
+    getQuestionAssetBlob: (...args) => getQuestionAssetBlobMock(...args),
   }
 })
 
@@ -102,6 +105,11 @@ const SUBMISSION = {
   total_questions: 2,
   started_at: '2026-03-15 10:00:00',
   submitted_at: null,
+  question_asset_set_id: 5,
+  question_assets: [
+    { id: 101, q_id: 1, segment_index: 0, file_url: '/api/question-assets/101', accessible_text: 'Algebra question one' },
+    { id: 102, q_id: 2, segment_index: 0, file_url: '/api/question-assets/102', accessible_text: 'Algebra question two' },
+  ],
 }
 
 // --- Render helper ---
@@ -124,10 +132,20 @@ function renderPage(exerciseId = '1') {
 
 describe('StudentTakeExercisePage', () => {
   beforeEach(() => {
+    desktopViewport = true
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+      matches: query === '(min-width: 1024px)' ? desktopViewport : false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
     getExerciseMock.mockReset()
     createSubmissionMock.mockReset()
     getSubmissionMock.mockReset()
     submitAnswersMock.mockReset()
+    getQuestionAssetBlobMock.mockReset()
+    getQuestionAssetBlobMock.mockResolvedValue(new Blob(['question'], { type: 'image/webp' }))
+    global.URL.createObjectURL = vi.fn((blob) => `blob:question-${blob.size}-${Math.random()}`)
+    global.URL.revokeObjectURL = vi.fn()
     delayedExtraction = null
     sessionStorage.clear()
     localStorage.clear()
@@ -207,8 +225,63 @@ describe('StudentTakeExercisePage', () => {
 
     expect(screen.getByText(/^2\. Question 2$/)).toBeInTheDocument()
     expect(screen.getByLabelText('Question 2 option A')).toBeInTheDocument()
+    expect(await screen.findByAltText('Algebra question two')).toBeInTheDocument()
+    expect(screen.queryByAltText('Algebra question one')).not.toBeInTheDocument()
     // Q1 no longer in DOM
     expect(screen.queryByText(/^1\. Question 1$/)).not.toBeInTheDocument()
+  })
+
+  it('uses one compact answer-sheet drawer on mobile and closes it after a question jump', async () => {
+    const user = userEvent.setup()
+    desktopViewport = false
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    const openAnswerSheet = screen.getByRole('button', { name: /open answer sheet/i })
+    expect(screen.queryByRole('button', { name: /jump to question 2/i })).not.toBeInTheDocument()
+
+    await user.click(openAnswerSheet)
+
+    expect(screen.getAllByRole('button', { name: /^submit$/i })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
+
+    const questionHeading = await screen.findByText(/^2\. Question 2$/)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(questionHeading).toHaveFocus()
+    expect(await screen.findByAltText('Algebra question two')).toBeInTheDocument()
+  })
+
+  it('uses the in-progress submission pinned schema and assets after the exercise changes', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: {
+        ...EXERCISE_MCQ,
+        schema: [{ q_id: 99, type: 'numeric', sub_id: null }],
+        question_assets: [{ id: 999, q_id: 99, segment_index: 0, file_url: '/api/question-assets/999' }],
+      },
+    })
+    getSubmissionMock.mockResolvedValue({
+      data: {
+        ...SUBMISSION,
+        total_questions: 1,
+        answers: [
+          { q_id: 7, sub_id: null, type: 'mcq', submitted_answer: null, is_correct: 0 },
+        ],
+        question_assets: [
+          { id: 107, q_id: 7, segment_index: 0, file_url: '/api/question-assets/107', accessible_text: 'Pinned question seven' },
+        ],
+      },
+    })
+
+    renderPage()
+
+    expect(await screen.findByText(/^1\. Question 7$/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 7 option A')).toBeInTheDocument()
+    expect(await screen.findByAltText('Pinned question seven')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Question 99 numeric answer')).not.toBeInTheDocument()
+    expect(getQuestionAssetBlobMock).not.toHaveBeenCalledWith('test-token', '/api/question-assets/999')
   })
 
   it('shows distinct question count (not raw schema row count) for exercises with boolean sub-rows', async () => {
@@ -351,25 +424,21 @@ describe('StudentTakeExercisePage', () => {
     vi.useRealTimers()
   })
 
-  // --- Consolidated 2-pane layout (PDF | content with answer-sheet on top) ---
+  // --- Question-first workspace ---
 
-  it('does not render a separate desktop sidebar column or mobile floating drawer', async () => {
+  it('does not render the source PDF or a full-PDF control', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    // The legacy mobile timer chip + floating answer-sheet button must be gone.
-    expect(screen.queryByLabelText('Timer (mobile)')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /open answer sheet/i })).not.toBeInTheDocument()
-
-    // Exactly one Submit button — the always-visible answer-sheet card,
-    // not duplicated across desktop sidebar + mobile sheet anymore.
-    expect(screen.getAllByRole('button', { name: /^Submit$/i })).toHaveLength(1)
+    expect(document.querySelector('iframe')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show pdf|hide pdf/i })).not.toBeInTheDocument()
+    expect(await screen.findByAltText('Algebra question one')).toBeInTheDocument()
   })
 
-  it('keeps the current question before the answer sheet in mobile document order', async () => {
+  it('keeps the question image before its matching answer controls in document order', async () => {
     const now = new Date()
     const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
     const sub = { ...SUBMISSION, started_at: startedAt }
@@ -380,24 +449,38 @@ describe('StudentTakeExercisePage', () => {
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    const firstQuestion = screen.getByText(/^1\. Question 1$/)
-    const answerSheet = screen.getByText('Answer Sheet')
-    const submit = screen.getByRole('button', { name: /^Submit$/i })
+    const questionImage = await screen.findByAltText('Algebra question one')
+    const answer = screen.getByLabelText('Question 1 option A')
 
-    expect(firstQuestion.compareDocumentPosition(answerSheet) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(firstQuestion.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(questionImage.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('visually restores the answer sheet first in the desktop right pane', async () => {
+  it('puts the isolated question and matching controls in one stable two-column workspace', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    expect(screen.getByTestId('take-answer-sheet')).toHaveClass('lg:order-1')
-    expect(screen.getByTestId('take-input-mode')).toHaveClass('lg:order-2')
-    expect(screen.getByTestId('take-current-question')).toHaveClass('lg:order-3')
+    expect(screen.getByTestId('take-question-workspace')).toHaveClass('lg:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)]')
+    expect(screen.getByTestId('take-question-image')).toContainElement(await screen.findByAltText('Algebra question one'))
+    expect(screen.getByTestId('take-answer-controls')).toContainElement(screen.getByLabelText('Question 1 option A'))
+  })
+
+  it('reveals and focuses the selected question when a numbered question is clicked', async () => {
+    const user = userEvent.setup()
+    const scrollSpy = vi.fn()
+    Element.prototype.scrollIntoView = scrollSpy
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
+
+    const heading = screen.getByRole('heading', { name: '2. Question 2' })
+    expect(heading).toHaveFocus()
+    expect(scrollSpy).toHaveBeenCalledWith({ block: 'start' })
   })
 
   // --- Answering questions ---

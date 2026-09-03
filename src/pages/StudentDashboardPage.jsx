@@ -18,7 +18,7 @@ export default function StudentDashboardPage() {
     async function loadNextAction() {
       try {
         const response = await listExercises()
-        const exercises = response.data || []
+        const exercises = (response.data || []).filter((exercise) => exercise.is_student_ready === 1)
         const states = await loadStudentExerciseStates({ accountId: user.id, exercises, token })
         const resume = exercises.find((exercise) => states[exercise.id]?.type === 'resume')
         const start = exercises.find((exercise) => !states[exercise.id])

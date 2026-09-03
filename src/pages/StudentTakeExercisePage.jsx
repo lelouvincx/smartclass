@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Eye, EyeOff, ImageIcon, Pencil, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Eye, EyeOff, ImageIcon, ListChecks, Pencil, X } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
-import { getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
+import { getExercise, getSubmission, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,8 +17,9 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { PdfSplitPane } from '@/components/pdf-split-pane'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import AnswerImageUpload from '@/components/answer-image-upload'
+import { QuestionImagePanel } from '@/components/question-image-panel'
 import { QuestionNavGrid, countUnanswered } from '@/components/question-nav-grid'
 import {
   clearSubmissionState,
@@ -212,6 +213,7 @@ export default function StudentTakeExercisePage() {
   const [error, setError] = useState('')
 
   const [exercise, setExercise] = useState(null)
+  const [attemptSchema, setAttemptSchema] = useState([])
   const [questionGroups, setQuestionGroups] = useState([])
   const [answers, setAnswers] = useState({})
   const answersRef = useRef(answers)
@@ -239,10 +241,19 @@ export default function StudentTakeExercisePage() {
   const [submitError, setSubmitError] = useState('')
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
+  const [answerSheetOpen, setAnswerSheetOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(() => (
+    typeof window === 'undefined'
+    || typeof window.matchMedia !== 'function'
+    || window.matchMedia('(min-width: 1024px)').matches
+  ))
 
   // The currently displayed question (single-question view).
   // The student picks a question by clicking a cell in the nav grid.
   const [currentQId, setCurrentQId] = useState(null)
+  const questionWorkspaceRef = useRef(null)
+  const questionHeadingRef = useRef(null)
+  const focusAfterSheetCloseRef = useRef(false)
 
   // Image-extraction state (v0.4)
   //   inputMode             — 'manual' | 'photo'
@@ -255,6 +266,18 @@ export default function StudentTakeExercisePage() {
     answersRef.current = answers
   }, [answers])
 
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return undefined
+
+    const desktopQuery = window.matchMedia('(min-width: 1024px)')
+    const handleChange = (event) => {
+      setIsDesktop(event.matches)
+      if (event.matches) setAnswerSheetOpen(false)
+    }
+    desktopQuery.addEventListener?.('change', handleChange)
+    return () => desktopQuery.removeEventListener?.('change', handleChange)
+  }, [])
+
   // --- Init ---
   useEffect(() => {
     async function init() {
@@ -265,23 +288,6 @@ export default function StudentTakeExercisePage() {
         const exRes = await getExercise(id, token)
         const ex = exRes.data
         setExercise(ex)
-
-        const groups = groupSchema(ex.schema || [])
-        setQuestionGroups(groups)
-        setCurrentQId(groups[0]?.q_id ?? null)
-
-        const initial = {}
-        for (const group of groups) {
-          if (group.type === 'boolean') {
-            initial[group.q_id] = {}
-            for (const { sub_id } of group.subRows) {
-              initial[group.q_id][sub_id] = ''
-            }
-          } else {
-            initial[group.q_id] = ''
-          }
-        }
-        setAnswers(initial)
 
         let sub = null
 
@@ -307,10 +313,31 @@ export default function StudentTakeExercisePage() {
         }
 
         setSubmission(sub)
+        const pinnedSchema = sub.question_asset_set_id && sub.answers?.length
+          ? sub.answers.map(({ q_id, sub_id, type }) => ({ q_id, sub_id, type }))
+          : ex.schema || []
+        const groups = groupSchema(pinnedSchema)
+        setAttemptSchema(pinnedSchema)
+        setQuestionGroups(groups)
+        setCurrentQId(groups[0]?.q_id ?? null)
+
+        const initial = {}
+        for (const group of groups) {
+          if (group.type === 'boolean') {
+            initial[group.q_id] = {}
+            for (const { sub_id } of group.subRows) {
+              initial[group.q_id][sub_id] = ''
+            }
+          } else {
+            initial[group.q_id] = ''
+          }
+        }
+        setAnswers(initial)
+
         const draft = loadSubmissionDraft({
           accountId,
           submissionId: sub.id,
-          schema: ex.schema,
+          schema: pinnedSchema,
         })
         if (draft) {
           setAnswers((current) => {
@@ -513,9 +540,25 @@ export default function StudentTakeExercisePage() {
   }, [extractedConfidence])
 
   // --- Nav grid jump ---
-  // In single-question view, "jump" simply swaps the displayed question.
+  // Every navigation control changes both sides of the question workspace.
   function handleJump(qId) {
     setCurrentQId(qId)
+    questionWorkspaceRef.current?.scrollIntoView?.({ block: 'start' })
+    questionHeadingRef.current?.focus({ preventScroll: true })
+  }
+
+  function handleMobileJump(qId) {
+    focusAfterSheetCloseRef.current = true
+    setCurrentQId(qId)
+    setAnswerSheetOpen(false)
+  }
+
+  function handleMobileSheetCloseAutoFocus(event) {
+    if (!focusAfterSheetCloseRef.current) return
+    event.preventDefault()
+    focusAfterSheetCloseRef.current = false
+    questionWorkspaceRef.current?.scrollIntoView?.({ block: 'start' })
+    questionHeadingRef.current?.focus({ preventScroll: true })
   }
 
   // --- Submit flow ---
@@ -572,6 +615,7 @@ export default function StudentTakeExercisePage() {
         // Keep the local draft and original failure so the student can retry.
       }
       setSubmitError(err.message)
+      if (!isDesktop) setAnswerSheetOpen(true)
     } finally {
       setIsSubmitting(false)
     }
@@ -655,18 +699,17 @@ export default function StudentTakeExercisePage() {
     ? 'text-amber-600 dark:text-amber-400'
     : 'text-foreground'
 
-  // Find exercise PDF file URL (public — no auth needed)
-  const exercisePdfFile = exercise?.files?.find((f) => f.file_type === 'exercise_pdf')
-  const pdfUrl = exercisePdfFile ? getFileUrl(exercisePdfFile.id) : null
-
-  const unansweredCount = exercise ? countUnanswered(exercise.schema, answers) : 0
+  const unansweredCount = countUnanswered(attemptSchema, answers)
   const confirmMessage = unansweredCount > 0
     ? t('student.take.submitWarning', { count: unansweredCount })
     : t('student.take.submitFinal')
+  const answeredCount = questionGroups.length - unansweredCount
 
-  // Answer-sheet content (timer + nav grid + submit/exit) — always visible
-  // at the top of the right pane on all breakpoints.
-  function renderSidebar() {
+  function renderSidebar({
+    onJump = handleJump,
+    onSubmit = handleSubmitClick,
+    onExit = handleExitClick,
+  } = {}) {
     return (
       <div className="space-y-4">
         {/* Timer */}
@@ -705,10 +748,10 @@ export default function StudentTakeExercisePage() {
         {/* Nav grid */}
         {exercise && (
           <QuestionNavGrid
-            schema={exercise.schema}
+            schema={attemptSchema}
             answers={answers}
             currentQId={currentQId}
-            onJump={handleJump}
+            onJump={onJump}
           />
         )}
 
@@ -720,7 +763,7 @@ export default function StudentTakeExercisePage() {
             </p>
           )}
           <Button
-            onClick={handleSubmitClick}
+            onClick={onSubmit}
             disabled={isSubmitting}
             className="w-full"
           >
@@ -728,7 +771,7 @@ export default function StudentTakeExercisePage() {
           </Button>
           <Button
             variant="ghost"
-            onClick={handleExitClick}
+            onClick={onExit}
             disabled={isSubmitting}
             className="w-full"
           >
@@ -762,11 +805,103 @@ export default function StudentTakeExercisePage() {
         </CardContent>
       </Card>
 
-      {/* Two-pane layout: PDF (left) | attempt controls (right). */}
-      <PdfSplitPane fileUrl={pdfUrl}>
-        <div className="flex flex-col gap-4">
-          {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
-          <div data-testid="take-input-mode" className="order-1 lg:order-2">
+      {!isDesktop && (
+        <div className="sticky top-16 z-30 -mx-1 bg-background/95 px-1 py-2 backdrop-blur md:top-0">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-16 w-full justify-between bg-background px-4 shadow-sm"
+            aria-label={t('student.nav.openAnswerSheet')}
+            aria-haspopup="dialog"
+            aria-expanded={answerSheetOpen}
+            onClick={() => setAnswerSheetOpen(true)}
+          >
+            <span className="min-w-0 text-start">
+              <span className="flex items-center gap-2 font-semibold">
+                <ListChecks aria-hidden="true" />
+                {t('student.nav.answerSheet')}
+              </span>
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                {t('student.nav.answeredProgress', { answered: answeredCount, total: questionGroups.length })}
+              </span>
+            </span>
+            {secondsLeft !== null && (
+              <span className={`flex shrink-0 items-center gap-1.5 tabular-nums ${timerColor}`} aria-hidden="true">
+                <Clock />
+                {!timerHidden && formatTime(secondsLeft)}
+              </span>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {(() => {
+        const idx = questionGroups.findIndex((group) => group.q_id === currentQId)
+        const group = idx >= 0 ? questionGroups[idx] : null
+        if (!group) return null
+        const adjacentQIds = [questionGroups[idx - 1]?.q_id, questionGroups[idx + 1]?.q_id]
+          .filter((qId) => qId !== undefined)
+
+        return (
+          <div
+            ref={questionWorkspaceRef}
+            data-testid="take-question-workspace"
+            className="grid scroll-mt-36 gap-4 md:scroll-mt-20 lg:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)] lg:items-start"
+          >
+            <Card data-testid="take-question-image" className="lg:sticky lg:top-20">
+              <CardContent className="space-y-4 pt-5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2
+                    ref={questionHeadingRef}
+                    tabIndex={-1}
+                    className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-live="polite"
+                  >
+                    {t('student.take.questionTitle', { index: idx + 1, id: group.q_id })}
+                  </h2>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {t('student.take.questionProgress', { current: idx + 1, total: questionGroups.length })}
+                  </span>
+                </div>
+                <QuestionImagePanel
+                  token={token}
+                  assets={submission?.question_assets || []}
+                  currentQId={group.q_id}
+                  adjacentQIds={adjacentQIds}
+                />
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4" data-testid="take-answer-controls">
+              <Card>
+                <CardContent className="space-y-4 pt-5">
+                  <h3 className="text-sm font-semibold">{t('student.results.yourAnswer')}</h3>
+                  {renderQuestionInput(group)}
+                  <div className="flex items-center justify-between border-t pt-3">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleJump(questionGroups[idx - 1].q_id)}
+                      disabled={idx === 0}
+                    >
+                      <ArrowLeft aria-hidden="true" />
+                      {t('student.take.previous')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => handleJump(questionGroups[idx + 1].q_id)}
+                      disabled={idx === questionGroups.length - 1}
+                    >
+                      {t('student.take.next')}
+                      <ArrowRight aria-hidden="true" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
+              <div data-testid="take-input-mode">
             <Card>
               <CardContent className="space-y-3 pt-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -811,58 +946,45 @@ export default function StudentTakeExercisePage() {
                 )}
               </CardContent>
             </Card>
-          </div>
+              </div>
 
-          {/* Single-question view — first on mobile to minimize scrolling before answering. */}
-          {(() => {
-            const idx = questionGroups.findIndex((g) => g.q_id === currentQId)
-            const group = idx >= 0 ? questionGroups[idx] : null
-            if (!group) return null
-            return (
-              <Card data-testid="take-current-question" className="order-2 lg:order-3">
-                <CardContent className="space-y-4 pt-5">
-                  <p className="text-sm font-semibold">
-                    {t('student.take.questionTitle', { index: idx + 1, id: group.q_id })}
-                  </p>
-                  {renderQuestionInput(group)}
-                  <div className="flex items-center justify-between border-t pt-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleJump(questionGroups[idx - 1].q_id)}
-                      disabled={idx === 0}
-                    >
-                      <ArrowLeft aria-hidden="true" />
-                      {t('student.take.previous')}
-                    </Button>
-                    <span className="text-xs text-muted-foreground">
-                      {t('student.take.questionProgress', { current: idx + 1, total: questionGroups.length })}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => handleJump(questionGroups[idx + 1].q_id)}
-                      disabled={idx === questionGroups.length - 1}
-                    >
-                      {t('student.take.next')}
-                      <ArrowRight aria-hidden="true" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })()}
-
-          {/* Desktop keeps the answer sheet first and sticky; mobile reaches it after the current input. */}
-          <div data-testid="take-answer-sheet" className="order-3 lg:order-1 lg:sticky lg:top-20 lg:z-10">
-            <Card>
-              <CardContent className="pt-5">
-                {renderSidebar()}
-              </CardContent>
-            </Card>
+              {isDesktop && (
+                <Card>
+                  <CardContent className="pt-5">
+                    {renderSidebar()}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
-      </PdfSplitPane>
+        )
+      })()}
+
+      {!isDesktop && (
+        <Sheet open={answerSheetOpen} onOpenChange={setAnswerSheetOpen}>
+          <SheetContent
+            closeLabel={t('common.close')}
+            aria-describedby={undefined}
+            className="pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            onCloseAutoFocus={handleMobileSheetCloseAutoFocus}
+          >
+            <SheetHeader>
+              <SheetTitle className="sr-only">{t('student.nav.answerSheet')}</SheetTitle>
+            </SheetHeader>
+            {renderSidebar({
+              onJump: handleMobileJump,
+              onSubmit: () => {
+                setAnswerSheetOpen(false)
+                handleSubmitClick()
+              },
+              onExit: () => {
+                setAnswerSheetOpen(false)
+                handleExitClick()
+              },
+            })}
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Dialogs */}
       <Dialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>

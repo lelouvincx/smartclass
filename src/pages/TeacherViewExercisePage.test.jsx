@@ -8,6 +8,7 @@ import TeacherViewExercisePage from './TeacherViewExercisePage'
 // --- Mocks ---
 
 const getExerciseMock = vi.fn()
+const getQuestionAssetSetMock = vi.fn()
 const updateExerciseMock = vi.fn()
 const deleteExerciseMock = vi.fn()
 
@@ -16,6 +17,7 @@ vi.mock('../lib/api', async (importOriginal) => {
   return {
     ...actual,
     getExercise: (...args) => getExerciseMock(...args),
+    getQuestionAssetSet: (...args) => getQuestionAssetSetMock(...args),
     updateExercise: (...args) => updateExerciseMock(...args),
     deleteExercise: (...args) => deleteExerciseMock(...args),
   }
@@ -34,6 +36,7 @@ const EXERCISE_MCQ = {
   is_timed: 1,
   question_count: 2,
   updated_at: '2026-03-10 12:00:00',
+  is_student_ready: 1,
   files: [],
   schema: [
     { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'B' },
@@ -48,6 +51,7 @@ const EXERCISE_WITH_BOOLEAN = {
   is_timed: 0,
   question_count: 2,
   updated_at: '2026-03-11 08:00:00',
+  is_student_ready: 0,
   files: [
     { id: 1, file_type: 'exercise_pdf', file_name: 'biology.pdf', r2_key: 'ex/1/bio.pdf' },
   ],
@@ -78,6 +82,7 @@ function renderPage(exerciseId = '5') {
 describe('TeacherViewExercisePage', () => {
   beforeEach(() => {
     getExerciseMock.mockReset()
+    getQuestionAssetSetMock.mockReset()
     updateExerciseMock.mockReset()
     deleteExerciseMock.mockReset()
   })
@@ -104,6 +109,7 @@ describe('TeacherViewExercisePage', () => {
 
     expect(await screen.findByText('Physics Quiz')).toBeInTheDocument()
     expect(screen.getByText(/timed · 45 min/i)).toBeInTheDocument()
+    expect(screen.getByText('Ready for students')).toBeInTheDocument()
   })
 
   it('renders untimed badge when duration_minutes is 0', async () => {
@@ -112,6 +118,7 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Biology Quiz')
     expect(screen.getByText(/untimed/i)).toBeInTheDocument()
+    expect(screen.getByText('Preparation required')).toBeInTheDocument()
   })
 
   it('renders schema rows with correct_answer in view mode', async () => {
@@ -138,6 +145,17 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByText('True/False')).toBeInTheDocument()
   })
 
+  it('does not duplicate the answer key below a pending question review', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: { ...EXERCISE_MCQ, pending_question_asset_set_id: 22 },
+    })
+    getQuestionAssetSetMock.mockImplementation(() => new Promise(() => {}))
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    expect(screen.queryByRole('heading', { name: 'Answer key' })).not.toBeInTheDocument()
+  })
+
   it('renders uploaded files list in view mode', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_WITH_BOOLEAN })
     renderPage('6')
@@ -145,6 +163,10 @@ describe('TeacherViewExercisePage', () => {
     await screen.findByText('Biology Quiz')
     expect(screen.getByText('biology.pdf')).toBeInTheDocument()
     expect(screen.getByText('Exercise PDF')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View full PDF' })).toHaveAttribute(
+      'href',
+      'http://localhost:8787/api/files/1',
+    )
   })
 
   it('never exposes the raw extraction model identifier', async () => {

@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
 import TeacherCreateExercisePage from './TeacherCreateExercisePage'
 
@@ -159,6 +159,39 @@ describe('TeacherCreateExercisePage', () => {
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
   })
 
+  it('leaves a low-confidence parsed answer blank until the teacher fills it', async () => {
+    const user = userEvent.setup()
+    extractTextFromPdfMock.mockResolvedValue('Question 1 may be B')
+    parseExerciseSchemaMock.mockResolvedValue({
+      data: {
+        schema: [{
+          q_id: 1,
+          sub_id: null,
+          type: 'mcq',
+          correct_answer: 'B',
+          confidence: 0.6,
+        }],
+      },
+    })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.upload(
+      screen.getByLabelText('Answer PDF (recommended)'),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByLabelText(/correct answer for question 1/i)).toHaveValue('')
+    expect(screen.getByText('60%')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Needs review')
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(screen.getByText(/please fix all answer key errors/i)).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
+  })
+
   it('adding a boolean row creates 4 sub-question toggles (a,b,c,d)', async () => {
     const user = userEvent.setup()
 
@@ -276,5 +309,40 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByRole('link', { name: 'Back to exercises' })).toHaveAttribute('href', '/teacher/exercises')
     expect(screen.queryByRole('button', { name: 'Save Exercise' })).not.toBeInTheDocument()
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the created exercise and starts question generation after an exercise PDF upload', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 606 } })
+    createExerciseFileUploadMock.mockResolvedValue({ data: {
+      r2_key: 'exercises/606/questions.pdf',
+      file_type: 'exercise_pdf',
+      file_name: 'questions.pdf',
+    } })
+    uploadExerciseFileMock.mockResolvedValue({ data: {} })
+
+    function Destination() {
+      const location = useLocation()
+      return <p>{`${location.pathname}:${String(location.state?.generateQuestionViews)}`}</p>
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<TeacherCreateExercisePage />} />
+          <Route path="/teacher/exercises/:id" element={<Destination />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'PDF Quiz')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
+    await user.upload(
+      screen.getByLabelText('Exercise PDF (optional)'),
+      new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(await screen.findByText('/teacher/exercises/606:true')).toBeInTheDocument()
   })
 })

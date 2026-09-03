@@ -27,12 +27,15 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 
 ## Assessment model
 
-- Exercises may be timed or untimed and may include an exercise PDF.
+- Exercises may be timed or untimed. The complete source exercise PDF is retained for teacher use, and the optional Answer PDF remains teacher-only.
 - Supported answer types are multiple choice (A/B/C/D), numeric, and true/false questions with four independently answered sub-questions (`a`–`d`).
+- Teachers prepare an exercise through one review workflow. SmartClass detects question regions in supported born-digital PDFs, renders ordered answer-free question images, and combines Answer PDF parsing with deterministic green-highlight answer candidates in one editable answer table.
+- A teacher reviews every generated image and final answer, resolves conflicts, and activates both as one version. A rejected question can be retried, replaced with one clean screenshot, or resolved by replacing the source PDF. Scanned-PDF vision detection is not enabled; unsupported PDFs require screenshots or replacement.
+- Students can browse or start only exercises with a teacher-confirmed active question set. A started submission pins that set and its answer-schema snapshot so later replacements cannot change an active attempt or historical review.
 - Photo input uses a schema-aware multimodal model to extract answers. Extraction only pre-fills the form; the student remains responsible for reviewing and submitting it.
 - Grading runs after submission. Results distinguish correct, incorrect, and skipped answers and use a score on a 0–10 scale.
-- A student starts an attempt explicitly from the exercise landing page. The take experience presents one selected question at a time alongside the answer sheet navigation and, when available, the exercise PDF.
-- Submitted attempts have a summary and a detailed review. Correct-answer visibility is protected while an attempt is in progress.
+- A student starts an attempt explicitly from the exercise landing page. The take experience presents only the selected question image segments and matching answer controls; numbered, Previous, and Next navigation update them together. The complete PDF is not available in the student experience.
+- Submitted attempts have a summary and a detailed question-first review using the pinned images. Correct-answer visibility is protected while an attempt is in progress.
 
 ## Product principles
 

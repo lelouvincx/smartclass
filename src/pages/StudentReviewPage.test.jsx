@@ -1,18 +1,19 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 import StudentReviewPage from './StudentReviewPage'
 
 const getSubmissionMock = vi.fn()
-const getFileUrlMock = vi.fn((id) => `/api/files/${id}`)
+const getQuestionAssetBlobMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     getSubmission: (...args) => getSubmissionMock(...args),
-    getFileUrl: (...args) => getFileUrlMock(...args),
+    getQuestionAssetBlob: (...args) => getQuestionAssetBlobMock(...args),
   }
 })
 
@@ -32,6 +33,13 @@ const SUBMISSION = {
   submitted_at: '2026-03-16T10:25:00',
   files: [
     { id: 3, file_type: 'exercise_pdf', file_name: 'quiz.pdf' },
+  ],
+  question_asset_set_id: 8,
+  question_assets: [
+    { id: 101, q_id: 1, segment_index: 0, file_url: '/api/question-assets/101', accessible_text: 'Review question one' },
+    { id: 202, q_id: 2, segment_index: 1, file_url: '/api/question-assets/202', accessible_text: 'Review question two continuation' },
+    { id: 201, q_id: 2, segment_index: 0, file_url: '/api/question-assets/201', accessible_text: 'Review question two start' },
+    { id: 301, q_id: 3, segment_index: 0, file_url: '/api/question-assets/301', accessible_text: 'Review question three' },
   ],
   answers: [
     { q_id: 1, sub_id: null, type: 'mcq', submitted_answer: 'A', correct_answer: 'B', is_correct: 0 },
@@ -56,8 +64,10 @@ function renderReviewPage(submissionId = '5') {
 describe('StudentReviewPage', () => {
   beforeEach(() => {
     getSubmissionMock.mockReset()
-    getFileUrlMock.mockReset()
-    getFileUrlMock.mockImplementation((id) => `/api/files/${id}`)
+    getQuestionAssetBlobMock.mockReset()
+    getQuestionAssetBlobMock.mockResolvedValue(new Blob(['question'], { type: 'image/webp' }))
+    global.URL.createObjectURL = vi.fn((blob) => `blob:review-${blob.size}-${Math.random()}`)
+    global.URL.revokeObjectURL = vi.fn()
   })
 
   it('shows loading state initially', () => {
@@ -74,13 +84,14 @@ describe('StudentReviewPage', () => {
     expect(screen.getAllByText(/7\.5/).length).toBeGreaterThan(0)
   })
 
-  it('renders an iframe for the exercise PDF', async () => {
+  it('shows the pinned question image without rendering the exercise PDF', async () => {
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     renderReviewPage()
 
     await screen.findByText('Algebra Quiz')
-    const iframe = screen.getByTitle('Exercise PDF')
-    expect(iframe).toHaveAttribute('src', '/api/files/3')
+    expect(await screen.findByAltText('Review question one')).toBeInTheDocument()
+    expect(document.querySelector('iframe')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show pdf|hide pdf/i })).not.toBeInTheDocument()
   })
 
   it('shows correct_answer for each question', async () => {
@@ -105,16 +116,18 @@ describe('StudentReviewPage', () => {
   })
 
   it('shows — for skipped (null) boolean sub-answer', async () => {
+    const user = userEvent.setup()
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     renderReviewPage()
 
     await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /review question 2/i }))
     // Q2c has submitted_answer=null → should render "—"
     // Multiple "—" may appear, just check at least one
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
   })
 
-  it('renders without PDF pane when no exercise_pdf file', async () => {
+  it('renders from pinned assets even when no exercise_pdf file is returned', async () => {
     const subWithoutPdf = {
       ...SUBMISSION,
       files: [],
@@ -123,7 +136,7 @@ describe('StudentReviewPage', () => {
     renderReviewPage()
 
     await screen.findByText('Algebra Quiz')
-    expect(screen.queryByTitle('Exercise PDF')).not.toBeInTheDocument()
+    expect(await screen.findByAltText('Review question one')).toBeInTheDocument()
   })
 
   it('shows error state when API call fails', async () => {
@@ -133,16 +146,33 @@ describe('StudentReviewPage', () => {
     expect(await screen.findByText(/network error/i)).toBeInTheDocument()
   })
 
-  it('renders review summary inside the content pane (no separate sidebar column)', async () => {
+  it('changes the isolated image and result together from question navigation', async () => {
+    const user = userEvent.setup()
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     renderReviewPage()
 
     await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /review question 3/i }))
 
-    // The review-sidebar content (score/time/counters) lives inside the
-    // PdfSplitPane's content pane, not in a separate outer column.
-    const contentPane = screen.getByTestId('content-pane')
-    // Score (e.g., "7.5 / 10") rendered by SubmissionReviewSidebar.
-    expect(contentPane.textContent).toMatch(/7\.5/)
+    expect(await screen.findByAltText('Review question three')).toBeInTheDocument()
+    expect(screen.queryByAltText('Review question one')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Question 3' })).toBeInTheDocument()
+    expect(screen.getAllByText('42').length).toBeGreaterThan(0)
+    expect(screen.queryByText('B')).not.toBeInTheDocument()
+  })
+
+  it('renders multi-segment questions in order', async () => {
+    const user = userEvent.setup()
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    renderReviewPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /review question 2/i }))
+
+    const images = await screen.findAllByRole('img')
+    expect(images.map((image) => image.getAttribute('alt'))).toEqual([
+      'Review question two start',
+      'Review question two continuation',
+    ])
   })
 })

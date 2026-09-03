@@ -4,6 +4,7 @@ import { ClipboardList, RefreshCw, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
@@ -107,6 +108,7 @@ export default function TeacherExercisesPage() {
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.duration')}</th>
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.questions')}</th>
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.files')}</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.readiness')}</th>
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.updated')}</th>
                   </tr>
                 </thead>
@@ -125,6 +127,11 @@ export default function TeacherExercisesPage() {
                       <td className="px-3 py-3 lg:px-4">{Number(item.duration_minutes) > 0 ? formatDuration(item.duration_minutes, i18n.resolvedLanguage) : t('teacher.exercises.untimed')}</td>
                       <td className="px-3 py-3 lg:px-4">{item.question_count}</td>
                       <td className="px-3 py-3 lg:px-4">{item.file_count}</td>
+                      <td className="px-3 py-3 lg:px-4">
+                        <Badge variant={item.is_student_ready ? 'secondary' : 'outline'}>
+                          {t(item.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
+                        </Badge>
+                      </td>
                       <td className="whitespace-nowrap px-3 py-3 text-muted-foreground lg:px-4">{formatUpdatedAt(item.updated_at, i18n.resolvedLanguage)}</td>
                     </tr>
                   ))}
@@ -148,6 +155,14 @@ export default function TeacherExercisesPage() {
                     <div>
                       <dt className="text-muted-foreground">{t('teacher.exercises.files')}</dt>
                       <dd>{item.file_count}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-muted-foreground">{t('teacher.exercises.readiness')}</dt>
+                      <dd className="mt-1">
+                        <Badge variant={item.is_student_ready ? 'secondary' : 'outline'}>
+                          {t(item.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
+                        </Badge>
+                      </dd>
                     </div>
                     <div className="col-span-2">
                       <dt className="text-muted-foreground">{t('teacher.exercises.updated')}</dt>

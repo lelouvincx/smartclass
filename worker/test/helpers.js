@@ -91,3 +91,42 @@ export async function createExercise(token, overrides = {}) {
   const body = await res.json()
   return { id: body.data?.id, body, res }
 }
+
+/**
+ * Create an exercise with a confirmed active set for tests that start submissions.
+ */
+export async function createStudentReadyExercise(token, overrides = {}) {
+  const created = await createExercise(token, overrides)
+  if (!created.id) return created
+
+  const sourceFile = await env.DB.prepare(`
+    insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+    values (?, 'exercise_pdf', ?, 'source.pdf', 100)
+  `).bind(created.id, `exercises/${created.id}/source.pdf`).run()
+  const teacher = await env.DB.prepare(
+    "select id from users where role = 'teacher' limit 1"
+  ).first()
+  const assetSet = await env.DB.prepare(`
+    insert into exercise_question_asset_sets (
+      exercise_id, source_file_id, detector_version, detection_method, confirmed_by, confirmed_at
+    ) values (?, ?, 'test-v1', 'text', ?, current_timestamp)
+  `).bind(created.id, sourceFile.meta.last_row_id, teacher.id).run()
+  const schema = await env.DB.prepare(`
+    select q_id, sub_id, type, correct_answer
+    from answer_schemas
+    where exercise_id = ?
+  `).bind(created.id).all()
+
+  await env.DB.batch([
+    ...schema.results.map(row => env.DB.prepare(`
+      insert into exercise_question_answer_schemas (
+        asset_set_id, q_id, sub_id, type, correct_answer
+      ) values (?, ?, ?, ?, ?)
+    `).bind(assetSet.meta.last_row_id, row.q_id, row.sub_id, row.type, row.correct_answer)),
+    env.DB.prepare(
+      'update exercises set active_question_asset_set_id = ? where id = ?'
+    ).bind(assetSet.meta.last_row_id, created.id),
+  ])
+
+  return { ...created, assetSetId: assetSet.meta.last_row_id }
+}

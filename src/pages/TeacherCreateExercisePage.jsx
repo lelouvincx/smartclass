@@ -263,14 +263,19 @@ export default function TeacherCreateExercisePage() {
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
           : Math.random().toString(36).slice(2)
-      const parsedRows = response.data.schema.map((row) => ({
-        id: makeId(),
-        q_id: String(row.q_id),
-        sub_id: row.sub_id ?? null,
-        type: row.type,
-        correct_answer: row.type === 'boolean' ? row.correct_answer : normalizeAnswer(row.type, row.correct_answer),
-        confidence: row.confidence,
-      }))
+      const parsedRows = response.data.schema.map((row) => {
+        const confidence = Number.isFinite(row.confidence) ? row.confidence : 0
+        return {
+          id: makeId(),
+          q_id: String(row.q_id),
+          sub_id: row.sub_id ?? null,
+          type: row.type,
+          correct_answer: confidence >= LOW_CONFIDENCE_THRESHOLD
+            ? (row.type === 'boolean' ? row.correct_answer : normalizeAnswer(row.type, row.correct_answer))
+            : '',
+          confidence,
+        }
+      })
       setRows(parsedRows.length > 0 ? parsedRows : newRows('mcq', '1'))
     } catch (parseError) {
       setError(parseError.message)
@@ -320,7 +325,13 @@ export default function TeacherCreateExercisePage() {
         setIsSaving(false)
         return
       }
-      navigate('/teacher/exercises', { replace: true })
+      navigate(
+        exerciseFile ? `/teacher/exercises/${exerciseId}` : '/teacher/exercises',
+        {
+          replace: true,
+          state: exerciseFile ? { generateQuestionViews: true } : undefined,
+        },
+      )
     } catch (saveError) {
       setError(saveError.message)
       setIsSaving(false)

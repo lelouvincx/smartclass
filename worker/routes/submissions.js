@@ -5,6 +5,7 @@ import { gradeSubmission } from '../lib/grading.js'
 import { resolveModel } from '../lib/extract-models.js'
 import { requestAnswersFromImage } from '../lib/openrouter.js'
 import { validateExtractedAnswers, ExtractParseError } from '../lib/extract-validator.js'
+import { toQuestionAssetResponse } from '../lib/question-assets.js'
 
 const submissionsRoutes = new Hono()
 
@@ -81,38 +82,60 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
 
   const authUser = c.get('authUser')
 
-  const exercise = await c.env.DB.prepare(
-    'SELECT id, duration_minutes FROM exercises WHERE id = ?'
-  ).bind(exercise_id).first()
-
-  if (!exercise) {
-    return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
-  }
-
-  // Count distinct q_ids as total_questions (boolean has 4 sub-rows per q_id)
-  const schemaCount = await c.env.DB.prepare(
-    'SELECT COUNT(DISTINCT q_id) as count FROM answer_schemas WHERE exercise_id = ?'
-  ).bind(exercise_id).first()
-
-  const totalQuestions = schemaCount.count
-
-  const mode = exercise.duration_minutes > 0 ? 'timed' : 'untimed'
-
   const result = await c.env.DB.prepare(`
-    INSERT INTO submissions (exercise_id, user_id, mode, total_questions, started_at)
-    VALUES (?, ?, ?, ?, datetime('now'))
-  `).bind(exercise_id, authUser.id, mode, totalQuestions).run()
+    insert into submissions (
+      exercise_id
+      , user_id
+      , mode
+      , total_questions
+      , started_at
+      , question_asset_set_id
+    )
+    select
+      e.id
+      , ?
+      , case when e.duration_minutes > 0 then 'timed' else 'untimed' end
+      , (
+          select count(distinct snapshot.q_id)
+          from exercise_question_answer_schemas snapshot
+          where snapshot.asset_set_id = e.active_question_asset_set_id
+        )
+      , datetime('now')
+      , e.active_question_asset_set_id
+    from exercises e
+    join exercise_question_asset_sets active_set
+      on active_set.id = e.active_question_asset_set_id
+      and active_set.exercise_id = e.id
+      and active_set.confirmed_at is not null
+    where e.id = ?
+  `).bind(authUser.id, exercise_id).run()
+
+  if (result.meta.changes === 0) {
+    const existing = await c.env.DB.prepare(
+      'select id from exercises where id = ?'
+    ).bind(exercise_id).first()
+    return existing
+      ? jsonError(c, 409, 'EXERCISE_NOT_READY', 'Exercise is not ready for students')
+      : jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
+  }
 
   const submissionId = result.meta.last_row_id
 
   const submission = await c.env.DB.prepare(
-    'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at FROM submissions WHERE id = ?'
+    `select
+      id
+      , exercise_id
+      , user_id
+      , mode
+      , total_questions
+      , started_at
+      , submitted_at
+      , question_asset_set_id
+    from submissions
+    where id = ?`
   ).bind(submissionId).first()
 
-  return c.json({
-    success: true,
-    data: submission,
-  }, 201)
+  return jsonSuccess(c, submission, 201)
 })
 
 // Submit answers for a submission
@@ -129,7 +152,15 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     const authUser = c.get('authUser')
 
     const submission = await c.env.DB.prepare(
-      'SELECT id, exercise_id, user_id, submitted_at, total_questions FROM submissions WHERE id = ?'
+      `select
+        id
+        , exercise_id
+        , user_id
+        , submitted_at
+        , total_questions
+        , question_asset_set_id
+      from submissions
+      where id = ?`
     ).bind(submissionId).first()
 
     if (!submission) {
@@ -145,9 +176,19 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     }
 
     // ── Fetch schema first — needed for both validation and grading ──────────
-    const schemaRows = await c.env.DB.prepare(
-      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
-    ).bind(submission.exercise_id).all()
+    const schemaRows = submission.question_asset_set_id
+      ? await c.env.DB.prepare(`
+          select q_id, sub_id, type, correct_answer
+          from exercise_question_answer_schemas
+          where asset_set_id = ?
+          order by q_id asc, sub_id asc
+        `).bind(submission.question_asset_set_id).all()
+      : await c.env.DB.prepare(`
+          select q_id, sub_id, type, correct_answer
+          from answer_schemas
+          where exercise_id = ?
+          order by q_id asc, sub_id asc
+        `).bind(submission.exercise_id).all()
 
     // Build set of valid (q_id, sub_id) pairs from schema
     const validKeys = new Set()
@@ -220,7 +261,18 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     // ── End auto-grading ───────────────────────────────────────────────────────
 
     const updatedSubmission = await c.env.DB.prepare(
-      'SELECT id, exercise_id, user_id, mode, total_questions, started_at, submitted_at, score FROM submissions WHERE id = ?'
+      `select
+        id
+        , exercise_id
+        , user_id
+        , mode
+        , total_questions
+        , started_at
+        , submitted_at
+        , score
+        , question_asset_set_id
+      from submissions
+      where id = ?`
     ).bind(submissionId).first()
 
     const submittedAnswers = await c.env.DB.prepare(
@@ -247,7 +299,7 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
     const submission = await c.env.DB.prepare(`
       SELECT
         s.id, s.exercise_id, s.user_id, s.mode, s.total_questions,
-        s.started_at, s.submitted_at, s.score,
+        s.started_at, s.submitted_at, s.score, s.question_asset_set_id,
         e.title AS exercise_title
       FROM submissions s
       JOIN exercises e ON e.id = s.exercise_id
@@ -266,22 +318,27 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
 
     // Schema-first left join: guarantees every schema question appears in the response
     // even if submission_answers is missing rows (legacy data, partial payloads, skipped Qs)
+    const answerSchemaTable = submission.question_asset_set_id
+      ? 'exercise_question_answer_schemas'
+      : 'answer_schemas'
+    const answerSchemaColumn = submission.question_asset_set_id ? 'asset_set_id' : 'exercise_id'
+    const answerSchemaId = submission.question_asset_set_id ?? submission.exercise_id
     const answersResult = await c.env.DB.prepare(`
-      SELECT
+      select
         a.q_id,
         a.sub_id,
         a.type,
         a.correct_answer,
         sa.submitted_answer,
-        COALESCE(sa.is_correct, 0) AS is_correct
-      FROM answer_schemas a
-      LEFT JOIN submission_answers sa
-        ON sa.submission_id = ?
-        AND sa.q_id = a.q_id
-        AND COALESCE(sa.sub_id, '') = COALESCE(a.sub_id, '')
-      WHERE a.exercise_id = ?
-      ORDER BY a.q_id ASC, a.sub_id ASC
-    `).bind(submissionId, submission.exercise_id).all()
+        coalesce(sa.is_correct, 0) as is_correct
+      from ${answerSchemaTable} a
+      left join submission_answers sa
+        on sa.submission_id = ?
+        and sa.q_id = a.q_id
+        and coalesce(sa.sub_id, '') = coalesce(a.sub_id, '')
+      where a.${answerSchemaColumn} = ?
+      order by a.q_id asc, a.sub_id asc
+    `).bind(submissionId, answerSchemaId).all()
 
     // Strip correct_answer for in-progress (unsubmitted) submissions
     const answers = answersResult.results.map((row) => {
@@ -292,17 +349,25 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       return row
     })
 
-    // Fetch exercise files (exercise_pdf and others for teachers)
-    const filesResult = await c.env.DB.prepare(
-      'SELECT id, file_type, file_name FROM exercise_files WHERE exercise_id = ? ORDER BY uploaded_at DESC'
-    ).bind(submission.exercise_id).all()
+    let questionAssets = []
+    if (submission.question_asset_set_id) {
+      const assetsResult = await c.env.DB.prepare(`
+        select asset.*
+        from exercise_question_assets asset
+        join exercise_question_asset_sets asset_set on asset_set.id = asset.asset_set_id
+        where asset.asset_set_id = ? and asset_set.confirmed_at is not null
+        order by asset.q_id asc, asset.segment_index asc
+      `).bind(submission.question_asset_set_id).all()
+      questionAssets = assetsResult.results.map(toQuestionAssetResponse)
+    }
 
     // Remove internal fields before returning
     const { user_id: _uid, ...submissionData } = submission
 
     return jsonSuccess(c, {
       ...submissionData,
-      files: filesResult.results,
+      files: [],
+      question_assets: questionAssets,
       answers,
     })
   } catch (error) {
@@ -320,7 +385,14 @@ submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
 
     // ── Ownership + state check ──────────────────────────────────────────────
     const submission = await c.env.DB.prepare(
-      'SELECT id, user_id, submitted_at FROM submissions WHERE id = ?'
+      `select
+        id
+        , exercise_id
+        , user_id
+        , submitted_at
+        , question_asset_set_id
+      from submissions
+      where id = ?`
     ).bind(submissionId).first()
 
     if (!submission) {
@@ -397,13 +469,19 @@ submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
     // ── Fetch answer schema (constrains the LLM output) ─────────────────────
     // Loaded via a fresh query because the submission row was selected with
     // minimal columns above. We need (q_id, sub_id, type) only.
-    const schemaResult = await c.env.DB.prepare(`
-      SELECT a.q_id, a.sub_id, a.type
-      FROM answer_schemas a
-      JOIN submissions s ON s.exercise_id = a.exercise_id
-      WHERE s.id = ?
-      ORDER BY a.q_id ASC, a.sub_id ASC
-    `).bind(submissionId).all()
+    const schemaResult = submission.question_asset_set_id
+      ? await c.env.DB.prepare(`
+          select q_id, sub_id, type
+          from exercise_question_answer_schemas
+          where asset_set_id = ?
+          order by q_id asc, sub_id asc
+        `).bind(submission.question_asset_set_id).all()
+      : await c.env.DB.prepare(`
+          select q_id, sub_id, type
+          from answer_schemas
+          where exercise_id = ?
+          order by q_id asc, sub_id asc
+        `).bind(submission.exercise_id).all()
 
     const schema = schemaResult.results
 

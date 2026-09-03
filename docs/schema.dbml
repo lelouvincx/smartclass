@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0009_add_google_link
+// Last updated: migration 0011_add_question_answer_candidates
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -30,6 +30,7 @@ Table exercises {
   duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
   pdf_key          text    [note: 'Legacy R2 key — superseded by exercise_files']
   extract_model    text    [note: 'Vision-LLM model id for image extraction (v0.4); NULL = use server default']
+  active_question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Teacher-confirmed set currently shown to new submissions']
   created_by       integer [not null, ref: > users.id]
   created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at       text    [not null, default: 'CURRENT_TIMESTAMP']
@@ -46,6 +47,50 @@ Table exercise_files {
 
   indexes {
     exercise_id [name: 'idx_exercise_files_exercise']
+  }
+}
+
+Table exercise_question_asset_sets {
+  id               integer [pk, increment]
+  exercise_id      integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
+  source_file_id   integer [not null, ref: > exercise_files.id, note: 'Source exercise_pdf; ON DELETE CASCADE']
+  answer_source_file_id integer [ref: > exercise_files.id, note: 'Answer PDF used for extraction; NULL when none was provided']
+  answer_parser_status text [not null, default: 'not_provided', note: 'not_provided | parsed | failed']
+  detector_version text    [not null]
+  detection_method text    [not null, note: 'text | vision | manual | mixed']
+  confirmed_by     integer [ref: > users.id]
+  confirmed_at     text    [note: 'NULL while the complete set is pending teacher review']
+  created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    exercise_id [name: 'idx_exercise_question_asset_sets_exercise']
+  }
+}
+
+Table exercise_question_assets {
+  id              integer [pk, increment]
+  asset_set_id    integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
+  q_id            integer [not null]
+  segment_index   integer [not null, note: 'Contiguous and zero-based within one question']
+  source_kind     text    [not null, note: 'pdf_crop | teacher_screenshot']
+  source_page     integer [note: 'Required for pdf_crop; NULL for teacher_screenshot']
+  x               real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  y               real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  width           real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  height          real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  r2_key          text    [not null, unique]
+  mime_type       text    [not null, note: 'image/webp | image/png | image/jpeg']
+  file_size       integer [not null, note: 'bytes']
+  pixel_width     integer [not null]
+  pixel_height    integer [not null]
+  accessible_text text    [note: 'Optional best-effort text extracted from the source PDF']
+  confidence      real    [note: '0..1 for pdf_crop; NULL for reviewed teacher_screenshot']
+  rejected_by     integer [ref: > users.id]
+  rejected_at     text
+  created_at      text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (asset_set_id, q_id, segment_index) [unique, name: 'idx_exercise_question_assets_set_question']
   }
 }
 
@@ -73,6 +118,51 @@ Table answer_schemas {
   '''
 }
 
+Table exercise_question_answer_schemas {
+  id             integer [pk, increment]
+  asset_set_id   integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
+  q_id           integer [not null]
+  sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
+  type           text    [not null, note: 'mcq | boolean | numeric']
+  correct_answer text    [not null]
+  created_at     text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (asset_set_id, q_id, sub_id) [unique, name: 'idx_exercise_question_answer_schemas_set_key',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+  }
+
+  Note: 'Immutable answer-schema snapshot used for pinned attempts and historical review.'
+}
+
+Table exercise_question_answer_candidates {
+  id                integer [pk, increment]
+  asset_set_id      integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
+  q_id              integer [not null]
+  sub_id            text    [note: 'NULL for mcq/numeric; sub-question key for boolean']
+  type              text    [not null, note: 'mcq | boolean | numeric']
+  proposed_answer   text    [not null]
+  source_kind       text    [not null, note: 'answer_pdf_text | exercise_green_highlight']
+  source_file_id    integer [not null, ref: > exercise_files.id]
+  extractor_version text
+  model_id          text
+  source_page       integer [note: 'Required for green-highlight evidence']
+  source_x          real    [note: 'Normalized source coordinate for green-highlight evidence']
+  source_y          real    [note: 'Normalized source coordinate for green-highlight evidence']
+  source_width      real    [note: 'Normalized source coordinate for green-highlight evidence']
+  source_height     real    [note: 'Normalized source coordinate for green-highlight evidence']
+  confidence        real    [not null, note: '0..1']
+  created_at        text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (asset_set_id, q_id, sub_id, source_kind) [unique, name: 'idx_exercise_question_answer_candidates_set_key_source',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+    (asset_set_id, q_id, sub_id) [name: 'idx_exercise_question_answer_candidates_set']
+  }
+
+  Note: 'Suggestions only. The teacher-confirmed schema remains the grading source of truth.'
+}
+
 // ── Submissions ────────────────────────────────────────────────────────────────
 
 Table submissions {
@@ -84,6 +174,7 @@ Table submissions {
   total_questions integer [note: 'COUNT(DISTINCT q_id) at submission creation time']
   started_at      text    [note: 'UTC timestamp; used for timer accuracy']
   submitted_at    text    [note: 'NULL until submitted; used for double-submit guard']
+  question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Pinned question and answer-schema version; NULL only for legacy Stage A fallback']
   created_at      text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at      text    [not null, default: 'CURRENT_TIMESTAMP']
 }

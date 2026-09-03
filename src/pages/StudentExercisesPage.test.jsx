@@ -62,6 +62,7 @@ describe('StudentExercisesPage', () => {
           duration_minutes: 30,
           question_count: 15,
           is_timed: 1,
+          is_student_ready: 1,
         },
       ],
     })
@@ -84,8 +85,8 @@ describe('StudentExercisesPage', () => {
   it('shows timed badge for timed exercises and untimed for untimed exercises', async () => {
     listExercisesMock.mockResolvedValue({
       data: [
-        { id: 1, title: 'Timed Quiz', duration_minutes: 45, question_count: 10, is_timed: 1 },
-        { id: 2, title: 'Practice Set', duration_minutes: 0, question_count: 5, is_timed: 0 },
+        { id: 1, title: 'Timed Quiz', duration_minutes: 45, question_count: 10, is_timed: 1, is_student_ready: 1 },
+        { id: 2, title: 'Practice Set', duration_minutes: 0, question_count: 5, is_timed: 0, is_student_ready: 1 },
       ],
     })
 
@@ -106,7 +107,7 @@ describe('StudentExercisesPage', () => {
 
   it('links to the exercise page from each Start action', async () => {
     listExercisesMock.mockResolvedValue({
-      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1 }],
+      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 1 }],
     })
 
     render(
@@ -122,7 +123,7 @@ describe('StudentExercisesPage', () => {
 
   it('labels an in-progress exercise as Resume', async () => {
     listExercisesMock.mockResolvedValue({
-      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1 }],
+      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 1 }],
     })
     setSubmissionPointer(7, 42, 99)
     getSubmissionMock.mockResolvedValue({ data: { id: 99, exercise_id: 42, submitted_at: null } })
@@ -140,7 +141,7 @@ describe('StudentExercisesPage', () => {
 
   it('labels a completed exercise as View result', async () => {
     listExercisesMock.mockResolvedValue({
-      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1 }],
+      data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 1 }],
     })
     listMySubmissionsMock.mockResolvedValue({
       data: { submissions: [{ id: 88, exercise_id: 42, submitted_at: '2026-09-03 05:00:00' }] },
@@ -167,6 +168,24 @@ describe('StudentExercisesPage', () => {
     )
 
     expect(await screen.findByText(/network error/i)).toBeInTheDocument()
+  })
+
+  it('hides exercises that have not been activated for students', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [
+        { id: 1, title: 'Ready Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 1 },
+        { id: 2, title: 'Draft Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 0 },
+      ],
+    })
+
+    render(
+      <MemoryRouter>
+        <StudentExercisesPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findAllByText('Ready Quiz')).toHaveLength(2)
+    expect(screen.queryByText('Draft Quiz')).not.toBeInTheDocument()
   })
 
   it('shows loading indicator while fetching', () => {

@@ -50,7 +50,7 @@ export default function StudentExercisesPage() {
 
     try {
       const response = await listExercises()
-      const exercises = response.data || []
+      const exercises = (response.data || []).filter((exercise) => exercise.is_student_ready === 1)
       setItems(exercises)
       setExerciseStates(await loadStudentExerciseStates({
         accountId: user.id,

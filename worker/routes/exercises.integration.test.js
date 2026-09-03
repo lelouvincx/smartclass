@@ -36,6 +36,36 @@ describe('GET /api/exercises', () => {
     expect(created).toBeDefined()
     expect(created.question_count).toBe(2)
   })
+
+  it('reports student readiness only for a confirmed active question asset set', async () => {
+    const { id } = await createExercise(token, { title: 'Readiness Quiz' })
+    const file = await env.DB.prepare(`
+      insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+      values (?, 'exercise_pdf', ?, 'readiness.pdf', 100)
+    `).bind(id, `exercises/${id}/readiness.pdf`).run()
+    const pending = await env.DB.prepare(`
+      insert into exercise_question_asset_sets (
+        exercise_id, source_file_id, detector_version, detection_method
+      ) values (?, ?, 'test-v1', 'text')
+    `).bind(id, file.meta.last_row_id).run()
+
+    await env.DB.prepare(
+      'update exercises set active_question_asset_set_id = ? where id = ?'
+    ).bind(pending.meta.last_row_id, id).run()
+
+    let body = await (await app.request('/api/exercises', {}, env)).json()
+    expect(body.data.find(exercise => exercise.id === id).is_student_ready).toBe(0)
+
+    await env.DB.prepare(`
+      update exercise_question_asset_sets
+      set confirmed_by = (select id from users where role = 'teacher' limit 1),
+          confirmed_at = current_timestamp
+      where id = ?
+    `).bind(pending.meta.last_row_id).run()
+
+    body = await (await app.request('/api/exercises', {}, env)).json()
+    expect(body.data.find(exercise => exercise.id === id).is_student_ready).toBe(1)
+  })
 })
 
 describe('POST /api/exercises/schema/parse', () => {
@@ -87,10 +117,13 @@ describe('POST /api/exercises/schema/parse', () => {
       { q_id: 1, type: 'mcq', sub_id: null, correct_answer: 'B', confidence: 0.92 },
       { q_id: 2, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.85 },
       { q_id: 2, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.85 },
-      { q_id: 2, type: 'boolean', sub_id: 'c', correct_answer: '1', confidence: 0.6 },
+      { q_id: 2, type: 'boolean', sub_id: 'c', correct_answer: '', confidence: 0.6 },
       { q_id: 2, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.85 },
     ])
     expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
+    const requestBody = JSON.parse(fetch.mock.calls[0][1].body)
+    expect(requestBody.messages[0].content).toContain('do not guess')
+    expect(requestBody.messages[0].content).not.toContain('still provide best guess')
   })
 
   it('returns PARSE_ERROR when model response is not valid json', async () => {
@@ -304,6 +337,7 @@ describe('GET /api/exercises/:id', () => {
     expect(body.data.id).toBe(id)
     expect(body.data.schema).toHaveLength(5) // 1 mcq + 4 boolean sub-rows
     expect(body.data.files).toHaveLength(0)
+    expect(body.data.is_student_ready).toBe(0)
   })
 
   it('returns 404 for non-existent exercise', async () => {
@@ -361,6 +395,16 @@ describe('GET /api/exercises/:id', () => {
     const studentToken = loginBody.data.token
 
     const { id } = await createExercise(token)
+    await env.DB.batch([
+      env.DB.prepare(`
+        insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+        values (?, 'exercise_pdf', ?, 'questions.pdf', 100)
+      `).bind(id, `exercises/${id}/questions.pdf`),
+      env.DB.prepare(`
+        insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+        values (?, 'solution_pdf', ?, 'answers.pdf', 100)
+      `).bind(id, `exercises/${id}/answers.pdf`),
+    ])
 
     const res = await app.request(`/api/exercises/${id}`, {
       headers: { 'Authorization': `Bearer ${studentToken}` },
@@ -369,6 +413,7 @@ describe('GET /api/exercises/:id', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.schema).toHaveLength(5)
+    expect(body.data.files).toEqual([])
     body.data.schema.forEach((row) => {
       expect(row).not.toHaveProperty('correct_answer')
     })
@@ -507,32 +552,19 @@ describe('DELETE /api/exercises/:id', () => {
 
   it('deletes exercise that has submissions (cascade)', async () => {
     await seedStudent('+84555666777')
-    const sToken = await loginAsStudent('+84555666777')
-
     const { id } = await createExercise(token)
-
-    // Create a submission for this exercise
-    const subRes = await app.request('/api/submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sToken}` },
-      body: JSON.stringify({ exercise_id: id }),
-    }, env)
-    expect(subRes.status).toBe(201)
-    const subBody = await subRes.json()
-    const submissionId = subBody.data.id
-
-    // Submit answers so submission_answers rows exist
-    await app.request(`/api/submissions/${submissionId}/submit`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${sToken}` },
-      body: JSON.stringify({ answers: [
-        { q_id: 1, submitted_answer: 'A' },
-        { q_id: 2, sub_id: 'a', submitted_answer: '1' },
-        { q_id: 2, sub_id: 'b', submitted_answer: '0' },
-        { q_id: 2, sub_id: 'c', submitted_answer: '0' },
-        { q_id: 2, sub_id: 'd', submitted_answer: '1' },
-      ] }),
-    }, env)
+    const student = await env.DB.prepare(
+      "select id from users where phone = '+84555666777'"
+    ).first()
+    const submission = await env.DB.prepare(`
+      insert into submissions (exercise_id, user_id, mode, total_questions, started_at)
+      values (?, ?, 'timed', 2, current_timestamp)
+    `).bind(id, student.id).run()
+    const submissionId = submission.meta.last_row_id
+    await env.DB.prepare(`
+      insert into submission_answers (submission_id, q_id, submitted_answer)
+      values (?, 1, 'A')
+    `).bind(submissionId).run()
 
     // Delete exercise should cascade
     const deleteRes = await app.request(`/api/exercises/${id}`, {

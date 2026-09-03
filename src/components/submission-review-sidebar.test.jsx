@@ -1,4 +1,4 @@
-import React, { createRef } from 'react'
+import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
@@ -130,19 +130,22 @@ describe('SubmissionReviewSidebar', () => {
     expect(screen.getAllByText('0.5')).toHaveLength(2)
   })
 
-  it('scrolls to the question on row click via the questionRefs map', async () => {
+  it('uses a semantic button to select a question', async () => {
     const user = userEvent.setup()
-    const refs = createRef()
-    const target1 = document.createElement('div')
-    const scrollSpy = vi.fn()
-    target1.scrollIntoView = scrollSpy
-    refs.current = { 1: target1 }
+    const onJump = vi.fn()
 
-    render(<SubmissionReviewSidebar submission={makeSubmission()} questionRefs={refs} />)
+    render(
+      <SubmissionReviewSidebar
+        submission={makeSubmission()}
+        currentQId={2}
+        onJump={onJump}
+      />,
+    )
 
-    // First row corresponds to q_id=1 in our fixture
-    const firstRow = screen.getAllByRole('row')[0]
-    await user.click(firstRow)
-    expect(scrollSpy).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' })
+    const firstQuestion = screen.getByRole('button', { name: /review question 1/i })
+    const secondQuestion = screen.getByRole('button', { name: /review question 2/i })
+    expect(secondQuestion).toHaveAttribute('aria-current', 'step')
+    await user.click(firstQuestion)
+    expect(onJump).toHaveBeenCalledWith(1)
   })
 })
