@@ -8,6 +8,7 @@ import submissionsRoutes from './routes/submissions.js'
 import filesRoutes from './routes/files.js'
 import lecturesRoutes from './routes/lectures.js'
 import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from './lib/extract-models.js'
+import { jsonSuccess } from './lib/response.js'
 
 const app = new Hono()
 
@@ -38,6 +39,14 @@ app.get('/api/health', (c) => {
       environment: c.env.APP_ENV || 'development',
       timestamp: new Date().toISOString(),
     },
+  })
+})
+
+app.get('/api/version', (c) => {
+  c.header('Cache-Control', 'no-store')
+
+  return jsonSuccess(c, {
+    commit: c.env.APP_COMMIT_SHA || 'unknown',
   })
 })
 
