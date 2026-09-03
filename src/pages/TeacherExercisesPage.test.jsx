@@ -61,7 +61,10 @@ describe('TeacherExercisesPage', () => {
 
     renderPage()
 
-    expect(await screen.findByRole('table', { name: 'Teacher exercise library' })).toBeInTheDocument()
+    const table = await screen.findByRole('table', { name: 'Teacher exercise library' })
+    expect(table).toBeInTheDocument()
+    expect(table.closest('[data-slot="card"]')).toHaveClass('py-0')
+    expect(table.closest('[data-slot="card"]')).not.toHaveClass('py-4')
     expect(screen.getAllByText('Physics Quiz')).toHaveLength(2)
     expect(screen.getAllByText('45 min')).toHaveLength(2)
     expect(screen.getAllByText('20')).toHaveLength(2)

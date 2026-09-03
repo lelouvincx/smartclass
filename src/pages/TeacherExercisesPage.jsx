@@ -75,7 +75,7 @@ export default function TeacherExercisesPage() {
         }
       />
 
-      <Card>
+      <Card className="py-0">
         {isLoading && (
           <p className="p-5 text-sm text-muted-foreground">Loading exercises...</p>
         )}
