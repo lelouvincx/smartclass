@@ -14,7 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Add a changelog, move shipped-change history out of the README, and enforce changelog updates for every pull request. [#82](https://github.com/lelouvincx/smartclass/pull/82)
 - Let teachers create student accounts and approve pending accounts. [#63](https://github.com/lelouvincx/smartclass/pull/63) [#64](https://github.com/lelouvincx/smartclass/pull/64)
 - Let teachers add, edit, and reorder YouTube lectures with named sections. [#76](https://github.com/lelouvincx/smartclass/pull/76)
-- Add a sectioned student lecture curriculum with embedded playback, readable lecture URLs, and previous/next navigation, and redesign teacher lecture management around the same ordered curriculum.
+- Add a sectioned student lecture curriculum with embedded playback, readable lecture URLs, and previous/next navigation, and redesign teacher lecture management around the same ordered curriculum. [#88](https://github.com/lelouvincx/smartclass/pull/88)
 - Add the Google-format design system, semantic tokens, responsive app shell, and shared product compositions. [#75](https://github.com/lelouvincx/smartclass/pull/75)
 
 ### Changed
