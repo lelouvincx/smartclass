@@ -2,7 +2,7 @@
 
 ## Read before changing behavior
 
-- Before changing or describing shipped product behavior, read `PRODUCT.md`; it is authoritative. Treat the `README.md` roadmap and superseded RFC content as proposals, not current behavior.
+- Before changing or describing shipped product behavior, read `PRODUCT.md`; it is authoritative. Treat `TODO.md` and superseded RFC content as proposals, not current behavior.
 - Before changing an established flow, read the relevant RFC under `docs/plans/` and any later RFC that supersedes it. RFCs preserve rationale and migration status but do not override `PRODUCT.md`.
 - Before frontend or visual work, read `DESIGN.md`. Use `src/design-system/tokens.css` and `src/design-system/` for normative tokens and product compositions; keep low-level shadcn primitives in `src/components/ui/`.
 - When Hono behavior is uncertain, read `https://hono.dev/llms-small.txt` first, then only the relevant section of `https://hono.dev/llms-full.txt`.
@@ -22,7 +22,14 @@
 - Keep frontend API operations behind `request()` in `src/lib/api.js`. Use XHR only when upload-progress events are required.
 - Use `DB.batch()` when multiple D1 statements must commit atomically; separate `.run()` calls are not one transaction.
 - When adding or changing a D1 migration, update `docs/schema.dbml` in the same change.
-- Update the README Roadmap only when milestone scope or completion status changes. Do not append implementation histories or pull-request summaries to this file.
+
+## Maintenance
+
+- Add each planned task to `TODO.md` under its target version with a P0, P1, or P2 priority.
+- In the pull request that completes a task, remove it from `TODO.md` and add its completed-change entry under `[Unreleased]` in `CHANGELOG.md`.
+- Add a `CHANGELOG.md` entry under `[Unreleased]` for every pull request. After opening the pull request, add its number and link in a separate commit.
+- Record planned work only in `TODO.md` and completed work only in `CHANGELOG.md`; keep both out of `README.md`.
+- Check `CHANGELOG.md` before searching Git or pull-request history for a historical change.
 
 ## Completion
 
