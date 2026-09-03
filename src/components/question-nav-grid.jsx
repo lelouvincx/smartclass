@@ -1,4 +1,5 @@
 import React from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 function getCellContent(qId, schema, answers, displayIdx) {
@@ -31,15 +32,16 @@ export function countUnanswered(schema, answers) {
 }
 
 export function QuestionNavGrid({ schema, answers, currentQId, onJump }) {
+  const { t } = useTranslation()
   const qIds = [...new Set(schema.map((r) => r.q_id))]
   return (
     <div>
       <p className="mb-2 text-sm font-semibold text-foreground">
-        Answer Sheet
+        {t('student.nav.answerSheet')}
       </p>
       <div className="grid grid-cols-5 gap-2">
-        <span id="question-answered-status" className="sr-only">Answered</span>
-        <span id="question-unanswered-status" className="sr-only">Unanswered</span>
+        <span id="question-answered-status" className="sr-only">{t('student.nav.answered')}</span>
+        <span id="question-unanswered-status" className="sr-only">{t('student.nav.unanswered')}</span>
         {qIds.map((qId, idx) => {
           const { answered, text } = getCellContent(qId, schema, answers, idx + 1)
           const isCurrent = qId === currentQId
@@ -47,7 +49,7 @@ export function QuestionNavGrid({ schema, answers, currentQId, onJump }) {
             <button
               key={qId}
               type="button"
-              aria-label={`Jump to question ${idx + 1}`}
+              aria-label={t('student.nav.jump', { number: idx + 1 })}
               aria-describedby={answered ? 'question-answered-status' : 'question-unanswered-status'}
               aria-current={isCurrent ? 'step' : undefined}
               onClick={() => onJump(qId)}

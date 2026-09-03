@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { GraduationCap, LogOut, Menu, Settings } from 'lucide-react'
 import { ModeToggle } from '@/components/mode-toggle'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { cn } from '@/lib/utils'
 
 function Brand({ workspaceLabel }) {
+  const { t } = useTranslation()
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
@@ -14,7 +16,9 @@ function Brand({ workspaceLabel }) {
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold tracking-tight">SmartClass</span>
-        <span className="block truncate text-xs text-muted-foreground">{workspaceLabel} workspace</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {t('common.workspace', { role: workspaceLabel })}
+        </span>
       </span>
     </div>
   )
@@ -45,23 +49,24 @@ function Navigation({ items, label, onNavigate, rail = false }) {
 }
 
 function RailFooter({ userLabel, onLogout }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-2 border-t px-2 py-3 text-xs">
       {userLabel && (
         <p className="px-1 text-center text-muted-foreground">
-          <span className="block">Signed in as</span>
+          <span className="block">{t('common.signedInAs')}</span>
           <span className="block truncate" title={userLabel}>{userLabel}</span>
         </p>
       )}
       <Button variant="ghost" className="h-auto min-h-[var(--sc-component-hit-target)] w-full flex-col gap-1 px-1 py-2 text-xs" asChild>
         <Link to="/settings">
           <Settings className="size-5" aria-hidden="true" />
-          Settings
+          {t('common.settings')}
         </Link>
       </Button>
       <div className="flex flex-col items-center gap-1 py-1 text-muted-foreground">
         <ModeToggle className="size-[48px]" />
-        <span aria-hidden="true">Theme</span>
+        <span aria-hidden="true">{t('common.theme')}</span>
       </div>
       <Button
         variant="ghost"
@@ -69,18 +74,19 @@ function RailFooter({ userLabel, onLogout }) {
         onClick={onLogout}
       >
         <LogOut className="size-5" aria-hidden="true" />
-        Logout
+        {t('common.logout')}
       </Button>
     </div>
   )
 }
 
 function ShellFooter({ userLabel, onLogout, onNavigate }) {
+  const { t } = useTranslation()
   return (
     <div className="space-y-3 border-t px-3 py-4">
       {userLabel && (
         <p className="px-2 text-xs text-muted-foreground">
-          <span>Signed in as </span>
+          <span>{t('common.signedInAs')} </span>
           <span className="font-medium text-foreground" title={userLabel}>{userLabel}</span>
         </p>
       )}
@@ -88,7 +94,7 @@ function ShellFooter({ userLabel, onLogout, onNavigate }) {
         <Button variant="ghost" className="h-[48px] justify-start" asChild>
           <Link to="/settings" onClick={onNavigate}>
             <Settings aria-hidden="true" />
-            Settings
+            {t('common.settings')}
           </Link>
         </Button>
         <ModeToggle className="size-[48px]" />
@@ -99,7 +105,7 @@ function ShellFooter({ userLabel, onLogout, onNavigate }) {
         onClick={onLogout}
       >
         <LogOut aria-hidden="true" />
-        Logout
+        {t('common.logout')}
       </Button>
     </div>
   )
@@ -108,7 +114,8 @@ function ShellFooter({ userLabel, onLogout, onNavigate }) {
 export function AppShell({ children, items, onLogout, userLabel, workspaceLabel }) {
   const [navigationOpen, setNavigationOpen] = useState(false)
   const location = useLocation()
-  const navigationLabel = `${workspaceLabel} navigation`
+  const { t } = useTranslation()
+  const navigationLabel = t('common.navigation', { workspace: workspaceLabel })
 
   useEffect(() => {
     setNavigationOpen(false)
@@ -131,7 +138,7 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
         href="#main-content"
         className="fixed start-4 top-4 z-[60] -translate-y-24 rounded-[var(--sc-component-control-shape)] bg-primary px-4 py-3 font-medium text-primary-foreground shadow-lg transition-transform focus:translate-y-0"
       >
-        Skip to main content
+        {t('common.skipToMain')}
       </a>
       <aside className="fixed inset-y-0 start-0 z-40 hidden w-56 flex-col border-e bg-sidebar text-sidebar-foreground shadow-sm lg:flex">
         <div className="border-b px-5 py-5">
@@ -165,7 +172,7 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
           variant="outline"
           size="icon"
           className="size-[48px]"
-          aria-label="Open navigation"
+          aria-label={t('common.openNavigation')}
           onClick={() => setNavigationOpen(true)}
         >
           <Menu aria-hidden="true" />
@@ -173,7 +180,7 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
       </header>
 
       <Sheet open={navigationOpen} onOpenChange={setNavigationOpen}>
-        <SheetContent side="left" aria-describedby={undefined}>
+        <SheetContent side="left" closeLabel={t('common.close')} aria-describedby={undefined}>
           <SheetHeader className="border-b px-5 py-5 pr-14">
             <SheetTitle className="sr-only">{navigationLabel}</SheetTitle>
             <Brand workspaceLabel={workspaceLabel} />

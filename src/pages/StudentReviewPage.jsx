@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
 import { getFileUrl, getSubmission } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -11,6 +12,7 @@ import {
   McqNumericResultRow,
 } from '@/components/answer-result'
 import { SubmissionReviewSidebar } from '@/components/submission-review-sidebar'
+import { formatDateTime } from '@/lib/format'
 
 // --- Schema grouping (mirrors StudentTakeExercisePage) ---
 
@@ -57,6 +59,7 @@ function ScoreBadge({ score }) {
 // --- Main page ---
 
 export default function StudentReviewPage() {
+  const { t, i18n } = useTranslation()
   const { id } = useParams()
   const { token } = useAuth()
   const questionRefs = useRef({})
@@ -73,7 +76,7 @@ export default function StudentReviewPage() {
         const res = await getSubmission(token, id)
         setSubmission(res.data)
       } catch (err) {
-        setError(err.message || 'Failed to load submission')
+        setError(err.message || i18n.t('student.results.failedReview'))
       } finally {
         setIsLoading(false)
       }
@@ -84,7 +87,7 @@ export default function StudentReviewPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <p className="text-sm text-muted-foreground">Loading review...</p>
+        <p className="text-sm text-muted-foreground">{t('student.results.loadingReview')}</p>
       </div>
     )
   }
@@ -95,7 +98,7 @@ export default function StudentReviewPage() {
         <CardContent className="pt-6">
           <p className="text-sm text-destructive">{error}</p>
           <Button variant="outline" asChild className="mt-4">
-            <Link to="/student/submissions">Back to History</Link>
+            <Link to="/student/submissions">{t('student.results.backToHistory')}</Link>
           </Button>
         </CardContent>
       </Card>
@@ -113,7 +116,7 @@ export default function StudentReviewPage() {
   const totalAnswerRows = answers.length
 
   const submittedDate = submitted_at
-    ? new Date(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z')).toLocaleString()
+    ? formatDateTime(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z'), i18n.resolvedLanguage)
     : '—'
 
   return (
@@ -122,12 +125,12 @@ export default function StudentReviewPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{exercise_title}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Submitted {submittedDate}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t('student.results.submitted', { date: submittedDate })}</p>
         </div>
         <div className="flex items-center gap-3">
           <ScoreBadge score={score} />
           <Button variant="outline" size="sm" asChild>
-            <Link to="/student/submissions">Back to History</Link>
+            <Link to="/student/submissions">{t('student.results.backToHistory')}</Link>
           </Button>
         </div>
       </div>
@@ -150,10 +153,10 @@ export default function StudentReviewPage() {
                 <table className="min-w-full border-collapse text-sm">
                   <thead className="bg-muted text-left text-muted-foreground">
                     <tr>
-                      <th className="px-4 py-2">Question</th>
-                      <th className="px-4 py-2">Your Answer</th>
-                      <th className="px-4 py-2">Correct Answer</th>
-                      <th className="px-4 py-2 text-center">Result</th>
+                      <th className="px-4 py-2">{t('student.exercises.questions')}</th>
+                      <th className="px-4 py-2">{t('student.results.yourAnswer')}</th>
+                      <th className="px-4 py-2">{t('student.results.correctAnswer')}</th>
+                      <th className="px-4 py-2 text-center">{t('student.results.result')}</th>
                     </tr>
                   </thead>
                   {questionGroups.map((group) => {
@@ -187,7 +190,7 @@ export default function StudentReviewPage() {
           </Card>
 
           <p className="text-sm text-muted-foreground">
-            {correctCount} / {totalAnswerRows} answer rows correct
+            {t('student.results.answerRowsCorrect', { correct: correctCount, total: totalAnswerRows })}
           </p>
         </div>
       </PdfSplitPane>

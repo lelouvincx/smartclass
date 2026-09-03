@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   createExercise,
@@ -26,6 +27,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
 import ExtractModelSelect from '@/components/extract-model-select'
 import FileDropzone from '@/components/file-dropzone'
+import { formatDuration } from '@/lib/format'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -42,7 +44,7 @@ function normalizeAnswer(type, value) {
 
 // --- Validation ---
 
-function validateRows(rows) {
+function validateRows(rows, t) {
   const qidCounts = new Map()
   rows.forEach((row) => {
     const key = String(row.q_id)
@@ -66,32 +68,32 @@ function validateRows(rows) {
     const qid = Number.parseInt(String(row.q_id), 10)
 
     if (!row.q_id || Number.isNaN(qid) || qid <= 0) {
-      errors.push('Question number must be a positive integer')
+      errors.push(t('teacher.schema.positiveInteger'))
     }
 
     if (row.type === 'boolean') {
       if (!row.sub_id || !BOOLEAN_SUB_IDS.includes(row.sub_id)) {
-        errors.push('True/False parts must be a, b, c, or d')
+        errors.push(t('teacher.schema.booleanParts'))
       } else if (!['0', '1'].includes(row.correct_answer)) {
-        errors.push('select True (1) or False (0)')
+        errors.push(t('teacher.schema.selectBoolean'))
       }
     } else {
       if (qidCounts.get(String(row.q_id)) > 1) {
-        errors.push('Question number must be unique')
+        errors.push(t('teacher.schema.uniqueQuestion'))
       }
 
       const answer = normalizeAnswer(row.type, row.correct_answer)
       if (!answer) {
-        errors.push('Correct answer is required')
+        errors.push(t('teacher.schema.answerRequired'))
       } else if (row.type === 'mcq' && !['A', 'B', 'C', 'D'].includes(answer)) {
-        errors.push('Multiple choice answer must be A, B, C, or D')
+        errors.push(t('teacher.schema.mcqAnswer'))
       } else if (row.type === 'numeric' && Number.isNaN(Number(answer))) {
-        errors.push('Number answer must be a valid number')
+        errors.push(t('teacher.schema.numericAnswer'))
       }
     }
 
     if ((row.confidence ?? 1) < LOW_CONFIDENCE_THRESHOLD) {
-      warnings.push('Low confidence, please verify')
+      warnings.push(t('teacher.schema.lowConfidence'))
     }
 
     return {
@@ -155,6 +157,7 @@ function newRows(type, nextQid = '') {
 // --- Main page ---
 
 export default function TeacherCreateExercisePage() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { token } = useAuth()
 
@@ -174,7 +177,7 @@ export default function TeacherCreateExercisePage() {
   const [createdExerciseId, setCreatedExerciseId] = useState(null)
   const [failedUploadName, setFailedUploadName] = useState('')
 
-  const validatedRows = useMemo(() => validateRows(rows), [rows])
+  const validatedRows = useMemo(() => validateRows(rows, t), [rows, t])
   const stats = useMemo(() => {
     const total = new Set(validatedRows.map((row) => String(row.q_id))).size
     const errorsCount = validatedRows.filter((row) => row.errors.length > 0).length
@@ -253,7 +256,7 @@ export default function TeacherCreateExercisePage() {
     try {
       const sourceText = await extractTextFromPdf(answerFile)
       if (!sourceText || sourceText.length < 10) {
-        throw new Error('Could not read enough text from the PDF. Continue by entering the answer key manually.')
+        throw new Error(t('teacher.create.unreadablePdf'))
       }
       const response = await parseExerciseSchema(token, { source_text: sourceText })
       const makeId = () =>
@@ -289,7 +292,7 @@ export default function TeacherCreateExercisePage() {
         })
         await uploadExerciseFile(token, exerciseId, createResponse.data, entry.file)
       } catch (uploadError) {
-        const failure = new Error(uploadError?.message || 'File upload failed', { cause: uploadError })
+        const failure = new Error(uploadError?.message || t('teacher.create.uploadFailed'), { cause: uploadError })
         failure.failedFileName = entry.file.name
         throw failure
       }
@@ -328,12 +331,12 @@ export default function TeacherCreateExercisePage() {
     event.preventDefault()
     setError('')
 
-    if (!title.trim()) { setError('Title is required'); return }
+    if (!title.trim()) { setError(t('teacher.create.titleRequired')); return }
     if (isTimed && (!durationMinutes || Number(durationMinutes) <= 0)) {
-      setError('Duration must be a positive number'); return
+      setError(t('teacher.create.durationInvalid')); return
     }
-    if (validatedRows.length === 0) { setError('At least one question is required'); return }
-    if (stats.errorsCount > 0) { setError('Please fix all answer key errors before saving'); return }
+    if (validatedRows.length === 0) { setError(t('teacher.create.questionRequired')); return }
+    if (stats.errorsCount > 0) { setError(t('teacher.create.fixErrors')); return }
     if (stats.warningsCount > 0) { setShowWarningConfirm(true); return }
 
     await saveExercise()
@@ -343,17 +346,15 @@ export default function TeacherCreateExercisePage() {
     return (
       <Card className="max-w-2xl border-destructive/50">
         <CardHeader>
-          <h1 className="text-xl font-semibold">Exercise created, but a file could not be uploaded</h1>
+          <h1 className="text-xl font-semibold">{t('teacher.create.partialTitle')}</h1>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            The exercise was saved. {failedUploadName
-              ? <>The file “{failedUploadName}” was not uploaded.</>
-              : 'A file could not be uploaded.'}
+            {failedUploadName ? t('teacher.create.partialNamed', { name: failedUploadName }) : t('teacher.create.partialGeneric')}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button asChild><Link to={`/teacher/exercises/${createdExerciseId}`}>Open created exercise</Link></Button>
-            <Button asChild variant="outline"><Link to="/teacher/exercises">Back to exercises</Link></Button>
+            <Button asChild><Link to={`/teacher/exercises/${createdExerciseId}`}>{t('teacher.create.openCreated')}</Link></Button>
+            <Button asChild variant="outline"><Link to="/teacher/exercises">{t('teacher.create.back')}</Link></Button>
           </div>
         </CardContent>
       </Card>
@@ -363,8 +364,8 @@ export default function TeacherCreateExercisePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Create Exercise</h1>
-        <p className="text-sm text-muted-foreground">Upload an answer PDF to read the answers, or enter them manually.</p>
+        <h1 className="text-2xl font-semibold">{t('teacher.create.title')}</h1>
+        <p className="text-sm text-muted-foreground">{t('teacher.create.description')}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -375,7 +376,7 @@ export default function TeacherCreateExercisePage() {
               {/* Title — required */}
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="title">
-                  Exercise title <span aria-hidden="true" className="text-destructive">*</span>
+                  {t('teacher.create.titleLabel')} <span aria-hidden="true" className="text-destructive">*</span>
                 </Label>
                 <Input
                   id="title"
@@ -387,12 +388,12 @@ export default function TeacherCreateExercisePage() {
 
               {/* Timed mode toggle */}
               <div className="space-y-2">
-                <Label>Mode</Label>
+                <Label>{t('teacher.create.mode')}</Label>
                 <div className="flex h-10 items-center justify-between rounded-md border bg-background px-3">
-                  <span className="text-sm">{isTimed ? 'Timed mode' : 'Untimed mode'}</span>
+                  <span className="text-sm">{isTimed ? t('teacher.create.timedMode') : t('teacher.create.untimedMode')}</span>
                   <Switch
                     id="timedToggle"
-                    aria-label="Timed mode toggle"
+                    aria-label={t('teacher.create.timedToggle')}
                     checked={isTimed}
                     onCheckedChange={setIsTimed}
                   />
@@ -402,7 +403,7 @@ export default function TeacherCreateExercisePage() {
               {/* Duration — required when timed, with quick-select presets */}
               <div className="space-y-2">
                 <Label htmlFor="duration">
-                  Duration (minutes){isTimed && <span aria-hidden="true" className="text-destructive"> *</span>}
+                  {t('teacher.create.duration')}{isTimed && <span aria-hidden="true" className="text-destructive"> *</span>}
                 </Label>
                 <div className="flex gap-2">
                   <Input
@@ -414,7 +415,7 @@ export default function TeacherCreateExercisePage() {
                     className="w-24"
                   />
                   {isTimed && (
-                    <div className="flex flex-1 gap-1.5 items-center" role="group" aria-label="Quick duration presets">
+                    <div className="flex flex-1 gap-1.5 items-center" role="group" aria-label={t('teacher.create.presets')}>
                       {[60, 90, 120].map((mins) => (
                         <Button
                           key={mins}
@@ -424,7 +425,7 @@ export default function TeacherCreateExercisePage() {
                           className="h-10 px-3 text-sm flex-1"
                           onClick={() => setDurationMinutes(mins)}
                         >
-                          {mins}m
+                          {formatDuration(mins, i18n.resolvedLanguage)}
                         </Button>
                       ))}
                     </div>
@@ -439,11 +440,11 @@ export default function TeacherCreateExercisePage() {
 
               {/* Exercise PDF upload */}
               <div className="space-y-2">
-                <Label htmlFor="exerciseFile">Exercise PDF (optional)</Label>
+                <Label htmlFor="exerciseFile">{t('teacher.create.exercisePdf')}</Label>
                 <FileDropzone
                   id="exerciseFile"
                   accept=".pdf"
-                  hint="PDF files only"
+                  hint={t('teacher.file.pdfOnly')}
                   file={exerciseFile}
                   onChange={setExerciseFile}
                 />
@@ -451,11 +452,11 @@ export default function TeacherCreateExercisePage() {
 
               {/* Answer PDF upload + answer extraction grouped as related actions */}
               <div className="space-y-2">
-                <Label htmlFor="answerFile">Answer PDF (recommended)</Label>
+                <Label htmlFor="answerFile">{t('teacher.create.answerPdf')}</Label>
                 <FileDropzone
                   id="answerFile"
                   accept=".pdf"
-                  hint="PDF files only"
+                  hint={t('teacher.file.pdfOnly')}
                   file={answerFile}
                   onChange={setAnswerFile}
                 />
@@ -469,11 +470,11 @@ export default function TeacherCreateExercisePage() {
                 >
                   {isParsing ? (
                     <>
-                      <Spinner className="mr-1.5" />
-                      Reading answers...
+                      <Spinner className="mr-1.5" aria-label={t('common.loading')} />
+                      {t('teacher.create.reading')}
                     </>
                   ) : (
-                    '✨ Read answers from PDF'
+                    t('teacher.create.readAnswers')
                   )}
                 </Button>
               </div>
@@ -483,7 +484,7 @@ export default function TeacherCreateExercisePage() {
 
         {!answerFile && (
           <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-            You can enter the answer key manually, but uploading an answer PDF is faster.
+            {t('teacher.create.manualHint')}
           </p>
         )}
 
@@ -492,9 +493,9 @@ export default function TeacherCreateExercisePage() {
           <CardHeader className="border-b px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3 text-sm">
-                <span className="text-muted-foreground">Questions: <strong className="text-foreground">{stats.total}</strong></span>
-                <span className="text-destructive">Errors: <strong>{stats.errorsCount}</strong></span>
-                <span className="text-amber-600">Warnings: <strong>{stats.warningsCount}</strong></span>
+                <span className="text-muted-foreground">{t('teacher.create.questions', { count: stats.total })}</span>
+                <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
+                <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
               </div>
               <div className="flex gap-2">
                 {['all', 'errors', 'warnings'].map((f) => (
@@ -505,11 +506,11 @@ export default function TeacherCreateExercisePage() {
                     variant={filter === f ? 'default' : 'outline'}
                     onClick={() => setFilter(f)}
                   >
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                    {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
                   </Button>
                 ))}
                 <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-                  Add question
+                  {t('teacher.create.addQuestion')}
                 </Button>
               </div>
             </div>
@@ -528,23 +529,23 @@ export default function TeacherCreateExercisePage() {
 
         <div className="flex justify-end">
           <Button type="submit" disabled={isSaving}>
-            {isSaving ? 'Saving...' : 'Save Exercise'}
+            {isSaving ? t('teacher.create.saving') : t('teacher.create.save')}
           </Button>
         </div>
       </form>
 
       {/* Warning confirm dialog */}
       <Dialog open={showWarningConfirm} onOpenChange={setShowWarningConfirm}>
-        <DialogContent>
+        <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>
-            <DialogTitle>Save with warnings?</DialogTitle>
+            <DialogTitle>{t('teacher.create.warningTitle')}</DialogTitle>
             <DialogDescription>
-              There are {stats.warningsCount} warning rows with confidence below {LOW_CONFIDENCE_THRESHOLD}.
+              {t('teacher.create.warningDescription', { count: stats.warningsCount, threshold: LOW_CONFIDENCE_THRESHOLD })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowWarningConfirm(false)}>Cancel</Button>
-            <Button onClick={() => { setShowWarningConfirm(false); saveExercise() }}>Continue</Button>
+            <Button variant="outline" onClick={() => setShowWarningConfirm(false)}>{t('teacher.create.cancel')}</Button>
+            <Button onClick={() => { setShowWarningConfirm(false); saveExercise() }}>{t('teacher.create.continue')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

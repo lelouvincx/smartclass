@@ -1,4 +1,5 @@
 import React, { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileUp, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -34,13 +35,15 @@ export default function FileDropzone({
   onChange,
   disabled = false,
   icon: Icon = FileUp,
-  title = 'Drop a file here or click to pick',
+  title,
   capture,
   inputAriaLabel,
   size = 'default',
   showPickedFile = true,
 }) {
+  const { t } = useTranslation()
   const inputRef = useRef(null)
+  const visibleTitle = title ?? t('teacher.file.drop')
 
   function pick(picked) {
     if (!picked || disabled) return
@@ -81,7 +84,7 @@ export default function FileDropzone({
           className="size-[48px] shrink-0"
           onClick={handleClear}
           disabled={disabled}
-          aria-label="Remove file"
+          aria-label={t('teacher.file.remove')}
         >
           <X className="h-3.5 w-3.5" />
         </Button>
@@ -129,7 +132,7 @@ export default function FileDropzone({
         }`}
       >
         <Icon className={`${iconSize} text-muted-foreground`} />
-        <p className="text-sm font-medium">{title}</p>
+        <p className="text-sm font-medium">{visibleTitle}</p>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </div>
     </>
