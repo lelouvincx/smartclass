@@ -18,7 +18,9 @@ describe('dashboard placeholders', () => {
     )
 
     expect(screen.getByRole('heading', { name: 'Teacher Dashboard', level: 1 })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /manage exercises/i })).toHaveAttribute('href', '/teacher/exercises')
+    const manageExercises = screen.getByRole('link', { name: /manage exercises/i })
+    expect(manageExercises).toHaveAttribute('href', '/teacher/exercises')
+    expect(manageExercises).not.toHaveClass('min-h-28')
     expect(screen.getByRole('link', { name: /create exercise/i })).toHaveAttribute('href', '/teacher/exercises/new')
     expect(screen.getByRole('link', { name: /manage students/i })).toHaveAttribute('href', '/teacher/students')
   })
