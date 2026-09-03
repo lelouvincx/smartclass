@@ -245,7 +245,7 @@ export default function TeacherLecturesPage() {
       {isLoading ? (
         <p className="py-8 text-center text-sm text-muted-foreground">{t('teacher.lectures.loading')}</p>
       ) : !error && lectures.length === 0 ? (
-        <Card>
+        <Card className="gap-0 py-0">
           <EmptyState
             icon={BookOpen}
             title={t('teacher.lectures.empty')}

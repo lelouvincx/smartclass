@@ -10,10 +10,36 @@ import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { cn } from '@/lib/utils'
 import { formatDuration, formatTime } from '@/lib/format'
+import { useAuth } from '@/lib/auth-context'
+import { loadStudentExerciseStates } from '@/lib/student-exercise-state'
+
+function getExerciseAction(item, state, t) {
+  if (state?.type === 'resume') {
+    return {
+      href: `/student/exercises/${item.id}/take`,
+      label: t('student.exercises.resume'),
+      accessibleLabel: t('student.exercises.resumeExercise', { title: item.title }),
+    }
+  }
+  if (state?.type === 'result') {
+    return {
+      href: `/student/submissions/${state.submissionId}/summary`,
+      label: t('student.exercises.viewResult'),
+      accessibleLabel: t('student.exercises.viewResultNamed', { title: item.title }),
+    }
+  }
+  return {
+    href: `/student/exercises/${item.id}`,
+    label: t('student.exercises.start'),
+    accessibleLabel: t('student.exercises.startExercise', { title: item.title }),
+  }
+}
 
 export default function StudentExercisesPage() {
   const { t, i18n } = useTranslation()
+  const { token, user } = useAuth()
   const [items, setItems] = useState([])
+  const [exerciseStates, setExerciseStates] = useState({})
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [lastRefreshed, setLastRefreshed] = useState(null)
@@ -24,7 +50,13 @@ export default function StudentExercisesPage() {
 
     try {
       const response = await listExercises()
-      setItems(response.data || [])
+      const exercises = response.data || []
+      setItems(exercises)
+      setExerciseStates(await loadStudentExerciseStates({
+        accountId: user.id,
+        exercises,
+        token,
+      }))
       setLastRefreshed(new Date())
     } catch (loadError) {
       setError(loadError.message)
@@ -35,7 +67,7 @@ export default function StudentExercisesPage() {
 
   useEffect(() => {
     loadExercises()
-  }, [])
+  }, [token, user.id])
 
   return (
     <div className="space-y-6">
@@ -94,55 +126,61 @@ export default function StudentExercisesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className="border-t">
-                      <th scope="row" className="px-4 py-3 text-left font-medium">{item.title}</th>
-                      <td className="px-4 py-3">
-                        {item.is_timed ? (
-                          <span>
-                            <Badge variant="default" className="mr-2">{t('student.exercises.timed')}</Badge>
-                            {formatDuration(item.duration_minutes, i18n.resolvedLanguage)}
-                          </span>
-                        ) : (
-                          <Badge variant="secondary">{t('student.exercises.untimed')}</Badge>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">{item.question_count}</td>
-                      <td className="px-4 py-3">
-                        <Button asChild variant="link" size="sm">
-                          <Link to={`/student/exercises/${item.id}`} aria-label={t('student.exercises.startExercise', { title: item.title })}>
-                            {t('student.exercises.start')}
-                          </Link>
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map((item) => {
+                    const action = getExerciseAction(item, exerciseStates[item.id], t)
+                    return (
+                      <tr key={item.id} className="border-t">
+                        <th scope="row" className="px-4 py-3 text-left font-medium">{item.title}</th>
+                        <td className="px-4 py-3">
+                          {item.is_timed ? (
+                            <span>
+                              <Badge variant="default" className="mr-2">{t('student.exercises.timed')}</Badge>
+                              {formatDuration(item.duration_minutes, i18n.resolvedLanguage)}
+                            </span>
+                          ) : (
+                            <Badge variant="secondary">{t('student.exercises.untimed')}</Badge>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{item.question_count}</td>
+                        <td className="px-4 py-3">
+                          <Button asChild variant="link" size="sm">
+                            <Link to={action.href} aria-label={action.accessibleLabel}>
+                              {action.label}
+                            </Link>
+                          </Button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
 
             <ul className="divide-y sm:hidden" aria-label={t('student.exercises.compact')}>
-              {items.map((item) => (
-                <li key={item.id} className="space-y-3 p-4">
-                  <p className="font-medium">{item.title}</p>
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    {item.is_timed ? (
-                      <>
-                        <Badge variant="default">{t('student.exercises.timed')}</Badge>
-                        <span>{formatDuration(item.duration_minutes, i18n.resolvedLanguage)}</span>
-                      </>
-                    ) : (
-                      <Badge variant="secondary">{t('student.exercises.untimed')}</Badge>
-                    )}
-                    <span className="text-muted-foreground">{t('student.exercises.questionCount', { count: item.question_count })}</span>
-                  </div>
-                  <Button asChild size="sm" className="min-h-[48px] w-full">
-                    <Link to={`/student/exercises/${item.id}`} aria-label={t('student.exercises.startExercise', { title: item.title })}>
-                      {t('student.exercises.start')}
-                    </Link>
-                  </Button>
-                </li>
-              ))}
+              {items.map((item) => {
+                const action = getExerciseAction(item, exerciseStates[item.id], t)
+                return (
+                  <li key={item.id} className="space-y-3 p-4">
+                    <p className="font-medium">{item.title}</p>
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      {item.is_timed ? (
+                        <>
+                          <Badge variant="default">{t('student.exercises.timed')}</Badge>
+                          <span>{formatDuration(item.duration_minutes, i18n.resolvedLanguage)}</span>
+                        </>
+                      ) : (
+                        <Badge variant="secondary">{t('student.exercises.untimed')}</Badge>
+                      )}
+                      <span className="text-muted-foreground">{t('student.exercises.questionCount', { count: item.question_count })}</span>
+                    </div>
+                    <Button asChild size="sm" className="min-h-[48px] w-full">
+                      <Link to={action.href} aria-label={action.accessibleLabel}>
+                        {action.label}
+                      </Link>
+                    </Button>
+                  </li>
+                )
+              })}
             </ul>
           </>
         )}

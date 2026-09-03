@@ -1,5 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
+import { Check, CircleDot, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 function getCellContent(qId, schema, answers, displayIdx) {
@@ -34,11 +35,18 @@ export function countUnanswered(schema, answers) {
 export function QuestionNavGrid({ schema, answers, currentQId, onJump }) {
   const { t } = useTranslation()
   const qIds = [...new Set(schema.map((r) => r.q_id))]
+  const unansweredCount = countUnanswered(schema, answers)
+  const answeredCount = qIds.length - unansweredCount
   return (
     <div>
-      <p className="mb-2 text-sm font-semibold text-foreground">
-        {t('student.nav.answerSheet')}
-      </p>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-1">
+        <p className="text-sm font-semibold text-foreground">
+          {t('student.nav.answerSheet')}
+        </p>
+        <p className="text-xs font-medium text-muted-foreground" aria-live="polite">
+          {t('student.nav.answeredProgress', { answered: answeredCount, total: qIds.length })}
+        </p>
+      </div>
       <div className="grid grid-cols-5 gap-2">
         <span id="question-answered-status" className="sr-only">{t('student.nav.answered')}</span>
         <span id="question-unanswered-status" className="sr-only">{t('student.nav.unanswered')}</span>
@@ -65,6 +73,20 @@ export function QuestionNavGrid({ schema, answers, currentQId, onJump }) {
             </button>
           )
         })}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground" aria-label={t('student.nav.legend')}>
+        <span className="inline-flex items-center gap-1.5">
+          <CircleDot aria-hidden="true" className="h-4 w-4 text-primary" />
+          {t('student.nav.current')}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Check aria-hidden="true" className="h-4 w-4 text-primary" />
+          {t('student.nav.answered')}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <Minus aria-hidden="true" className="h-4 w-4" />
+          {t('student.nav.unanswered')}
+        </span>
       </div>
     </div>
   )

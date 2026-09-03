@@ -1,9 +1,21 @@
 import React from 'react'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { changeLanguage } from '@/i18n'
 import StudentDashboardPage from './StudentDashboardPage'
+
+vi.mock('@/lib/api', () => ({
+  listExercises: vi.fn().mockResolvedValue({ data: [] }),
+}))
+
+vi.mock('@/lib/auth-context', () => ({
+  useAuth: () => ({ token: 'test-token', user: { id: 7 } }),
+}))
+
+vi.mock('@/lib/student-exercise-state', () => ({
+  loadStudentExerciseStates: vi.fn().mockResolvedValue({}),
+}))
 
 afterEach(async () => {
   await act(() => changeLanguage('en'))
