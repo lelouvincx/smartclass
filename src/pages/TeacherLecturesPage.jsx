@@ -308,7 +308,7 @@ export default function TeacherLecturesPage() {
                         </div>
                       </div>
                       {isExpanded && embedUrl && (
-                        <div id={playerId} className="mt-3 overflow-hidden rounded-[var(--sc-component-control-shape)] border bg-black sm:ml-12">
+                        <div id={playerId} className="mt-3 overflow-hidden rounded-[var(--sc-component-control-shape)] border bg-black sm:ml-10">
                           <iframe
                             className="aspect-video w-full"
                             src={embedUrl}
