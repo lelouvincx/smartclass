@@ -84,6 +84,7 @@ describe('TeacherLecturesPage', () => {
       'src',
       'https://www.youtube-nocookie.com/embed/abcdefghijk',
     )
+    expect(screen.getByTitle('Introduction').parentElement).toHaveClass('sm:ml-10')
     expect(screen.getByRole('button', { name: 'Hide Introduction video' })).toHaveAttribute('aria-expanded', 'true')
 
     await user.click(screen.getByRole('button', { name: 'Add lecture' }))
