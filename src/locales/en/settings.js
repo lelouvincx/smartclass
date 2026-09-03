@@ -1,6 +1,7 @@
 export default {
   title: 'Settings',
   back: 'Back',
+  sectionToggle: '{{title}} settings',
   language: {
     title: 'Language',
     description: 'Choose the language used in the teacher and student application.',

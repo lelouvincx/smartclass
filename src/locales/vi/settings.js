@@ -1,6 +1,7 @@
 export default {
   title: 'Cài đặt',
   back: 'Quay lại',
+  sectionToggle: 'Cài đặt {{title}}',
   language: {
     title: 'Ngôn ngữ',
     description: 'Chọn ngôn ngữ sử dụng trong ứng dụng dành cho giáo viên và học sinh.',

@@ -43,6 +43,39 @@ function renderPage() {
   )
 }
 
+describe('SettingsPage sections', () => {
+  it('lets users independently collapse and expand each visible setting', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    expect(screen.getByRole('heading', { name: 'Settings', level: 1 })).toBeInTheDocument()
+
+    const languageToggle = screen.getByRole('button', { name: 'Language settings' })
+    const passwordToggle = screen.getByRole('button', { name: 'Change password settings' })
+    const accountsToggle = screen.getByRole('button', { name: 'Connected accounts settings' })
+
+    expect(languageToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(passwordToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(accountsToggle).toHaveAttribute('aria-expanded', 'true')
+
+    await user.type(screen.getByLabelText('Current password'), 'keep-this-value')
+    await user.click(passwordToggle)
+
+    expect(screen.getByRole('button', { name: 'Change password settings' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(screen.queryByLabelText('Current password')).not.toBeVisible()
+    expect(screen.getByRole('combobox', { name: 'Language' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Connect Google' })).toBeVisible()
+
+    await user.click(screen.getByRole('button', { name: 'Change password settings' }))
+
+    expect(screen.getByLabelText('Current password')).toBeVisible()
+    expect(screen.getByLabelText('Current password')).toHaveValue('keep-this-value')
+  })
+})
+
 describe('SettingsPage language preference', () => {
   it('switches the authenticated interface to formal Vietnamese', async () => {
     const user = userEvent.setup()

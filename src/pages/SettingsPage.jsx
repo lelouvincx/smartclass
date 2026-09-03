@@ -6,7 +6,7 @@ import { changeLanguage } from '@/i18n'
 import { changePassword, unlinkGoogle } from '@/lib/api'
 import { startGoogleFlow } from '@/lib/google-oauth'
 import { getDefaultPathForRole } from '@/lib/navigation'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -25,7 +25,7 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/
 import { Spinner } from '@/components/ui/spinner'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { ArrowLeft, UnlinkIcon } from 'lucide-react'
+import { ArrowLeft, ChevronDown, UnlinkIcon } from 'lucide-react'
 
 function GoogleGIcon({ className }) {
   return (
@@ -35,6 +35,40 @@ function GoogleGIcon({ className }) {
       <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
       <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
     </svg>
+  )
+}
+
+function SettingSection({ id, title, description, toggleLabel, children }) {
+  const [isExpanded, setIsExpanded] = useState(true)
+  const contentId = `${id}-content`
+
+  return (
+    <Card className="gap-0 py-0">
+      <div className="grid gap-1 p-4">
+        <h2>
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            aria-controls={contentId}
+            aria-label={toggleLabel}
+            onClick={() => setIsExpanded((expanded) => !expanded)}
+            className="flex min-h-[var(--sc-component-hit-target)] w-full items-center justify-between gap-4 rounded-[var(--sc-component-control-shape)] text-left outline-none transition-colors hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:ring-inset"
+          >
+            <span className="text-[length:var(--sc-type-title-size)] leading-[var(--sc-type-title-line-height)] font-[var(--sc-type-title-weight)]">
+              {title}
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className={`size-5 shrink-0 transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-180' : ''}`}
+            />
+          </button>
+        </h2>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+      <CardContent id={contentId} hidden={!isExpanded} className="pb-4">
+        {children}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -106,7 +140,7 @@ export default function SettingsPage() {
             <Button variant="ghost" size="icon-sm" onClick={() => navigate(getDefaultPathForRole(user?.role))} aria-label={t('settings.back')}>
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <span className="text-sm font-semibold">{t('settings.title')}</span>
+            <h1 className="text-sm font-semibold">{t('settings.title')}</h1>
           </div>
           <div className="flex items-center gap-2">
             {user?.phone && (
@@ -119,108 +153,106 @@ export default function SettingsPage() {
         </div>
       </header>
       <main className="mx-auto grid max-w-lg gap-6 px-8 py-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.language.title')}</CardTitle>
-            <CardDescription>{t('settings.language.description')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Label htmlFor="language">{t('settings.language.label')}</Label>
-            <select
-              id="language"
-              value={i18n.resolvedLanguage}
-              onChange={(event) => changeLanguage(event.target.value)}
-              className="mt-2 min-h-[var(--sc-component-hit-target)] w-full rounded-[var(--sc-component-control-shape)] border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-            >
-              <option value="en">{t('settings.language.english')}</option>
-              <option value="vi">{t('settings.language.vietnamese')}</option>
-            </select>
-          </CardContent>
-        </Card>
+        <SettingSection
+          id="language-setting"
+          title={t('settings.language.title')}
+          description={t('settings.language.description')}
+          toggleLabel={t('settings.sectionToggle', { title: t('settings.language.title') })}
+        >
+          <Label htmlFor="language">{t('settings.language.label')}</Label>
+          <select
+            id="language"
+            value={i18n.resolvedLanguage}
+            onChange={(event) => changeLanguage(event.target.value)}
+            className="mt-2 min-h-[var(--sc-component-hit-target)] w-full rounded-[var(--sc-component-control-shape)] border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <option value="en">{t('settings.language.english')}</option>
+            <option value="vi">{t('settings.language.vietnamese')}</option>
+          </select>
+        </SettingSection>
         {user?.role === 'teacher' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('settings.password.title')}</CardTitle>
-              <CardDescription>{t('settings.password.description')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handlePasswordChange}>
-                <FieldGroup>
-                  <Field data-invalid={Boolean(passwordError)}>
-                    <FieldLabel htmlFor="settings-current-password">
-                      {t('settings.password.current')}
-                    </FieldLabel>
-                    <Input
-                      id="settings-current-password"
-                      name="current-password"
-                      type="password"
-                      autoComplete="current-password"
-                      required
-                      aria-invalid={Boolean(passwordError)}
-                      aria-describedby={passwordError ? 'password-change-error' : undefined}
-                      value={currentPassword}
-                      onChange={(event) => setCurrentPassword(event.target.value)}
-                    />
-                  </Field>
-                  <Field data-invalid={Boolean(passwordError)}>
-                    <FieldLabel htmlFor="settings-new-password">
-                      {t('settings.password.new')}
-                    </FieldLabel>
-                    <FieldDescription id="password-change-policy">
-                      {t('settings.password.policy')}
-                    </FieldDescription>
-                    <Input
-                      id="settings-new-password"
-                      name="new-password"
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      minLength={3}
-                      aria-invalid={Boolean(passwordError)}
-                      aria-describedby={`password-change-policy${passwordError ? ' password-change-error' : ''}`}
-                      value={newPassword}
-                      onChange={(event) => setNewPassword(event.target.value)}
-                    />
-                  </Field>
-                  <Field data-invalid={Boolean(passwordError)}>
-                    <FieldLabel htmlFor="settings-confirm-password">
-                      {t('settings.password.confirm')}
-                    </FieldLabel>
-                    <Input
-                      id="settings-confirm-password"
-                      name="confirm-password"
-                      type="password"
-                      autoComplete="new-password"
-                      required
-                      minLength={3}
-                      aria-invalid={Boolean(passwordError)}
-                      aria-describedby={passwordError ? 'password-change-error' : undefined}
-                      value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
-                    />
-                  </Field>
-                  {passwordError && (
-                    <FieldError id="password-change-error">{passwordError}</FieldError>
-                  )}
-                  {passwordSuccess && (
-                    <p role="status" className="text-sm text-success">{passwordSuccess}</p>
-                  )}
-                  <Button type="submit" disabled={isChangingPassword}>
-                    {isChangingPassword
-                      ? t('settings.password.changing')
-                      : t('settings.password.submit')}
-                  </Button>
-                </FieldGroup>
-              </form>
-            </CardContent>
-          </Card>
+          <SettingSection
+            id="password-setting"
+            title={t('settings.password.title')}
+            description={t('settings.password.description')}
+            toggleLabel={t('settings.sectionToggle', { title: t('settings.password.title') })}
+          >
+            <form onSubmit={handlePasswordChange}>
+              <FieldGroup>
+                <Field data-invalid={Boolean(passwordError)}>
+                  <FieldLabel htmlFor="settings-current-password">
+                    {t('settings.password.current')}
+                  </FieldLabel>
+                  <Input
+                    id="settings-current-password"
+                    name="current-password"
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    aria-invalid={Boolean(passwordError)}
+                    aria-describedby={passwordError ? 'password-change-error' : undefined}
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                  />
+                </Field>
+                <Field data-invalid={Boolean(passwordError)}>
+                  <FieldLabel htmlFor="settings-new-password">
+                    {t('settings.password.new')}
+                  </FieldLabel>
+                  <FieldDescription id="password-change-policy">
+                    {t('settings.password.policy')}
+                  </FieldDescription>
+                  <Input
+                    id="settings-new-password"
+                    name="new-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={3}
+                    aria-invalid={Boolean(passwordError)}
+                    aria-describedby={`password-change-policy${passwordError ? ' password-change-error' : ''}`}
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                  />
+                </Field>
+                <Field data-invalid={Boolean(passwordError)}>
+                  <FieldLabel htmlFor="settings-confirm-password">
+                    {t('settings.password.confirm')}
+                  </FieldLabel>
+                  <Input
+                    id="settings-confirm-password"
+                    name="confirm-password"
+                    type="password"
+                    autoComplete="new-password"
+                    required
+                    minLength={3}
+                    aria-invalid={Boolean(passwordError)}
+                    aria-describedby={passwordError ? 'password-change-error' : undefined}
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                  />
+                </Field>
+                {passwordError && (
+                  <FieldError id="password-change-error">{passwordError}</FieldError>
+                )}
+                {passwordSuccess && (
+                  <p role="status" className="text-sm text-success">{passwordSuccess}</p>
+                )}
+                <Button type="submit" disabled={isChangingPassword}>
+                  {isChangingPassword
+                    ? t('settings.password.changing')
+                    : t('settings.password.submit')}
+                </Button>
+              </FieldGroup>
+            </form>
+          </SettingSection>
         )}
-        <Card>
-        <CardHeader>
-          <CardTitle>{t('settings.accounts.title')}</CardTitle>
-          <CardDescription>{t('settings.accounts.description')}</CardDescription>
-        </CardHeader>
-        <CardContent>
+        <SettingSection
+          id="accounts-setting"
+          title={t('settings.accounts.title')}
+          description={t('settings.accounts.description')}
+          toggleLabel={t('settings.sectionToggle', { title: t('settings.accounts.title') })}
+        >
           {isLinked ? (
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-2">
@@ -275,8 +307,7 @@ export default function SettingsPage() {
               </Button>
             </Empty>
           )}
-        </CardContent>
-        </Card>
+        </SettingSection>
       </main>
     </div>
   )
