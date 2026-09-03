@@ -17,6 +17,8 @@
 
 ## Change contract
 
+- Add a `CHANGELOG.md` entry under `[Unreleased]` for every pull request. After opening the pull request, add its number and link in a separate commit.
+- Check `CHANGELOG.md` before searching Git or pull-request history for a historical change.
 - For behavioral changes, add or update the failing test first, then implement the smallest change that makes it pass.
 - Use `jsonSuccess` and `jsonError` from `worker/lib/response.js` for API responses.
 - Keep frontend API operations behind `request()` in `src/lib/api.js`. Use XHR only when upload-progress events are required.

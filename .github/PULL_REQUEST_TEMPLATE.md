@@ -18,3 +18,5 @@
 <!-- Describe the to do actions after merging.-->
 
 ## 4. Checklist
+
+- [ ] Updated `CHANGELOG.md` under [Unreleased]
