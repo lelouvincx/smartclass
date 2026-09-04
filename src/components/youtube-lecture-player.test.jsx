@@ -146,4 +146,25 @@ describe('YouTubeLecturePlayer', () => {
     expect(screen.getAllByTitle('Introduction video')).toHaveLength(1)
     expect(youtube.api.Player).toHaveBeenCalledOnce()
   })
+
+  it('ignores player callbacks after the lifecycle is discarded', async () => {
+    vi.useFakeTimers()
+    const youtube = createYouTubeAPI()
+    loadYouTubeIframeAPIMock.mockResolvedValue(youtube.api)
+    const view = renderPlayer()
+    await act(async () => {})
+    const options = youtube.getOptions()
+
+    view.unmount()
+    localStorage.setItem(lectureProgressKey(identity), '44')
+    youtube.setCurrentTime(18)
+    youtube.setPlayerState(1)
+    act(() => options.events.onReady({ target: youtube.player }))
+    act(() => options.events.onStateChange({ data: 1, target: youtube.player }))
+    act(() => vi.advanceTimersByTime(5000))
+    act(() => options.events.onStateChange({ data: 0, target: youtube.player }))
+
+    expect(localStorage.getItem(lectureProgressKey(identity))).toBe('44')
+    expect(vi.getTimerCount()).toBe(0)
+  })
 })

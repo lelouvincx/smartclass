@@ -67,12 +67,14 @@ export default function YouTubeLecturePlayer({ accountId, lectureId, title, vide
     }
 
     function startSaving() {
-      if (saveInterval !== null || ended) return
+      if (!active || saveInterval !== null || ended) return
       hasPlayed = true
       saveInterval = window.setInterval(flushProgress, SAVE_INTERVAL_MS)
     }
 
     function handleStateChange(event, YouTube) {
+      if (!active) return
+
       if (event.data === YouTube.PlayerState.PLAYING) {
         startSaving()
         return
@@ -87,11 +89,11 @@ export default function YouTubeLecturePlayer({ accountId, lectureId, title, vide
     }
 
     function handlePageHide() {
-      flushProgress()
+      if (active) flushProgress()
     }
 
     function handleVisibilityChange() {
-      if (document.visibilityState === 'hidden') flushProgress()
+      if (active && document.visibilityState === 'hidden') flushProgress()
     }
 
     window.addEventListener('pagehide', handlePageHide)
@@ -105,6 +107,7 @@ export default function YouTubeLecturePlayer({ accountId, lectureId, title, vide
         player = new YouTube.Player(iframe, {
           events: {
             onReady: (event) => {
+              if (!active) return
               player = event.target
               try {
                 if (player.getPlayerState() === YouTube.PlayerState.PLAYING) startSaving()
@@ -121,11 +124,11 @@ export default function YouTubeLecturePlayer({ accountId, lectureId, title, vide
       })
 
     return () => {
+      flushProgress()
       active = false
       window.removeEventListener('pagehide', handlePageHide)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       stopSaving()
-      flushProgress()
 
       try {
         player?.destroy()
