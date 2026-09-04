@@ -296,15 +296,15 @@ export default function TeacherLecturesPage() {
                   const playerId = `lecture-player-${lecture.id}`
                   sequence += 1
                   return (
-                    <li key={lecture.id} className="min-w-0 px-4 py-3 sm:px-6">
+                    <li
+                      key={lecture.id}
+                      className={`min-w-0 px-4 py-3 sm:px-6 ${lecture.is_visible ? "" : "bg-muted text-muted-foreground"}`}
+                    >
                       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-semibold tabular-nums text-muted-foreground">{sequence}</span>
                           <div className="min-w-0">
                             <p className="font-medium leading-6 break-words">{lecture.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {t(lecture.is_visible ? 'teacher.lectures.visible' : 'teacher.lectures.hidden')}
-                            </p>
                             <Button
                               type="button"
                               variant="ghost"

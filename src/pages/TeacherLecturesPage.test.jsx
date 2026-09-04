@@ -136,9 +136,11 @@ describe('TeacherLecturesPage', () => {
     renderPage()
 
     await screen.findByText('Introduction')
-    expect(screen.getAllByText('Visible to students')).toHaveLength(2)
+    const hideButton = screen.getByRole('button', { name: 'Hide Introduction from students' })
+    expect(screen.queryByText('Visible to students')).not.toBeInTheDocument()
+    expect(hideButton.closest('li')).not.toHaveClass('bg-muted')
 
-    await user.click(screen.getByRole('button', { name: 'Hide Introduction from students' }))
+    await user.click(hideButton)
 
     expect(updateLectureMock).toHaveBeenCalledWith('teacher-token', 1, {
       title: 'Introduction',
@@ -146,7 +148,8 @@ describe('TeacherLecturesPage', () => {
       youtube_url: 'https://youtu.be/abcdefghijk',
       is_visible: false,
     })
-    expect(screen.getByText('Hidden from students')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Introduction to students' })).toBeInTheDocument()
+    const showButton = screen.getByRole('button', { name: 'Show Introduction to students' })
+    expect(screen.queryByText('Hidden from students')).not.toBeInTheDocument()
+    expect(showButton.closest('li')).toHaveClass('bg-muted', 'text-muted-foreground')
   })
 })
