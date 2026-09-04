@@ -50,7 +50,7 @@ describe('POST /api/exercises/schema/parse', () => {
   })
 
   it('returns normalized schema from model output including boolean sub-questions', async () => {
-    env.OPENROUTER_API_KEY = 'test-key'
+    env.DEEPSEEK_API_KEY = 'test-key'
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({
@@ -91,10 +91,14 @@ describe('POST /api/exercises/schema/parse', () => {
       { q_id: 2, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.85 },
     ])
     expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
+    const requestBody = JSON.parse(fetch.mock.calls[0][1].body)
+    expect(fetch.mock.calls[0][0]).toBe('https://api.deepseek.com/chat/completions')
+    expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer test-key')
+    expect(requestBody.model).toBe('deepseek-v4-flash')
   })
 
   it('returns PARSE_ERROR when model response is not valid json', async () => {
-    env.OPENROUTER_API_KEY = 'test-key'
+    env.DEEPSEEK_API_KEY = 'test-key'
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({
@@ -123,7 +127,7 @@ describe('POST /api/exercises/schema/parse', () => {
   })
 
   it('returns INVALID_SCHEMA when parsed rows are invalid', async () => {
-    env.OPENROUTER_API_KEY = 'test-key'
+    env.DEEPSEEK_API_KEY = 'test-key'
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({
@@ -155,8 +159,8 @@ describe('POST /api/exercises/schema/parse', () => {
     expect(body.error.code).toBe('INVALID_SCHEMA')
   })
 
-  it('returns PARSE_ERROR when openrouter key is missing', async () => {
-    env.OPENROUTER_API_KEY = ''
+  it('returns PARSE_ERROR when DeepSeek key is missing', async () => {
+    env.DEEPSEEK_API_KEY = ''
 
     const res = await app.request('/api/exercises/schema/parse', {
       method: 'POST',
@@ -567,12 +571,10 @@ describe('DELETE /api/exercises/:id', () => {
 // ── extract_model on exercises (v0.4 PR C2) ──────────────────────────────────
 
 describe('extract_model on exercises', () => {
-  const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
-
   it('round-trips a valid extract_model on create', async () => {
-    const { res, body } = await createExercise(token, { extract_model: altModel.id })
+    const { res, body } = await createExercise(token, { extract_model: DEFAULT_EXTRACT_MODEL })
     expect(res.status).toBe(201)
-    expect(body.data.extract_model).toBe(altModel.id)
+    expect(body.data.extract_model).toBe(DEFAULT_EXTRACT_MODEL)
   })
 
   it('defaults extract_model to null when omitted', async () => {
@@ -594,15 +596,15 @@ describe('extract_model on exercises', () => {
     const updateRes = await app.request(`/api/exercises/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ extract_model: altModel.id }),
+      body: JSON.stringify({ extract_model: DEFAULT_EXTRACT_MODEL }),
     }, env)
     expect(updateRes.status).toBe(200)
     const updated = await updateRes.json()
-    expect(updated.data.extract_model).toBe(altModel.id)
+    expect(updated.data.extract_model).toBe(DEFAULT_EXTRACT_MODEL)
   })
 
   it('clears extract_model when PUT sends null', async () => {
-    const { id } = await createExercise(token, { extract_model: altModel.id })
+    const { id } = await createExercise(token, { extract_model: DEFAULT_EXTRACT_MODEL })
 
     const updateRes = await app.request(`/api/exercises/${id}`, {
       method: 'PUT',

@@ -18,8 +18,16 @@ dependencies: [RFC-1, RFC-2]
 | --- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | v1  | 2026-05-03 | Initial draft. Replaces the OCR plan from the v0.4 roadmap with a vision-LLM approach via OpenRouter (Grok).                                                           |
 | v2  | 2026-05-03 | Address review: add smooth upload/extract UX as explicit scope item; raise image cap to 20 MB; treat Grok as the default but make the model user-selectable in the UI. |
+| v3  | 2026-09-04 | Replace OpenRouter and its model allowlist with DeepSeek's official API and `deepseek-v4-flash-vision-exp`.                                                            |
 
 ---
+
+> **Provider update (2026-09-04):** The historical design below records the
+> originally shipped OpenRouter integration. The current implementation calls
+> DeepSeek directly at `https://api.deepseek.com`, using
+> `deepseek-v4-flash` for answer-schema text and
+> `deepseek-v4-flash-vision-exp` for image input. OpenRouter and the Gemini
+> fallback are no longer used.
 
 ## Motivation
 

@@ -233,7 +233,7 @@ export function getFileUrl(fileId) {
  * @param {string} token         JWT bearer token
  * @param {number|string} submissionId
  * @param {File}   imageFile     jpeg/png, ≤ 20 MB
- * @param {string} [model]       OpenRouter model id; if omitted/unknown the
+ * @param {string} [model]       DeepSeek model id; if omitted/unknown the
  *                               server falls back to DEFAULT_EXTRACT_MODEL.
  * @param {object} [opts]
  * @param {(fraction:number) => void} [opts.onProgress]  upload progress 0..1

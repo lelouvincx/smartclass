@@ -1,24 +1,5 @@
-const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_MODEL = 'x-ai/grok-4.1-fast'
-
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta'
-const GEMINI_MODEL = 'gemini-2.5-flash'
-
-const RETRYABLE_PATTERNS = [
-  'not available in your region',
-  'rate limit',
-  'model is currently overloaded',
-]
-
-// Vision-capable models cannot fall back to the text-only Gemini path used by
-// requestSchemaFromOpenRouter. If the primary call fails, we surface the error
-// to the caller, which maps it to a 502 + "switch model / use manual" UX.
-// Gemini vision fallback is intentionally deferred to a later PR.
-
-function isRetryableError(message) {
-  const lower = (message || '').toLowerCase()
-  return RETRYABLE_PATTERNS.some((p) => lower.includes(p))
-}
+const DEFAULT_BASE_URL = 'https://api.deepseek.com'
+const SCHEMA_MODEL = 'deepseek-v4-flash'
 
 function buildPrompt(sourceText, expectedQuestionCount) {
   const countHint = expectedQuestionCount
@@ -52,7 +33,7 @@ function buildPrompt(sourceText, expectedQuestionCount) {
   ].join('\n')
 }
 
-async function callOpenRouter(endpoint, apiKey, model, messages) {
+async function callDeepSeek(endpoint, apiKey, model, messages) {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
@@ -70,77 +51,33 @@ async function callOpenRouter(endpoint, apiKey, model, messages) {
   const payload = await response.json().catch(() => null)
 
   if (!response.ok) {
-    const message = payload?.error?.message || 'OpenRouter request failed'
+    const message = payload?.error?.message || 'DeepSeek request failed'
     return { ok: false, message }
   }
 
   const content = payload?.choices?.[0]?.message?.content
   if (!content) {
-    return { ok: false, message: 'OpenRouter returned empty content' }
+    return { ok: false, message: 'DeepSeek returned empty content' }
   }
 
   return { ok: true, content }
 }
 
-async function callGeminiDirect(apiKey, promptText) {
-  const endpoint = `${GEMINI_API_URL}/models/${GEMINI_MODEL}:generateContent`
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: promptText }] }],
-      generationConfig: {
-        temperature: 0.1,
-        responseMimeType: 'application/json',
-      },
-    }),
-  })
-
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok) {
-    const message = payload?.error?.message || 'Gemini API request failed'
-    return { ok: false, message }
+export async function requestSchemaFromDeepSeek(env, sourceText, expectedQuestionCount) {
+  if (!env.DEEPSEEK_API_KEY) {
+    throw new Error('DEEPSEEK_API_KEY is not configured')
   }
 
-  const content = payload?.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!content) {
-    return { ok: false, message: 'Gemini API returned empty content' }
-  }
-
-  return { ok: true, content }
-}
-
-export async function requestSchemaFromOpenRouter(env, sourceText, expectedQuestionCount) {
-  if (!env.OPENROUTER_API_KEY) {
-    throw new Error('OPENROUTER_API_KEY is not configured')
-  }
-
-  // Model is hard-coded to DEFAULT_MODEL here; teacher UI will surface a
-  // configurable choice in a follow-up PR (then this becomes a function arg).
-  const primaryModel = DEFAULT_MODEL
-  const endpoint = `${env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL}/chat/completions`
+  const endpoint = `${env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL}/chat/completions`
   const promptText = buildPrompt(sourceText, expectedQuestionCount)
   const messages = [{ role: 'user', content: promptText }]
 
-  const primary = await callOpenRouter(endpoint, env.OPENROUTER_API_KEY, primaryModel, messages)
-  if (primary.ok) {
-    return primary.content
+  const result = await callDeepSeek(endpoint, env.DEEPSEEK_API_KEY, SCHEMA_MODEL, messages)
+  if (result.ok) {
+    return result.content
   }
 
-  if (isRetryableError(primary.message) && env.GEMINI_API_KEY) {
-    console.warn(`OpenRouter failed: ${primary.message}. Falling back to direct Gemini API`)
-    const fallback = await callGeminiDirect(env.GEMINI_API_KEY, promptText)
-    if (fallback.ok) {
-      return fallback.content
-    }
-    throw new Error(fallback.message)
-  }
-
-  throw new Error(primary.message)
+  throw new Error(result.message)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -193,20 +130,20 @@ function bytesToBase64(bytes) {
 }
 
 /**
- * Extract a student's answers from an image via an OpenRouter vision model.
+ * Extract a student's answers with DeepSeek's official vision API.
  *
- * @param {object}   env               Worker env (uses OPENROUTER_API_KEY, OPENROUTER_BASE_URL).
+ * @param {object}   env               Worker env (uses DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL).
  * @param {object}   args
  * @param {ArrayBuffer|Uint8Array} args.imageBytes
  * @param {string}   args.contentType  e.g. 'image/jpeg' | 'image/png'
  * @param {Array}    args.schema       answer_schemas rows: { q_id, sub_id, type }
- * @param {string}   args.model        OpenRouter model id (already validated against allowlist)
+ * @param {string}   args.model        DeepSeek model id (already validated against allowlist)
  * @returns {Promise<string>}          raw JSON text from the model — pass to validateExtractedAnswers
- * @throws {Error}                     when the OpenRouter call fails (no Gemini fallback for vision)
+ * @throws {Error}                     when the DeepSeek call fails
  */
 export async function requestAnswersFromImage(env, { imageBytes, contentType, schema, model }) {
-  if (!env.OPENROUTER_API_KEY) {
-    throw new Error('OPENROUTER_API_KEY is not configured')
+  if (!env.DEEPSEEK_API_KEY) {
+    throw new Error('DEEPSEEK_API_KEY is not configured')
   }
   if (!model) {
     throw new Error('model is required')
@@ -218,7 +155,7 @@ export async function requestAnswersFromImage(env, { imageBytes, contentType, sc
     throw new Error('schema must be an array')
   }
 
-  const endpoint = `${env.OPENROUTER_BASE_URL || DEFAULT_BASE_URL}/chat/completions`
+  const endpoint = `${env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL}/chat/completions`
   const promptText = buildAnswersPrompt(schema)
   const dataUri = `data:${contentType || 'image/jpeg'};base64,${bytesToBase64(imageBytes)}`
 
@@ -232,12 +169,10 @@ export async function requestAnswersFromImage(env, { imageBytes, contentType, sc
     },
   ]
 
-  const result = await callOpenRouter(endpoint, env.OPENROUTER_API_KEY, model, messages)
+  const result = await callDeepSeek(endpoint, env.DEEPSEEK_API_KEY, model, messages)
   if (result.ok) {
     return result.content
   }
 
-  // Vision: no Gemini fallback in PR B — surface error so the route returns 502
-  // and the UI prompts the student to retry / switch model / use manual mode.
   throw new Error(result.message)
 }

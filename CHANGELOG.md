@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Route answer-schema and image inference through DeepSeek's official API, using DeepSeek V4 Flash for text and DeepSeek V4 Flash Vision for images, with no OpenRouter dependency.
 - Align expanded lecture previews with their disclosure controls on desktop. [#90](https://github.com/lelouvincx/smartclass/pull/90)
 - Make dashboards task-aware, show truthful exercise actions, prioritize the current question on mobile attempts, and clarify answer progress. [#89](https://github.com/lelouvincx/smartclass/pull/89)
 - Use Material 3's default Roboto typeface throughout the application. [#87](https://github.com/lelouvincx/smartclass/pull/87)
