@@ -12,7 +12,7 @@ vi.mock('../lib/api', async (importOriginal) => ({
 }))
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({ token: 'student-token' }),
+  useAuth: () => ({ token: 'student-token', user: { id: 7 } }),
 }))
 
 const lectures = [
@@ -44,7 +44,7 @@ describe('StudentLecturePlayerPage', () => {
     expect(listLecturesMock).toHaveBeenCalledWith('student-token')
     expect(screen.getByTitle('Worked example video')).toHaveAttribute(
       'src',
-      'https://www.youtube-nocookie.com/embed/lmnopqrstuv',
+      expect.stringContaining('https://www.youtube-nocookie.com/embed/lmnopqrstuv?enablejsapi=1'),
     )
     expect(screen.getByText('Chapter 1')).toBeInTheDocument()
     expect(screen.queryByText('Lecture 2 of 3')).not.toBeInTheDocument()
