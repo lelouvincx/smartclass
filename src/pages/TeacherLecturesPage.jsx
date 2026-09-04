@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, BookOpen, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowUp, BookOpen, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from 'lucide-react'
 import {
   createLecture,
   deleteLecture,
@@ -147,6 +147,23 @@ export default function TeacherLecturesPage() {
     }
   }
 
+  async function toggleVisibility(lecture) {
+    setError('')
+    try {
+      const response = await updateLecture(token, lecture.id, {
+        title: lecture.title,
+        section_name: lecture.section_name,
+        youtube_url: lecture.youtube_url,
+        is_visible: !lecture.is_visible,
+      })
+      setLectures((current) => current.map((item) => (
+        item.id === lecture.id ? response.data : item
+      )))
+    } catch (visibilityError) {
+      setError(visibilityError.message)
+    }
+  }
+
   let sequence = 0
   const sectionNames = [...new Set(lectures.map((lecture) => lecture.section_name))]
 
@@ -279,7 +296,10 @@ export default function TeacherLecturesPage() {
                   const playerId = `lecture-player-${lecture.id}`
                   sequence += 1
                   return (
-                    <li key={lecture.id} className="min-w-0 px-4 py-3 sm:px-6">
+                    <li
+                      key={lecture.id}
+                      className={`min-w-0 px-4 py-3 sm:px-6 ${lecture.is_visible ? '' : 'bg-muted text-muted-foreground'}`}
+                    >
                       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                         <div className="flex min-w-0 items-center gap-3">
                           <span className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-semibold tabular-nums text-muted-foreground">{sequence}</span>
@@ -301,6 +321,15 @@ export default function TeacherLecturesPage() {
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 sm:justify-end">
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="outline"
+                            onClick={() => toggleVisibility(lecture)}
+                            aria-label={t(lecture.is_visible ? 'teacher.lectures.hideFromStudents' : 'teacher.lectures.showToStudents', { title: lecture.title })}
+                          >
+                            {lecture.is_visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                          </Button>
                           <Button type="button" size="icon" variant="outline" onClick={() => moveLecture(index, -1)} disabled={index === 0} aria-label={t('teacher.lectures.moveUp', { title: lecture.title })}><ArrowUp aria-hidden="true" /></Button>
                           <Button type="button" size="icon" variant="outline" onClick={() => moveLecture(index, 1)} disabled={index === lectures.length - 1} aria-label={t('teacher.lectures.moveDown', { title: lecture.title })}><ArrowDown aria-hidden="true" /></Button>
                           <Button type="button" size="icon" variant="outline" onClick={() => startEditing(lecture)} aria-label={t('teacher.lectures.editNamed', { title: lecture.title })}><Pencil aria-hidden="true" /></Button>
