@@ -39,11 +39,11 @@ Lectures require an authenticated teacher or student account. Guest lecture acce
 
 - Group consecutive lectures under section headers without globally merging repeated section names.
 - Number lectures according to their global order.
-- Keep add, move up, move down, edit, and delete actions explicit and touch-accessible.
+- Keep show or hide, add, move up, move down, edit, and delete actions explicit and touch-accessible.
 - Let a teacher expand a lecture's embedded video directly in the curriculum. Only one embedded player is open at a time.
 - Use an add/edit dialog with one vertical column in this order: Section, Lecture title, YouTube URL.
 - Make every input span the dialog width. Existing section names are offered as suggestions, while new names remain valid.
-- Saving makes the lecture immediately available to students.
+- New lectures are visible to students by default. Teachers can hide or show each lecture without deleting it.
 
 ### Student curriculum
 
@@ -72,9 +72,9 @@ The numeric ID remains the lookup key and prevents collisions between lectures w
 
 ## Data and API
 
-The existing `lectures` table remains the source of truth: `id`, `title`, `section_name`, `youtube_url`, `order_index`, creator, and timestamps. No schema change is required.
+The `lectures` table remains the source of truth: `id`, `title`, `section_name`, `youtube_url`, `order_index`, `is_visible`, creator, and timestamps. `is_visible` defaults to true so existing and newly created lectures remain available unless a teacher hides them.
 
-The existing lecture API remains responsible for listing and teacher-authorized create, update, reorder, and delete operations. Reordering the global lecture list also determines section runs.
+The existing lecture API remains responsible for listing and teacher-authorized create, update, reorder, and delete operations. Teachers receive all lectures; students receive only visible lectures. Reordering the global lecture list also determines section runs.
 
 ## Implementation plan
 
@@ -88,9 +88,9 @@ The existing lecture API remains responsible for listing and teacher-authorized 
 
 ## Acceptance criteria
 
-- Teachers can create, edit, reorder, preview, and delete lectures without leaving the curriculum page.
+- Teachers can create, edit, show or hide, reorder, preview, and delete lectures without leaving the curriculum page.
 - The create/edit dialog is single-column with Section first and full-width fields.
-- Students see the same global order grouped into consecutive sections.
+- Students see visible lectures in the same global order grouped into consecutive sections and cannot open hidden lectures.
 - Every student lecture link and previous/next link uses `<id>-<title-slug>`.
 - The player shows the section and title without a redundant global-count label.
 - YouTube embeds use the privacy-enhanced domain and retain a direct fallback link.

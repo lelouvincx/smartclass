@@ -13,10 +13,10 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 
 ## Lecture model
 
-- Teachers create, edit, reorder, and delete lectures. Each lecture has a section, title, and supported public YouTube video URL.
+- Teachers create, edit, show or hide, reorder, and delete lectures. Each lecture has a section, title, supported public YouTube video URL, and student visibility state. New lectures are visible by default.
 - The lecture order is global. Consecutive lectures with the same section are presented together without changing that order.
 - Teachers can expand one embedded video at a time while managing the curriculum.
-- Students browse the sectioned curriculum and watch each lecture on a dedicated, readable URL with embedded playback and previous/next navigation.
+- Students browse visible lectures in the sectioned curriculum and watch each one on a dedicated, readable URL with embedded playback and previous/next navigation. Hidden lectures and their player pages are unavailable to students.
 - Lecture browsing is available only to authenticated teachers and students.
 
 ## Account access

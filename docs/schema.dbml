@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0011_add_question_answer_candidates
+// Last updated: migration 0014_add_lecture_visibility
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -221,6 +221,7 @@ Table lectures {
   section_name text    [not null, note: 'e.g. Chapter 1, Solution for Exercise 3']
   youtube_url  text    [not null]
   order_index  integer [not null, default: 0]
+  is_visible   integer [not null, default: 1, note: '1 when students can browse and watch the lecture; otherwise 0']
   created_by   integer [not null, ref: > users.id]
   created_at   text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at   text    [not null, default: 'CURRENT_TIMESTAMP']
