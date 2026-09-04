@@ -100,7 +100,7 @@ describe('AnswerImageUpload', () => {
     const onExtracted = vi.fn()
     extractMock.mockResolvedValue({
       file_id: 7,
-      model_used: 'x-ai/grok-4.1-fast',
+      model_used: 'deepseek-v4-flash-vision-exp',
       extracted: [{ q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 }],
       warnings: [],
     })
@@ -124,7 +124,7 @@ describe('AnswerImageUpload', () => {
       expect.objectContaining({
         extracted: [{ q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 }],
         warnings: [],
-        model_used: 'x-ai/grok-4.1-fast',
+        model_used: 'deepseek-v4-flash-vision-exp',
       }),
     )
     expect(screen.getByText(/Re-extract/i)).toBeInTheDocument()
@@ -134,7 +134,7 @@ describe('AnswerImageUpload', () => {
     extractMock.mockRejectedValueOnce(new Error('boom'))
     extractMock.mockResolvedValueOnce({
       file_id: 1,
-      model_used: 'x-ai/grok-4.1-fast',
+      model_used: 'deepseek-v4-flash-vision-exp',
       extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: 0.9 }],
       warnings: [],
     })
@@ -157,7 +157,7 @@ describe('AnswerImageUpload', () => {
   it('shows warnings when the model returns any', async () => {
     extractMock.mockResolvedValue({
       file_id: 1,
-      model_used: 'x-ai/grok-4.1-fast',
+      model_used: 'deepseek-v4-flash-vision-exp',
       extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: 0.9 }],
       warnings: ['Q5 unreadable'],
     })
@@ -175,7 +175,7 @@ describe('AnswerImageUpload', () => {
   it('lets the user replace the image after a successful extraction', async () => {
     extractMock.mockResolvedValue({
       file_id: 1,
-      model_used: 'x-ai/grok-4.1-fast',
+      model_used: 'deepseek-v4-flash-vision-exp',
       extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: 0.9 }],
       warnings: [],
     })

@@ -1,18 +1,11 @@
-// Allowed models for image-based answer extraction (v0.4).
+// Official DeepSeek models allowed for image-based answer extraction.
 // Shared between worker (allowlist validation) and frontend (model picker UI).
-//
-// To add a model:
-//   1. Append a new entry below.
-//   2. Confirm the model id is supported by the configured provider.
-//   3. No backend deploy is needed if the provider is `openrouter` —
-//      requestAnswersFromImage forwards the model id verbatim.
 
 export const EXTRACT_MODELS = [
-  { id: 'mistralai/mistral-small-3.2-24b-instruct', label: 'Mistral Small 3.2 (default)', provider: 'openrouter' },
-  { id: 'x-ai/grok-4.1-fast', label: 'Grok 4.1 Fast', provider: 'openrouter' },
+  { id: 'deepseek-v4-flash-vision-exp', label: 'DeepSeek V4 Flash Vision (default)', provider: 'deepseek' },
 ]
 
-export const DEFAULT_EXTRACT_MODEL = 'mistralai/mistral-small-3.2-24b-instruct'
+export const DEFAULT_EXTRACT_MODEL = 'deepseek-v4-flash-vision-exp'
 
 const MODEL_IDS = new Set(EXTRACT_MODELS.map((m) => m.id))
 

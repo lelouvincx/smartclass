@@ -51,7 +51,7 @@ vi.mock('@/components/answer-image-upload', () => ({
         { q_id: 2, sub_id: null, answer: 'C', confidence: 0.4 },
       ],
       warnings: [],
-      model_used: 'x-ai/grok-4.1-fast',
+      model_used: 'deepseek-v4-flash-vision-exp',
     }
     return (
       <>

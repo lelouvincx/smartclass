@@ -33,13 +33,13 @@ const DEFAULT_LLM_ANSWERS = {
 }
 
 /**
- * Stub global fetch so any OpenRouter call from the worker returns `payload`
+ * Stub global fetch so any DeepSeek call from the worker returns `payload`
  * (object → JSON.stringify'd into the chat completion content) or `raw`
  * (raw string for content). When `status` is given (≥ 400), errors out.
  *
  * Returns the spy so tests can introspect calls.
  */
-function mockOpenRouter({ payload, raw, status = 200, errorMessage } = {}) {
+function mockDeepSeek({ payload, raw, status = 200, errorMessage } = {}) {
   const content = raw ?? JSON.stringify(payload ?? DEFAULT_LLM_ANSWERS)
   const spy = vi.fn(async () => {
     if (status >= 400) {
@@ -96,13 +96,13 @@ async function postExtract(submissionId, form, token = studentToken, extraHeader
 
 beforeEach(() => {
   // Tests rely on the LLM call going through; ensure a key is present.
-  env.OPENROUTER_API_KEY = 'test-key'
+  env.DEEPSEEK_API_KEY = 'test-key'
 })
 
 describe('POST /api/submissions/:id/extract', () => {
   describe('happy path', () => {
     it('uploads image, persists submission_files row, returns extracted answers', async () => {
-      mockOpenRouter()
+      mockDeepSeek()
 
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
@@ -145,20 +145,20 @@ describe('POST /api/submissions/:id/extract', () => {
       expect(arrBuf.byteLength).toBe(256)
     })
 
-    it("passes the exercise's teacher-configured extract_model to OpenRouter", async () => {
-      const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
-      const spy = mockOpenRouter()
+    it('sends the image to the official DeepSeek vision endpoint', async () => {
+      const spy = mockDeepSeek()
 
-      const { id: exerciseId } = await createExercise(teacherToken, { extract_model: altModel.id })
+      const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
       const res = await postExtract(submissionId, buildExtractForm())
       expect(res.status).toBe(200)
 
-      // Inspect the OpenRouter call body
-      const [, init] = spy.mock.calls.find(([url]) => String(url).includes('openrouter.ai'))
+      const [url, init] = spy.mock.calls[0]
+      expect(String(url)).toBe('https://api.deepseek.com/chat/completions')
+      expect(init.headers.Authorization).toBe('Bearer test-key')
       const body = JSON.parse(init.body)
-      expect(body.model).toBe(altModel.id)
+      expect(body.model).toBe(DEFAULT_EXTRACT_MODEL)
 
       // Vision message format: image_url with data: URI
       const userMsg = body.messages[0]
@@ -169,7 +169,7 @@ describe('POST /api/submissions/:id/extract', () => {
     })
 
     it('drops out-of-schema rows from the LLM response with a warning', async () => {
-      mockOpenRouter({
+      mockDeepSeek({
         payload: {
           answers: [
             { q_id: 1, answer: 'A', confidence: 0.9 },
@@ -271,7 +271,7 @@ describe('POST /api/submissions/:id/extract', () => {
     })
 
     it('accepts image/jpeg', async () => {
-      mockOpenRouter()
+      mockDeepSeek()
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
@@ -294,21 +294,20 @@ describe('POST /api/submissions/:id/extract', () => {
   })
 
   describe('model selection (teacher-configured per exercise)', () => {
-    it("echoes back the exercise's extract_model in model_used", async () => {
-      mockOpenRouter()
-      const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
+    it("echoes back the exercise's DeepSeek extract_model in model_used", async () => {
+      mockDeepSeek()
 
-      const { id: exerciseId } = await createExercise(teacherToken, { extract_model: altModel.id })
+      const { id: exerciseId } = await createExercise(teacherToken, { extract_model: DEFAULT_EXTRACT_MODEL })
       const submissionId = await startSubmission(exerciseId)
 
       const res = await postExtract(submissionId, buildExtractForm())
       expect(res.status).toBe(200)
       const body = await res.json()
-      expect(body.data.model_used).toBe(altModel.id)
+      expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
     })
 
     it('falls back to default when the exercise has no extract_model', async () => {
-      mockOpenRouter()
+      mockDeepSeek()
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
@@ -319,27 +318,26 @@ describe('POST /api/submissions/:id/extract', () => {
     })
 
     it('ignores any client-supplied model field (security: students cannot pick)', async () => {
-      const spy = mockOpenRouter()
-      const altModel = EXTRACT_MODELS.find((m) => m.id !== DEFAULT_EXTRACT_MODEL)
+      const spy = mockDeepSeek()
 
       // Exercise has NO extract_model — server default should win.
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
 
       // Student tries to override via the form field — must be ignored.
-      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: altModel.id } }))
+      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: 'x-ai/grok-4.1-fast' } }))
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
 
-      const [, init] = spy.mock.calls.find(([url]) => String(url).includes('openrouter.ai'))
+      const [, init] = spy.mock.calls.find(([url]) => String(url).includes('api.deepseek.com'))
       expect(JSON.parse(init.body).model).toBe(DEFAULT_EXTRACT_MODEL)
     })
   })
 
   describe('LLM failure modes', () => {
-    it('returns 502 when OpenRouter responds with an upstream error', async () => {
-      mockOpenRouter({ status: 500, errorMessage: 'upstream exploded' })
+    it('returns 502 when DeepSeek responds with an upstream error', async () => {
+      mockDeepSeek({ status: 500, errorMessage: 'upstream exploded' })
 
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
@@ -351,7 +349,7 @@ describe('POST /api/submissions/:id/extract', () => {
     })
 
     it('returns 422 when the LLM returns non-JSON content', async () => {
-      mockOpenRouter({ raw: 'sorry, I cannot help with that' })
+      mockDeepSeek({ raw: 'sorry, I cannot help with that' })
 
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
@@ -363,7 +361,7 @@ describe('POST /api/submissions/:id/extract', () => {
     })
 
     it('returns 422 when the LLM JSON has no answers array', async () => {
-      mockOpenRouter({ raw: JSON.stringify({ result: 'ok' }) })
+      mockDeepSeek({ raw: JSON.stringify({ result: 'ok' }) })
 
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
@@ -375,7 +373,7 @@ describe('POST /api/submissions/:id/extract', () => {
     })
 
     it('still persists the file row even when extraction fails', async () => {
-      mockOpenRouter({ status: 503, errorMessage: 'overloaded' })
+      mockDeepSeek({ status: 503, errorMessage: 'overloaded' })
 
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
@@ -397,7 +395,7 @@ describe('POST /api/submissions/:id/extract', () => {
 
   describe('cascade delete', () => {
     it('deletes submission_files when its submission is deleted', async () => {
-      mockOpenRouter()
+      mockDeepSeek()
 
       const { id: exerciseId } = await createExercise(teacherToken)
       const submissionId = await startSubmission(exerciseId)
