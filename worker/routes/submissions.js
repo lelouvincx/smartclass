@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { gradeSubmission } from '../lib/grading.js'
 import { resolveModel } from '../lib/extract-models.js'
-import { requestAnswersFromImage } from '../lib/openrouter.js'
+import { requestAnswersFromImage } from '../lib/deepseek.js'
 import { validateExtractedAnswers, ExtractParseError } from '../lib/extract-validator.js'
 import { toQuestionAssetResponse } from '../lib/question-assets.js'
 

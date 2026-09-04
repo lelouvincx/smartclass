@@ -26,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Replace the student PDF iframe with synchronized isolated-question images and direct answer controls. Give desktop attempts a compact app rail, wide workspace, and narrow answer rail so questions remain dominant. On phones, place the selected question preview between the answer-sheet control and matching answer choices, open it in a full-screen pinch-and-button zoom viewer, retain an authenticated download of the complete answer-free Exercise PDF, and use the mobile header instead of a space-consuming sidebar in short landscape viewports. Remove the Manual/Photo selector and answer-photo upload from the take page. [#91](https://github.com/lelouvincx/smartclass/pull/91)
+- Route answer-schema and image inference through DeepSeek's official API, using DeepSeek V4 Flash for text and DeepSeek V4 Flash Vision for images, with no OpenRouter dependency. [#93](https://github.com/lelouvincx/smartclass/pull/93)
 - Align expanded lecture previews with their disclosure controls on desktop. [#90](https://github.com/lelouvincx/smartclass/pull/90)
 - Make dashboards task-aware, show truthful exercise actions, prioritize the current question on mobile attempts, and clarify answer progress. [#89](https://github.com/lelouvincx/smartclass/pull/89)
 - Use Material 3's default Roboto typeface throughout the application. [#87](https://github.com/lelouvincx/smartclass/pull/87)

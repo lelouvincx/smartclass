@@ -17,8 +17,15 @@ describe('extract-models', () => {
     expect(EXTRACT_MODELS.some((m) => m.id === DEFAULT_EXTRACT_MODEL)).toBe(true)
   })
 
-  it('default is Mistral Small', () => {
-    expect(DEFAULT_EXTRACT_MODEL).toBe('mistralai/mistral-small-3.2-24b-instruct')
+  it('uses DeepSeek official vision model', () => {
+    expect(EXTRACT_MODELS).toEqual([
+      {
+        id: 'deepseek-v4-flash-vision-exp',
+        label: 'DeepSeek V4 Flash Vision (default)',
+        provider: 'deepseek',
+      },
+    ])
+    expect(DEFAULT_EXTRACT_MODEL).toBe('deepseek-v4-flash-vision-exp')
   })
 
   describe('resolveModel', () => {
@@ -32,10 +39,9 @@ describe('extract-models', () => {
       expect(resolveModel('made-up/model')).toBe(DEFAULT_EXTRACT_MODEL)
     })
 
-    it('falls back to Mistral for removed models', () => {
-      const mistral = 'mistralai/mistral-small-3.2-24b-instruct'
-      expect(resolveModel('google/gemini-2.5-flash')).toBe(mistral)
-      expect(resolveModel('openai/gpt-4o-mini')).toBe(mistral)
+    it('falls back to DeepSeek for removed provider models', () => {
+      expect(resolveModel('mistralai/mistral-small-3.2-24b-instruct')).toBe(DEFAULT_EXTRACT_MODEL)
+      expect(resolveModel('x-ai/grok-4.1-fast')).toBe(DEFAULT_EXTRACT_MODEL)
     })
 
     it('falls back to default for null/undefined/non-strings', () => {

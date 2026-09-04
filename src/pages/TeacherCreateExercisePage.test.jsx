@@ -163,7 +163,7 @@ describe('TeacherCreateExercisePage', () => {
     const user = userEvent.setup()
     createExerciseMock.mockResolvedValue({ data: { id: 303 } })
     extractTextFromPdfMock.mockResolvedValue('Q1 A Q2 TRUE Q3 42')
-    parseExerciseSchemaMock.mockRejectedValue(new Error('OpenRouter unavailable'))
+    parseExerciseSchemaMock.mockRejectedValue(new Error('DeepSeek unavailable'))
 
     render(
       <MemoryRouter>
@@ -178,7 +178,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.upload(screen.getByLabelText(/Answer PDF — teacher copy/i), answerPdf)
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByText('OpenRouter unavailable')).toBeInTheDocument()
+    expect(await screen.findByText('DeepSeek unavailable')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'D')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))

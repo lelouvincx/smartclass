@@ -8,7 +8,7 @@ import {
   parseModelSchemaContent,
   validateSchemaRows,
 } from '../lib/schema-parser.js'
-import { requestSchemaFromOpenRouter } from '../lib/openrouter.js'
+import { requestSchemaFromDeepSeek } from '../lib/deepseek.js'
 import { isValidExtractModel } from '../lib/extract-models.js'
 import {
   MIN_QUESTION_ASSET_CONFIDENCE,
@@ -85,7 +85,7 @@ exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async
   }
 
   try {
-    const modelContent = await requestSchemaFromOpenRouter(
+    const modelContent = await requestSchemaFromDeepSeek(
       c.env,
       source_text.slice(0, 120000),
       expected_question_count,

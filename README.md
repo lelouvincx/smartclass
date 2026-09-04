@@ -24,7 +24,7 @@ An assessment platform for teaching and learning, built on Cloudflare.
 | Backend  | Cloudflare Workers + Hono                                   |
 | Database | Cloudflare D1 (SQLite)                                      |
 | Storage  | Cloudflare R2 (PDFs, images)                                |
-| Vision   | Grok 4.1 Fast via OpenRouter (Gemini 2.5 Flash fallback)    |
+| Vision   | DeepSeek V4 Flash Vision via the official DeepSeek API      |
 | Auth     | Phone (+84xxx) + password, JWT                              |
 
 ## Project Structure
@@ -73,8 +73,7 @@ export CLOUDFLARE_D1_DATABASE_NAME=smartclass
 export CLOUDFLARE_R2_BUCKET_NAME=smartclass-assets
 export APP_CORS_ORIGIN=http://localhost:5173
 export VITE_API_BASE_URL=http://localhost:8787
-export OPENROUTER_API_KEY=your_openrouter_api_key
-export OPENROUTER_MODEL=google/gemini-2.5-flash
+export DEEPSEEK_API_KEY=op://<vault>/<item>/<field>
 ```
 
 For local Worker secrets during `wrangler dev`, create `.dev.vars`:
@@ -82,7 +81,7 @@ For local Worker secrets during `wrangler dev`, create `.dev.vars`:
 ```bash
 JWT_SECRET=replace-with-a-long-random-string
 JWT_EXPIRES_IN=7d
-OPENROUTER_API_KEY=your_openrouter_api_key
+DEEPSEEK_API_KEY=op://<vault>/<item>/<field>
 ```
 
 Cloudflare resources can be created from CLI:
@@ -92,6 +91,7 @@ npx wrangler login
 npx wrangler d1 create smartclass
 npx wrangler r2 bucket create smartclass-assets
 npx wrangler secret put JWT_SECRET
+npx wrangler secret put DEEPSEEK_API_KEY
 ```
 
 After creating resources, update `wrangler.toml` with your real D1 `database_id`.
