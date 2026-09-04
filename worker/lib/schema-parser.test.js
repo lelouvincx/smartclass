@@ -44,6 +44,15 @@ describe('schema parser utils', () => {
     expect(rows[1].sub_id).toBeNull()
   })
 
+  it('treats omitted or invalid confidence as uncertain', () => {
+    const rows = normalizeSchemaRows([
+      { q_id: '1', type: 'mcq', correct_answer: 'A' },
+      { q_id: '3', type: 'numeric', correct_answer: '42', confidence: 'unknown' },
+    ])
+
+    expect(rows.map(row => row.confidence)).toEqual([0, 0])
+  })
+
   it('validates duplicate q_id and invalid mcq answer', () => {
     const errors = validateSchemaRows([
       { q_id: 1, type: 'mcq', correct_answer: 'E', sub_id: null, confidence: 0.8 },

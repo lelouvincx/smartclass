@@ -5,16 +5,19 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (
 )
 
 async function request(path, options = {}) {
+  const { responseType = 'json', ...fetchOptions } = options
   let response
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, options)
+    response = await fetch(`${API_BASE_URL}${path}`, fetchOptions)
   } catch (networkError) {
     throw new Error(
       'SmartClass can’t reach the server right now. Try again in a moment.',
       { cause: networkError },
     )
   }
-  const data = await response.json().catch(() => null)
+  const data = response.ok && responseType === 'blob'
+    ? await response.blob()
+    : await response.json().catch(() => null)
 
   if (!response.ok) {
     const error = new Error(data?.error?.message || 'Request failed')
@@ -112,6 +115,154 @@ export function uploadExerciseFile(token, exerciseId, metadata, file) {
       'x-file-name': encodeURIComponent(metadata.file_name),
     }),
     body: file,
+  })
+}
+
+export function getExerciseFileBlob(fileId, token) {
+  return request(`/api/files/${fileId}`, {
+    headers: token ? authHeaders(token) : {},
+    responseType: 'blob',
+  })
+}
+
+export function createQuestionAssetSet(token, exerciseId, payload) {
+  return request(`/api/exercises/${exerciseId}/question-asset-sets`, {
+    method: 'POST',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getQuestionAssetSet(token, exerciseId, setId) {
+  return request(`/api/exercises/${exerciseId}/question-asset-sets/${setId}`, {
+    headers: authHeaders(token),
+  })
+}
+
+export function uploadAnswerCandidates(token, exerciseId, setId, candidates) {
+  return request(`/api/exercises/${exerciseId}/question-asset-sets/${setId}/answer-candidates`, {
+    method: 'POST',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify({ candidates }),
+  })
+}
+
+export function deleteQuestionAssetSet(token, exerciseId, setId) {
+  return request(`/api/exercises/${exerciseId}/question-asset-sets/${setId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export function rejectQuestionAsset(token, exerciseId, setId, qId) {
+  return request(`/api/exercises/${exerciseId}/question-asset-sets/${setId}/questions/${qId}/reject`, {
+    method: 'POST',
+    headers: authHeaders(token),
+  })
+}
+
+export function getQuestionAssetBlob(token, fileUrl) {
+  return request(fileUrl, {
+    headers: authHeaders(token),
+    responseType: 'blob',
+  })
+}
+
+export function uploadGeneratedQuestionAsset(
+  token,
+  exerciseId,
+  setId,
+  asset,
+  { onProgress, signal } = {},
+) {
+  const form = new FormData()
+  form.append('image', new File([asset.blob], asset.fileName, { type: 'image/webp' }))
+  form.append('q_id', String(asset.qId))
+  form.append('segment_index', String(asset.segmentIndex))
+  form.append('source_page', String(asset.sourcePage))
+  form.append('x', String(asset.x))
+  form.append('y', String(asset.y))
+  form.append('width', String(asset.width))
+  form.append('height', String(asset.height))
+  form.append('pixel_width', String(asset.pixelWidth))
+  form.append('pixel_height', String(asset.pixelHeight))
+  if (asset.accessibleText?.trim()) {
+    form.append('accessible_text', asset.accessibleText.trim())
+  }
+  form.append('confidence', String(asset.confidence))
+
+  return uploadMultipart(
+    `/api/exercises/${exerciseId}/question-asset-sets/${setId}/assets`,
+    token,
+    'POST',
+    form,
+    { onProgress, signal },
+  )
+}
+
+export function replaceQuestionAssetsWithGenerated(
+  token,
+  exerciseId,
+  setId,
+  qId,
+  assets,
+  { onProgress, signal } = {},
+) {
+  const form = new FormData()
+  const segments = assets.map((asset, index) => {
+    form.append(
+      `image_${index}`,
+      new File([asset.blob], asset.fileName, { type: 'image/webp' }),
+    )
+    return {
+      segment_index: asset.segmentIndex,
+      source_page: asset.sourcePage,
+      x: asset.x,
+      y: asset.y,
+      width: asset.width,
+      height: asset.height,
+      pixel_width: asset.pixelWidth,
+      pixel_height: asset.pixelHeight,
+      accessible_text: asset.accessibleText?.trim() || null,
+      confidence: asset.confidence,
+    }
+  })
+  form.append('segments', JSON.stringify(segments))
+
+  return uploadMultipart(
+    `/api/exercises/${exerciseId}/question-asset-sets/${setId}/questions/${qId}/assets`,
+    token,
+    'PUT',
+    form,
+    { onProgress, signal },
+  )
+}
+
+export function replaceQuestionAssetWithScreenshot(
+  token,
+  exerciseId,
+  setId,
+  qId,
+  image,
+  { onProgress, signal } = {},
+) {
+  const form = new FormData()
+  form.append('image', image)
+
+  return getImageDimensions(image).then(({ width, height }) => {
+    form.append('pixel_width', String(width))
+    form.append('pixel_height', String(height))
+    return uploadMultipart(
+      `/api/exercises/${exerciseId}/question-asset-sets/${setId}/questions/${qId}/screenshot`,
+      token,
+      'PUT',
+      form,
+      { onProgress, signal },
+    )
   })
 }
 
@@ -217,9 +368,75 @@ export function getSubmission(token, submissionId) {
   })
 }
 
+export function getSubmissionExercisePdf(token, submissionId) {
+  return request(`/api/submissions/${submissionId}/exercise-pdf`, {
+    headers: authHeaders(token),
+    responseType: 'blob',
+  })
+}
+
 // Returns a URL to serve a file from R2 via the file serve endpoint.
 export function getFileUrl(fileId) {
   return `${API_BASE_URL}/api/files/${fileId}`
+}
+
+function uploadMultipart(path, token, method, form, { onProgress, signal } = {}) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open(method, `${API_BASE_URL}${path}`)
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+
+    if (onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) onProgress(event.loaded / event.total)
+      }
+    }
+
+    xhr.onload = () => {
+      let body = null
+      try {
+        body = JSON.parse(xhr.responseText)
+      } catch {
+        // The shared error below handles an invalid response body.
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && body?.success) {
+        resolve(body)
+      } else {
+        const error = new Error(body?.error?.message || `Upload failed (HTTP ${xhr.status})`)
+        error.status = xhr.status
+        error.code = body?.error?.code
+        reject(error)
+      }
+    }
+    xhr.onerror = () => reject(new Error('Network error during upload'))
+    xhr.onabort = () => reject(new DOMException('Aborted', 'AbortError'))
+
+    if (signal) {
+      if (signal.aborted) {
+        xhr.abort()
+        return
+      }
+      signal.addEventListener('abort', () => xhr.abort(), { once: true })
+    }
+
+    xhr.send(form)
+  })
+}
+
+function getImageDimensions(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    const url = URL.createObjectURL(file)
+    image.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve({ width: image.naturalWidth, height: image.naturalHeight })
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Could not read the screenshot dimensions'))
+    }
+    image.src = url
+  })
 }
 
 /**

@@ -22,7 +22,6 @@ Priorities apply within each version:
 - [ ] **P1** Prompt guests to register after engagement
 - [ ] **P1** Buy and configure the production domain
 - [ ] **P1** Add a cost analysis and estimation dashboard
-- [ ] **P2** Design an expandable numbered question list for the student exercise form
 
 **Outcome:** anonymous users can try a reliable, production-ready platform before registering.
 

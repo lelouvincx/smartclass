@@ -120,7 +120,7 @@ function ShellFooter({ userLabel, onLogout, onNavigate }) {
   )
 }
 
-export function AppShell({ children, items, onLogout, userLabel, workspaceLabel }) {
+export function AppShell({ children, focusedWorkspace = false, items, onLogout, userLabel, workspaceLabel }) {
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => globalThis.localStorage?.getItem(SIDEBAR_STORAGE_KEY) === 'true',
@@ -128,6 +128,7 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
   const location = useLocation()
   const { t } = useTranslation()
   const navigationLabel = t('common.navigation', { workspace: workspaceLabel })
+  const effectiveSidebarCollapsed = focusedWorkspace || sidebarCollapsed
 
   function toggleSidebar() {
     setSidebarCollapsed((collapsed) => {
@@ -162,16 +163,17 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
       </a>
       <aside
         id="desktop-sidebar"
+        data-app-shell-persistent-navigation
         className={cn(
           'fixed inset-y-0 start-0 z-40 hidden flex-col border-e bg-sidebar text-sidebar-foreground shadow-sm transition-[width] duration-[var(--sc-motion-duration-medium)] ease-[var(--sc-motion-standard)] motion-reduce:transition-none lg:flex',
-          sidebarCollapsed ? 'w-28' : 'w-56',
+          effectiveSidebarCollapsed ? 'w-28' : 'w-56',
         )}
       >
         <div className={cn(
           'flex min-h-16 items-center border-b',
-          sidebarCollapsed ? 'justify-center gap-2 px-2' : 'justify-between gap-2 px-3',
+          effectiveSidebarCollapsed ? 'justify-center gap-2 px-2' : 'justify-between gap-2 px-3',
         )}>
-          {sidebarCollapsed ? (
+          {effectiveSidebarCollapsed ? (
             <span
               role="img"
               aria-label="SmartClass"
@@ -182,29 +184,34 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
           ) : (
             <Brand workspaceLabel={workspaceLabel} />
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-[48px]"
-            aria-label={t(sidebarCollapsed ? 'common.expandSidebar' : 'common.collapseSidebar')}
-            aria-controls="desktop-sidebar"
-            aria-expanded={!sidebarCollapsed}
-            onClick={toggleSidebar}
-          >
-            {sidebarCollapsed
-              ? <PanelLeftOpen aria-hidden="true" />
-              : <PanelLeftClose aria-hidden="true" />}
-          </Button>
+          {!focusedWorkspace && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-[48px]"
+              aria-label={t(sidebarCollapsed ? 'common.expandSidebar' : 'common.collapseSidebar')}
+              aria-controls="desktop-sidebar"
+              aria-expanded={!sidebarCollapsed}
+              onClick={toggleSidebar}
+            >
+              {sidebarCollapsed
+                ? <PanelLeftOpen aria-hidden="true" />
+                : <PanelLeftClose aria-hidden="true" />}
+            </Button>
+          )}
         </div>
-        <div className={cn('flex-1 overflow-y-auto py-5', sidebarCollapsed ? 'px-2' : 'px-3')}>
-          <Navigation items={items} label={navigationLabel} rail={sidebarCollapsed} />
+        <div className={cn('flex-1 overflow-y-auto py-5', effectiveSidebarCollapsed ? 'px-2' : 'px-3')}>
+          <Navigation items={items} label={navigationLabel} rail={effectiveSidebarCollapsed} />
         </div>
-        {sidebarCollapsed
+        {effectiveSidebarCollapsed
           ? <RailFooter userLabel={userLabel} onLogout={onLogout} />
           : <ShellFooter userLabel={userLabel} onLogout={onLogout} />}
       </aside>
 
-      <aside className="fixed inset-y-0 start-0 z-40 hidden w-28 flex-col border-e bg-sidebar text-sidebar-foreground shadow-sm md:flex lg:hidden">
+      <aside
+        data-app-shell-persistent-navigation
+        className="fixed inset-y-0 start-0 z-40 hidden w-28 flex-col border-e bg-sidebar text-sidebar-foreground shadow-sm md:flex lg:hidden"
+      >
         <div className="flex min-h-16 items-center justify-center border-b">
           <span
             role="img"
@@ -220,7 +227,10 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
         <RailFooter userLabel={userLabel} onLogout={onLogout} />
       </aside>
 
-      <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden">
+      <header
+        data-app-shell-mobile-header
+        className="sticky top-0 z-40 flex min-h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden"
+      >
         <Brand workspaceLabel={workspaceLabel} />
         <Button
           variant="outline"
@@ -256,14 +266,17 @@ export function AppShell({ children, items, onLogout, userLabel, workspaceLabel 
         </SheetContent>
       </Sheet>
 
-      <div className={cn(
+      <div data-app-shell-content className={cn(
         'md:ps-28 lg:transition-[padding] lg:duration-[var(--sc-motion-duration-medium)] lg:ease-[var(--sc-motion-standard)] lg:motion-reduce:transition-none',
-        sidebarCollapsed ? 'lg:ps-28' : 'lg:ps-56',
+        effectiveSidebarCollapsed ? 'lg:ps-28' : 'lg:ps-56',
       )}>
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8"
+          className={cn(
+            'mx-auto w-full px-4 py-6 sm:px-6 lg:px-8 lg:py-8',
+            focusedWorkspace ? 'max-w-[90rem]' : 'max-w-5xl',
+          )}
         >
           {children}
         </main>

@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -11,8 +11,10 @@ import { setSubmissionPointer, submissionDraftKey } from '../lib/submission-draf
 const getExerciseMock = vi.fn()
 const createSubmissionMock = vi.fn()
 const getSubmissionMock = vi.fn()
+const getSubmissionExercisePdfMock = vi.fn()
 const submitAnswersMock = vi.fn()
-let delayedExtraction
+const getQuestionAssetBlobMock = vi.fn()
+let desktopViewport
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
@@ -21,7 +23,9 @@ vi.mock('../lib/api', async (importOriginal) => {
     getExercise: (...args) => getExerciseMock(...args),
     createSubmission: (...args) => createSubmissionMock(...args),
     getSubmission: (...args) => getSubmissionMock(...args),
+    getSubmissionExercisePdf: (...args) => getSubmissionExercisePdfMock(...args),
     submitAnswers: (...args) => submitAnswersMock(...args),
+    getQuestionAssetBlob: (...args) => getQuestionAssetBlobMock(...args),
   }
 })
 
@@ -39,32 +43,6 @@ const toastMock = vi.hoisted(() => ({
   success: vi.fn(),
 }))
 vi.mock('sonner', () => ({ toast: toastMock }))
-
-// AnswerImageUpload renders the upload UI; the take page only handles the toggle
-// + merge. Stub it with a button that triggers a known extraction payload.
-vi.mock('@/components/answer-image-upload', () => ({
-  __esModule: true,
-  default: ({ onExtracted }) => {
-    const payload = {
-      extracted: [
-        { q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 },
-        { q_id: 2, sub_id: null, answer: 'C', confidence: 0.4 },
-      ],
-      warnings: [],
-      model_used: 'deepseek-v4-flash-vision-exp',
-    }
-    return (
-      <>
-        <button type="button" data-testid="stub-extract-fire" onClick={() => onExtracted(payload)}>
-          stub extract
-        </button>
-        <button type="button" onClick={() => { delayedExtraction = () => onExtracted(payload) }}>
-          start delayed extraction
-        </button>
-      </>
-    )
-  },
-}))
 
 // --- Fixtures ---
 
@@ -102,6 +80,11 @@ const SUBMISSION = {
   total_questions: 2,
   started_at: '2026-03-15 10:00:00',
   submitted_at: null,
+  question_asset_set_id: 5,
+  question_assets: [
+    { id: 101, q_id: 1, segment_index: 0, file_url: '/api/question-assets/101', accessible_text: 'Algebra question one' },
+    { id: 102, q_id: 2, segment_index: 0, file_url: '/api/question-assets/102', accessible_text: 'Algebra question two' },
+  ],
 }
 
 // --- Render helper ---
@@ -124,11 +107,24 @@ function renderPage(exerciseId = '1') {
 
 describe('StudentTakeExercisePage', () => {
   beforeEach(() => {
+    desktopViewport = true
+    window.matchMedia = vi.fn().mockImplementation((query) => ({
+      matches: ['(min-width: 1280px)', '(min-width: 768px)'].includes(query)
+        ? desktopViewport
+        : false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }))
     getExerciseMock.mockReset()
     createSubmissionMock.mockReset()
     getSubmissionMock.mockReset()
+    getSubmissionExercisePdfMock.mockReset()
+    getSubmissionExercisePdfMock.mockResolvedValue(new Blob(['exercise'], { type: 'application/pdf' }))
     submitAnswersMock.mockReset()
-    delayedExtraction = null
+    getQuestionAssetBlobMock.mockReset()
+    getQuestionAssetBlobMock.mockResolvedValue(new Blob(['question'], { type: 'image/webp' }))
+    global.URL.createObjectURL = vi.fn((blob) => `blob:question-${blob.size}-${Math.random()}`)
+    global.URL.revokeObjectURL = vi.fn()
     sessionStorage.clear()
     localStorage.clear()
   })
@@ -207,8 +203,95 @@ describe('StudentTakeExercisePage', () => {
 
     expect(screen.getByText(/^2\. Question 2$/)).toBeInTheDocument()
     expect(screen.getByLabelText('Question 2 option A')).toBeInTheDocument()
+    expect(await screen.findByAltText('Algebra question two')).toBeInTheDocument()
+    expect(screen.queryByAltText('Algebra question one')).not.toBeInTheDocument()
     // Q1 no longer in DOM
     expect(screen.queryByText(/^1\. Question 1$/)).not.toBeInTheDocument()
+  })
+
+  it('uses one compact answer-sheet drawer on mobile and closes it after a question jump', async () => {
+    const user = userEvent.setup()
+    desktopViewport = false
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    const openAnswerSheet = screen.getByRole('button', { name: /open answer sheet/i })
+    expect(screen.queryByRole('button', { name: /jump to question 2/i })).not.toBeInTheDocument()
+
+    await user.click(openAnswerSheet)
+
+    expect(screen.getAllByRole('button', { name: /^submit$/i })).toHaveLength(1)
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
+
+    const questionHeading = await screen.findByText(/^2\. Question 2$/)
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(questionHeading).toHaveFocus()
+    expect(screen.getByTestId('take-question-image')).toContainElement(
+      await screen.findByAltText('Algebra question two'),
+    )
+  })
+
+  it('shows the question image between the answer sheet and answer choices while keeping PDF download on mobile', async () => {
+    const user = userEvent.setup()
+    desktopViewport = false
+    let downloadedFileName = ''
+    const downloadClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function click() {
+      downloadedFileName = this.download
+    })
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    const answerSheet = screen.getByRole('button', { name: /open answer sheet/i })
+    const questionImage = await screen.findByAltText('Algebra question one')
+    const answerChoice = screen.getByLabelText('Question 1 option A')
+
+    expect(answerSheet.compareDocumentPosition(questionImage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(questionImage.compareDocumentPosition(answerChoice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(getSubmissionExercisePdfMock).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Download full exercise PDF' }))
+
+    await waitFor(() => {
+      expect(getSubmissionExercisePdfMock).toHaveBeenCalledWith('test-token', 10)
+    })
+    expect(downloadedFileName).toBe('exercise-1.pdf')
+    downloadClick.mockRestore()
+  })
+
+  it('uses the in-progress submission pinned schema and assets after the exercise changes', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: {
+        ...EXERCISE_MCQ,
+        schema: [{ q_id: 99, type: 'numeric', sub_id: null }],
+        question_assets: [{ id: 999, q_id: 99, segment_index: 0, file_url: '/api/question-assets/999' }],
+      },
+    })
+    getSubmissionMock.mockResolvedValue({
+      data: {
+        ...SUBMISSION,
+        total_questions: 1,
+        answers: [
+          { q_id: 7, sub_id: null, type: 'mcq', submitted_answer: null, is_correct: 0 },
+        ],
+        question_assets: [
+          { id: 107, q_id: 7, segment_index: 0, file_url: '/api/question-assets/107', accessible_text: 'Pinned question seven' },
+        ],
+      },
+    })
+
+    renderPage()
+
+    expect(await screen.findByText(/^1\. Question 7$/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Question 7 option A')).toBeInTheDocument()
+    expect(await screen.findByAltText('Pinned question seven')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Question 99 numeric answer')).not.toBeInTheDocument()
+    expect(getQuestionAssetBlobMock).not.toHaveBeenCalledWith('test-token', '/api/question-assets/999')
   })
 
   it('shows distinct question count (not raw schema row count) for exercises with boolean sub-rows', async () => {
@@ -351,25 +434,21 @@ describe('StudentTakeExercisePage', () => {
     vi.useRealTimers()
   })
 
-  // --- Consolidated 2-pane layout (PDF | content with answer-sheet on top) ---
+  // --- Question-first workspace ---
 
-  it('does not render a separate desktop sidebar column or mobile floating drawer', async () => {
+  it('does not render the source PDF or a full-PDF control', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    // The legacy mobile timer chip + floating answer-sheet button must be gone.
-    expect(screen.queryByLabelText('Timer (mobile)')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /open answer sheet/i })).not.toBeInTheDocument()
-
-    // Exactly one Submit button — the always-visible answer-sheet card,
-    // not duplicated across desktop sidebar + mobile sheet anymore.
-    expect(screen.getAllByRole('button', { name: /^Submit$/i })).toHaveLength(1)
+    expect(document.querySelector('iframe')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /show pdf|hide pdf/i })).not.toBeInTheDocument()
+    expect(await screen.findByAltText('Algebra question one')).toBeInTheDocument()
   })
 
-  it('keeps the current question before the answer sheet in mobile document order', async () => {
+  it('keeps the question image before its matching answer controls in document order', async () => {
     const now = new Date()
     const startedAt = now.toISOString().replace('T', ' ').replace(/\.\d+Z$/, '')
     const sub = { ...SUBMISSION, started_at: startedAt }
@@ -380,24 +459,71 @@ describe('StudentTakeExercisePage', () => {
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    const firstQuestion = screen.getByText(/^1\. Question 1$/)
-    const answerSheet = screen.getByText('Answer Sheet')
-    const submit = screen.getByRole('button', { name: /^Submit$/i })
+    const questionImage = await screen.findByAltText('Algebra question one')
+    const answer = screen.getByLabelText('Question 1 option A')
 
-    expect(firstQuestion.compareDocumentPosition(answerSheet) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect(firstQuestion.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(questionImage.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('visually restores the answer sheet first in the desktop right pane', async () => {
+  it('orders the desktop answer sheet, current answer controls, and submission actions', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
 
     renderPage()
     await screen.findByText('Algebra Quiz')
 
-    expect(screen.getByTestId('take-answer-sheet')).toHaveClass('lg:order-1')
-    expect(screen.getByTestId('take-input-mode')).toHaveClass('lg:order-2')
-    expect(screen.getByTestId('take-current-question')).toHaveClass('lg:order-3')
+    const answerSheet = screen.getByText('Answer Sheet')
+    const answer = screen.getByLabelText('Question 1 option A')
+    const submit = screen.getByRole('button', { name: 'Submit' })
+    const exit = screen.getByRole('button', { name: 'Exit' })
+
+    expect(answerSheet.compareDocumentPosition(answer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(answer.compareDocumentPosition(submit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(answer.compareDocumentPosition(exit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(exit).toHaveAttribute('data-variant', 'destructive')
+  })
+
+  it('keeps only manual answer controls in the current answer card', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    const answerCard = screen.getByRole('heading', { name: 'Your Answer' }).closest('[data-slot="card"]')
+
+    expect(answerCard).toContainElement(screen.getByLabelText('Question 1 option A'))
+    expect(screen.queryByTestId('take-input-mode')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Manual$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Upload photo/i })).not.toBeInTheDocument()
+  })
+
+  it('puts the isolated question and matching controls in one stable two-column workspace', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByTestId('take-question-workspace')).toHaveClass('xl:grid-cols-[minmax(0,1fr)_18rem]')
+    expect(screen.getByTestId('take-question-image')).toContainElement(await screen.findByAltText('Algebra question one'))
+    expect(screen.getByTestId('take-answer-controls')).toContainElement(screen.getByLabelText('Question 1 option A'))
+  })
+
+  it('reveals and focuses the selected question when a numbered question is clicked', async () => {
+    const user = userEvent.setup()
+    const scrollSpy = vi.fn()
+    Element.prototype.scrollIntoView = scrollSpy
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
+
+    const heading = screen.getByRole('heading', { name: '2. Question 2' })
+    expect(heading).toHaveFocus()
+    expect(scrollSpy).toHaveBeenCalledWith({ block: 'start' })
   })
 
   // --- Answering questions ---
@@ -431,7 +557,7 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Algebra Quiz')
     expect(screen.getByLabelText('Question 1 option B')).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/high confidence/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Question 999 option A')).not.toBeInTheDocument()
   })
 
@@ -737,127 +863,4 @@ describe('StudentTakeExercisePage', () => {
     expect(exitButton).toBeDisabled()
   })
 
-  // ── Image extraction (v0.4) ────────────────────────────────────────────────
-
-  describe('Image extraction (v0.4)', () => {
-    beforeEach(() => {
-      toastMock.success.mockReset()
-      toastMock.warning.mockReset()
-    })
-
-    it('renders the input mode toggle and defaults to manual', async () => {
-      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-
-      renderPage()
-      await screen.findByText('Algebra Quiz')
-
-      const manualBtn = screen.getByRole('button', { name: /^Manual$/i })
-      const photoBtn = screen.getByRole('button', { name: /Upload photo/i })
-      expect(manualBtn).toHaveAttribute('aria-pressed', 'true')
-      expect(photoBtn).toHaveAttribute('aria-pressed', 'false')
-      // Upload component is hidden by default
-      expect(screen.queryByTestId('stub-extract-fire')).not.toBeInTheDocument()
-    })
-
-    it('shows the upload panel when switching to photo mode', async () => {
-      const user = userEvent.setup()
-      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-
-      renderPage()
-      await screen.findByText('Algebra Quiz')
-
-      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
-      expect(screen.getByTestId('stub-extract-fire')).toBeInTheDocument()
-    })
-
-    it('merges extracted answers into the form and shows confidence dots', async () => {
-      const user = userEvent.setup()
-      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-
-      renderPage()
-      await screen.findByText('Algebra Quiz')
-
-      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
-      await user.click(screen.getByTestId('stub-extract-fire'))
-
-      // Default view = Q1. Q1 → B selected (high confidence dot).
-      const q1B = screen.getByRole('button', { name: 'Question 1 option B' })
-      expect(q1B).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
-
-      // Navigate to Q2 — should be C (low confidence — 0.4).
-      await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
-      const q2C = screen.getByRole('button', { name: 'Question 2 option C' })
-      expect(q2C).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.getByLabelText(/low confidence/i)).toBeInTheDocument()
-
-      // Toast notified the student
-      expect(toastMock.success).toHaveBeenCalled()
-    })
-
-    it('clears the confidence dot on a cell after the student edits it manually', async () => {
-      const user = userEvent.setup()
-      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-
-      renderPage()
-      await screen.findByText('Algebra Quiz')
-
-      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
-      await user.click(screen.getByTestId('stub-extract-fire'))
-
-      // Q1 starts with the high-confidence dot
-      expect(screen.getByLabelText(/high confidence/i)).toBeInTheDocument()
-
-      // Student manually picks A for Q1 — the high-confidence dot disappears
-      await user.click(screen.getByRole('button', { name: 'Question 1 option A' }))
-      expect(screen.queryByLabelText(/high confidence/i)).not.toBeInTheDocument()
-
-      // Navigate to Q2 — its low-confidence dot is still there
-      await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
-      expect(screen.getByLabelText(/low confidence/i)).toBeInTheDocument()
-    })
-
-    it('fills blanks without replacing manual answers and reports both counts', async () => {
-      const user = userEvent.setup()
-      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-      renderPage()
-      await screen.findByText('Algebra Quiz')
-      await user.click(screen.getByLabelText('Question 1 option A'))
-      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
-      await user.click(screen.getByTestId('stub-extract-fire'))
-
-      expect(screen.getByLabelText('Question 1 option A')).toHaveAttribute('aria-pressed', 'true')
-      expect(screen.queryByLabelText(/high confidence/i)).not.toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
-      expect(screen.getByLabelText('Question 2 option C')).toHaveAttribute('aria-pressed', 'true')
-      expect(toastMock.success).toHaveBeenCalledWith(
-        expect.stringMatching(/Filled 1 answer; kept 1 existing/),
-        expect.any(Object),
-      )
-    })
-
-    it('keeps an answer entered while photo extraction is running', async () => {
-      const user = userEvent.setup()
-      getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-      getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
-      renderPage()
-      await screen.findByText('Algebra Quiz')
-      await user.click(screen.getByRole('button', { name: /Upload photo/i }))
-      await user.click(screen.getByRole('button', { name: /start delayed extraction/i }))
-      await user.click(screen.getByLabelText('Question 1 option A'))
-
-      act(() => delayedExtraction())
-
-      expect(screen.getByLabelText('Question 1 option A')).toHaveAttribute('aria-pressed', 'true')
-      expect(toastMock.success).toHaveBeenCalledWith(
-        expect.stringMatching(/Filled 1 answer; kept 1 existing/),
-        expect.any(Object),
-      )
-    })
-  })
 })

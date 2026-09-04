@@ -6,7 +6,8 @@
 
 <!--
 - Short summary of the task, what have been done etc
-- Include screenshots, Notion link... whenever possible to provide context to the changes.
+- Include screenshots, docs link whenever possible to provide context to the changes.
+- For uiux feedback and visual QA, add an image for diff between before/after
 -->
 
 ## 2. How To Test?

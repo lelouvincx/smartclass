@@ -3,6 +3,8 @@ import { cors } from 'hono/cors'
 import authRoutes from './routes/auth.js'
 import usersRoutes from './routes/users.js'
 import exercisesRoutes from './routes/exercises.js'
+import questionAssetsRoutes from './routes/question-assets.js'
+import questionAssetFilesRoutes from './routes/question-asset-files.js'
 import uploadRoutes from './routes/upload.js'
 import submissionsRoutes from './routes/submissions.js'
 import filesRoutes from './routes/files.js'
@@ -66,6 +68,8 @@ app.get('/api/extract-models', (c) => {
 app.route('/api/auth', authRoutes)
 app.route('/api/users', usersRoutes)
 app.route('/api/exercises', exercisesRoutes)
+app.route('/api/exercises', questionAssetsRoutes)
+app.route('/api/question-assets', questionAssetFilesRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/submissions', submissionsRoutes)
 app.route('/api/files', filesRoutes)

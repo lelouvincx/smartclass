@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { createExerciseFileUpload, deleteExercise, getExercise, updateExercise, uploadExerciseFile } from '@/lib/api'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { createExerciseFileUpload, deleteExercise, getExercise, getFileUrl, updateExercise, uploadExerciseFile } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -20,6 +20,7 @@ import {
 import { SchemaTable } from '@/components/schema-table'
 import ExtractModelSelect from '@/components/extract-model-select'
 import FileDropzone from '@/components/file-dropzone'
+import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { formatDuration } from '@/lib/format'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -216,6 +217,7 @@ export default function TeacherViewExercisePage() {
   const { id } = useParams()
   const { token } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [exercise, setExercise] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -235,6 +237,9 @@ export default function TeacherViewExercisePage() {
   const [editRows, setEditRows] = useState([])
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
+  const [autoGenerateKey, setAutoGenerateKey] = useState(
+    location.state?.generateQuestionViews ? 1 : 0,
+  )
 
   const validatedRows = useMemo(() => validateRows(editRows, t), [editRows, t])
   const hasErrors = validatedRows.some((r) => r.errors.length > 0)
@@ -255,6 +260,12 @@ export default function TeacherViewExercisePage() {
     load()
   }, [id, token])
 
+  useEffect(() => {
+    if (location.state?.generateQuestionViews) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+  }, [location.pathname, location.state, navigate])
+
   function enterEditMode() {
     setEditTitle(exercise.title)
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
@@ -272,6 +283,24 @@ export default function TeacherViewExercisePage() {
     setEditExerciseFile(null)
     setEditSolutionFile(null)
     setSaveError('')
+  }
+
+  function replaceExercisePdf() {
+    enterEditMode()
+    requestAnimationFrame(() => {
+      const section = document.getElementById('exercise-pdf-replacement')
+      section?.scrollIntoView({ block: 'center' })
+      section?.querySelector('[role="button"]')?.focus()
+    })
+  }
+
+  async function handleQuestionViewsActivated() {
+    try {
+      const refreshed = await getExercise(id, token)
+      setExercise(refreshed.data)
+    } catch (refreshError) {
+      setError(refreshError.message)
+    }
   }
 
   const handleUpdateRow = useCallback((rowId, field, value) => {
@@ -336,6 +365,7 @@ export default function TeacherViewExercisePage() {
 
     setIsSaving(true)
     try {
+      const shouldGenerateQuestionViews = Boolean(editExerciseFile)
       const payload = {
         title: editTitle.trim(),
         is_timed: editIsTimed,
@@ -365,6 +395,9 @@ export default function TeacherViewExercisePage() {
 
       setExercise(updatedExercise)
       setIsEditing(false)
+      if (shouldGenerateQuestionViews) {
+        setAutoGenerateKey(key => key + 1)
+      }
     } catch (e) {
       setSaveError(e.message)
     } finally {
@@ -410,7 +443,7 @@ export default function TeacherViewExercisePage() {
   const isTimed = exercise.is_timed === 1 || exercise.is_timed === true
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-5xl space-y-6">
 
       {/* Header card */}
       <Card>
@@ -464,6 +497,9 @@ export default function TeacherViewExercisePage() {
                   <h1 className="truncate text-2xl font-semibold">{exercise.title}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <MetaBadge isTimed={isTimed} durationMinutes={exercise.duration_minutes} />
+                    <Badge variant={exercise.is_student_ready ? 'secondary' : 'outline'}>
+                      {t(exercise.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
+                    </Badge>
                     <span className="text-sm text-muted-foreground">
                       {t('teacher.view.questionCount', { count: new Set((exercise.schema || []).map((row) => row.q_id)).size })}
                     </span>
@@ -476,7 +512,7 @@ export default function TeacherViewExercisePage() {
             </div>
 
             {/* Action buttons */}
-            <div className="flex shrink-0 gap-2">
+            <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
               {isEditing ? (
                 <>
                   <Button onClick={handleSave} disabled={isSaving}>
@@ -511,9 +547,18 @@ export default function TeacherViewExercisePage() {
           {exercise.files?.length > 0 ? (
             <ul className={`space-y-1 ${isEditing ? 'mb-4' : ''}`}>
               {exercise.files.map((f) => (
-                <li key={f.id} className="flex items-center gap-2 text-sm">
-                  <Badge variant="secondary" className="text-xs">{t(`teacher.file.${f.file_type === 'exercise_pdf' ? 'exercisePdf' : f.file_type === 'solution_pdf' ? 'answerPdf' : f.file_type === 'reference_image' ? 'referenceImage' : 'file'}`)}</Badge>
-                  <span>{f.file_name}</span>
+                <li key={f.id} className="flex flex-col items-start gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
+                  <Badge variant="secondary" className="text-xs">
+                    {t(`teacher.file.${f.file_type === 'exercise_pdf' ? 'exercisePdf' : f.file_type === 'solution_pdf' ? 'answerPdf' : f.file_type === 'reference_image' ? 'referenceImage' : 'file'}`)}
+                  </Badge>
+                  <span className="min-w-0 w-full break-words sm:flex-1">{f.file_name}</span>
+                  {f.file_type === 'exercise_pdf' && (
+                    <Button variant="link" size="sm" asChild>
+                      <a href={getFileUrl(f.id)} target="_blank" rel="noreferrer">
+                        {t('teacher.view.viewFullPdf')}
+                      </a>
+                    </Button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -522,9 +567,10 @@ export default function TeacherViewExercisePage() {
           )}
           {isEditing && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-1.5">
+              <div id="exercise-pdf-replacement" className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">{t('teacher.view.replaceExercisePdf')}</Label>
                 <FileDropzone
+                  id="edit-exercise-file"
                   accept=".pdf"
                   hint={t('teacher.file.pdfOnly')}
                   file={editExerciseFile}
@@ -545,30 +591,41 @@ export default function TeacherViewExercisePage() {
         </CardContent>
       </Card>
 
-      {/* Answer key card */}
-      <Card>
-        <CardHeader className="border-b px-5 py-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">{t('teacher.view.answerKey')}</h2>
-            {isEditing && (
-              <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-                {t('teacher.view.addQuestion')}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        {isEditing ? (
-          <SchemaTable
-            rows={validatedRows}
-            onUpdateRow={handleUpdateRow}
-            onUpdateQid={handleUpdateQid}
-            onDeleteRow={handleDeleteRow}
-            onReorder={handleReorderRows}
-          />
-        ) : (
-          <ViewSchemaTable schema={exercise.schema || []} />
-        )}
-      </Card>
+      {!isEditing && (
+        <QuestionAssetWorkflow
+          exercise={exercise}
+          token={token}
+          onActivated={handleQuestionViewsActivated}
+          onReplacePdf={replaceExercisePdf}
+          autoStartKey={autoGenerateKey}
+        />
+      )}
+
+      {(isEditing || !exercise.pending_question_asset_set_id) && (
+        <Card>
+          <CardHeader className="border-b px-5 py-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">{t('teacher.view.answerKey')}</h2>
+              {isEditing && (
+                <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
+                  {t('teacher.view.addQuestion')}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          {isEditing ? (
+            <SchemaTable
+              rows={validatedRows}
+              onUpdateRow={handleUpdateRow}
+              onUpdateQid={handleUpdateQid}
+              onDeleteRow={handleDeleteRow}
+              onReorder={handleReorderRows}
+            />
+          ) : (
+            <ViewSchemaTable schema={exercise.schema || []} />
+          )}
+        </Card>
+      )}
 
       {/* Delete confirmation dialog */}
       <Dialog

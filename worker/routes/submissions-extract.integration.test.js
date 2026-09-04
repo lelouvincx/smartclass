@@ -1,7 +1,13 @@
 import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import app from '../index.js'
-import { seedTeacher, loginAsTeacher, seedStudent, loginAsStudent, createExercise } from '../test/helpers.js'
+import {
+  seedTeacher,
+  loginAsTeacher,
+  seedStudent,
+  loginAsStudent,
+  createStudentReadyExercise as createExercise,
+} from '../test/helpers.js'
 import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from '../lib/extract-models.js'
 
 let teacherToken

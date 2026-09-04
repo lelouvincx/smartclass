@@ -48,6 +48,18 @@ describe('StudentLayout navigation', () => {
     expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
+  it('exposes the shell regions needed to use mobile navigation in short landscape viewports', () => {
+    renderLayout('/student/exercises/9/take')
+
+    expect(document.querySelectorAll('[data-app-shell-persistent-navigation]')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Open navigation' }).closest('header')).toHaveAttribute(
+      'data-app-shell-mobile-header',
+    )
+    expect(document.getElementById('main-content').parentElement).toHaveAttribute(
+      'data-app-shell-content',
+    )
+  })
+
   it('localizes the mobile navigation close button', async () => {
     const user = userEvent.setup()
     await act(() => changeLanguage('vi'))
@@ -74,5 +86,21 @@ describe('StudentLayout navigation', () => {
     unmount()
     renderLayout()
     expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument()
+  })
+
+  it('temporarily uses the compact wide workspace while a student takes an exercise', () => {
+    const { unmount } = renderLayout('/student/exercises/9/take')
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-28')
+    expect(document.getElementById('main-content')).toHaveClass('max-w-[90rem]')
+    expect(screen.queryByRole('button', { name: 'Expand sidebar' })).not.toBeInTheDocument()
+    expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBeNull()
+
+    unmount()
+    renderLayout()
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-56')
+    expect(document.getElementById('main-content')).toHaveClass('max-w-5xl')
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument()
   })
 })

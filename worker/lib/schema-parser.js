@@ -70,7 +70,7 @@ export function normalizeSchemaRows(rows) {
     const qid = Number.parseInt(String(row.q_id ?? ''), 10)
     const type = normalizeType(row.type)
     const correctAnswer = normalizeCorrectAnswer(type, row.correct_answer)
-    const confidence = Number.parseFloat(String(row.confidence ?? '0.8'))
+    const confidence = Number.parseFloat(String(row.confidence ?? '0'))
 
     // sub_id: pass through for boolean, null for mcq/numeric
     const subId = type === 'boolean'
@@ -82,12 +82,12 @@ export function normalizeSchemaRows(rows) {
       type,
       sub_id: subId,
       correct_answer: correctAnswer,
-      confidence: Number.isNaN(confidence) ? 0.8 : confidence,
+      confidence: Number.isNaN(confidence) ? 0 : confidence,
     }
   })
 }
 
-export function validateSchemaRows(rows) {
+export function validateSchemaRows(rows, { allowBlankAnswers = false } = {}) {
   const errors = []
   const seenKeys = new Set() // tracks "q_id" for mcq/numeric, "q_id:sub_id" for boolean
   const qidTypes = new Map() // q_id -> type (enforces one type per q_id)
@@ -114,7 +114,7 @@ export function validateSchemaRows(rows) {
     }
     qidTypes.set(row.q_id, row.type)
 
-    if (row.correct_answer === '') {
+    if (row.correct_answer === '' && !allowBlankAnswers) {
       errors.push(`${rowLabel}: correct_answer is required`)
       return
     }
@@ -133,7 +133,7 @@ export function validateSchemaRows(rows) {
       }
 
       // Validate correct_answer is '0' or '1'
-      if (!['0', '1'].includes(row.correct_answer)) {
+      if (row.correct_answer !== '' && !['0', '1'].includes(row.correct_answer)) {
         errors.push(`${rowLabel}: boolean correct_answer must be 0 or 1`)
         return
       }
@@ -153,11 +153,11 @@ export function validateSchemaRows(rows) {
       booleanSubIds.get(row.q_id).add(row.sub_id)
     } else {
       // mcq / numeric: no sub_id allowed
-      if (row.type === 'mcq' && !['A', 'B', 'C', 'D'].includes(row.correct_answer)) {
+      if (row.type === 'mcq' && row.correct_answer !== '' && !['A', 'B', 'C', 'D'].includes(row.correct_answer)) {
         errors.push(`${rowLabel}: mcq correct_answer must be A, B, C, or D`)
       }
 
-      if (row.type === 'numeric' && Number.isNaN(Number(row.correct_answer))) {
+      if (row.type === 'numeric' && row.correct_answer !== '' && Number.isNaN(Number(row.correct_answer))) {
         errors.push(`${rowLabel}: numeric correct_answer must be a valid number`)
       }
 

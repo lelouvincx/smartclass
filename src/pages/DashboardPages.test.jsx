@@ -69,7 +69,7 @@ describe('dashboard placeholders', () => {
 
   it('surfaces the student’s resumable exercise before generic quick actions', async () => {
     listExercisesMock.mockResolvedValue({
-      data: [{ id: 42, title: 'Algebra Quiz', duration_minutes: 30, question_count: 10, is_timed: 1 }],
+      data: [{ id: 42, title: 'Algebra Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 1 }],
     })
     setSubmissionPointer(7, 42, 99)
     getSubmissionMock.mockResolvedValue({ data: { id: 99, exercise_id: 42, submitted_at: null } })
@@ -88,5 +88,20 @@ describe('dashboard placeholders', () => {
       'href',
       '/student/exercises/42/take',
     )
+  })
+
+  it('does not recommend an exercise that is not ready for students', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [{ id: 42, title: 'Draft Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 0 }],
+    })
+
+    render(
+      <MemoryRouter>
+        <StudentDashboardPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Student Dashboard', level: 1 })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /start draft quiz/i })).not.toBeInTheDocument()
   })
 })

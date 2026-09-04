@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Eye, EyeOff, ImageIcon, Pencil, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Download, Eye, EyeOff, ListChecks, X } from 'lucide-react'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
-import { getExercise, getFileUrl, getSubmission, submitAnswers } from '@/lib/api'
+import { getExercise, getSubmission, getSubmissionExercisePdf, submitAnswers } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -17,8 +17,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog'
-import { PdfSplitPane } from '@/components/pdf-split-pane'
-import AnswerImageUpload from '@/components/answer-image-upload'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { QuestionImagePanel } from '@/components/question-image-panel'
 import { QuestionNavGrid, countUnanswered } from '@/components/question-nav-grid'
 import {
   clearSubmissionState,
@@ -26,36 +26,6 @@ import {
   loadSubmissionDraft,
   saveSubmissionDraft,
 } from '@/lib/submission-draft'
-
-// Build a stable key for an answer cell (matches the worker's (q_id, sub_id) pair).
-function cellKey(qId, subId) {
-  return `${qId}:${subId ?? ''}`
-}
-
-// Tri-color confidence dot. Returns null for cells that have been manually
-// edited / verified (the parent passes confidence=null to suppress the dot).
-function ConfidenceDot({ confidence, t }) {
-  if (confidence === null || confidence === undefined) return null
-  let color
-  let label
-  if (confidence >= 0.8) {
-    color = 'bg-success'
-    label = t('student.take.highConfidence')
-  } else if (confidence >= 0.5) {
-    color = 'bg-amber-500'
-    label = t('student.take.mediumConfidence')
-  } else {
-    color = 'bg-destructive'
-    label = t('student.take.lowConfidence')
-  }
-  return (
-    <span
-      aria-label={label}
-      title={t('student.take.autoFilled', { percent: Math.round(confidence * 100) })}
-      className={`ml-2 inline-block h-2 w-2 shrink-0 rounded-full ${color}`}
-    />
-  )
-}
 
 // Milestones at which to fire a toast notification (in seconds remaining).
 // Fires once each, tracked via firedMilestones ref.
@@ -102,7 +72,7 @@ function groupSchema(schema) {
 
 // --- Question input components ---
 
-function McqInput({ qId, value, onChange, submitted, confidence, t }) {
+function McqInput({ qId, value, onChange, submitted, t }) {
   const options = ['A', 'B', 'C', 'D']
   return (
     <div className="flex items-center gap-2">
@@ -135,12 +105,11 @@ function McqInput({ qId, value, onChange, submitted, confidence, t }) {
           <X aria-hidden="true" />
         </Button>
       )}
-      <ConfidenceDot confidence={confidence} t={t} />
     </div>
   )
 }
 
-function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, subConfidence, t }) {
+function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, t }) {
   return (
     <div className="space-y-2">
       {subRows.map(({ sub_id }) => {
@@ -174,7 +143,6 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, s
                 {t('student.take.false')}
               </Button>
             </ButtonGroup>
-            <ConfidenceDot confidence={subConfidence?.[sub_id]} t={t} />
           </div>
         )
       })}
@@ -182,7 +150,7 @@ function BooleanGroupInput({ qId, subRows, subAnswers, onSubChange, submitted, s
   )
 }
 
-function NumericInput({ qId, value, onChange, submitted, confidence, t }) {
+function NumericInput({ qId, value, onChange, submitted, t }) {
   return (
     <div className="flex items-center">
       <input
@@ -194,7 +162,6 @@ function NumericInput({ qId, value, onChange, submitted, confidence, t }) {
         aria-label={t('student.take.numericAnswer', { id: qId })}
         className="min-h-[48px] w-40 rounded-[var(--sc-component-control-shape)] border border-input bg-background px-3 py-2 text-sm outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:bg-muted disabled:text-muted-foreground"
       />
-      <ConfidenceDot confidence={confidence} t={t} />
     </div>
   )
 }
@@ -212,9 +179,9 @@ export default function StudentTakeExercisePage() {
   const [error, setError] = useState('')
 
   const [exercise, setExercise] = useState(null)
+  const [attemptSchema, setAttemptSchema] = useState([])
   const [questionGroups, setQuestionGroups] = useState([])
   const [answers, setAnswers] = useState({})
-  const answersRef = useRef(answers)
   const [submission, setSubmission] = useState(null)
 
   const [secondsLeft, setSecondsLeft] = useState(null)
@@ -239,21 +206,45 @@ export default function StudentTakeExercisePage() {
   const [submitError, setSubmitError] = useState('')
 
   const [showLeaveWarning, setShowLeaveWarning] = useState(false)
+  const [answerSheetOpen, setAnswerSheetOpen] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(() => (
+    typeof window === 'undefined'
+    || typeof window.matchMedia !== 'function'
+    || window.matchMedia('(min-width: 1280px)').matches
+  ))
+  const [isPhone, setIsPhone] = useState(() => (
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && !window.matchMedia('(min-width: 768px)').matches
+  ))
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
   // The currently displayed question (single-question view).
   // The student picks a question by clicking a cell in the nav grid.
   const [currentQId, setCurrentQId] = useState(null)
+  const questionWorkspaceRef = useRef(null)
+  const questionHeadingRef = useRef(null)
+  const focusAfterSheetCloseRef = useRef(false)
 
-  // Image-extraction state (v0.4)
-  //   inputMode             — 'manual' | 'photo'
-  //   extractedConfidence   — { [cellKey]: number } — auto-filled cells; cleared on manual edit
-  const [inputMode, setInputMode] = useState('manual')
-  const [extractedConfidence, setExtractedConfidence] = useState({})
   const [draftReady, setDraftReady] = useState(false)
 
   useEffect(() => {
-    answersRef.current = answers
-  }, [answers])
+    if (typeof window.matchMedia !== 'function') return undefined
+
+    const desktopQuery = window.matchMedia('(min-width: 1280px)')
+    const tabletQuery = window.matchMedia('(min-width: 768px)')
+    const handleDesktopChange = (event) => {
+      setIsDesktop(event.matches)
+      if (event.matches) setAnswerSheetOpen(false)
+    }
+    const handlePhoneChange = event => setIsPhone(!event.matches)
+    desktopQuery.addEventListener?.('change', handleDesktopChange)
+    tabletQuery.addEventListener?.('change', handlePhoneChange)
+    return () => {
+      desktopQuery.removeEventListener?.('change', handleDesktopChange)
+      tabletQuery.removeEventListener?.('change', handlePhoneChange)
+    }
+  }, [])
 
   // --- Init ---
   useEffect(() => {
@@ -265,23 +256,6 @@ export default function StudentTakeExercisePage() {
         const exRes = await getExercise(id, token)
         const ex = exRes.data
         setExercise(ex)
-
-        const groups = groupSchema(ex.schema || [])
-        setQuestionGroups(groups)
-        setCurrentQId(groups[0]?.q_id ?? null)
-
-        const initial = {}
-        for (const group of groups) {
-          if (group.type === 'boolean') {
-            initial[group.q_id] = {}
-            for (const { sub_id } of group.subRows) {
-              initial[group.q_id][sub_id] = ''
-            }
-          } else {
-            initial[group.q_id] = ''
-          }
-        }
-        setAnswers(initial)
 
         let sub = null
 
@@ -307,10 +281,31 @@ export default function StudentTakeExercisePage() {
         }
 
         setSubmission(sub)
+        const pinnedSchema = sub.question_asset_set_id && sub.answers?.length
+          ? sub.answers.map(({ q_id, sub_id, type }) => ({ q_id, sub_id, type }))
+          : ex.schema || []
+        const groups = groupSchema(pinnedSchema)
+        setAttemptSchema(pinnedSchema)
+        setQuestionGroups(groups)
+        setCurrentQId(groups[0]?.q_id ?? null)
+
+        const initial = {}
+        for (const group of groups) {
+          if (group.type === 'boolean') {
+            initial[group.q_id] = {}
+            for (const { sub_id } of group.subRows) {
+              initial[group.q_id][sub_id] = ''
+            }
+          } else {
+            initial[group.q_id] = ''
+          }
+        }
+        setAnswers(initial)
+
         const draft = loadSubmissionDraft({
           accountId,
           submissionId: sub.id,
-          schema: ex.schema,
+          schema: pinnedSchema,
         })
         if (draft) {
           setAnswers((current) => {
@@ -324,7 +319,6 @@ export default function StudentTakeExercisePage() {
             }
             return restored
           })
-          setExtractedConfidence(draft.extractedConfidence)
         }
         setDraftReady(true)
 
@@ -355,9 +349,8 @@ export default function StudentTakeExercisePage() {
       accountId,
       submissionId: submission.id,
       answers,
-      extractedConfidence,
     })
-  }, [accountId, answers, draftReady, extractedConfidence, submission])
+  }, [accountId, answers, draftReady, submission])
 
   // --- beforeunload + popstate guard ---
   useEffect(() => {
@@ -423,12 +416,6 @@ export default function StudentTakeExercisePage() {
   // --- Answer change handlers ---
   const handleAnswerChange = useCallback((qId, value) => {
     setAnswers((prev) => ({ ...prev, [qId]: value }))
-    setExtractedConfidence((prev) => {
-      const key = cellKey(qId, null)
-      if (!(key in prev)) return prev
-      const { [key]: _removed, ...rest } = prev
-      return rest
-    })
   }, [])
 
   const handleBooleanSubChange = useCallback((qId, subId, value) => {
@@ -436,86 +423,28 @@ export default function StudentTakeExercisePage() {
       ...prev,
       [qId]: { ...(prev[qId] || {}), [subId]: value },
     }))
-    setExtractedConfidence((prev) => {
-      const key = cellKey(qId, subId)
-      if (!(key in prev)) return prev
-      const { [key]: _removed, ...rest } = prev
-      return rest
-    })
   }, [])
 
-  // --- Image extraction merge handler (v0.4) ---
-  const handleExtracted = useCallback(
-    ({ extracted, warnings, model_used }) => {
-      if (!Array.isArray(extracted) || extracted.length === 0) {
-        toast.warning(t('student.take.noExtracted'))
-        return
-      }
-
-      const schemaByCell = new Map(
-        questionGroups.flatMap((group) => group.type === 'boolean'
-          ? group.subRows.map((row) => [cellKey(group.q_id, row.sub_id), row.type])
-          : [[cellKey(group.q_id, null), group.type]]),
-      )
-      const nextAnswers = { ...answersRef.current }
-      const newlyFilled = []
-      let kept = 0
-      for (const row of extracted) {
-        if (row.answer === null || row.answer === undefined) continue
-        const key = cellKey(row.q_id, row.sub_id)
-        const type = schemaByCell.get(key)
-        if (!['mcq', 'numeric', 'boolean'].includes(type)) continue
-        const existing = row.sub_id
-          ? nextAnswers[row.q_id]?.[row.sub_id]
-          : nextAnswers[row.q_id]
-        if (existing !== '' && existing !== undefined && existing !== null) {
-          kept++
-          continue
-        }
-        if (row.sub_id) {
-          nextAnswers[row.q_id] = { ...(nextAnswers[row.q_id] || {}), [row.sub_id]: row.answer }
-        } else {
-          nextAnswers[row.q_id] = row.answer
-        }
-        newlyFilled.push(row)
-      }
-      answersRef.current = nextAnswers
-      setAnswers(nextAnswers)
-      setExtractedConfidence((prev) => {
-        const next = { ...prev }
-        for (const row of newlyFilled) next[cellKey(row.q_id, row.sub_id)] = Number(row.confidence) || 0
-        return next
-      })
-
-      const filled = newlyFilled.length
-      const lowConf = newlyFilled.filter((r) => Number(r.confidence) < 0.5).length
-      const wMsg = warnings && warnings.length > 0 ? ` · ${t('student.take.warningCount', { count: warnings.length })}` : ''
-      const lowMsg = lowConf > 0 ? ` · ${t('student.take.lowConfidenceCount', { count: lowConf })}` : ''
-      toast.success(
-        `${t('student.take.extractionSummary', { count: filled, filled, kept })}${lowMsg}${wMsg}`,
-        { duration: 6000 },
-      )
-    },
-    [questionGroups, t],
-  )
-
-  // Per-question confidence lookup for boolean sub-rows.
-  const booleanSubConfidence = useMemo(() => {
-    const byQ = {}
-    for (const [key, conf] of Object.entries(extractedConfidence)) {
-      const [qStr, subId] = key.split(':')
-      if (!subId) continue
-      const qId = Number(qStr)
-      if (!byQ[qId]) byQ[qId] = {}
-      byQ[qId][subId] = conf
-    }
-    return byQ
-  }, [extractedConfidence])
-
   // --- Nav grid jump ---
-  // In single-question view, "jump" simply swaps the displayed question.
+  // Every navigation control changes both sides of the question workspace.
   function handleJump(qId) {
     setCurrentQId(qId)
+    questionWorkspaceRef.current?.scrollIntoView?.({ block: 'start' })
+    questionHeadingRef.current?.focus({ preventScroll: true })
+  }
+
+  function handleMobileJump(qId) {
+    focusAfterSheetCloseRef.current = true
+    setCurrentQId(qId)
+    setAnswerSheetOpen(false)
+  }
+
+  function handleMobileSheetCloseAutoFocus(event) {
+    if (!focusAfterSheetCloseRef.current) return
+    event.preventDefault()
+    focusAfterSheetCloseRef.current = false
+    questionWorkspaceRef.current?.scrollIntoView?.({ block: 'start' })
+    questionHeadingRef.current?.focus({ preventScroll: true })
   }
 
   // --- Submit flow ---
@@ -572,6 +501,7 @@ export default function StudentTakeExercisePage() {
         // Keep the local draft and original failure so the student can retry.
       }
       setSubmitError(err.message)
+      if (!isDesktop) setAnswerSheetOpen(true)
     } finally {
       setIsSubmitting(false)
     }
@@ -590,6 +520,26 @@ export default function StudentTakeExercisePage() {
     setShowLeaveWarning(false)
   }
 
+  async function handleDownloadPdf() {
+    if (!submission || isDownloadingPdf) return
+    setIsDownloadingPdf(true)
+    try {
+      const blob = await getSubmissionExercisePdf(token, submission.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `exercise-${exercise.id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error(t('student.take.downloadPdfFailed'))
+    } finally {
+      setIsDownloadingPdf(false)
+    }
+  }
+
   // --- Render question input ---
   function renderQuestionInput(group) {
     if (group.type === 'mcq') {
@@ -599,7 +549,7 @@ export default function StudentTakeExercisePage() {
           value={answers[group.q_id] ?? ''}
           onChange={(v) => handleAnswerChange(group.q_id, v)}
           submitted={false}
-          confidence={extractedConfidence[cellKey(group.q_id, null)]} t={t}
+          t={t}
         />
       )
     }
@@ -611,7 +561,7 @@ export default function StudentTakeExercisePage() {
           subAnswers={answers[group.q_id] || {}}
           onSubChange={(subId, v) => handleBooleanSubChange(group.q_id, subId, v)}
           submitted={false}
-          subConfidence={booleanSubConfidence[group.q_id]} t={t}
+          t={t}
         />
       )
     }
@@ -621,7 +571,7 @@ export default function StudentTakeExercisePage() {
         value={answers[group.q_id] ?? ''}
         onChange={(v) => handleAnswerChange(group.q_id, v)}
         submitted={false}
-        confidence={extractedConfidence[cellKey(group.q_id, null)]} t={t}
+        t={t}
       />
     )
   }
@@ -655,18 +605,48 @@ export default function StudentTakeExercisePage() {
     ? 'text-amber-600 dark:text-amber-400'
     : 'text-foreground'
 
-  // Find exercise PDF file URL (public — no auth needed)
-  const exercisePdfFile = exercise?.files?.find((f) => f.file_type === 'exercise_pdf')
-  const pdfUrl = exercisePdfFile ? getFileUrl(exercisePdfFile.id) : null
-
-  const unansweredCount = exercise ? countUnanswered(exercise.schema, answers) : 0
+  const unansweredCount = countUnanswered(attemptSchema, answers)
   const confirmMessage = unansweredCount > 0
     ? t('student.take.submitWarning', { count: unansweredCount })
     : t('student.take.submitFinal')
+  const answeredCount = questionGroups.length - unansweredCount
 
-  // Answer-sheet content (timer + nav grid + submit/exit) — always visible
-  // at the top of the right pane on all breakpoints.
-  function renderSidebar() {
+  function renderSubmissionActions({
+    onSubmit = handleSubmitClick,
+    onExit = handleExitClick,
+  } = {}) {
+    return (
+      <div className="flex flex-col gap-2">
+        {submitError && (
+          <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            {submitError}
+          </p>
+        )}
+        <Button
+          onClick={onSubmit}
+          disabled={isSubmitting}
+          className="w-full"
+        >
+          {isSubmitting ? t('student.take.submitting') : t('student.take.submit')}
+        </Button>
+        <Button
+          variant="destructive"
+          onClick={onExit}
+          disabled={isSubmitting}
+          className="w-full"
+        >
+          {t('student.take.exit')}
+        </Button>
+      </div>
+    )
+  }
+
+  function renderSidebar({
+    onJump = handleJump,
+    onSubmit = handleSubmitClick,
+    onExit = handleExitClick,
+    includeSubmissionActions = true,
+  } = {}) {
     return (
       <div className="space-y-4">
         {/* Timer */}
@@ -705,36 +685,14 @@ export default function StudentTakeExercisePage() {
         {/* Nav grid */}
         {exercise && (
           <QuestionNavGrid
-            schema={exercise.schema}
+            schema={attemptSchema}
             answers={answers}
             currentQId={currentQId}
-            onJump={handleJump}
+            onJump={onJump}
           />
         )}
 
-        {/* Actions */}
-        <div className="flex flex-col gap-2">
-          {submitError && (
-            <p role="alert" className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
-              {submitError}
-            </p>
-          )}
-          <Button
-            onClick={handleSubmitClick}
-            disabled={isSubmitting}
-            className="w-full"
-          >
-            {isSubmitting ? t('student.take.submitting') : t('student.take.submit')}
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={handleExitClick}
-            disabled={isSubmitting}
-            className="w-full"
-          >
-            {t('student.take.exit')}
-          </Button>
-        </div>
+        {includeSubmissionActions && renderSubmissionActions({ onSubmit, onExit })}
       </div>
     )
   }
@@ -751,6 +709,25 @@ export default function StudentTakeExercisePage() {
                 {t('student.take.questionCount', { count: questionGroups.length })}
               </p>
             </div>
+            {isPhone && submission && (
+              <div className="w-full space-y-2 sm:w-auto sm:max-w-xs">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="min-h-12 w-full"
+                  disabled={isDownloadingPdf}
+                  onClick={handleDownloadPdf}
+                >
+                  <Download aria-hidden="true" />
+                  {isDownloadingPdf
+                    ? t('student.take.downloadingPdf')
+                    : t('student.take.downloadPdf')}
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {t('student.take.mobilePaperHint')}
+                </p>
+              </div>
+            )}
           </div>
 
           {overtime && (
@@ -762,68 +739,85 @@ export default function StudentTakeExercisePage() {
         </CardContent>
       </Card>
 
-      {/* Two-pane layout: PDF (left) | attempt controls (right). */}
-      <PdfSplitPane fileUrl={pdfUrl}>
-        <div className="flex flex-col gap-4">
-          {/* Input mode toggle (v0.4) — Manual vs. Photo extraction */}
-          <div data-testid="take-input-mode" className="order-1 lg:order-2">
-            <Card>
-              <CardContent className="space-y-3 pt-5">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold">{t('student.take.inputMode')}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t('student.take.inputDescription')}
-                    </p>
-                  </div>
-                  <ButtonGroup aria-label={t('student.take.inputMode')}>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="min-h-[48px]"
-                      variant={inputMode === 'manual' ? 'default' : 'outline'}
-                      onClick={() => setInputMode('manual')}
-                      aria-pressed={inputMode === 'manual'}
-                    >
-                      <Pencil className="mr-1.5 h-3.5 w-3.5" />
-                      {t('student.take.manual')}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="min-h-[48px]"
-                      variant={inputMode === 'photo' ? 'default' : 'outline'}
-                      onClick={() => setInputMode('photo')}
-                      aria-pressed={inputMode === 'photo'}
-                    >
-                      <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                      {t('student.take.uploadPhoto')}
-                    </Button>
-                  </ButtonGroup>
-                </div>
+      {!isDesktop && (
+        <div className="sticky top-16 z-30 -mx-1 bg-background/95 px-1 py-2 backdrop-blur md:top-0">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-16 w-full justify-between bg-background px-4 shadow-sm"
+            aria-label={t('student.nav.openAnswerSheet')}
+            aria-haspopup="dialog"
+            aria-expanded={answerSheetOpen}
+            onClick={() => setAnswerSheetOpen(true)}
+          >
+            <span className="min-w-0 text-start">
+              <span className="flex items-center gap-2 font-semibold">
+                <ListChecks aria-hidden="true" />
+                {t('student.nav.answerSheet')}
+              </span>
+              <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                {t('student.nav.answeredProgress', { answered: answeredCount, total: questionGroups.length })}
+              </span>
+            </span>
+            {secondsLeft !== null && (
+              <span className={`flex shrink-0 items-center gap-1.5 tabular-nums ${timerColor}`} aria-hidden="true">
+                <Clock />
+                {!timerHidden && formatTime(secondsLeft)}
+              </span>
+            )}
+          </Button>
+        </div>
+      )}
 
-                {inputMode === 'photo' && submission && (
-                  <AnswerImageUpload
-                    submissionId={submission.id}
-                    onExtracted={handleExtracted}
-                    disabled={isSubmitting}
-                  />
-                )}
+      {(() => {
+        const idx = questionGroups.findIndex((group) => group.q_id === currentQId)
+        const group = idx >= 0 ? questionGroups[idx] : null
+        if (!group) return null
+        const adjacentQIds = [questionGroups[idx - 1]?.q_id, questionGroups[idx + 1]?.q_id]
+          .filter((qId) => qId !== undefined)
+
+        return (
+          <div
+            ref={questionWorkspaceRef}
+            data-testid="take-question-workspace"
+            className="grid scroll-mt-36 gap-4 md:scroll-mt-20 xl:grid-cols-[minmax(0,1fr)_18rem] xl:items-start"
+          >
+            <Card data-testid="take-question-image" className="xl:sticky xl:top-20">
+              <CardContent className="space-y-4 pt-5">
+                <div className="flex items-baseline justify-between gap-3">
+                  <h2
+                    ref={questionHeadingRef}
+                    tabIndex={-1}
+                    className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    aria-live="polite"
+                  >
+                    {t('student.take.questionTitle', { index: idx + 1, id: group.q_id })}
+                  </h2>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {t('student.take.questionProgress', { current: idx + 1, total: questionGroups.length })}
+                  </span>
+                </div>
+                <QuestionImagePanel
+                  token={token}
+                  assets={submission?.question_assets || []}
+                  currentQId={group.q_id}
+                  adjacentQIds={adjacentQIds}
+                />
               </CardContent>
             </Card>
-          </div>
 
-          {/* Single-question view — first on mobile to minimize scrolling before answering. */}
-          {(() => {
-            const idx = questionGroups.findIndex((g) => g.q_id === currentQId)
-            const group = idx >= 0 ? questionGroups[idx] : null
-            if (!group) return null
-            return (
-              <Card data-testid="take-current-question" className="order-2 lg:order-3">
+            <div className="space-y-4" data-testid="take-answer-controls">
+              {isDesktop && (
+                <Card>
+                  <CardContent className="pt-5">
+                    {renderSidebar({ includeSubmissionActions: false })}
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card>
                 <CardContent className="space-y-4 pt-5">
-                  <p className="text-sm font-semibold">
-                    {t('student.take.questionTitle', { index: idx + 1, id: group.q_id })}
-                  </p>
+                  <h3 className="text-sm font-semibold">{t('student.results.yourAnswer')}</h3>
                   {renderQuestionInput(group)}
                   <div className="flex items-center justify-between border-t pt-3">
                     <Button
@@ -835,9 +829,6 @@ export default function StudentTakeExercisePage() {
                       <ArrowLeft aria-hidden="true" />
                       {t('student.take.previous')}
                     </Button>
-                    <span className="text-xs text-muted-foreground">
-                      {t('student.take.questionProgress', { current: idx + 1, total: questionGroups.length })}
-                    </span>
                     <Button
                       type="button"
                       variant="outline"
@@ -850,19 +841,44 @@ export default function StudentTakeExercisePage() {
                   </div>
                 </CardContent>
               </Card>
-            )
-          })()}
 
-          {/* Desktop keeps the answer sheet first and sticky; mobile reaches it after the current input. */}
-          <div data-testid="take-answer-sheet" className="order-3 lg:order-1 lg:sticky lg:top-20 lg:z-10">
-            <Card>
-              <CardContent className="pt-5">
-                {renderSidebar()}
-              </CardContent>
-            </Card>
+              {isDesktop && (
+                <Card>
+                  <CardContent className="pt-5">
+                    {renderSubmissionActions()}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
-        </div>
-      </PdfSplitPane>
+        )
+      })()}
+
+      {!isDesktop && (
+        <Sheet open={answerSheetOpen} onOpenChange={setAnswerSheetOpen}>
+          <SheetContent
+            closeLabel={t('common.close')}
+            aria-describedby={undefined}
+            className="pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+            onCloseAutoFocus={handleMobileSheetCloseAutoFocus}
+          >
+            <SheetHeader>
+              <SheetTitle className="sr-only">{t('student.nav.answerSheet')}</SheetTitle>
+            </SheetHeader>
+            {renderSidebar({
+              onJump: handleMobileJump,
+              onSubmit: () => {
+                setAnswerSheetOpen(false)
+                handleSubmitClick()
+              },
+              onExit: () => {
+                setAnswerSheetOpen(false)
+                handleExitClick()
+              },
+            })}
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Dialogs */}
       <Dialog open={showLeaveWarning} onOpenChange={setShowLeaveWarning}>

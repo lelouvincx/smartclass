@@ -1,16 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
-import { getFileUrl, getSubmission } from '@/lib/api'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
+import { getSubmission } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { PdfSplitPane } from '@/components/pdf-split-pane'
 import {
   BooleanResultGroup,
   McqNumericResultRow,
 } from '@/components/answer-result'
+import { QuestionImagePanel } from '@/components/question-image-panel'
 import { SubmissionReviewSidebar } from '@/components/submission-review-sidebar'
 import { formatDateTime } from '@/lib/format'
 
@@ -62,11 +62,13 @@ export default function StudentReviewPage() {
   const { t, i18n } = useTranslation()
   const { id } = useParams()
   const { token } = useAuth()
-  const questionRefs = useRef({})
+  const workspaceRef = useRef(null)
+  const questionHeadingRef = useRef(null)
 
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [submission, setSubmission] = useState(null)
+  const [currentQId, setCurrentQId] = useState(null)
 
   useEffect(() => {
     async function fetch() {
@@ -75,6 +77,7 @@ export default function StudentReviewPage() {
       try {
         const res = await getSubmission(token, id)
         setSubmission(res.data)
+        setCurrentQId(groupAnswers(res.data.answers || [])[0]?.q_id ?? null)
       } catch (err) {
         setError(err.message || i18n.t('student.results.failedReview'))
       } finally {
@@ -105,12 +108,15 @@ export default function StudentReviewPage() {
     )
   }
 
-  const { exercise_title, score, submitted_at, files = [], answers = [] } = submission
-
-  const pdfFile = files.find((f) => f.file_type === 'exercise_pdf')
-  const pdfUrl = pdfFile ? getFileUrl(pdfFile.id) : null
+  const { exercise_title, score, submitted_at, answers = [], question_assets: questionAssets = [] } = submission
 
   const questionGroups = groupAnswers(answers)
+  const currentIndex = questionGroups.findIndex((group) => group.q_id === currentQId)
+  const currentGroup = currentIndex >= 0 ? questionGroups[currentIndex] : null
+  const adjacentQIds = currentGroup
+    ? [questionGroups[currentIndex - 1]?.q_id, questionGroups[currentIndex + 1]?.q_id]
+        .filter((qId) => qId !== undefined)
+    : []
 
   const correctCount = answers.filter((a) => a.is_correct === 1).length
   const totalAnswerRows = answers.length
@@ -118,6 +124,12 @@ export default function StudentReviewPage() {
   const submittedDate = submitted_at
     ? formatDateTime(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z'), i18n.resolvedLanguage)
     : '—'
+
+  function handleJump(qId) {
+    setCurrentQId(qId)
+    workspaceRef.current?.scrollIntoView?.({ block: 'start' })
+    questionHeadingRef.current?.focus({ preventScroll: true })
+  }
 
   return (
     <div className="space-y-4">
@@ -135,65 +147,104 @@ export default function StudentReviewPage() {
         </div>
       </div>
 
-      {/* Two-pane layout: PDF (left) | review-sidebar + answers table (right). 50/50 on lg+. */}
-      <PdfSplitPane fileUrl={pdfUrl}>
-        <div className="space-y-4">
-          {/* Always-visible review summary (score, counters, per-question status), sticky on lg+ */}
-          <div className="lg:sticky lg:top-20 lg:z-10">
-            <Card>
-              <CardContent className="pt-5">
-                <SubmissionReviewSidebar submission={submission} questionRefs={questionRefs} />
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-collapse text-sm">
-                  <thead className="bg-muted text-left text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2">{t('student.exercises.questions')}</th>
-                      <th className="px-4 py-2">{t('student.results.yourAnswer')}</th>
-                      <th className="px-4 py-2">{t('student.results.correctAnswer')}</th>
-                      <th className="px-4 py-2 text-center">{t('student.results.result')}</th>
-                    </tr>
-                  </thead>
-                  {questionGroups.map((group) => {
-                    const ans = group.type !== 'boolean'
-                      ? answers.find((a) => a.q_id === group.q_id && !a.sub_id)
-                      : null
-                    return (
-                      <tbody
-                        key={group.q_id}
-                        ref={(el) => { questionRefs.current[group.q_id] = el }}
-                      >
-                        {group.type === 'boolean' ? (
-                          <BooleanResultGroup
-                            group={group}
-                            submittedAnswers={answers}
-                            schemaAnswers={answers}
-                          />
-                        ) : (
-                          <McqNumericResultRow
-                            question={{ ...group, is_correct: ans?.is_correct ?? null }}
-                            answer={ans?.submitted_answer ?? null}
-                            correctAnswer={ans?.correct_answer}
-                          />
-                        )}
-                      </tbody>
-                    )
-                  })}
-                </table>
+      {currentGroup && (
+        <div
+          ref={workspaceRef}
+          className="grid scroll-mt-20 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)] lg:items-start"
+        >
+          <Card className="lg:sticky lg:top-20">
+            <CardContent className="space-y-4 pt-5">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2
+                  ref={questionHeadingRef}
+                  tabIndex={-1}
+                  className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-live="polite"
+                >
+                  {t('student.results.questionHeading', { id: currentGroup.q_id })}
+                </h2>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {t('student.take.questionProgress', { current: currentIndex + 1, total: questionGroups.length })}
+                </span>
               </div>
+              <QuestionImagePanel
+                token={token}
+                assets={questionAssets}
+                currentQId={currentGroup.q_id}
+                adjacentQIds={adjacentQIds}
+              />
             </CardContent>
           </Card>
 
-          <p className="text-sm text-muted-foreground">
-            {t('student.results.answerRowsCorrect', { correct: correctCount, total: totalAnswerRows })}
-          </p>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border-collapse text-sm">
+                    <thead className="bg-muted text-left text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-2">{t('student.exercises.questions')}</th>
+                        <th className="px-4 py-2">{t('student.results.yourAnswer')}</th>
+                        <th className="px-4 py-2">{t('student.results.correctAnswer')}</th>
+                        <th className="px-4 py-2 text-center">{t('student.results.result')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentGroup.type === 'boolean' ? (
+                        <BooleanResultGroup
+                          group={currentGroup}
+                          submittedAnswers={answers}
+                          schemaAnswers={answers}
+                        />
+                      ) : (
+                        <McqNumericResultRow
+                          question={{ ...currentGroup, is_correct: currentGroup.is_correct ?? null }}
+                          answer={currentGroup.submitted_answer ?? null}
+                          correctAnswer={currentGroup.correct_answer}
+                        />
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between border-t p-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleJump(questionGroups[currentIndex - 1].q_id)}
+                    disabled={currentIndex === 0}
+                  >
+                    <ArrowLeft aria-hidden="true" />
+                    {t('student.take.previous')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleJump(questionGroups[currentIndex + 1].q_id)}
+                    disabled={currentIndex === questionGroups.length - 1}
+                  >
+                    {t('student.take.next')}
+                    <ArrowRight aria-hidden="true" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-5">
+                <SubmissionReviewSidebar
+                  submission={submission}
+                  currentQId={currentQId}
+                  onJump={handleJump}
+                />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </PdfSplitPane>
+      )}
+
+      <p className="text-sm text-muted-foreground">
+        {t('student.results.answerRowsCorrect', { correct: correctCount, total: totalAnswerRows })}
+      </p>
     </div>
   )
 }

@@ -136,6 +136,24 @@ export default function StudentExerciseLandingPage() {
     )
   }
 
+  if (exercise.is_student_ready !== 1 && !hasResumable && !submittedSubmissionId) {
+    return (
+      <Card className="max-w-2xl">
+        <CardContent className="space-y-4 pt-6">
+          <div className="space-y-2">
+            <h1 className="text-[length:var(--sc-type-title-size)] leading-[var(--sc-type-title-line-height)] font-[var(--sc-type-title-weight)]">
+              {exercise.title}
+            </h1>
+            <p className="text-sm text-muted-foreground">{t('student.landing.unavailable')}</p>
+          </div>
+          <Button variant="outline" asChild>
+            <Link to="/student/exercises">{t('student.landing.backToExercises')}</Link>
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   return (
     <div className="max-w-2xl space-y-6">
       <Card className="border-primary/15 bg-sc-primary-container/45">

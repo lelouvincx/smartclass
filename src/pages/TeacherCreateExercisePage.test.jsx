@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
 import TeacherCreateExercisePage from './TeacherCreateExercisePage'
 
@@ -35,6 +35,17 @@ vi.mock('../lib/auth-context', () => ({
   }),
 }))
 
+async function uploadRequiredPdfs(user) {
+  await user.upload(
+    screen.getByLabelText(/Exercise PDF — student copy/i),
+    new File(['exercise-pdf'], 'questions.pdf', { type: 'application/pdf' }),
+  )
+  await user.upload(
+    screen.getByLabelText(/Answer PDF — teacher copy/i),
+    new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }),
+  )
+}
+
 describe('TeacherCreateExercisePage', () => {
   beforeEach(() => {
     createExerciseMock.mockReset()
@@ -45,7 +56,20 @@ describe('TeacherCreateExercisePage', () => {
     logoutMock.mockReset()
   })
 
-  it('allows manual MCQ schema save without answer pdf', async () => {
+  it('requires separate student and teacher PDFs before saving', async () => {
+    const user = userEvent.setup()
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Quiz 1')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(screen.getByText('Upload both the student Exercise PDF and teacher Answer PDF.')).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
+  })
+
+  it('saves a manual MCQ schema with both PDFs', async () => {
     const user = userEvent.setup()
     createExerciseMock.mockResolvedValue({ data: { id: 101 } })
 
@@ -57,6 +81,7 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Quiz 1')
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
+    await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', {
@@ -98,6 +123,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.click(screen.getByLabelText('Timed mode toggle'))
     expect(screen.getByLabelText(/duration \(minutes\)/i)).toBeDisabled()
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
+    await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', {
@@ -148,7 +174,8 @@ describe('TeacherCreateExercisePage', () => {
     const answerPdf = new File(['fake-pdf'], 'answer.pdf', { type: 'application/pdf' })
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Fallback Quiz')
-    await user.upload(screen.getByLabelText('Answer PDF (recommended)'), answerPdf)
+    await user.upload(screen.getByLabelText(/Exercise PDF — student copy/i), new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }))
+    await user.upload(screen.getByLabelText(/Answer PDF — teacher copy/i), answerPdf)
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
     expect(await screen.findByText('DeepSeek unavailable')).toBeInTheDocument()
@@ -157,6 +184,39 @@ describe('TeacherCreateExercisePage', () => {
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves a low-confidence parsed answer blank until the teacher fills it', async () => {
+    const user = userEvent.setup()
+    extractTextFromPdfMock.mockResolvedValue('Question 1 may be B')
+    parseExerciseSchemaMock.mockResolvedValue({
+      data: {
+        schema: [{
+          q_id: 1,
+          sub_id: null,
+          type: 'mcq',
+          correct_answer: 'B',
+          confidence: 0.6,
+        }],
+      },
+    })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.upload(
+      screen.getByLabelText(/Answer PDF — teacher copy/i),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByLabelText(/correct answer for question 1/i)).toHaveValue('')
+    expect(screen.getByText('60%')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Needs review')
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(screen.getByText(/please fix all answer key errors/i)).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
   })
 
   it('adding a boolean row creates 4 sub-question toggles (a,b,c,d)', async () => {
@@ -204,6 +264,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.click(screen.getByLabelText(/question 1, part b, false/i))
     await user.click(screen.getByLabelText(/question 1, part c, true/i))
     await user.click(screen.getByLabelText(/question 1, part d, false/i))
+    await uploadRequiredPdfs(user)
 
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
@@ -264,10 +325,7 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Upload Quiz')
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
-    await user.upload(
-      screen.getByLabelText('Exercise PDF (optional)'),
-      new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }),
-    )
+    await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(await screen.findByRole('heading', { name: 'Exercise created, but a file could not be uploaded' })).toBeInTheDocument()
@@ -276,5 +334,37 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByRole('link', { name: 'Back to exercises' })).toHaveAttribute('href', '/teacher/exercises')
     expect(screen.queryByRole('button', { name: 'Save Exercise' })).not.toBeInTheDocument()
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens the created exercise and starts question generation after both PDF uploads', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 606 } })
+    createExerciseFileUploadMock.mockResolvedValue({ data: {
+      r2_key: 'exercises/606/questions.pdf',
+      file_type: 'exercise_pdf',
+      file_name: 'questions.pdf',
+    } })
+    uploadExerciseFileMock.mockResolvedValue({ data: {} })
+
+    function Destination() {
+      const location = useLocation()
+      return <p>{`${location.pathname}:${String(location.state?.generateQuestionViews)}`}</p>
+    }
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<TeacherCreateExercisePage />} />
+          <Route path="/teacher/exercises/:id" element={<Destination />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'PDF Quiz')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
+    await uploadRequiredPdfs(user)
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(await screen.findByText('/teacher/exercises/606:true')).toBeInTheDocument()
   })
 })

@@ -1,7 +1,13 @@
 import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll } from 'vitest'
 import app from '../index.js'
-import { seedTeacher, loginAsTeacher, seedStudent, loginAsStudent, createExercise } from '../test/helpers.js'
+import {
+  seedTeacher,
+  loginAsTeacher,
+  seedStudent,
+  loginAsStudent,
+  createExercise as createUnreadyExercise,
+} from '../test/helpers.js'
 
 let teacherToken
 let studentToken
@@ -13,12 +19,66 @@ beforeAll(async () => {
   studentToken = await loginAsStudent()
 })
 
+async function createExercise(token, overrides = {}) {
+  const created = await createUnreadyExercise(token, overrides)
+  const sourceR2Key = `exercises/${created.id}/source.pdf`
+  const sourceFile = await env.DB.prepare(`
+    insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+    values (?, 'exercise_pdf', ?, 'source.pdf', 100)
+  `).bind(created.id, sourceR2Key).run()
+  const teacher = await env.DB.prepare(
+    "select id from users where role = 'teacher' limit 1"
+  ).first()
+  const assetSet = await env.DB.prepare(`
+    insert into exercise_question_asset_sets (
+      exercise_id, source_file_id, detector_version, detection_method, confirmed_by, confirmed_at
+    ) values (?, ?, 'test-v1', 'text', ?, current_timestamp)
+  `).bind(created.id, sourceFile.meta.last_row_id, teacher.id).run()
+  const schema = await env.DB.prepare(`
+    select q_id, sub_id, type, correct_answer from answer_schemas where exercise_id = ?
+  `).bind(created.id).all()
+
+  await env.DB.batch([
+    ...schema.results.map(row => env.DB.prepare(`
+      insert into exercise_question_answer_schemas (
+        asset_set_id, q_id, sub_id, type, correct_answer
+      ) values (?, ?, ?, ?, ?)
+    `).bind(assetSet.meta.last_row_id, row.q_id, row.sub_id, row.type, row.correct_answer)),
+    env.DB.prepare(
+      'update exercises set active_question_asset_set_id = ? where id = ?'
+    ).bind(assetSet.meta.last_row_id, created.id),
+  ])
+
+  return {
+    ...created,
+    assetSetId: assetSet.meta.last_row_id,
+    sourceFileId: sourceFile.meta.last_row_id,
+    sourceR2Key,
+  }
+}
+
 // Default helper schema: q_id=1 (mcq) + q_id=2 (boolean 4 sub-rows) = 2 distinct questions.
 // total_questions should be 2 (count distinct q_ids).
 
 describe('POST /api/submissions', () => {
+  it('rejects an existing exercise without a confirmed active question set', async () => {
+    const { id: exerciseId } = await createUnreadyExercise(teacherToken)
+
+    const res = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+
+    expect(res.status).toBe(409)
+    expect((await res.json()).error.code).toBe('EXERCISE_NOT_READY')
+  })
+
   it('creates submission for timed exercise with correct total_questions', async () => {
-    const { id: exerciseId } = await createExercise(teacherToken, {
+    const { id: exerciseId, assetSetId } = await createExercise(teacherToken, {
       is_timed: true,
       duration_minutes: 60,
     })
@@ -39,6 +99,7 @@ describe('POST /api/submissions', () => {
       exercise_id: exerciseId,
       mode: 'timed',
       total_questions: 2, // 2 distinct q_ids, not 5 rows
+      question_asset_set_id: assetSetId,
     })
     expect(body.data.id).toBeDefined()
     expect(body.data.started_at).toBeDefined()
@@ -542,7 +603,7 @@ describe('GET /api/submissions/:id', () => {
     expect(res.status).toBe(403)
   })
 
-  it('includes exercise_title and exercise_pdf files in response', async () => {
+  it('includes exercise_title without exposing source-file metadata', async () => {
     const { id: exerciseId } = await createExercise(teacherToken, { title: 'My Test Exercise' })
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
@@ -578,12 +639,7 @@ describe('GET /api/submissions/:id', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.exercise_title).toBe('My Test Exercise')
-    expect(body.data.files).toBeInstanceOf(Array)
-    expect(body.data.files[0]).toMatchObject({
-      id: expect.any(Number),
-      file_type: 'exercise_pdf',
-      file_name: 'test.pdf',
-    })
+    expect(body.data.files).toEqual([])
   })
 
   it('includes type and correct_answer per answer for submitted submissions', async () => {
@@ -696,6 +752,56 @@ describe('GET /api/submissions/:id', () => {
     body.data.answers.forEach((ans) => {
       expect(ans.correct_answer).toBeUndefined()
     })
+  })
+})
+
+describe('GET /api/submissions/:id/exercise-pdf', () => {
+  it('downloads the source exercise PDF pinned to the owned submission', async () => {
+    const { id: exerciseId, sourceR2Key } = await createExercise(teacherToken)
+    await env.BUCKET.put(sourceR2Key, 'student exercise pdf', {
+      httpMetadata: { contentType: 'application/pdf' },
+    })
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    const res = await app.request(`/api/submissions/${submissionId}/exercise-pdf`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/pdf')
+    expect(res.headers.get('Content-Disposition')).toContain('attachment')
+    expect(res.headers.get('Content-Disposition')).toContain('source.pdf')
+    expect(new TextDecoder().decode(await res.arrayBuffer())).toBe('student exercise pdf')
+  })
+
+  it('requires the submission owner', async () => {
+    const { id: exerciseId, sourceR2Key } = await createExercise(teacherToken)
+    await env.BUCKET.put(sourceR2Key, 'student exercise pdf')
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+    await seedStudent('+84111222444')
+    const otherStudentToken = await loginAsStudent('+84111222444')
+
+    const unauthenticated = await app.request(
+      `/api/submissions/${submissionId}/exercise-pdf`,
+      {},
+      env,
+    )
+    const otherStudent = await app.request(`/api/submissions/${submissionId}/exercise-pdf`, {
+      headers: { 'Authorization': `Bearer ${otherStudentToken}` },
+    }, env)
+
+    expect(unauthenticated.status).toBe(401)
+    expect(otherStudent.status).toBe(403)
   })
 })
 

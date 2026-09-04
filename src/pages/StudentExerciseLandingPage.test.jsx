@@ -35,6 +35,7 @@ const TIMED_EXERCISE = {
   title: 'Algebra Quiz',
   duration_minutes: 30,
   is_timed: 1,
+  is_student_ready: 1,
   schema: [
     { q_id: 1, type: 'mcq', sub_id: null },
     { q_id: 2, type: 'mcq', sub_id: null },
@@ -172,6 +173,19 @@ describe('StudentExerciseLandingPage', () => {
     await user.click(screen.getByRole('button', { name: /^Start$/i }))
 
     expect(await screen.findByText(/network down/i)).toBeInTheDocument()
+  })
+
+  it('does not allow a direct start when the exercise is not ready for students', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: { ...TIMED_EXERCISE, is_student_ready: 0 },
+    })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage()
+
+    expect(await screen.findByText(/isn’t available yet/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Start$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
   })
 
   // --- Resumable submission ---
