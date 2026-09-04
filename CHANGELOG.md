@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Let teachers show or hide individual lectures without deleting them, and keep hidden lectures unavailable to students.
+- Let teachers show or hide individual lectures without deleting them, and keep hidden lectures unavailable to students. [#96](https://github.com/lelouvincx/smartclass/pull/96)
 - Add a persistent desktop sidebar toggle that switches between labelled and compact navigation. [#92](https://github.com/lelouvincx/smartclass/pull/92)
 - Add automatic PDF question detection and image generation with complete teacher preview, per-question retry or screenshot replacement, answer-highlight blocking, and explicit activation. [#91](https://github.com/lelouvincx/smartclass/pull/91)
 - Add the persistence and atomic API contracts for teacher-reviewed question asset sets, per-question screenshot replacement, version-pinned answer schemas, and derived-image delivery. [#91](https://github.com/lelouvincx/smartclass/pull/91)
