@@ -42,9 +42,9 @@ SmartClass uses `html { font-size: 125% }` as a readable default without making 
 
 ## Layout
 
-Desktop uses a fixed, quiet sidebar with a centered content column no wider than 64rem. Main page composition follows a 24–32px vertical rhythm. Cards use 16–24px internal padding and responsive grids rather than fixed card widths.
+Desktop uses a fixed, quiet sidebar that people can collapse to the compact labelled-icon rail. Remember that preference on the device and keep the centered content column no wider than 64rem. The active exercise-taking route is the intentional exception: temporarily use the compact rail and a wide workspace without changing the saved sidebar preference, bound the answer rail, and give remaining width to the question image. Main page composition follows a 24–32px vertical rhythm. Cards use 16–24px internal padding and responsive grids rather than fixed card widths.
 
-At mobile widths, replace the sidebar with a labelled menu button and a left drawer. The drawer must close through its close control, overlay dismissal, Escape, and route selection. Keep every interactive target at least 48 × 48 CSS pixels. Tables may scroll horizontally, but primary actions and essential labels must remain discoverable without hover.
+At mobile widths, replace the sidebar with a labelled menu button and a left drawer. The drawer must close through its close control, overlay dismissal, Escape, and route selection. Keep every interactive target at least 48 × 48 CSS pixels. Tables may scroll horizontally, but primary actions and essential labels must remain discoverable without hover. Wide isolated-question images use a fit-width inline preview that opens a full-screen viewer: portrait starts at a readable scale with swipe, pinch, and button zoom, while landscape starts fit-to-width.
 
 Prefer summary cards and dedicated detail routes over unbounded inline expansion. Long titles wrap or expose their full value; truncation requires a full-title affordance.
 

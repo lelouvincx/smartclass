@@ -15,11 +15,12 @@ Chinh asked to redesign `/student/exercises/:id/take` after the production exerc
 - show only the selected question in the student's left panel;
 - show the matching answer controls in the right panel;
 - update both panels together when the student changes question;
-- remove the full-PDF viewer from the student experience;
-- retain the complete source PDF for teachers;
+- remove the embedded full-PDF viewer from the student experience while letting phone users download the student copy for paper or another device;
+- keep answer entry direct and remove the Manual/Photo mode selector and student answer-photo upload;
+- require a separate answer-free Exercise PDF for students and teacher-only Answer PDF for answer extraction;
 - find question boundaries automatically rather than asking teachers to split the PDF manually;
 - let a teacher replace one rejected generated question with a screenshot instead of replacing the complete PDF; and
-- combine Answer PDF extraction, green-highlight extraction, and manual correction into one teacher-reviewed answer-key workflow while keeping student question images answer-free.
+- combine text extraction, green-highlight extraction from the Answer PDF, and manual correction into one teacher-reviewed answer-key workflow.
 
 ## Problem
 
@@ -32,7 +33,7 @@ Changing the selected question updates the answer state but cannot reliably move
 
 A simple `scrollIntoView()` fix would move the answer form but would not align the PDF, remove iframe latency, or produce the one-question-at-a-time workspace Chinh selected.
 
-Automatic isolation introduces a separate correctness risk: some exercise PDFs include solutions in the same source document. A bad boundary can expose a correct answer during an active attempt. Some source PDFs also mark correct answers with green highlighting. That highlighting can provide useful answer-key evidence, but it cannot remain visible in a student asset or become a grading answer without teacher review.
+Automatic isolation introduces a separate correctness risk: a bad boundary can expose a solution or answer cue during an active attempt. The exercised fixture also demonstrates why one answer-marked document cannot serve both students and answer extraction. Teachers therefore upload an answer-free Exercise PDF for students and a separate teacher-only Answer PDF whose text or green highlights may propose answers. SmartClass still requires teacher review, but keeping the Exercise PDF free of answers is the teacher's responsibility.
 
 ## Findings
 
@@ -58,7 +59,7 @@ SmartClass should reuse this interaction principle, not copy the legacy styling:
 - `PdfSplitPane` conditionally mounts a browser PDF iframe and cannot target question regions inside the document.
 - `src/lib/pdf.js` already loads PDF.js for text extraction, but no question-region model exists.
 - Teachers upload one source exercise PDF to R2. The same file remains useful for teacher preview and management.
-- The create page can separately extract text from an optional Answer PDF, send that text to the existing schema-parsing LLM, and place its normalized rows into an editable answer-key table.
+- The create page can separately extract text from the required teacher-only Answer PDF, send that text to the existing schema-parsing LLM, and place its normalized rows into an editable answer-key table.
 - Answer PDF parsing does not preserve color or geometry, and it currently finishes before the separate question-view generation workflow begins.
 - The public exercise response strips `correct_answer` for non-teachers, but the exercise PDF itself can contain solution text.
 
@@ -81,13 +82,13 @@ The existing Answer PDF extraction for the local exercise-9 fixture produced 24 
 
 ## Analysis
 
-### Keep one source PDF
+### Keep the student source as one PDF
 
-Splitting every exercise into many source PDFs would duplicate teacher work, complicate replacement, and create another source of truth. The original PDF should remain one teacher-owned file.
+Splitting every exercise into many question PDFs would duplicate teacher work, complicate replacement, and create another source of truth. The Exercise PDF should remain one complete, answer-free student file. The separate Answer PDF is teacher-only and exists only to prepare the answer key.
 
 ### Derive student assets once
 
-Cropping from the PDF in every student browser would avoid an iframe but still make each student download, parse, and render the complete document. Instead, SmartClass should generate optimized question images once during the teacher workflow. Students then fetch only the selected question and its neighbors.
+Cropping from the PDF in every student browser would avoid an iframe but still make each student download, parse, and render the complete document. Instead, SmartClass should generate optimized question images once during the teacher workflow. Student clients fetch only the selected question and its neighbors. Phone clients can also download the complete Exercise PDF on demand for use on paper or another device.
 
 Each question may need more than one ordered image segment because a question can cross pages or depend on a shared stimulus. The data model must not assume one rectangle or one page per question.
 
@@ -99,7 +100,7 @@ The smallest safe first release keeps detection automatic and adds one teacher c
 
 ### Combine answer candidates, keep teacher authority
 
-SmartClass already has one useful answer source: an LLM converts extracted Answer PDF text into schema rows. Green-highlight extraction adds a second independent source. Both should feed the same proposed answer table rather than create a second answer-key interface.
+SmartClass already has one useful answer source: an LLM converts extracted Answer PDF text into schema rows. Green-highlight extraction from that same teacher-only Answer PDF adds a second independent method. Both should feed the same proposed answer table rather than create a second answer-key interface.
 
 The Answer PDF parser may propose question IDs, types, sub-question IDs, and answers. The green extractor may propose answers only when a supported highlight maps unambiguously to that schema shape. Existing or manually entered values remain editable teacher input. All candidates are normalized to the same `(q_id, sub_id, type, proposed_answer)` shape and merged by question key.
 
@@ -113,58 +114,54 @@ No automatic source silently wins. The teacher reviews one complete answer table
 
 ### Prepare the answer key and question views as one workflow
 
-On create, the optional Answer PDF parser or manual rows first establishes a proposed question structure. The exercise PDF detector validates that structure against its question markers, adds green-highlight candidates, and generates isolated images. The teacher then resolves one merged answer table and one complete image review. **Confirm answers and activate** is the only action that makes the paired schema and images student-ready.
+On create, the Answer PDF parser first establishes a proposed question structure. Manual rows remain the fallback when extraction is incomplete or uncertain. The Answer PDF green extractor adds highlight candidates, while the Exercise PDF detector validates the structure against its question markers and generates isolated images. The teacher then resolves one merged answer table and one complete image review. **Confirm answers and activate** is the only action that makes the paired schema and images student-ready.
 
 ```diagram
-Answer PDF ───▶ existing text/LLM parser ───▶ answer candidates ──┐
-                                                                 │
-Exercise PDF ─▶ deterministic green extractor ▶ answer candidates ├──▶ one editable answer table ──┐
-                                                                 │                                │
-Manual entry ───────────────────────────────────▶ teacher draft ──┘                                ├──▶ one teacher confirmation ──▶ atomic activation
-                                                                                                  │
-Exercise PDF ─▶ question-boundary detector ─────▶ answer-free image previews ──────────────────────┘
+Answer PDF ───▶ text/LLM parser ────────────────▶ answer candidates ──┐
+            └▶ deterministic green extractor ──▶ answer candidates ──┼──▶ one editable answer table ──┐
+Manual entry ──────────────────────────────────▶ teacher draft ──────┘                                ├──▶ one teacher confirmation ──▶ atomic activation
+                                                                                                     │
+Exercise PDF ─▶ question-boundary detector ────▶ student image previews ─────────────────────────────┘
 ```
 
 Saving the exercise metadata and uploading source files may occur before final confirmation so the pending assets have an owner. Until an active set exists, that intermediate exercise remains teacher-only after cutover. A partial upload or abandoned review must not expose the exercise to students.
 
-### Sanitize or reject answer-marked student images
+### Separate student content from answer evidence
 
-Extracting a correct answer does not make its marked question image safe for students. If the highlight is in an excluded solution region, it never enters the student crop. If it is inside the question region, SmartClass may generate a clean image only when a bounded background-highlight mask can be removed without altering foreground text, formulas, diagrams, or legitimate green content. The cleaned image must pass answer-cue detection again and remain subject to teacher preview.
-
-If sanitization is ambiguous, damages content, or leaves a visible answer cue, the question remains blocked. The teacher must then upload a clean question screenshot or replace the PDF.
+Question assets are always derived from the answer-free Exercise PDF. Answer candidates and marked evidence are always derived from the teacher-only Answer PDF and never enter a student asset or route. SmartClass does not sanitize an answer-marked PDF into a student copy. If the Exercise PDF contains answers or cues, the teacher must replace it or replace an affected question with a clean screenshot before activation.
 
 ## Decision
 
 SmartClass will use a **question-first student experience** backed by automatically generated, teacher-confirmed question asset sets.
 
-One full source PDF remains in R2 for teacher use. A teacher may also provide a teacher-only Answer PDF or enter answers manually. During exercise creation, source replacement, or legacy backfill, SmartClass runs the existing Answer PDF text parser and deterministic green-highlight extraction as independent candidate sources, merges their normalized results into one reviewable answer table, detects question regions, and renders answer-free optimized question images. The teacher resolves answer conflicts and previews the entire image set. The teacher can reject a generated question and upload one replacement screenshot for that question. The teacher then selects **Confirm answers and activate**. Activation makes the complete asset set and its teacher-confirmed answer schema active atomically.
+One complete, answer-free Exercise PDF remains in R2 for teacher viewing and authenticated student download. A separate Answer PDF remains teacher-only; it may contain answers or green highlights. During exercise creation, source replacement, or legacy backfill, SmartClass runs Answer PDF text parsing and deterministic Answer PDF green-highlight extraction as independent candidate methods, merges their normalized results into one reviewable answer table, detects question regions in the Exercise PDF, and renders optimized question images. The teacher resolves answer conflicts and previews the entire image set. The teacher can reject a generated question and upload one replacement screenshot for that question. The teacher then selects **Confirm answers and activate**. Activation makes the complete asset set and its teacher-confirmed answer schema active atomically.
 
-Students never load or render the source PDF after cutover. The selected question's isolated image segments appear in the left panel and the matching answer controls appear in the right panel. Selecting a question changes both panels in the same state transition.
+SmartClass never embeds or renders the full PDF in the take page after cutover. On desktop and tablet, the selected question's isolated image segments appear in the left panel and the matching answer controls appear in the right panel. On phones, the selected question image appears below the answer-sheet control and above its matching answer controls; students can also download the complete Exercise PDF through their owned submission for paper or another device. Selecting a question changes the visible question state and answer controls in the same transition at every size.
 
-This RFC supersedes RFC-6 only where RFC-6 chose a student full-PDF split pane and independent question navigation. RFC-6 remains authoritative for the submission lifecycle, timer, manual/photo answer input, unanswered states, grading, summary, and review behavior unless this RFC explicitly changes the rendering source.
+This RFC supersedes RFC-6 where RFC-6 chose a student full-PDF split pane, independent question navigation, and Manual/Photo answer input. RFC-6 remains authoritative for the submission lifecycle, timer, unanswered states, grading, summary, and review behavior.
 
 ## Goals
 
 - Make question changes immediate and spatially predictable.
-- Remove full-PDF download, iframe navigation, and PDF rendering from student take and review pages.
-- Preserve the full source PDF for teachers.
+- Remove iframe navigation and browser PDF rendering from student take and review pages.
+- Preserve the complete answer-free Exercise PDF for teachers and authenticated phone download.
+- Keep the Answer PDF and all answer evidence teacher-only.
 - Generate isolated question views automatically for supported born-digital PDFs.
-- Combine existing Answer PDF extraction and green-highlight extraction into one proposed answer key.
+- Combine Answer PDF text extraction and Answer PDF green-highlight extraction into one proposed answer key.
 - Detect answer-source agreement, missing rows, schema mismatches, and conflicting values before activation.
-- Suggest correct answers when green highlights map unambiguously to the proposed answer schema.
-- Remove supported answer-background highlights from student assets without changing question content, and block assets that cannot be cleaned safely.
+- Suggest correct answers when green highlights in the Answer PDF map unambiguously to the proposed answer schema.
 - Gate scanned/image-only automatic detection on a successful vision-model proof of concept; use question screenshots or PDF replacement until then.
 - Let teachers replace one rejected generated question with a screenshot without replacing the complete PDF.
 - Prevent partial, mixed-version, low-confidence, or unconfirmed assets from reaching students.
 - Preserve the question version seen when a submission starts.
-- Preserve English/Vietnamese parity, keyboard access, touch targets, timer behavior, answer modes, and submission semantics.
+- Preserve English/Vietnamese parity, keyboard access, touch targets, timer behavior, direct answer controls, and submission semantics.
 
 ## Non-goals
 
 - Asking teachers to upload one PDF per question.
 - Shipping a manual crop or bounding-box editor in the first release.
 - Editing screenshot pixels, drawing screenshot bounds, or inferring a question ID from the screenshot filename.
-- Replacing student photo-answer extraction or changing grading rules.
+- Decommissioning the existing photo-extraction API and storage contracts or changing grading rules.
 - Replacing the existing text-based Answer PDF model in this RFC.
 - Inferring correct answers from unhighlighted prose, formulas, diagrams, or an AI model.
 - Automatically accepting a detected answer or activating an answer schema without teacher review.
@@ -190,20 +187,23 @@ This RFC supersedes RFC-6 only where RFC-6 chose a student full-PDF split pane a
 ```
 
 - The question panel and answer panel are peers in one workspace.
+- The attempt temporarily collapses the app sidebar and relaxes the normal content-width limit without overwriting the student's saved shell preference. The answer rail stays narrow and the question panel receives the remaining desktop width.
 - The current answer control appears near the top of the right panel; students do not scroll past unrelated questions.
 - Previous, Next, and numbered navigation all call the same question-selection action.
 - Selection updates the heading, image segments, answer controls, progress, and current navigation state together.
 - The question panel returns to its top and moves focus to the question heading without smooth body scrolling.
 - The active question image loads first. The previous and next question images preload in the background.
-- Timer visibility, manual/photo mode, draft answers, leave protection, unanswered counts, and submit confirmation keep their current behavior.
+- Timer visibility, draft answers, leave protection, unanswered counts, and submit confirmation keep their current behavior. Students answer directly; the take page has no input-mode selector or answer-photo upload.
 
 ### Student mobile
 
-- Use one page scroller: isolated question segment(s), then the matching answer controls.
+- Show an authenticated download button for the complete Exercise PDF so students can also read it on paper or another device.
+- Keep one page scroller ordered as answer-sheet control, selected question preview, then matching answer controls. Tapping the preview opens a full-screen viewer with pinch and button zoom; rotating the device provides more reading space.
+- Load the selected question image and preload its neighbors without loading the complete exercise.
 - Keep Previous and Next available without forcing a second scroll container.
 - Put the numbered answer sheet in the existing compact sheet/drawer pattern.
-- Selecting a question from the sheet closes it, changes both question and answer content, resets the question workspace to its top, and focuses the question heading.
-- Do not mount a PDF iframe or offer a full-PDF toggle.
+- Selecting a question from the sheet closes it, changes the current image and answer content, resets the question workspace to its top, and focuses the question heading.
+- Do not mount a PDF iframe or offer an embedded full-PDF toggle.
 
 ### Student review
 
@@ -211,13 +211,13 @@ The detailed review page uses the question asset set pinned to that submission, 
 
 ### Teacher
 
-- Teacher create and view pages retain the complete exercise PDF and any teacher-only Answer PDF.
-- The teacher supplies an exercise PDF and may supply an Answer PDF. Without a usable Answer PDF, the teacher defines question IDs and types manually before green-answer mapping runs.
-- One **Prepare exercise** flow parses the Answer PDF, validates its proposed structure against exercise-PDF question markers, extracts green-highlight candidates, renders question images, and uploads one pending set.
+- Teacher create and view pages retain the complete answer-free Exercise PDF and teacher-only Answer PDF.
+- The teacher supplies two distinct documents: an Exercise PDF that students may download and an Answer PDF that stays teacher-only and may contain answers or green highlights. Supplying an answer-free Exercise PDF is the teacher's responsibility.
+- One **Prepare exercise** flow parses the Answer PDF, validates its proposed structure against Exercise PDF question markers, extracts green-highlight candidates from the Answer PDF, renders question images from the Exercise PDF, and uploads one pending set.
 - The UI shows deterministic progress for both branches: reading source files, parsing the Answer PDF, detecting question boundaries and highlights, merging answer candidates, rendering previews, uploading, ready for review, or failed.
 - One answer table labels each row as **Sources agree**, **From Answer PDF**, **From green highlight**, **Conflict**, or **Manual answer needed**.
 - The teacher edits that table directly. No source silently replaces an existing answer, and unresolved key/type/value conflicts disable activation.
-- The review screen shows every generated answer-free visual crop, labelled by question and segment.
+- The review screen shows every generated student visual crop, labelled by question and segment.
 - Each automatic answer candidate retains teacher-only provenance and evidence: Answer PDF/model metadata for parsed text, or source page and rectangle for a green highlight.
 - Missing or ambiguous candidates leave the answer empty or unchanged for manual completion. They do not invent a value or prevent activation once the teacher supplies a valid final answer.
 - A teacher can reject one generated question. The rejected question then offers **Retry detection**, **Upload question screenshot**, and **Replace PDF**.
@@ -225,14 +225,14 @@ The detailed review page uses the question asset set pinned to that submission, 
 - The screenshot upload accepts one complete PNG, JPEG, or WebP image. The current question ID comes from the review slot, not from image analysis or the filename.
 - SmartClass may retain text extracted from the PDF as optional, best-effort metadata. Teachers do not review or correct it, and missing text does not block activation.
 - Missing, invalid, rejected, or low-confidence questions disable activation until automatic regeneration or a valid screenshot resolves them.
-- A valid set with a complete answer schema offers one explicit **Confirm answers and activate** action. Its copy asks the teacher to verify both that the answers are correct and that no solutions or answer cues are visible in student images.
+- A valid set with a complete answer schema offers one explicit **Confirm answers and activate** action. Its copy asks the teacher to verify both that the answers are correct and that the Exercise PDF and student images contain no solutions or answer cues.
 - The first release has no resize, drag, merge, or split controls. A teacher can replace an unsafe crop with a screenshot, but cannot edit the generated crop itself.
 
 ## Combined preparation pipeline
 
 ### 1. Read both source files
 
-Use the existing lazy PDF.js boundary in `src/lib/pdf.js` to open the teacher-selected or existing exercise PDF and optional Answer PDF. Extract Answer PDF text through the existing browser path and retain exercise-PDF page geometry and renders for question detection. Keep this work out of the student bundle path.
+Use the existing lazy PDF.js boundary in `src/lib/pdf.js` to open the teacher-selected or existing Exercise PDF and Answer PDF. Extract Answer PDF text and retain its page renders for green-highlight candidates. Retain Exercise PDF page geometry and renders only for question detection and student asset generation. Keep this work out of the student bundle path.
 
 ### 2. Establish and validate the proposed schema shape
 
@@ -257,9 +257,9 @@ Send extracted Answer PDF text through the existing teacher-authenticated schema
 
 If the parser fails, omits rows, returns unexpected keys, or returns invalid values, retain any valid non-conflicting candidates and make the gaps recoverable through green-highlight candidates or manual answers. Do not send the Answer PDF to the question-boundary vision detector.
 
-### 5. Collect green-highlight candidates
+### 5. Collect Answer PDF green-highlight candidates
 
-Analyze the original teacher-only page render before excluding solution regions or sanitizing student crops. Combine bounded green-pixel components with PDF text geometry and the teacher-declared question types.
+Analyze the teacher-only Answer PDF page render. Combine bounded green-pixel components with its text geometry and the teacher-declared question types.
 
 - For multiple choice, suggest an answer only when exactly one supported highlight maps to one `A`, `B`, `C`, or `D` option.
 - For true/false, suggest a sub-answer only when exactly one supported highlight maps to `true` or `false` for one declared `a`–`d` sub-question.
@@ -306,18 +306,15 @@ Before rendering or upload, validate the combined result:
 - page numbers and normalized rectangles are in bounds and non-empty;
 - segment order is contiguous;
 - regions do not intersect detected solution/answer areas;
-- answer highlights inside a final student region are either safely sanitized or remain blocking;
 - every final answer row has one schema-valid teacher-reviewed value;
 - no answer-source key/type/value conflict remains unresolved;
 - vision-derived segments meet the configured confidence threshold.
 
-Any failed asset-safety rule blocks activation. A missing or ambiguous answer suggestion is non-blocking only when the teacher supplies a valid final answer manually. Warnings may explain failures but may not override an unsafe student image in the first release.
+Any failed asset-safety rule blocks activation. A missing or ambiguous answer suggestion is non-blocking only when the teacher supplies a valid final answer manually. Automated checks do not make an answer-marked Exercise PDF safe: the teacher remains responsible for providing the correct student copy and confirming every preview.
 
 ### 9. Render derived assets
 
 Render validated rectangles into legible WebP images at a bounded high-density resolution. Preserve diagrams, formulas, option labels, and source aspect ratio. Store normalized source coordinates alongside the image so a later crop editor can regenerate assets without changing the source model.
-
-Prefer omitting a PDF highlight annotation when that produces the same unmarked source content. For highlights embedded in page pixels, remove only a validated green background mask within the detected answer mark while preserving non-green foreground glyphs. Do not remove arbitrary green page content. Re-run answer-cue detection against the rendered result; any residual cue or uncertain content change blocks the question and routes it to screenshot replacement or PDF replacement.
 
 Text items inside a region may be stored as optional, best-effort metadata. PDF text extraction is not reliable for formulas, diagrams, or all mathematical notation, so this metadata is not presented as an accessible equivalent, does not require teacher review, and does not affect confidence or activation. A complete accessible representation is deferred until a pipeline can preserve those elements accurately.
 
@@ -329,7 +326,7 @@ A screenshot becomes one manual segment and replaces every generated segment for
 
 ### 11. Review and activate
 
-Upload all generated segments and answer candidates into a pending immutable asset set. Automated checks run again on the server. A teacher then reviews the complete answer-free image set, both sources' answer evidence, and one merged final answer schema. One D1 batch records confirmation, snapshots the teacher-confirmed schema, and changes the exercise's active-set pointer. If upload, validation, or activation fails, the previous active set and answer schema remain unchanged.
+Upload all generated segments and answer candidates into a pending immutable asset set. Automated checks run again on the server. A teacher then reviews the complete student image set, both answer methods' evidence, and one merged final answer schema. One D1 batch records confirmation, snapshots the teacher-confirmed schema, and changes the exercise's active-set pointer. If upload, validation, or activation fails, the previous active set and answer schema remain unchanged.
 
 ## Data model
 
@@ -380,7 +377,7 @@ One teacher-only answer proposal from one automatic source.
 - nullable `sub_id`
 - `type`
 - `proposed_answer`
-- `source_kind` (`answer_pdf_text` or `exercise_green_highlight`)
+- `source_kind` (`answer_pdf_text` or `answer_pdf_green_highlight`)
 - `source_file_id`
 - nullable `extractor_version` and `model_id`
 - nullable `source_page`
@@ -415,7 +412,7 @@ Pinning the set and its answer-schema snapshot at submission creation prevents a
 
 The exact route modules may follow repository conventions, but these public behaviors are fixed before test-first implementation:
 
-1. A teacher-only create-set operation accepts a source exercise file and optional Answer PDF file, verifies both belong to the exercise, and creates a pending asset set.
+1. A teacher-only create-set operation accepts a source Exercise PDF and Answer PDF, verifies both belong to the exercise, and creates a pending asset set. The product UI does not prepare or activate a new set without both files.
 2. A teacher-only asset upload operation accepts one generated image segment plus its validated metadata and optional best-effort extracted text. The server verifies the image format and pixel dimensions from the uploaded bytes rather than trusting multipart metadata. XHR is permitted only for image upload progress; other frontend calls continue through `request()`.
 3. The existing teacher-only Answer PDF parser remains available to the combined preparation flow and returns normalized candidates rather than bypassing teacher review.
 4. A teacher-only candidate upload operation accepts Answer PDF and green-highlight proposals with source provenance, validates each value against its declared schema type, and never overwrites a current correct answer.
@@ -428,7 +425,8 @@ The exact route modules may follow repository conventions, but these public beha
 11. Submission creation rejects a student-ready start when no confirmed active set exists and pins the active set ID on success.
 12. Take and review responses resolve assets from the submission's pinned set, not from a later active set.
 13. Generated-asset delivery permits confirmed sets needed by active or historical submissions, uses immutable cache headers, and keeps pending assets teacher-only.
-14. Deleting an exercise removes its asset and candidate metadata and attempts best-effort cleanup of its derived R2 objects. Failed pending generations are cleanable without touching the active set.
+14. An authenticated submission-PDF operation streams the Exercise PDF pinned through the owned submission as an attachment. It rejects unauthenticated access and submissions owned by another student, never returns the Answer PDF, and uses private, non-cacheable headers.
+15. Deleting an exercise removes its asset and candidate metadata and attempts best-effort cleanup of its derived R2 objects. Failed pending generations are cleanable without touching the active set.
 
 `jsonSuccess` and `jsonError` remain the response helpers for every Worker route.
 
@@ -448,7 +446,7 @@ The exact route modules may follow repository conventions, but these public beha
 - Replacing either source PDF makes a pending combined review stale until it is regenerated.
 - Candidates, marked evidence, teacher-only answer files, and `correct_answer` values are never returned to the question-boundary vision detector or student routes.
 - Active-attempt responses do not expose correct answers; detailed review keeps the existing post-submission visibility rules.
-- Student routes do not request or render the source exercise PDF after cutover.
+- The take route never embeds or renders the Exercise PDF. It requests the source only when the owning student explicitly downloads it on a phone.
 
 ## Legacy migration
 
@@ -492,34 +490,34 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 **Chinh actions**
 
-- Review generated exercise 9 crops and confirm that answer-highlighted images are blocked.
-- Confirm that the one-action safety review is understandable and that the full teacher PDF remains available.
+- Review generated crops from an answer-free Exercise PDF and confirm that every question is complete and legible.
+- Confirm that the one-action safety review is understandable and that both complete PDFs remain available only to their intended audiences.
 
 **Expected outcome**
 
 - Teachers can automatically generate and safely activate a complete question set without splitting the PDF, and can replace one rejected generated question with a screenshot.
 
-**Go gate:** exercise 9 acts as a safety fixture: generated crops are complete, its answer-highlighted questions reliably block activation, and other low-confidence or incomplete fixtures cannot activate. A clean representative teacher PDF will be validated before student cutover.
+**Go gate:** a representative answer-free Exercise PDF produces complete crops, while low-confidence or incomplete fixtures cannot activate. Exercise 9 remains useful for boundary and answer-extraction tests but is not a valid student-copy fixture because it contains example answers.
 
-### Stage B2 — Unified answer-key preparation and sanitization
+### Stage B2 — Unified answer-key preparation
 
 **Agent actions**
 
-- Add failing fixtures for Answer PDF omission, Answer PDF/green agreement and conflict, multiple-choice/true-false/numeric highlight mapping, annotation and embedded-pixel highlights, missing and unparseable values, and legitimate green question content.
+- Add failing fixtures for Answer PDF omission, text/green agreement and conflict, multiple-choice/true-false/numeric highlight mapping, missing and unparseable values, and abstention on ambiguous marks.
 - Integrate the existing Answer PDF parser and deterministic green extractor as candidate adapters behind one preparation action and answer table.
-- Persist teacher-only candidate provenance, implement conservative highlight sanitization and residual-cue checks, and require the teacher to resolve key, type, and value mismatches before activation.
-- Preserve manually entered answers and the existing manual fallback; keep student photo-answer extraction unchanged.
+- Persist teacher-only candidate provenance and require the teacher to resolve key, type, and value mismatches before activation.
+- Preserve manually entered answers and the existing manual fallback. Remove the student photo-mode entry point from the take page without coupling this teacher workflow to backend decommissioning.
 
 **Chinh actions**
 
-- Review exercise 9's Answer PDF candidates, green-highlight candidates, agreement/conflict states, and cleaned question images in one workflow.
-- Confirm that source labels and conflict recovery are understandable and that cleaned images preserve every character, formula, and diagram without revealing the answer.
+- Review exercise 9's Answer PDF candidates, green-highlight candidates, agreement/conflict states, and separately sourced student question images in one workflow.
+- Confirm that source labels and conflict recovery are understandable and that the Exercise PDF and Answer PDF are clearly distinguished.
 
 **Expected outcome**
 
-- Teachers prepare one answer key from both automatic sources plus manual corrections, while no unresolved answer conflict, marked image, or damaged image can reach students.
+- Teachers prepare one answer key from both Answer PDF methods plus manual corrections, while the Answer PDF and its marked evidence cannot reach students.
 
-**Go gate:** identical source values merge, omissions remain visible, disagreements block until teacher resolution, every supported highlight candidate matches its known answer, sanitization removes only validated answer backgrounds, and no candidate affects grading before teacher confirmation.
+**Go gate:** identical candidate values merge, omissions remain visible, disagreements block until teacher resolution, every supported highlight candidate matches its known answer, and no candidate affects grading before teacher confirmation.
 
 ### Stage C — Backfill and readiness
 
@@ -537,7 +535,7 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 **Expected outcome**
 
-- Every student-visible exercise has one teacher-confirmed active set before the full-PDF fallback is removed.
+- Every student-visible exercise has one teacher-confirmed active set before the embedded full-PDF fallback is removed.
 
 **Stop gate:** any missing question, visible solution, unreadable crop, or unconfirmed exercise.
 
@@ -546,8 +544,8 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 **Agent actions**
 
 - Add failing take/review interaction tests before replacing the iframe.
-- Build synchronized desktop and mobile question workspaces using the pinned asset set.
-- Preload adjacent images, preserve timer/input/submission behavior, remove student PDF controls, and add English/Vietnamese copy.
+- Build a synchronized question workspace using the pinned asset set, with a side-by-side wide-desktop layout and a stacked phone layout.
+- Preload adjacent images, add authenticated Exercise PDF download on phones, preserve timer/manual-answer/submission behavior, remove embedded PDF and photo-input controls, and add English/Vietnamese copy.
 - Update `PRODUCT.md` and `CHANGELOG.md` only when the behavior ships.
 
 **Chinh actions**
@@ -557,7 +555,7 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 **Expected outcome**
 
-- Students see one isolated question and its matching answer controls with no source-PDF request or independent scroll-position problem.
+- Desktop/tablet students see one isolated question and its matching answer controls. Phone students see the same selected question above its controls, can download the complete student copy for paper or another device, and avoid independent PDF scroll-position problems.
 
 **Go gate:** all acceptance criteria and required frontend, Worker, integration, build, keyboard, mobile, and visual checks pass.
 
@@ -594,19 +592,21 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 - One selection action changes the question heading, all left-panel segments, right-panel answer controls, progress, and navigation state.
 - Previous, Next, desktop grid, and mobile sheet use the same selection behavior.
 - Selecting a question resets/focuses the workspace without smooth body scrolling.
-- Adjacent images preload without fetching every exercise image up front.
+- Desktop/tablet adjacent images preload without fetching every exercise image up front.
+- Phone take UI places the selected question image between the answer-sheet control and matching answer choices, while downloading the Exercise PDF only after the student activates the download control.
 - Teacher confirmation stays disabled for blocking detector results.
-- One preparation action runs both available answer sources and question-image generation.
-- Teacher review distinguishes source agreement, Answer PDF-only, green-only, conflicting, missing, and manually entered answers without silently overwriting a value.
+- One preparation action runs both Answer PDF candidate methods and question-image generation.
+- Teacher review distinguishes candidate agreement, text-only, green-only, conflicting, missing, and manually entered answers without silently overwriting a value.
 - The final action confirms both the complete answer schema and the answer-free student images.
-- Rejecting a generated question offers retry, screenshot upload, and full-PDF replacement; a valid screenshot resolves only that question.
+- Rejecting a generated question offers retry, screenshot upload, and Exercise PDF replacement; a valid screenshot resolves only that question.
 - Retry and failed upload preserve the old active set.
-- No student take or review test mounts an iframe or requests the source exercise PDF.
+- No student take or review test mounts an iframe. The phone take test requests the Exercise PDF only through the explicit download action.
 - English and Vietnamese resource trees remain in parity.
 
 ### Manual and visual checks
 
-- Exercise 9's combined Answer PDF/green evidence, merged answer table, and cleaned previews at 1440 × 1000 and 390px mobile widths.
+- Combined Answer PDF text/green evidence and the merged answer table at 1440 × 1000 and 390px mobile widths.
+- Student take at 1440 × 1000 uses the wide two-column workspace; at 390 × 844 it orders the answer-sheet control, selected image, and matching answers vertically while retaining the download control in English and Vietnamese.
 - Long, short, multi-page, diagram-heavy, and scanned questions.
 - Keyboard navigation, visible focus, screen-reader text, 48 × 48 touch targets, dark/light themes, and reduced motion.
 - Slow and failed image requests, detector failure, upload failure, stale generation, and no-active-set recovery.
@@ -614,41 +614,42 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 ## Acceptance criteria
 
-- A teacher uploads one exercise PDF; no per-question PDF preparation is required.
-- A teacher may add one Answer PDF or complete missing answers manually; these are paths through the same preparation workflow, not separate publishing flows.
+- A teacher uploads one answer-free Exercise PDF for students and one separate teacher-only Answer PDF; no per-question PDF preparation is required.
+- The Answer PDF may contain answers or green highlights. Missing or uncertain extracted answers are completed manually in the same preparation workflow.
 - SmartClass automatically detects all expected question regions in a supported born-digital PDF.
 - Existing Answer PDF extraction and green-highlight extraction feed one normalized, editable answer table with visible provenance.
 - Matching candidates show agreement; single-source candidates identify their source; conflicts and missing rows remain visible until the teacher resolves them.
 - SmartClass suggests a correct answer when exactly one supported green highlight maps unambiguously to the declared multiple-choice, true/false, or numeric schema.
 - Missing, duplicate, conflicting, or unparseable highlights produce no answer suggestion and never guess.
 - Existing correct answers are not silently overwritten; no source takes automatic precedence, and the teacher reviews or edits the complete final answer schema before activation.
-- A green-highlighted student region is activated only after the answer background is safely removed, answer-cue detection passes again, and the teacher confirms the clean preview.
-- Any uncertain sanitization remains blocked and offers question screenshot or PDF replacement.
+- Green-highlight extraction reads only the teacher-only Answer PDF and never modifies or supplies student question images.
+- If the Exercise PDF contains an answer or answer cue, the teacher replaces that student copy or uploads a clean question screenshot; SmartClass does not sanitize it into a safe copy.
 - A scanned/image-only PDF uses question screenshots or replacement until an approved vision model passes the detection gate.
 - A complete visual preview requires explicit teacher confirmation before activation.
 - Missing, invalid, or low-confidence generations cannot activate.
 - A teacher can reject one generated question and replace it with one complete screenshot without replacing the source PDF.
 - The screenshot replaces only the selected pending question and is reviewed as part of the complete visual preview before activation.
-- Students do not fetch, mount, or display the source exercise PDF on take or detailed-review routes.
+- Students never mount or display the Exercise PDF in an iframe. On phones, the owning student can explicitly download the complete answer-free Exercise PDF.
+- Students answer directly through the current question's controls; the take page has no Manual/Photo selector or answer-photo upload.
 - The left panel shows only the current question's ordered segment(s).
 - The right panel shows only the matching answer controls plus stable navigation, timer, and submit actions.
 - Selecting any question updates both panels together and makes the selected question immediately visible.
-- Desktop and mobile flows have one predictable content position rather than independent PDF and form positions.
+- Desktop/tablet and phone flows have one predictable content position rather than independent PDF and form positions.
 - New asset sets activate atomically; failed replacements leave the previous set available.
 - In-progress and historical submissions keep the asset set pinned when they started.
-- Exercise 9 exposes an omitted Answer PDF row, source agreement or disagreement, supported highlight candidates, and clean previews; unresolved or unsafe cases remain blocked.
-- Teachers can still view the complete source PDF.
+- Exercise 9 exposes an omitted Answer PDF row, candidate agreement or disagreement, and supported highlight candidates; because it is an answer-marked example, a separate answer-free fixture validates student previews.
+- Teachers can still view both complete source PDFs.
 - Existing exercises are backfilled and confirmed before the legacy student PDF path is removed.
 
 ## Risks and follow-ups
 
 | Risk | Mitigation |
 | --- | --- |
-| Automatic crop contains a solution | Detect exclusion markers and answer highlights, block uncertainty, show every crop, and require teacher confirmation. |
-| Answer PDF parsing omits or misreads a row | Compare its key set and values with exercise-PDF markers and green candidates, expose gaps or conflicts, and require teacher resolution. |
+| Automatic crop contains a solution | Detect exclusion markers, block uncertain boundaries, show every crop, and require teacher confirmation. |
+| Answer PDF parsing omits or misreads a row | Compare its key set with Exercise PDF markers and its values with green-highlight candidates, expose gaps or conflicts, and require teacher resolution. |
 | Answer sources disagree | Show both values and provenance, apply no automatic precedence, and block activation until the teacher chooses or edits the final value. |
 | A green mark maps to the wrong answer | Require one deterministic schema-valid mapping, abstain on ambiguity, show teacher-only evidence, and keep the teacher-confirmed schema authoritative. |
-| Highlight removal damages text or legitimate green content | Limit changes to validated answer-background masks, preserve foreground pixels, re-run cue detection, show the cleaned preview, and block uncertain results. |
+| Teacher uploads the answer-marked copy as the Exercise PDF | Label both required files by audience, state that the student copy must contain no answers or cues, show every generated crop, and make the teacher responsible for replacing an unsafe source before activation. |
 | Scanned PDFs produce weak boundaries | Keep vision output disabled until a model passes the proof-of-concept gate; offer question screenshots or PDF replacement. |
 | One generated question is unsafe but the source PDF is otherwise usable | Let the teacher replace that pending question with one reviewed screenshot. |
 | Question crosses pages or uses shared material | Store ordered multi-segment questions rather than one fixed crop. |

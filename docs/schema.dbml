@@ -142,7 +142,7 @@ Table exercise_question_answer_candidates {
   sub_id            text    [note: 'NULL for mcq/numeric; sub-question key for boolean']
   type              text    [not null, note: 'mcq | boolean | numeric']
   proposed_answer   text    [not null]
-  source_kind       text    [not null, note: 'answer_pdf_text | exercise_green_highlight']
+  source_kind       text    [not null, note: 'answer_pdf_text | answer_pdf_green_highlight']
   source_file_id    integer [not null, ref: > exercise_files.id]
   extractor_version text
   model_id          text

@@ -18,7 +18,10 @@ function renderLayout(initialEntry = '/student') {
   )
 }
 
-afterEach(() => act(() => changeLanguage('en')))
+afterEach(() => {
+  localStorage.clear()
+  return act(() => changeLanguage('en'))
+})
 
 describe('StudentLayout navigation', () => {
   it('marks the current destination in the student navigation', () => {
@@ -54,5 +57,38 @@ describe('StudentLayout navigation', () => {
 
     const dialog = screen.getByRole('dialog', { name: 'Điều hướng học sinh' })
     expect(within(dialog).getByRole('button', { name: 'Đóng' })).toBeInTheDocument()
+  })
+
+  it('toggles the desktop sidebar and remembers the compact preference', async () => {
+    const user = userEvent.setup()
+    const { unmount } = renderLayout()
+
+    await user.click(screen.getByRole('button', { name: 'Collapse sidebar' }))
+
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
+    expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBe('true')
+
+    unmount()
+    renderLayout()
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument()
+  })
+
+  it('temporarily uses the compact wide workspace while a student takes an exercise', () => {
+    const { unmount } = renderLayout('/student/exercises/9/take')
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-28')
+    expect(document.getElementById('main-content')).toHaveClass('max-w-[90rem]')
+    expect(screen.queryByRole('button', { name: 'Expand sidebar' })).not.toBeInTheDocument()
+    expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBeNull()
+
+    unmount()
+    renderLayout()
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-56')
+    expect(document.getElementById('main-content')).toHaveClass('max-w-5xl')
+    expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument()
   })
 })

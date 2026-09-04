@@ -8,7 +8,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 const questionAssetsRoutes = new Hono()
 const DETECTION_METHODS = new Set(['text', 'manual'])
 const ANSWER_PARSER_STATUSES = new Set(['not_provided', 'parsed', 'failed'])
-const ANSWER_SOURCE_KINDS = new Set(['answer_pdf_text', 'exercise_green_highlight'])
+const ANSWER_SOURCE_KINDS = new Set(['answer_pdf_text', 'answer_pdf_green_highlight'])
 const ANSWER_TYPES = new Set(['mcq', 'boolean', 'numeric'])
 const MAX_ASSET_BYTES = 10 * 1024 * 1024
 const MAX_ANSWER_CANDIDATES = 500
@@ -1073,9 +1073,7 @@ function normalizeAnswerCandidate(candidate, assetSet) {
     return { error: 'Candidate answer is invalid for its type' }
   }
 
-  const expectedSourceFileId = sourceKind === 'answer_pdf_text'
-    ? assetSet.answer_source_file_id
-    : assetSet.source_file_id
+  const expectedSourceFileId = assetSet.answer_source_file_id
   if (!expectedSourceFileId || candidate.source_file_id !== expectedSourceFileId) {
     return { error: 'Candidate source file does not match this asset set' }
   }
@@ -1086,7 +1084,7 @@ function normalizeAnswerCandidate(candidate, assetSet) {
     candidate.source_width,
     candidate.source_height,
   ]
-  if (sourceKind === 'exercise_green_highlight' && (
+  if (sourceKind === 'answer_pdf_green_highlight' && (
     !Number.isInteger(candidate.source_page) || candidate.source_page < 1
     || !validNormalizedRectangle(...sourceGeometry)
   )) {
@@ -1103,11 +1101,11 @@ function normalizeAnswerCandidate(candidate, assetSet) {
       source_file_id: candidate.source_file_id,
       extractor_version: optionalText(candidate.extractor_version),
       model_id: optionalText(candidate.model_id),
-      source_page: sourceKind === 'exercise_green_highlight' ? candidate.source_page : null,
-      source_x: sourceKind === 'exercise_green_highlight' ? candidate.source_x : null,
-      source_y: sourceKind === 'exercise_green_highlight' ? candidate.source_y : null,
-      source_width: sourceKind === 'exercise_green_highlight' ? candidate.source_width : null,
-      source_height: sourceKind === 'exercise_green_highlight' ? candidate.source_height : null,
+      source_page: sourceKind === 'answer_pdf_green_highlight' ? candidate.source_page : null,
+      source_x: sourceKind === 'answer_pdf_green_highlight' ? candidate.source_x : null,
+      source_y: sourceKind === 'answer_pdf_green_highlight' ? candidate.source_y : null,
+      source_width: sourceKind === 'answer_pdf_green_highlight' ? candidate.source_width : null,
+      source_height: sourceKind === 'answer_pdf_green_highlight' ? candidate.source_height : null,
       confidence,
     },
   }

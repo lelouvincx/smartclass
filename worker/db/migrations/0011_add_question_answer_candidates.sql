@@ -1,4 +1,4 @@
--- RFC-11: teacher-reviewed answer candidates from the Answer PDF and exercise highlights.
+-- RFC-11: teacher-reviewed answer candidates from Answer PDF text and highlights.
 
 alter table exercise_question_asset_sets add column answer_source_file_id integer
   references exercise_files(id);
@@ -15,7 +15,7 @@ create table exercise_question_answer_candidates (
   , type text not null check (type in ('mcq', 'boolean', 'numeric'))
   , proposed_answer text not null
   , source_kind text not null check (
-      source_kind in ('answer_pdf_text', 'exercise_green_highlight')
+      source_kind in ('answer_pdf_text', 'answer_pdf_green_highlight')
     )
   , source_file_id integer not null
   , extractor_version text
@@ -30,7 +30,7 @@ create table exercise_question_answer_candidates (
   , check (
       source_kind = 'answer_pdf_text'
       or (
-        source_kind = 'exercise_green_highlight'
+        source_kind = 'answer_pdf_green_highlight'
         and source_page > 0
         and source_x >= 0 and source_y >= 0
         and source_width > 0 and source_height > 0

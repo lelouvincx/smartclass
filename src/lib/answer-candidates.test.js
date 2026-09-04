@@ -24,7 +24,7 @@ describe('mergeAnswerCandidates', () => {
   it('shows agreement, single-source evidence, and missing candidates in one table', () => {
     const result = mergeAnswerCandidates(schema, [
       candidate(1, 'answer_pdf_text', 'B'),
-      candidate(1, 'exercise_green_highlight', 'B'),
+      candidate(1, 'answer_pdf_green_highlight', 'B'),
       candidate(3, 'answer_pdf_text', '42.0'),
     ])
 
@@ -40,7 +40,7 @@ describe('mergeAnswerCandidates', () => {
   it('marks source disagreement, type mismatch, and disagreement with the teacher draft as conflicts', () => {
     const result = mergeAnswerCandidates(schema, [
       candidate(1, 'answer_pdf_text', 'B'),
-      candidate(1, 'exercise_green_highlight', 'C'),
+      candidate(1, 'answer_pdf_green_highlight', 'C'),
       candidate(2, 'answer_pdf_text', '0', { sub_id: 'a', type: 'boolean' }),
       candidate(3, 'answer_pdf_text', '42', { type: 'mcq' }),
     ])

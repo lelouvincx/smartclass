@@ -12,6 +12,12 @@ const submissionsRoutes = new Hono()
 const MAX_IMAGE_BYTES = 20 * 1024 * 1024 // 20 MB
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'])
 
+function encodeAttachmentFileName(fileName) {
+  return encodeURIComponent(fileName).replace(/['()*]/g, character => (
+    `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+  ))
+}
+
 // List submissions for authenticated user
 submissionsRoutes.get('/', requireAuth, async (c) => {
   const authUser = c.get('authUser')
@@ -287,6 +293,54 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     console.error('Submit answers error:', error)
     return jsonError(c, 500, 'INTERNAL_ERROR', error.message || 'Failed to submit answers')
   }
+})
+
+// Download the answer-free source PDF pinned to an owned attempt.
+submissionsRoutes.get('/:id/exercise-pdf', requireAuth, async (c) => {
+  const submissionId = Number.parseInt(c.req.param('id'), 10)
+  if (!Number.isInteger(submissionId) || submissionId < 1) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Submission ID must be a positive integer')
+  }
+
+  const authUser = c.get('authUser')
+  const submission = await c.env.DB.prepare(`
+    select
+      submission.user_id
+      , source_file.r2_key
+      , source_file.file_name
+    from submissions submission
+    left join exercise_question_asset_sets asset_set
+      on asset_set.id = submission.question_asset_set_id
+    left join exercise_files source_file
+      on source_file.id = asset_set.source_file_id
+      and source_file.exercise_id = submission.exercise_id
+      and source_file.file_type = 'exercise_pdf'
+    where submission.id = ?
+  `).bind(submissionId).first()
+
+  if (!submission) {
+    return jsonError(c, 404, 'NOT_FOUND', 'Submission not found')
+  }
+  if (submission.user_id !== authUser.id) {
+    return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this submission')
+  }
+  if (!submission.r2_key) {
+    return jsonError(c, 404, 'NOT_FOUND', 'Exercise PDF not found')
+  }
+
+  const object = await c.env.BUCKET.get(submission.r2_key)
+  if (!object) {
+    return jsonError(c, 404, 'NOT_FOUND', 'Exercise PDF content not found')
+  }
+
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType || 'application/pdf',
+      'Content-Disposition': `attachment; filename="exercise.pdf"; filename*=UTF-8''${encodeAttachmentFileName(submission.file_name)}`,
+      'Cache-Control': 'private, no-store',
+    },
+  })
 })
 
 // Get submission with enriched answers (includes type, correct_answer when submitted)

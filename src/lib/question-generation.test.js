@@ -3,7 +3,6 @@ import {
   findQuestionSeparator,
   getCropPixels,
   getQuestionSegmentsToRender,
-  hasSuspiciousGreenHighlight,
   processGreenHighlights,
   textContentToPageGeometry,
 } from './question-generation'
@@ -91,22 +90,8 @@ describe('getQuestionSegmentsToRender', () => {
   })
 })
 
-describe('hasSuspiciousGreenHighlight', () => {
-  it('flags a material bright-green region but ignores isolated green pixels', () => {
-    const highlighted = new Uint8ClampedArray(100 * 100 * 4)
-    for (let pixel = 0; pixel < 30; pixel += 1) {
-      highlighted.set([0, 255, 0, 255], pixel * 4)
-    }
-    const isolated = new Uint8ClampedArray(highlighted)
-    isolated.fill(0, 4 * 4)
-
-    expect(hasSuspiciousGreenHighlight({ data: highlighted, width: 100, height: 100 })).toBe(true)
-    expect(hasSuspiciousGreenHighlight({ data: isolated, width: 100, height: 100 })).toBe(false)
-  })
-})
-
 describe('processGreenHighlights', () => {
-  it('extracts a schema-aware candidate and removes its green background from the student crop', () => {
+  it('extracts a schema-aware candidate without changing the teacher-only evidence image', () => {
     const source = image(100, 40)
     fillRect(source, 30, 10, 45, 12, [0, 220, 30, 255])
     fillRect(source, 34, 13, 4, 6, [0, 0, 0, 255])
@@ -135,7 +120,7 @@ describe('processGreenHighlights', () => {
       }),
     ])
     expect(Array.from(result.imageData.data.slice((10 * 100 + 30) * 4, (10 * 100 + 30) * 4 + 4)))
-      .toEqual([255, 255, 255, 255])
+      .toEqual([0, 220, 30, 255])
     expect(Array.from(result.imageData.data.slice((13 * 100 + 34) * 4, (13 * 100 + 34) * 4 + 4)))
       .toEqual([0, 0, 0, 255])
   })

@@ -368,6 +368,13 @@ export function getSubmission(token, submissionId) {
   })
 }
 
+export function getSubmissionExercisePdf(token, submissionId) {
+  return request(`/api/submissions/${submissionId}/exercise-pdf`, {
+    headers: authHeaders(token),
+    responseType: 'blob',
+  })
+}
+
 // Returns a URL to serve a file from R2 via the file serve endpoint.
 export function getFileUrl(fileId) {
   return `${API_BASE_URL}/api/files/${fileId}`

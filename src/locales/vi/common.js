@@ -9,6 +9,8 @@ export default {
   logout: 'Đăng xuất',
   skipToMain: 'Chuyển đến nội dung chính',
   openNavigation: 'Mở điều hướng',
+  collapseSidebar: 'Thu gọn thanh bên',
+  expandSidebar: 'Mở rộng thanh bên',
   dashboard: 'Tổng quan',
   students: 'Học sinh',
   exercises: 'Bài tập',

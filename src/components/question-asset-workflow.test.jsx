@@ -35,7 +35,10 @@ const EXERCISE = {
   pending_question_asset_set_id: null,
   question_asset_set_id: null,
   question_assets: [],
-  files: [{ id: 91, file_type: 'exercise_pdf', file_name: 'exercise-9.pdf' }],
+  files: [
+    { id: 91, file_type: 'exercise_pdf', file_name: 'exercise-9.pdf' },
+    { id: 92, file_type: 'solution_pdf', file_name: 'answers.pdf' },
+  ],
   schema: [
     { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'A' },
     { q_id: 2, sub_id: null, type: 'numeric', correct_answer: '42' },
@@ -79,8 +82,8 @@ const storedCandidate = (qId, sourceKind, proposedAnswer, overrides = {}) => ({
   type: qId === 2 ? 'numeric' : 'mcq',
   proposed_answer: proposedAnswer,
   source_kind: sourceKind,
-  source_file_id: sourceKind === 'answer_pdf_text' ? 92 : 91,
-  source_page: sourceKind === 'exercise_green_highlight' ? 1 : null,
+  source_file_id: ['answer_pdf_text', 'answer_pdf_green_highlight'].includes(sourceKind) ? 92 : 91,
+  source_page: sourceKind === 'answer_pdf_green_highlight' ? 1 : null,
   confidence: 0.9,
   ...overrides,
 })
@@ -90,8 +93,8 @@ function preview(
   {
     setId = 22,
     sourceFileId = 91,
-    answerSourceFileId = null,
-    answerParserStatus = 'not_provided',
+    answerSourceFileId = 92,
+    answerParserStatus = 'parsed',
     answerCandidates = [],
   } = {},
 ) {
@@ -141,6 +144,16 @@ describe('QuestionAssetWorkflow', () => {
     expect(screen.getByRole('button', { name: 'Prepare exercise' })).toBeDisabled()
   })
 
+  it('requires a separate Answer PDF before preparing student question views', () => {
+    renderWorkflow({
+      ...EXERCISE,
+      files: EXERCISE.files.filter(file => file.file_type === 'exercise_pdf'),
+    })
+
+    expect(screen.getByText('Add the teacher Answer PDF before preparing this exercise.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Prepare exercise' })).toBeDisabled()
+  })
+
   it('detects, renders, uploads, and displays the complete pending preview', async () => {
     const user = userEvent.setup()
     api.getExerciseFileBlob.mockResolvedValue(new Blob(['pdf'], { type: 'application/pdf' }))
@@ -164,6 +177,8 @@ describe('QuestionAssetWorkflow', () => {
     )
     expect(api.createQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, {
       source_file_id: 91,
+      answer_source_file_id: 92,
+      answer_parser_status: 'failed',
       detector_version: 'text-geometry-v1',
       detection_method: 'text',
     })
@@ -220,24 +235,32 @@ describe('QuestionAssetWorkflow', () => {
         ],
       },
     })
-    generateQuestionAssetsMock.mockResolvedValue({
-      detectorVersion: 'text-geometry-v1',
-      detectionMethod: 'text',
-      warnings: [],
-      answerCandidates: [{
-        qId: 1,
-        subId: null,
-        type: 'mcq',
-        proposedAnswer: 'A',
-        sourcePage: 1,
-        sourceX: 0.1,
-        sourceY: 0.2,
-        sourceWidth: 0.3,
-        sourceHeight: 0.04,
-        confidence: 1,
-      }],
-      assets: [generatedAsset(1), generatedAsset(2)],
-    })
+    generateQuestionAssetsMock
+      .mockResolvedValueOnce({
+        detectorVersion: 'text-geometry-v1',
+        detectionMethod: 'text',
+        warnings: [],
+        answerCandidates: [],
+        assets: [generatedAsset(1), generatedAsset(2)],
+      })
+      .mockResolvedValueOnce({
+        detectorVersion: 'text-geometry-v1',
+        detectionMethod: 'text',
+        warnings: [],
+        answerCandidates: [{
+          qId: 1,
+          subId: null,
+          type: 'mcq',
+          proposedAnswer: 'A',
+          sourcePage: 1,
+          sourceX: 0.1,
+          sourceY: 0.2,
+          sourceWidth: 0.3,
+          sourceHeight: 0.04,
+          confidence: 1,
+        }],
+        assets: [],
+      })
     api.createQuestionAssetSet.mockResolvedValue({ data: { id: 22 } })
     api.uploadGeneratedQuestionAsset.mockResolvedValue({ data: {} })
     api.getQuestionAssetSet.mockResolvedValue(preview(undefined, {
@@ -245,7 +268,7 @@ describe('QuestionAssetWorkflow', () => {
       answerParserStatus: 'parsed',
       answerCandidates: [
         storedCandidate(1, 'answer_pdf_text', 'A'),
-        storedCandidate(1, 'exercise_green_highlight', 'A'),
+        storedCandidate(1, 'answer_pdf_green_highlight', 'A'),
       ],
     }))
 
@@ -256,10 +279,20 @@ describe('QuestionAssetWorkflow', () => {
       source_text: 'Question 1 B. Question 2 42.',
       expected_question_count: 2,
     })
-    expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
+    expect(generateQuestionAssetsMock).toHaveBeenNthCalledWith(
+      1,
       expect.any(Blob),
       [1, 2],
       expect.objectContaining({ schemaRows: EXERCISE.schema }),
+    )
+    expect(generateQuestionAssetsMock).toHaveBeenNthCalledWith(
+      2,
+      expect.any(Blob),
+      [1, 2],
+      expect.objectContaining({
+        createAssets: false,
+        schemaRows: EXERCISE.schema,
+      }),
     )
     expect(api.createQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, expect.objectContaining({
       answer_source_file_id: 92,
@@ -271,7 +304,11 @@ describe('QuestionAssetWorkflow', () => {
       22,
       expect.arrayContaining([
         expect.objectContaining({ source_kind: 'answer_pdf_text', proposed_answer: 'A' }),
-        expect.objectContaining({ source_kind: 'exercise_green_highlight', proposed_answer: 'A' }),
+        expect.objectContaining({
+          source_kind: 'answer_pdf_green_highlight',
+          source_file_id: 92,
+          proposed_answer: 'A',
+        }),
       ]),
     )
     expect(api.uploadAnswerCandidates.mock.calls[0][3]).not.toEqual(expect.arrayContaining([
@@ -375,12 +412,15 @@ describe('QuestionAssetWorkflow', () => {
     api.createQuestionAssetSet.mockResolvedValue({ data: { id: 23 } })
     api.uploadGeneratedQuestionAsset.mockResolvedValue({ data: {} })
     api.deleteQuestionAssetSet.mockResolvedValue({ data: { deleted: true } })
-    api.getQuestionAssetSet.mockResolvedValue(preview(undefined, { setId: 23, sourceFileId: 92 }))
+    api.getQuestionAssetSet.mockResolvedValue(preview(undefined, { setId: 23, sourceFileId: 93 }))
 
     renderWorkflow({
       ...EXERCISE,
       pending_question_asset_set_id: 22,
-      files: [{ id: 92, file_type: 'exercise_pdf', file_name: 'replacement.pdf' }],
+      files: [
+        { id: 93, file_type: 'exercise_pdf', file_name: 'replacement.pdf' },
+        { id: 92, file_type: 'solution_pdf', file_name: 'answers.pdf' },
+      ],
     }, { autoStartKey: 1 })
 
     expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
@@ -544,7 +584,7 @@ describe('QuestionAssetWorkflow', () => {
       answerParserStatus: 'parsed',
       answerCandidates: [
         storedCandidate(1, 'answer_pdf_text', 'B'),
-        storedCandidate(1, 'exercise_green_highlight', 'C'),
+        storedCandidate(1, 'answer_pdf_green_highlight', 'C'),
       ],
     }))
     api.updateExercise.mockResolvedValue({ data: { ...EXERCISE, question_asset_set_id: 22 } })

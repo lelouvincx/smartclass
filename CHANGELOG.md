@@ -8,9 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add a persistent desktop sidebar toggle that switches between labelled and compact navigation.
 - Add automatic PDF question detection and image generation with complete teacher preview, per-question retry or screenshot replacement, answer-highlight blocking, and explicit activation. [#91](https://github.com/lelouvincx/smartclass/pull/91)
 - Add the persistence and atomic API contracts for teacher-reviewed question asset sets, per-question screenshot replacement, version-pinned answer schemas, and derived-image delivery. [#91](https://github.com/lelouvincx/smartclass/pull/91)
-- Combine Answer PDF parsing and deterministic green-highlight candidates in one conflict-aware answer review that activates with the approved question images. [#91](https://github.com/lelouvincx/smartclass/pull/91)
+- Combine Answer PDF parsing and deterministic green-highlight candidates from the teacher-only Answer PDF in one conflict-aware answer review that activates with question images derived from the separate student-safe Exercise PDF. [#91](https://github.com/lelouvincx/smartclass/pull/91)
 - Document the accepted question-first exercise plan with automatic PDF-region detection, teacher confirmation, per-question screenshot replacement, and derived question images. [#91](https://github.com/lelouvincx/smartclass/pull/91)
 - Let signed-in teachers securely change their own password from Settings after verifying their current password, with independently collapsible setting sections. [#87](https://github.com/lelouvincx/smartclass/pull/87)
 - Add a production API version endpoint that reports the deployed commit hash and verify it after Worker deployments. [#86](https://github.com/lelouvincx/smartclass/pull/86)
@@ -24,7 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Replace the student PDF iframe with synchronized isolated-question images and answer controls, including adjacent-image preloading and a compact mobile answer-sheet drawer. [#91](https://github.com/lelouvincx/smartclass/pull/91)
+- Replace the student PDF iframe with synchronized isolated-question images and direct answer controls. Give desktop attempts a compact app rail, wide workspace, and narrow answer rail so questions remain dominant. On phones, place the selected question preview between the answer-sheet control and matching answer choices, open it in a full-screen pinch-and-button zoom viewer, and retain an authenticated download of the complete answer-free Exercise PDF. Remove the Manual/Photo selector and answer-photo upload from the take page. [#91](https://github.com/lelouvincx/smartclass/pull/91)
 - Align expanded lecture previews with their disclosure controls on desktop. [#90](https://github.com/lelouvincx/smartclass/pull/90)
 - Make dashboards task-aware, show truthful exercise actions, prioritize the current question on mobile attempts, and clarify answer progress. [#89](https://github.com/lelouvincx/smartclass/pull/89)
 - Use Material 3's default Roboto typeface throughout the application. [#87](https://github.com/lelouvincx/smartclass/pull/87)

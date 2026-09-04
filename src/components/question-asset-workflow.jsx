@@ -84,13 +84,13 @@ function answerPdfCandidates(rows, sourceFileId, modelId) {
   })
 }
 
-function greenHighlightCandidates(rows, sourceFileId) {
+function answerPdfGreenHighlightCandidates(rows, sourceFileId) {
   return (rows || []).map(row => ({
     q_id: row.qId,
     sub_id: row.subId ?? null,
     type: row.type,
     proposed_answer: row.proposedAnswer,
-    source_kind: 'exercise_green_highlight',
+    source_kind: 'answer_pdf_green_highlight',
     source_file_id: sourceFileId,
     source_page: row.sourcePage,
     source_x: row.sourceX,
@@ -464,7 +464,7 @@ export default function QuestionAssetWorkflow({
   }, [autoStartKey, exercise.pending_question_asset_set_id, loadDraft])
 
   const startGeneration = useCallback(async () => {
-    if (!sourceFile || questionIds.length === 0 || phase === 'generating') return
+    if (!sourceFile || !answerSourceFile || questionIds.length === 0 || phase === 'generating') return
 
     setPhase('generating')
     setError('')
@@ -473,12 +473,14 @@ export default function QuestionAssetWorkflow({
     let readyForReview = false
     try {
       let parsedRows = []
+      let answerPdf = null
+      let greenAnswerCandidates = []
       let parserStatus = 'not_provided'
       let parserModelId = null
       if (answerSourceFile) {
         setProgress({ stage: 'answers', current: 0, total: 1 })
         try {
-          const answerPdf = await getExerciseFileBlob(answerSourceFile.id, token)
+          answerPdf = await getExerciseFileBlob(answerSourceFile.id, token)
           const sourceText = await extractTextFromPdf(answerPdf)
           const parsed = await parseExerciseSchema(token, {
             source_text: sourceText,
@@ -498,6 +500,20 @@ export default function QuestionAssetWorkflow({
         onProgress: setProgress,
         schemaRows: exercise.schema,
       })
+      if (answerPdf) {
+        try {
+          const answerGeneration = await generateQuestionAssets(answerPdf, questionIds, {
+            schemaRows: exercise.schema,
+            createAssets: false,
+          })
+          greenAnswerCandidates = answerPdfGreenHighlightCandidates(
+            answerGeneration.answerCandidates,
+            answerSourceFile.id,
+          )
+        } catch {
+          greenAnswerCandidates = []
+        }
+      }
 
       const setPayload = {
         source_file_id: sourceFile.id,
@@ -533,7 +549,7 @@ export default function QuestionAssetWorkflow({
 
       const candidates = [
         ...answerPdfCandidates(parsedRows, answerSourceFile?.id, parserModelId),
-        ...greenHighlightCandidates(generated.answerCandidates, sourceFile.id),
+        ...greenAnswerCandidates,
       ]
       if (candidates.length > 0) {
         await uploadAnswerCandidates(token, exercise.id, setId, candidates)
@@ -571,10 +587,10 @@ export default function QuestionAssetWorkflow({
   ])
 
   useEffect(() => {
-    if (!autoStartKey || autoStartedFor.current === autoStartKey || !sourceFile) return
+    if (!autoStartKey || autoStartedFor.current === autoStartKey || !sourceFile || !answerSourceFile) return
     autoStartedFor.current = autoStartKey
     startGeneration()
-  }, [autoStartKey, sourceFile, startGeneration])
+  }, [answerSourceFile, autoStartKey, sourceFile, startGeneration])
 
   async function handleReject(qId) {
     setBusyQuestionId(qId)
@@ -615,10 +631,6 @@ export default function QuestionAssetWorkflow({
           }),
         },
       )
-      const candidates = greenHighlightCandidates(generated.answerCandidates, sourceFile.id)
-      if (candidates.length > 0) {
-        await uploadAnswerCandidates(token, exercise.id, draft.asset_set.id, candidates)
-      }
       await loadDraft(draft.asset_set.id)
     } catch (retryError) {
       setError(retryError.code === 'SCANNED_OR_IMAGE_ONLY_PAGE'
@@ -734,7 +746,12 @@ export default function QuestionAssetWorkflow({
               <p className="mt-1 text-sm text-muted-foreground">{t('teacher.questionViews.activeDescription')}</p>
             </div>
           </div>
-          <Button type="button" variant="outline" onClick={startGeneration}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={startGeneration}
+            disabled={!sourceFile || !answerSourceFile}
+          >
             <RefreshCw />
             {t('teacher.questionViews.generateReplacement')}
           </Button>
@@ -760,6 +777,9 @@ export default function QuestionAssetWorkflow({
         <CardContent className="space-y-4 pt-5">
           {!sourceFile && (
             <p className="text-sm text-muted-foreground">{t('teacher.questionViews.pdfRequired')}</p>
+          )}
+          {sourceFile && !answerSourceFile && (
+            <p className="text-sm text-muted-foreground">{t('teacher.questionViews.answerPdfRequired')}</p>
           )}
           {(phase === 'generating' || phase === 'loading') && (
             <div className="space-y-2" aria-live="polite">
@@ -791,7 +811,7 @@ export default function QuestionAssetWorkflow({
             <Button
               type="button"
               onClick={startGeneration}
-              disabled={!sourceFile || questionIds.length === 0 || phase === 'generating' || phase === 'loading'}
+              disabled={!sourceFile || !answerSourceFile || questionIds.length === 0 || phase === 'generating' || phase === 'loading'}
             >
               <RefreshCw />
               {phase === 'error' ? t('teacher.questionViews.tryAgain') : t('teacher.questionViews.prepare')}

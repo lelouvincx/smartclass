@@ -143,32 +143,6 @@ export function extractGreenAnswerSuggestions({
   return { suggestions, matchedRegionIndexes, unresolvedRegionIndexes: [] }
 }
 
-export function sanitizeGreenHighlights(imageData, regions) {
-  validateImageData(imageData)
-  validateRegions(regions, imageData.width, imageData.height)
-  const result = {
-    data: new Uint8ClampedArray(imageData.data),
-    width: imageData.width,
-    height: imageData.height,
-  }
-
-  for (const region of regions) {
-    for (let y = region.y; y < region.y + region.height; y += 1) {
-      for (let x = region.x; x < region.x + region.width; x += 1) {
-        const pixel = y * result.width + x
-        if (!isGreenPixel(result.data, pixel)) continue
-        const index = pixel * 4
-        result.data[index] = 255
-        result.data[index + 1] = 255
-        result.data[index + 2] = 255
-        result.data[index + 3] = 255
-      }
-    }
-  }
-
-  return result
-}
-
 function optionForRegion(region, textItems) {
   const labels = textItems.flatMap((item) => {
     const match = item.text?.match(/^\s*([A-D])\s*[.)]/i)
@@ -278,23 +252,5 @@ function validateImageData(imageData) {
   }
   if (imageData.data.length !== imageData.width * imageData.height * 4) {
     throw new RangeError('Image data length must equal width * height * 4')
-  }
-}
-
-function validateRegions(regions, imageWidth, imageHeight) {
-  if (!Array.isArray(regions) || regions.some(region => (
-    !region
-    || !Number.isInteger(region.x)
-    || !Number.isInteger(region.y)
-    || !Number.isInteger(region.width)
-    || !Number.isInteger(region.height)
-    || region.x < 0
-    || region.y < 0
-    || region.width <= 0
-    || region.height <= 0
-    || region.x + region.width > imageWidth
-    || region.y + region.height > imageHeight
-  ))) {
-    throw new RangeError('Highlight regions must contain bounded integer rectangles')
   }
 }

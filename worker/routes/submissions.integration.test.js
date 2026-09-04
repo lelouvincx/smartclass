@@ -21,10 +21,11 @@ beforeAll(async () => {
 
 async function createExercise(token, overrides = {}) {
   const created = await createUnreadyExercise(token, overrides)
+  const sourceR2Key = `exercises/${created.id}/source.pdf`
   const sourceFile = await env.DB.prepare(`
     insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
     values (?, 'exercise_pdf', ?, 'source.pdf', 100)
-  `).bind(created.id, `exercises/${created.id}/source.pdf`).run()
+  `).bind(created.id, sourceR2Key).run()
   const teacher = await env.DB.prepare(
     "select id from users where role = 'teacher' limit 1"
   ).first()
@@ -48,7 +49,12 @@ async function createExercise(token, overrides = {}) {
     ).bind(assetSet.meta.last_row_id, created.id),
   ])
 
-  return { ...created, assetSetId: assetSet.meta.last_row_id }
+  return {
+    ...created,
+    assetSetId: assetSet.meta.last_row_id,
+    sourceFileId: sourceFile.meta.last_row_id,
+    sourceR2Key,
+  }
 }
 
 // Default helper schema: q_id=1 (mcq) + q_id=2 (boolean 4 sub-rows) = 2 distinct questions.
@@ -746,6 +752,56 @@ describe('GET /api/submissions/:id', () => {
     body.data.answers.forEach((ans) => {
       expect(ans.correct_answer).toBeUndefined()
     })
+  })
+})
+
+describe('GET /api/submissions/:id/exercise-pdf', () => {
+  it('downloads the source exercise PDF pinned to the owned submission', async () => {
+    const { id: exerciseId, sourceR2Key } = await createExercise(teacherToken)
+    await env.BUCKET.put(sourceR2Key, 'student exercise pdf', {
+      httpMetadata: { contentType: 'application/pdf' },
+    })
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    const res = await app.request(`/api/submissions/${submissionId}/exercise-pdf`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/pdf')
+    expect(res.headers.get('Content-Disposition')).toContain('attachment')
+    expect(res.headers.get('Content-Disposition')).toContain('source.pdf')
+    expect(new TextDecoder().decode(await res.arrayBuffer())).toBe('student exercise pdf')
+  })
+
+  it('requires the submission owner', async () => {
+    const { id: exerciseId, sourceR2Key } = await createExercise(teacherToken)
+    await env.BUCKET.put(sourceR2Key, 'student exercise pdf')
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+    await seedStudent('+84111222444')
+    const otherStudentToken = await loginAsStudent('+84111222444')
+
+    const unauthenticated = await app.request(
+      `/api/submissions/${submissionId}/exercise-pdf`,
+      {},
+      env,
+    )
+    const otherStudent = await app.request(`/api/submissions/${submissionId}/exercise-pdf`, {
+      headers: { 'Authorization': `Bearer ${otherStudentToken}` },
+    }, env)
+
+    expect(unauthenticated.status).toBe(401)
+    expect(otherStudent.status).toBe(403)
   })
 })
 

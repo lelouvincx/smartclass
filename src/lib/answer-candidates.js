@@ -45,12 +45,12 @@ export function mergeAnswerCandidates(schema, candidates) {
     const sourceKinds = new Set(row.candidates.map(candidate => candidate.source_kind))
     if (
       sourceKinds.has('answer_pdf_text')
-      && sourceKinds.has('exercise_green_highlight')
+      && sourceKinds.has('answer_pdf_green_highlight')
     ) {
       row.status = 'agree'
     } else if (sourceKinds.has('answer_pdf_text')) {
       row.status = 'answer_pdf'
-    } else if (sourceKinds.has('exercise_green_highlight')) {
+    } else if (sourceKinds.has('answer_pdf_green_highlight')) {
       row.status = 'green_highlight'
     }
   }

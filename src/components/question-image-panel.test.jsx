@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { QuestionImagePanel } from './question-image-panel'
@@ -98,6 +98,55 @@ describe('QuestionImagePanel', () => {
     expect(screen.queryByAltText('First question')).not.toBeInTheDocument()
     expect(document.querySelector('iframe')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /pdf/i })).not.toBeInTheDocument()
+  })
+
+  it('opens the selected question at a useful mobile reading scale in the full-screen viewer', async () => {
+    const user = userEvent.setup()
+    const originalInnerWidth = window.innerWidth
+    const originalInnerHeight = window.innerHeight
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 844 })
+
+    try {
+      render(
+        <QuestionImagePanel
+          token="student-token"
+          assets={ASSETS.slice(0, 1)}
+          currentQId={1}
+        />,
+      )
+
+      await screen.findByAltText('First question')
+      await user.click(screen.getByRole('button', { name: 'View question 1 larger' }))
+
+      const viewer = screen.getByRole('dialog')
+      expect(within(viewer).getByRole('heading', { name: 'Question 1' })).toBeInTheDocument()
+      expect(within(viewer).getByTestId('question-image-viewer-image')).toHaveStyle({ width: '300%' })
+
+      await user.click(within(viewer).getByRole('button', { name: 'Zoom in' }))
+
+      const viewerImage = within(viewer).getByTestId('question-image-viewer-image')
+      expect(viewerImage).toHaveStyle({ width: '350%' })
+      expect(within(viewer).getByText('350%')).toBeInTheDocument()
+
+      const viewerCanvas = within(viewer).getByTestId('question-image-viewer-canvas')
+      fireEvent.touchStart(viewerCanvas, {
+        touches: [{ clientX: 0, clientY: 0 }, { clientX: 100, clientY: 0 }],
+        changedTouches: [{ clientX: 0, clientY: 0 }],
+      })
+      fireEvent.touchMove(viewerCanvas, {
+        touches: [{ clientX: 0, clientY: 0 }, { clientX: 120, clientY: 0 }],
+        changedTouches: [{ clientX: 120, clientY: 0 }],
+      })
+
+      expect(viewerImage).toHaveStyle({ width: '400%' })
+
+      await user.click(within(viewer).getByRole('button', { name: 'Close' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    } finally {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: originalInnerWidth })
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: originalInnerHeight })
+    }
   })
 
   it('shows a retry action when the selected image cannot be loaded', async () => {

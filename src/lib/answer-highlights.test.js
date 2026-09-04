@@ -3,7 +3,6 @@ import {
   detectGreenHighlightRegions,
   extractGreenAnswerSuggestions,
   isSuspiciousHighlightGreen,
-  sanitizeGreenHighlights,
 } from './answer-highlights'
 
 function image(width, height, color = [255, 255, 255, 255]) {
@@ -18,13 +17,6 @@ function fillRect(source, x, y, width, height, color) {
       source.data.set(color, (row * source.width + column) * 4)
     }
   }
-}
-
-function pixelAt(source, x, y) {
-  return Array.from(source.data.slice(
-    (y * source.width + x) * 4,
-    (y * source.width + x) * 4 + 4,
-  ))
 }
 
 describe('detectGreenHighlightRegions', () => {
@@ -51,40 +43,6 @@ describe('detectGreenHighlightRegions', () => {
     expect(detectGreenHighlightRegions(source)).toEqual([
       { x: 9, y: 10, width: 7, height: 4, pixelCount: 28 },
     ])
-  })
-})
-
-describe('sanitizeGreenHighlights', () => {
-  it('returns a copy that whites only classified green pixels in supplied regions', () => {
-    const source = image(20, 8)
-    fillRect(source, 2, 2, 14, 4, [0, 220, 30, 255])
-    fillRect(source, 8, 2, 2, 4, [0, 0, 0, 255])
-    source.data.set([30, 90, 220, 255], (3 * source.width + 5) * 4)
-    const original = new Uint8ClampedArray(source.data)
-
-    const result = sanitizeGreenHighlights(source, [
-      { x: 2, y: 2, width: 14, height: 4, pixelCount: 48 },
-    ])
-
-    expect(result).not.toBe(source)
-    expect(result.data).not.toBe(source.data)
-    expect(source.data).toEqual(original)
-    expect(pixelAt(result, 2, 2)).toEqual([255, 255, 255, 255])
-    expect(pixelAt(result, 8, 3)).toEqual([0, 0, 0, 255])
-    expect(pixelAt(result, 5, 3)).toEqual([30, 90, 220, 255])
-  })
-
-  it('removes antialiased green but leaves green outside supplied regions unchanged', () => {
-    const source = image(10, 4)
-    source.data.set([170, 225, 175, 255], (1 * source.width + 2) * 4)
-    source.data.set([0, 255, 0, 255], (1 * source.width + 8) * 4)
-
-    const result = sanitizeGreenHighlights(source, [
-      { x: 1, y: 0, width: 3, height: 3, pixelCount: 1 },
-    ])
-
-    expect(pixelAt(result, 2, 1)).toEqual([255, 255, 255, 255])
-    expect(pixelAt(result, 8, 1)).toEqual([0, 255, 0, 255])
   })
 })
 
@@ -185,8 +143,5 @@ describe('image validation', () => {
       width: 2,
       height: 2,
     })).toThrow('data length must equal width * height * 4')
-    expect(() => sanitizeGreenHighlights(image(2, 2), [
-      { x: -1, y: 0, width: 1, height: 1 },
-    ])).toThrow('regions must contain bounded integer rectangles')
   })
 })

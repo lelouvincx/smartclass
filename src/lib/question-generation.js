@@ -5,7 +5,6 @@ import {
 import {
   detectGreenHighlightRegions,
   extractGreenAnswerSuggestions,
-  sanitizeGreenHighlights,
 } from './answer-highlights'
 
 const PAGE_RENDER_SCALE = 2
@@ -73,24 +72,6 @@ export function getQuestionSegmentsToRender(detection, questionIdsToRender) {
   ))
 }
 
-export function hasSuspiciousGreenHighlight(imageData) {
-  const requiredPixels = Math.max(24, Math.ceil(imageData.width * imageData.height * 0.0005))
-  let matchingPixels = 0
-
-  for (let index = 0; index < imageData.data.length; index += 4) {
-    const red = imageData.data[index]
-    const green = imageData.data[index + 1]
-    const blue = imageData.data[index + 2]
-    const alpha = imageData.data[index + 3]
-    if (alpha >= 128 && green >= 170 && red <= 140 && blue <= 140 && green - red >= 60 && green - blue >= 60) {
-      matchingPixels += 1
-      if (matchingPixels >= requiredPixels) return true
-    }
-  }
-
-  return false
-}
-
 export function processGreenHighlights({
   imageData,
   qId,
@@ -118,7 +99,6 @@ export function processGreenHighlights({
     return { imageData, answerCandidates: [], hasBlockingHighlight: true }
   }
 
-  const matchedRegions = extraction.matchedRegionIndexes.map(index => regions[index])
   const answerCandidates = extraction.suggestions.map((suggestion) => {
     const evidence = boundsForRegions(suggestion.regionIndexes.map(index => regions[index]))
     return {
@@ -131,7 +111,7 @@ export function processGreenHighlights({
   })
 
   return {
-    imageData: sanitizeGreenHighlights(imageData, matchedRegions),
+    imageData,
     answerCandidates,
     hasBlockingHighlight: false,
   }
@@ -170,7 +150,7 @@ export function findQuestionSeparator(rowInk, anchorRow, {
 export async function generateQuestionAssets(
   source,
   expectedQuestionIds,
-  { onProgress, questionIdsToRender, schemaRows = [] } = {},
+  { onProgress, questionIdsToRender, schemaRows = [], createAssets = true } = {},
 ) {
   const pdfjs = await getPdfjs()
   const data = source instanceof Uint8Array
@@ -238,50 +218,41 @@ export async function generateQuestionAssets(
           crop.height,
         )
 
-        const greenResult = processGreenHighlights({
-          imageData: cropContext.getImageData(0, 0, crop.width, crop.height),
-          qId: refinedSegment.qId,
-          sourcePage: refinedSegment.sourcePage,
-          sourceOffsetX: crop.x,
-          sourceOffsetY: crop.y,
-          pagePixelWidth: pageCanvas.width,
-          pagePixelHeight: pageCanvas.height,
-          schemaRows,
-          textItems: cropTextItems(pages[pageNumber - 1], scale, crop),
-        })
-        const processedImage = cropContext.createImageData(crop.width, crop.height)
-        processedImage.data.set(greenResult.imageData.data)
-        cropContext.putImageData(processedImage, 0, 0)
-        answerCandidates.push(...greenResult.answerCandidates)
-        const hasPossibleAnswerHighlight = greenResult.hasBlockingHighlight
-        const confidence = hasPossibleAnswerHighlight ? Math.min(refinedSegment.confidence, 0.5) : refinedSegment.confidence
-        if (hasPossibleAnswerHighlight) {
-          warnings.push({
-            code: 'POSSIBLE_ANSWER_HIGHLIGHT',
+        if (!createAssets) {
+          const greenResult = processGreenHighlights({
+            imageData: cropContext.getImageData(0, 0, crop.width, crop.height),
             qId: refinedSegment.qId,
             sourcePage: refinedSegment.sourcePage,
-            segmentIndex: refinedSegment.segmentIndex,
+            sourceOffsetX: crop.x,
+            sourceOffsetY: crop.y,
+            pagePixelWidth: pageCanvas.width,
+            pagePixelHeight: pageCanvas.height,
+            schemaRows,
+            textItems: cropTextItems(pages[pageNumber - 1], scale, crop),
           })
+          answerCandidates.push(...greenResult.answerCandidates)
         }
 
-        const blob = await canvasToWebp(cropCanvas)
-        const {
-          _topAnchorY,
-          _topAnchorType,
-          _topFloorY,
-          _bottomAnchorY,
-          _bottomAnchorType,
-          ...assetSegment
-        } = refinedSegment
-        assets.push({
-          ...assetSegment,
-          accessibleText: getAccessibleText(assetSegment, pages[pageNumber - 1]),
-          confidence,
-          blob,
-          pixelWidth: crop.width,
-          pixelHeight: crop.height,
-          fileName: `question-${refinedSegment.qId}-${refinedSegment.segmentIndex + 1}.webp`,
-        })
+        if (createAssets) {
+          const blob = await canvasToWebp(cropCanvas)
+          const {
+            _topAnchorY,
+            _topAnchorType,
+            _topFloorY,
+            _bottomAnchorY,
+            _bottomAnchorType,
+            ...assetSegment
+          } = refinedSegment
+          assets.push({
+            ...assetSegment,
+            accessibleText: getAccessibleText(assetSegment, pages[pageNumber - 1]),
+            confidence: refinedSegment.confidence,
+            blob,
+            pixelWidth: crop.width,
+            pixelHeight: crop.height,
+            fileName: `question-${refinedSegment.qId}-${refinedSegment.segmentIndex + 1}.webp`,
+          })
+        }
         renderedCount += 1
         onProgress?.({ stage: 'rendering', current: renderedCount, total: segments.length })
       }

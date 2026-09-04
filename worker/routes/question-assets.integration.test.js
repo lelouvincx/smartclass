@@ -373,8 +373,8 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/answer-cand
         sub_id: null,
         type: 'mcq',
         proposed_answer: 'B',
-        source_kind: 'exercise_green_highlight',
-        source_file_id: sourceFileId,
+        source_kind: 'answer_pdf_green_highlight',
+        source_file_id: answerFileId,
         source_page: 1,
         source_x: 0.1,
         source_y: 0.2,
@@ -392,16 +392,16 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/answer-cand
         q_id: 1,
         type: 'mcq',
         proposed_answer: 'B',
-        source_kind: 'answer_pdf_text',
+        source_kind: 'answer_pdf_green_highlight',
         source_file_id: answerFileId,
+        source_page: 1,
       }),
       expect.objectContaining({
         q_id: 1,
         type: 'mcq',
         proposed_answer: 'B',
-        source_kind: 'exercise_green_highlight',
-        source_file_id: sourceFileId,
-        source_page: 1,
+        source_kind: 'answer_pdf_text',
+        source_file_id: answerFileId,
       }),
     ])
 
@@ -420,8 +420,12 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/answer-cand
     const { id: exerciseId } = await createExercise(teacherToken)
     const { id: otherExerciseId } = await createExercise(teacherToken)
     const sourceFileId = await createSourceFile(exerciseId)
+    const answerFileId = await createAnswerFile(exerciseId)
     const otherAnswerFileId = await createAnswerFile(otherExerciseId)
-    const assetSet = await createPendingSetData(exerciseId, sourceFileId)
+    const assetSet = await createPendingSetData(exerciseId, sourceFileId, {
+      answer_source_file_id: answerFileId,
+      answer_parser_status: 'parsed',
+    })
 
     const wrongSource = await uploadAnswerCandidates(exerciseId, assetSet.id, [{
       q_id: 1,
@@ -437,8 +441,8 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/answer-cand
       q_id: 1,
       type: 'mcq',
       proposed_answer: 'A',
-      source_kind: 'exercise_green_highlight',
-      source_file_id: sourceFileId,
+      source_kind: 'answer_pdf_green_highlight',
+      source_file_id: answerFileId,
       confidence: 1,
     }])
     expect(missingGreenGeometry.status).toBe(400)
@@ -900,8 +904,8 @@ describe('PUT /api/exercises/:id question asset activation', () => {
         q_id: 1,
         type: 'mcq',
         proposed_answer: 'C',
-        source_kind: 'exercise_green_highlight',
-        source_file_id: sourceFileId,
+        source_kind: 'answer_pdf_green_highlight',
+        source_file_id: answerFileId,
         source_page: 1,
         source_x: 0.1,
         source_y: 0.2,

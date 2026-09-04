@@ -9,6 +9,8 @@ export default {
   logout: 'Log out',
   skipToMain: 'Skip to main content',
   openNavigation: 'Open navigation',
+  collapseSidebar: 'Collapse sidebar',
+  expandSidebar: 'Expand sidebar',
   dashboard: 'Dashboard',
   students: 'Students',
   exercises: 'Exercises',

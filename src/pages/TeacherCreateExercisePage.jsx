@@ -348,6 +348,7 @@ export default function TeacherCreateExercisePage() {
     }
     if (validatedRows.length === 0) { setError(t('teacher.create.questionRequired')); return }
     if (stats.errorsCount > 0) { setError(t('teacher.create.fixErrors')); return }
+    if (!exerciseFile || !answerFile) { setError(t('teacher.create.filesRequired')); return }
     if (stats.warningsCount > 0) { setShowWarningConfirm(true); return }
 
     await saveExercise()
@@ -451,7 +452,9 @@ export default function TeacherCreateExercisePage() {
 
               {/* Exercise PDF upload */}
               <div className="space-y-2">
-                <Label htmlFor="exerciseFile">{t('teacher.create.exercisePdf')}</Label>
+                <Label htmlFor="exerciseFile">
+                  {t('teacher.create.exercisePdf')} <span aria-hidden="true" className="text-destructive">*</span>
+                </Label>
                 <FileDropzone
                   id="exerciseFile"
                   accept=".pdf"
@@ -459,11 +462,16 @@ export default function TeacherCreateExercisePage() {
                   file={exerciseFile}
                   onChange={setExerciseFile}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {t('teacher.create.exercisePdfHint')}
+                </p>
               </div>
 
               {/* Answer PDF upload + answer extraction grouped as related actions */}
               <div className="space-y-2">
-                <Label htmlFor="answerFile">{t('teacher.create.answerPdf')}</Label>
+                <Label htmlFor="answerFile">
+                  {t('teacher.create.answerPdf')} <span aria-hidden="true" className="text-destructive">*</span>
+                </Label>
                 <FileDropzone
                   id="answerFile"
                   accept=".pdf"
@@ -471,6 +479,9 @@ export default function TeacherCreateExercisePage() {
                   file={answerFile}
                   onChange={setAnswerFile}
                 />
+                <p className="text-xs text-muted-foreground">
+                  {t('teacher.create.answerPdfHint')}
+                </p>
                 <Button
                   type="button"
                   variant="outline"
@@ -492,12 +503,6 @@ export default function TeacherCreateExercisePage() {
             </div>
           </CardContent>
         </Card>
-
-        {!answerFile && (
-          <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-            {t('teacher.create.manualHint')}
-          </p>
-        )}
 
         {/* Schema table card */}
         <Card>
