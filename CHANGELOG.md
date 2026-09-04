@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Remember each authenticated student's YouTube lecture position in the current browser and resume it after refresh or revisit without autoplay.
+- Remember each authenticated student's YouTube lecture position in the current browser and resume it after refresh or revisit without autoplay. [#97](https://github.com/lelouvincx/smartclass/pull/97)
 - Add migration-scoped agent guidance that keeps D1 migrations and `docs/schema.dbml` synchronized. [#95](https://github.com/lelouvincx/smartclass/pull/95)
 - Add a persistent desktop sidebar toggle that switches between labelled and compact navigation. [#92](https://github.com/lelouvincx/smartclass/pull/92)
 - Add automatic PDF question detection and image generation with complete teacher preview, per-question retry or screenshot replacement, answer-highlight blocking, and explicit activation. [#91](https://github.com/lelouvincx/smartclass/pull/91)
