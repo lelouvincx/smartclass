@@ -30,7 +30,7 @@ export function getLectureIdFromSlug(value) {
   return match ? Number(match[1]) : null
 }
 
-export function getYouTubeEmbedUrl(value) {
+export function getYouTubeVideoId(value) {
   try {
     const url = new URL(value)
     const hostname = url.hostname.toLowerCase().replace(/^www\./, '')
@@ -47,8 +47,24 @@ export function getYouTubeEmbedUrl(value) {
     }
 
     if (!/^[\w-]{11}$/.test(videoId || '')) return null
-    return `https://www.youtube-nocookie.com/embed/${videoId}`
+    return videoId
   } catch {
     return null
   }
+}
+
+export function getYouTubeEmbedUrl(value, { enableJsApi = false, origin, startSeconds } = {}) {
+  const videoId = getYouTubeVideoId(value)
+  if (!videoId) return null
+
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}`
+  if (!enableJsApi && !origin && !Number.isFinite(startSeconds)) return embedUrl
+
+  const url = new URL(embedUrl)
+  if (enableJsApi) url.searchParams.set('enablejsapi', '1')
+  if (enableJsApi && origin) url.searchParams.set('origin', origin)
+  if (Number.isFinite(startSeconds) && startSeconds > 0) {
+    url.searchParams.set('start', String(Math.floor(startSeconds)))
+  }
+  return url.toString()
 }
