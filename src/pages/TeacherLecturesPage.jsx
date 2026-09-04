@@ -298,7 +298,7 @@ export default function TeacherLecturesPage() {
                   return (
                     <li
                       key={lecture.id}
-                      className={`min-w-0 px-4 py-3 sm:px-6 ${lecture.is_visible ? "" : "bg-muted text-muted-foreground"}`}
+                      className={`min-w-0 px-4 py-3 sm:px-6 ${lecture.is_visible ? '' : 'bg-muted text-muted-foreground'}`}
                     >
                       <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                         <div className="flex min-w-0 items-center gap-3">

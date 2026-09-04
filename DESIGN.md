@@ -1,7 +1,182 @@
 ---
-version: 2026-08-30
+version: alpha
 name: SmartClass Learning System
 description: A calm, accessible, Material-informed academic interface with bounded expressive emphasis.
+colors:
+  primary: "#2563EB"
+  on-primary: "#FFFFFF"
+  primary-container: "#DBEAFE"
+  on-primary-container: "#1E3A8A"
+  secondary: "#475569"
+  on-secondary: "#FFFFFF"
+  secondary-container: "#E2E8F0"
+  on-secondary-container: "#1E293B"
+  tertiary: "#0F766E"
+  on-tertiary: "#FFFFFF"
+  tertiary-container: "#CCFBF1"
+  on-tertiary-container: "#134E4A"
+  canvas: "#F8FAFC"
+  surface: "#FFFFFF"
+  surface-subtle: "#F8FAFC"
+  surface-muted: "#F1F5F9"
+  text: "#0F172A"
+  text-secondary: "#475569"
+  border: "#CBD5E1"
+  focus: "{colors.primary}"
+  selection: "{colors.primary-container}"
+  danger: "#B91C1C"
+  danger-muted: "#FEF2F2"
+  success: "#15803D"
+  success-muted: "#F0FDF4"
+  warning: "#A16207"
+  warning-muted: "#FEFCE8"
+  chart-1: "#2563EB"
+  chart-2: "#0D9488"
+  chart-3: "#7C3AED"
+  chart-4: "#D97706"
+  chart-5: "#DB2777"
+  dark-primary: "#93C5FD"
+  dark-on-primary: "#172554"
+  dark-primary-container: "#1E3A8A"
+  dark-on-primary-container: "#DBEAFE"
+  dark-canvas: "#0F172A"
+  dark-surface: "#111827"
+  dark-surface-muted: "#1E293B"
+  dark-text: "#F8FAFC"
+  dark-text-secondary: "#CBD5E1"
+  dark-border: "#475569"
+  dark-danger: "#F87171"
+  dark-success: "#4ADE80"
+  dark-warning: "#FACC15"
+typography:
+  display:
+    fontFamily: Roboto, Noto Sans, sans-serif
+    fontSize: 3rem
+    fontWeight: 760
+    lineHeight: 0.95
+  headline:
+    fontFamily: Roboto, Noto Sans, sans-serif
+    fontSize: 1.75rem
+    fontWeight: 720
+    lineHeight: 1.12
+  title:
+    fontFamily: Roboto, Noto Sans, sans-serif
+    fontSize: 1rem
+    fontWeight: 600
+    lineHeight: 1.5rem
+  body:
+    fontFamily: Roboto, Noto Sans, sans-serif
+    fontSize: 0.875rem
+    fontWeight: 400
+    lineHeight: 1.25rem
+  label:
+    fontFamily: Roboto, Noto Sans, sans-serif
+    fontSize: 0.75rem
+    fontWeight: 400
+    lineHeight: 1rem
+rounded:
+  none: 0px
+  xs: 4px
+  sm: 8px
+  md: 10px
+  lg: 14px
+  xl: 20px
+  focal: 32px
+  full: 9999px
+spacing:
+  xs: 4px
+  sm: 8px
+  md: 16px
+  lg: 24px
+  xl: 32px
+  content-max: 64rem
+  target-min: 48px
+components:
+  app-canvas:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text}"
+  sidebar:
+    backgroundColor: "{colors.surface-subtle}"
+    textColor: "{colors.text}"
+  metadata:
+    backgroundColor: "{colors.surface-muted}"
+    textColor: "{colors.text-secondary}"
+  card:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  divider:
+    backgroundColor: "{colors.border}"
+    height: 1px
+  focus-ring:
+    backgroundColor: "{colors.focus}"
+    size: 3px
+  button-primary:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.lg}"
+    height: "{spacing.target-min}"
+  navigation-active:
+    backgroundColor: "{colors.selection}"
+    textColor: "{colors.on-primary-container}"
+    rounded: "{rounded.xl}"
+    height: "{spacing.target-min}"
+  input:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    rounded: "{rounded.lg}"
+    height: "{spacing.target-min}"
+  status-success:
+    backgroundColor: "{colors.success-muted}"
+    textColor: "{colors.success}"
+    rounded: "{rounded.full}"
+  status-warning:
+    backgroundColor: "{colors.warning-muted}"
+    textColor: "{colors.warning}"
+    rounded: "{rounded.full}"
+  status-danger:
+    backgroundColor: "{colors.danger-muted}"
+    textColor: "{colors.danger}"
+    rounded: "{rounded.full}"
+  chart-series-1:
+    backgroundColor: "{colors.chart-1}"
+  chart-series-2:
+    backgroundColor: "{colors.chart-2}"
+  chart-series-3:
+    backgroundColor: "{colors.chart-3}"
+  chart-series-4:
+    backgroundColor: "{colors.chart-4}"
+  chart-series-5:
+    backgroundColor: "{colors.chart-5}"
+  dark-app-canvas:
+    backgroundColor: "{colors.dark-canvas}"
+    textColor: "{colors.dark-text}"
+  dark-surface:
+    backgroundColor: "{colors.dark-surface}"
+    textColor: "{colors.dark-text}"
+  dark-surface-muted:
+    backgroundColor: "{colors.dark-surface-muted}"
+    textColor: "{colors.dark-text-secondary}"
+  dark-button-primary:
+    backgroundColor: "{colors.dark-primary}"
+    textColor: "{colors.dark-on-primary}"
+    rounded: "{rounded.lg}"
+    height: "{spacing.target-min}"
+  dark-navigation-active:
+    backgroundColor: "{colors.dark-primary-container}"
+    textColor: "{colors.dark-on-primary-container}"
+    rounded: "{rounded.xl}"
+    height: "{spacing.target-min}"
+  dark-divider:
+    backgroundColor: "{colors.dark-border}"
+    height: 1px
+  dark-status-success:
+    textColor: "{colors.dark-success}"
+  dark-status-warning:
+    textColor: "{colors.dark-warning}"
+  dark-status-danger:
+    textColor: "{colors.dark-danger}"
 ---
 
 ## Overview
@@ -12,9 +187,9 @@ The visual contract is **Material-informed, not strictly Material-compatible**. 
 
 The approved reference boundary was last reviewed on **2026-08-30**. Dense assessment and administration flows use the calm baseline. Expressive emphasis is reserved for creation, starting an attempt, completion, score, progress, and empty states. Do not apply expressive shape, color, scale, or motion uniformly to tables, forms, question controls, review rows, or navigation.
 
-The normative implementation tokens live in `src/design-system/tokens.css`. Product-level compositions live in `src/design-system/`; low-level shadcn primitives remain in `src/components/ui/`. The migration plan and gates are in [`docs/plans/RFC-8-2026-08-30-material-3-expressive-migration.md`](docs/plans/RFC-8-2026-08-30-material-3-expressive-migration.md).
+This contract is grounded in SmartClass's shipped product behavior in [`PRODUCT.md`](PRODUCT.md), its implemented tokens in [`src/design-system/tokens.css`](src/design-system/tokens.css), and the approved Material 3 Expressive migration boundary in [`docs/plans/RFC-8-2026-08-30-material-3-expressive-migration.md`](docs/plans/RFC-8-2026-08-30-material-3-expressive-migration.md). It does not copy Google's product identity; it uses Google's DESIGN.md format to describe SmartClass's own interface.
 
-## Token architecture
+The YAML front matter is the machine-readable contract. `src/design-system/tokens.css` is its implementation counterpart. Product-level compositions live in `src/design-system/`; low-level shadcn primitives remain in `src/components/ui/`.
 
 Keep three layers. Components must consume semantic or component tokens, never reference tokens directly.
 
@@ -27,6 +202,8 @@ Light and dark themes may map semantic values differently but must preserve mean
 ## Colors
 
 Use `canvas` for the page, `surface` for cards and overlays, and `surface-subtle` for persistent navigation. The slate text hierarchy is deliberate: `text` for decisions and headings, `text-secondary` for supporting prose, and `text-muted` only for metadata that can safely recede.
+
+The unprefixed color tokens define the light theme. Tokens prefixed with `dark-` define the corresponding dark-theme values. Keep both mappings aligned with `tokens.css`; component references describe the light-theme role and retain the same semantic meaning when dark mode remaps it.
 
 Blue means interaction, current location, or focus. Use `selection` with blue text for selected navigation and metadata wells; reserve solid `primary` for the primary action. Do not fill large decorative areas with blue.
 
@@ -64,11 +241,9 @@ Icons use the Lucide outline family at 16–20px. They support labels rather tha
 
 Use shape contrast deliberately. Standard controls retain the existing restrained radii. A larger focal shape is allowed only at an approved expressive moment; do not create a page-wide collection of unrelated rounded forms.
 
-## Motion
+## Components
 
 Motion explains state and hierarchy; it is not decoration. Keep dense flows short and unobtrusive. Creation, start, completion, score, progress, and empty-state transitions may use a bounded emphasized transition when it clarifies the milestone. Respect `prefers-reduced-motion`, preserve focus, and never delay input or grading feedback for animation.
-
-## Components
 
 - **App shell:** `AppShell` owns desktop navigation, the labelled mobile drawer, current-route state, account controls, and the responsive content boundary.
 - **Page header:** `PageHeader` provides one semantic `h1`, a concise description, and optional right-aligned actions. Do not put a page title in a card solely to create visual weight.
