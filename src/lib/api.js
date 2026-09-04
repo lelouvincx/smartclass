@@ -74,6 +74,16 @@ export function changePassword(token, payload) {
   })
 }
 
+export function updateMyName(token, payload) {
+  return request('/api/auth/name', {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
 export function parseExerciseSchema(token, payload) {
   return request('/api/exercises/schema/parse', {
     method: 'POST',
@@ -266,8 +276,10 @@ export function replaceQuestionAssetWithScreenshot(
   })
 }
 
-export function listExercises() {
-  return request('/api/exercises')
+export function listExercises(token) {
+  return request('/api/exercises', {
+    headers: authHeaders(token),
+  })
 }
 
 export function listLectures(token) {
@@ -373,11 +385,6 @@ export function getSubmissionExercisePdf(token, submissionId) {
     headers: authHeaders(token),
     responseType: 'blob',
   })
-}
-
-// Returns a URL to serve a file from R2 via the file serve endpoint.
-export function getFileUrl(fileId) {
-  return `${API_BASE_URL}/api/files/${fileId}`
 }
 
 function uploadMultipart(path, token, method, form, { onProgress, signal } = {}) {
@@ -530,6 +537,26 @@ export function approveStudent(token, userId) {
   return request(`/api/users/${userId}/approve`, {
     method: 'PUT',
     headers: authHeaders(token),
+  })
+}
+
+export function updateStudentName(token, userId, payload) {
+  return request(`/api/users/${userId}/name`, {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateStudentGrades(token, payload) {
+  return request('/api/users/grades', {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
   })
 }
 

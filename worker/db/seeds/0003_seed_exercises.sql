@@ -26,6 +26,16 @@ on conflict(id) do update set
   , created_at = excluded.created_at
   , updated_at = excluded.updated_at;
 
+insert or ignore into exercise_grades (exercise_id, grade)
+select exercises.id, grades.grade
+from exercises
+cross join (
+  select 10 as grade
+  union all select 11
+  union all select 12
+) as grades
+where exercises.id in (6, 7, 8, 9);
+
 delete from answer_schemas
 where exercise_id in (6, 7, 8, 9);
 

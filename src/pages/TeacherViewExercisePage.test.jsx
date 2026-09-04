@@ -9,6 +9,7 @@ import TeacherViewExercisePage from './TeacherViewExercisePage'
 
 const getExerciseMock = vi.fn()
 const getQuestionAssetSetMock = vi.fn()
+const getExerciseFileBlobMock = vi.fn()
 const updateExerciseMock = vi.fn()
 const deleteExerciseMock = vi.fn()
 
@@ -18,6 +19,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     ...actual,
     getExercise: (...args) => getExerciseMock(...args),
     getQuestionAssetSet: (...args) => getQuestionAssetSetMock(...args),
+    getExerciseFileBlob: (...args) => getExerciseFileBlobMock(...args),
     updateExercise: (...args) => updateExerciseMock(...args),
     deleteExercise: (...args) => deleteExerciseMock(...args),
   }
@@ -37,6 +39,7 @@ const EXERCISE_MCQ = {
   question_count: 2,
   updated_at: '2026-03-10 12:00:00',
   is_student_ready: 1,
+  grades: [10, 11],
   files: [],
   schema: [
     { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'B' },
@@ -52,6 +55,7 @@ const EXERCISE_WITH_BOOLEAN = {
   question_count: 2,
   updated_at: '2026-03-11 08:00:00',
   is_student_ready: 0,
+  grades: [12],
   files: [
     { id: 1, file_type: 'exercise_pdf', file_name: 'biology.pdf', r2_key: 'ex/1/bio.pdf' },
   ],
@@ -83,6 +87,7 @@ describe('TeacherViewExercisePage', () => {
   beforeEach(() => {
     getExerciseMock.mockReset()
     getQuestionAssetSetMock.mockReset()
+    getExerciseFileBlobMock.mockReset()
     updateExerciseMock.mockReset()
     deleteExerciseMock.mockReset()
   })
@@ -110,6 +115,8 @@ describe('TeacherViewExercisePage', () => {
     expect(await screen.findByText('Physics Quiz')).toBeInTheDocument()
     expect(screen.getByText(/timed · 45 min/i)).toBeInTheDocument()
     expect(screen.getByText('Ready for students')).toBeInTheDocument()
+    expect(screen.getByText('Grade 10')).toBeInTheDocument()
+    expect(screen.getByText('Grade 11')).toBeInTheDocument()
   })
 
   it('renders untimed badge when duration_minutes is 0', async () => {
@@ -156,17 +163,23 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.queryByRole('heading', { name: 'Answer key' })).not.toBeInTheDocument()
   })
 
-  it('renders uploaded files list in view mode', async () => {
+  it('loads an uploaded exercise PDF with teacher authentication', async () => {
+    const user = userEvent.setup()
+    const fileBlob = new Blob(['pdf'], { type: 'application/pdf' })
+    const openClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    global.URL.createObjectURL = vi.fn(() => 'blob:exercise-pdf')
+    global.URL.revokeObjectURL = vi.fn()
     getExerciseMock.mockResolvedValue({ data: EXERCISE_WITH_BOOLEAN })
+    getExerciseFileBlobMock.mockResolvedValue(fileBlob)
     renderPage('6')
 
     await screen.findByText('Biology Quiz')
     expect(screen.getByText('biology.pdf')).toBeInTheDocument()
     expect(screen.getByText('Exercise PDF')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'View full PDF' })).toHaveAttribute(
-      'href',
-      'http://localhost:8787/api/files/1',
-    )
+    await user.click(screen.getByRole('button', { name: 'View full PDF' }))
+    expect(getExerciseFileBlobMock).toHaveBeenCalledWith(1, 'teacher-token')
+    expect(openClick).toHaveBeenCalledTimes(1)
+    openClick.mockRestore()
   })
 
   it('never exposes the raw extraction model identifier', async () => {
@@ -253,6 +266,24 @@ describe('TeacherViewExercisePage', () => {
       'teacher-token',
       5,
       expect.objectContaining({ title: 'Updated Quiz' }),
+    )
+  })
+
+  it('updates the exercise grade memberships', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    updateExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, grades: [10, 11, 12] } })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.click(screen.getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(updateExerciseMock).toHaveBeenCalledWith(
+      'teacher-token',
+      5,
+      expect.objectContaining({ grades: [10, 11, 12] }),
     )
   })
 

@@ -27,10 +27,12 @@ describe('RegisterPage', () => {
       </MemoryRouter>,
     )
 
+    const name = screen.getByLabelText('Name')
     const phone = screen.getByLabelText('Phone')
     const password = screen.getByLabelText('Password')
     const confirmPassword = screen.getByLabelText('Confirm Password')
 
+    expect(name).toHaveAttribute('autocomplete', 'name')
     expect(phone).toHaveAttribute('type', 'tel')
     expect(phone).toHaveAttribute('inputmode', 'tel')
     expect(phone).toHaveAttribute('autocomplete', 'username')
@@ -38,6 +40,7 @@ describe('RegisterPage', () => {
     expect(password).toHaveAttribute('autocomplete', 'new-password')
     expect(password).toHaveAttribute('minlength', '3')
     expect(confirmPassword).toHaveAttribute('autocomplete', 'new-password')
+    expect(name).toBeRequired()
     expect(phone).toBeRequired()
     expect(password).toBeRequired()
     expect(confirmPassword).toBeRequired()
@@ -53,6 +56,7 @@ describe('RegisterPage', () => {
       </MemoryRouter>,
     )
 
+    await user.type(screen.getByLabelText('Name'), 'Nguyễn Văn An')
     await user.type(screen.getByLabelText('Phone'), '+84900000001')
     await user.type(screen.getByLabelText('Password'), 'abc')
     await user.type(screen.getByLabelText('Confirm Password'), 'def')
@@ -78,12 +82,17 @@ describe('RegisterPage', () => {
       </MemoryRouter>,
     )
 
+    await user.type(screen.getByLabelText('Name'), '  Nguyễn Văn An  ')
     await user.type(screen.getByLabelText('Phone'), '0900000002')
     await user.type(screen.getByLabelText('Password'), 'abc')
     await user.type(screen.getByLabelText('Confirm Password'), 'abc')
     await user.click(screen.getByRole('button', { name: 'Register' }))
 
-    expect(registerMock).toHaveBeenCalledWith({ phone: '+84900000002', password: 'abc' })
+    expect(registerMock).toHaveBeenCalledWith({
+      name: 'Nguyễn Văn An',
+      phone: '+84900000002',
+      password: 'abc',
+    })
   })
 
   it('shows pending approval success after register', async () => {
@@ -96,6 +105,7 @@ describe('RegisterPage', () => {
       </MemoryRouter>,
     )
 
+    await user.type(screen.getByLabelText('Name'), 'Nguyễn Văn An')
     await user.type(screen.getByLabelText('Phone'), '+84900000002')
     await user.type(screen.getByLabelText('Password'), 'abc')
     await user.type(screen.getByLabelText('Confirm Password'), 'abc')

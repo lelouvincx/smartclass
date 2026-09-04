@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Field, FieldDescription, FieldGroup, FieldError, FieldLabel } from '@/components/ui/field'
 
 export default function RegisterPage() {
+  const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -22,8 +23,8 @@ export default function RegisterPage() {
     setInvalidField('')
     setSuccessMessage('')
 
-    if (!phone || !password || !confirmPassword) {
-      setError('Phone, password, and confirm password are required.')
+    if (!name.trim() || !phone || !password || !confirmPassword) {
+      setError('Name, phone, password, and confirm password are required.')
       setInvalidField('all')
       return
     }
@@ -51,8 +52,9 @@ export default function RegisterPage() {
     setIsSubmitting(true)
 
     try {
-      await register({ phone: normalizedPhone, password })
+      await register({ name: name.trim(), phone: normalizedPhone, password })
       setSuccessMessage('Registration submitted. Please wait for teacher approval.')
+      setName('')
       setPassword('')
       setConfirmPassword('')
     } catch (submitError) {
@@ -73,6 +75,21 @@ export default function RegisterPage() {
         <CardContent>
           <form onSubmit={handleSubmit}>
             <FieldGroup>
+              <Field orientation="vertical" data-invalid={invalidField === 'name' || invalidField === 'all'}>
+                <FieldLabel htmlFor="register-name">Name</FieldLabel>
+                <Input
+                  id="register-name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  aria-invalid={invalidField === 'name' || invalidField === 'all'}
+                  aria-describedby={error ? 'register-error' : undefined}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </Field>
+
               <Field orientation="vertical" data-invalid={invalidField === 'phone' || invalidField === 'all'}>
                 <FieldLabel htmlFor="register-phone">Phone</FieldLabel>
                 <Input

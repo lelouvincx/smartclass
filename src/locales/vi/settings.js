@@ -2,6 +2,15 @@ export default {
   title: 'Cài đặt',
   back: 'Quay lại',
   sectionToggle: 'Cài đặt {{title}}',
+  profile: {
+    title: 'Hồ sơ',
+    description: 'Chọn tên hiển thị trên tài khoản SmartClass.',
+    name: 'Tên',
+    nameRequired: 'Cần nhập tên.',
+    submit: 'Lưu tên',
+    saving: 'Đang lưu tên...',
+    success: 'Đã cập nhật tên.',
+  },
   language: {
     title: 'Ngôn ngữ',
     description: 'Chọn ngôn ngữ sử dụng trong ứng dụng dành cho giáo viên và học sinh.',

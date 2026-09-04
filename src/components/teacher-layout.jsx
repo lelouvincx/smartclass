@@ -25,7 +25,7 @@ export function TeacherLayout() {
     <AppShell
       items={navigation}
       workspaceLabel={t('common.teacher')}
-      userLabel={user?.phone}
+      userLabel={user?.name || user?.phone}
       onLogout={handleLogout}
     >
       <Outlet />

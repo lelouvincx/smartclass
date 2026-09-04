@@ -76,6 +76,14 @@ export default function StudentExerciseLandingPage() {
           }
         }
 
+        if (!resumable && ex.in_progress_submission_id) {
+          const serverSubmissionId = String(ex.in_progress_submission_id)
+          setSubmissionPointer(accountId, id, serverSubmissionId)
+          setHasResumable(true)
+          setResumableSubmissionId(serverSubmissionId)
+          resumable = true
+        }
+
         if (!resumable) {
           try {
             const subsRes = await listMySubmissions(token, { exerciseId: id, limit: 1 })

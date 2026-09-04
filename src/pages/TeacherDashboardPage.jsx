@@ -18,7 +18,7 @@ export default function TeacherDashboardPage() {
     async function loadSummary() {
       try {
         const [exercises, lectures, activeStudents, pendingStudents] = await Promise.all([
-          listExercises(),
+          listExercises(token),
           listLectures(token),
           listStudents(token, { status: 'active' }),
           listStudents(token, { status: 'pending' }),

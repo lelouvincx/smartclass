@@ -2,6 +2,15 @@ export default {
   title: 'Settings',
   back: 'Back',
   sectionToggle: '{{title}} settings',
+  profile: {
+    title: 'Profile',
+    description: 'Choose the name shown on your SmartClass account.',
+    name: 'Name',
+    nameRequired: 'Name is required.',
+    submit: 'Save name',
+    saving: 'Saving name...',
+    success: 'Name updated successfully.',
+  },
   language: {
     title: 'Language',
     description: 'Choose the language used in the teacher and student application.',

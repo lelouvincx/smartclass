@@ -114,15 +114,33 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
       and active_set.exercise_id = e.id
       and active_set.confirmed_at is not null
     where e.id = ?
-  `).bind(authUser.id, exercise_id).run()
+      and exists (
+        select 1
+        from student_grades student_grade
+        join exercise_grades exercise_grade on exercise_grade.grade = student_grade.grade
+        where student_grade.user_id = ?
+          and exercise_grade.exercise_id = e.id
+      )
+  `).bind(authUser.id, exercise_id, authUser.id).run()
 
   if (result.meta.changes === 0) {
     const existing = await c.env.DB.prepare(
       'select id from exercises where id = ?'
     ).bind(exercise_id).first()
-    return existing
+    if (!existing) {
+      return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
+    }
+
+    const gradeAccess = await c.env.DB.prepare(`
+      select 1
+      from student_grades student_grade
+      join exercise_grades exercise_grade on exercise_grade.grade = student_grade.grade
+      where student_grade.user_id = ? and exercise_grade.exercise_id = ?
+      limit 1
+    `).bind(authUser.id, exercise_id).first()
+    return gradeAccess
       ? jsonError(c, 409, 'EXERCISE_NOT_READY', 'Exercise is not ready for students')
-      : jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
+      : jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your grades')
   }
 
   const submissionId = result.meta.last_row_id

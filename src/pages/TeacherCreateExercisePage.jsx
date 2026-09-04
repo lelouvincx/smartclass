@@ -25,9 +25,11 @@ import {
 import { cn } from '@/lib/utils'
 import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
+import GradeCheckboxGroup from '@/components/grade-checkbox-group'
 import ExtractModelSelect from '@/components/extract-model-select'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
+import { GRADES } from '@/lib/grades'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -162,6 +164,7 @@ export default function TeacherCreateExercisePage() {
   const { token } = useAuth()
 
   const [title, setTitle] = useState('')
+  const [grades, setGrades] = useState([...GRADES])
   const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
   // null = use server default; non-null = a specific model id from the allowlist.
@@ -310,6 +313,7 @@ export default function TeacherCreateExercisePage() {
     try {
       const payload = {
         title: title.trim(),
+        grades,
         is_timed: isTimed,
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
         schema: toSchemaPayload(validatedRows),
@@ -343,6 +347,7 @@ export default function TeacherCreateExercisePage() {
     setError('')
 
     if (!title.trim()) { setError(t('teacher.create.titleRequired')); return }
+    if (grades.length === 0) { setError(t('common.gradeRequired')); return }
     if (isTimed && (!durationMinutes || Number(durationMinutes) <= 0)) {
       setError(t('teacher.create.durationInvalid')); return
     }
@@ -397,6 +402,16 @@ export default function TeacherCreateExercisePage() {
                   onChange={(e) => setTitle(e.target.value)}
                 />
               </div>
+
+              <GradeCheckboxGroup
+                id="exercise-grades"
+                className="md:col-span-2"
+                legend={t('common.gradeAccess')}
+                description={t('common.gradeAccessDescription')}
+                value={grades}
+                onChange={setGrades}
+                disabled={isSaving}
+              />
 
               {/* Timed mode toggle */}
               <div className="space-y-2">

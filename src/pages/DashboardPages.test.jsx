@@ -90,6 +90,31 @@ describe('dashboard placeholders', () => {
     )
   })
 
+  it('surfaces a server-known attempt after current grade access is removed', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [{
+        id: 42,
+        title: 'Algebra Quiz',
+        duration_minutes: 30,
+        question_count: 10,
+        is_timed: 1,
+        is_student_ready: 0,
+        in_progress_submission_id: 99,
+      }],
+    })
+
+    render(
+      <MemoryRouter>
+        <StudentDashboardPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('link', { name: /resume algebra quiz/i })).toHaveAttribute(
+      'href',
+      '/student/exercises/42/take',
+    )
+  })
+
   it('does not recommend an exercise that is not ready for students', async () => {
     listExercisesMock.mockResolvedValue({
       data: [{ id: 42, title: 'Draft Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 0 }],

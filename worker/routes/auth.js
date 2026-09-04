@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { hashPassword, isValidVietnamPhone, issueAccessToken, normalizePhone, verifyPassword } from '../lib/auth.js'
+import { hashPassword, isValidVietnamPhone, issueAccessToken, normalizeName, normalizePhone, verifyPassword } from '../lib/auth.js'
 import { exchangeCode, verifyGoogleIdToken } from '../lib/google-oauth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -53,11 +53,12 @@ async function exchangeAndVerify(c, body) {
 
 authRoutes.post('/register', async (c) => {
   const body = await c.req.json().catch(() => null)
+  const name = normalizeName(body?.name)
   const phone = normalizePhone(body?.phone)
   const password = body?.password
 
-  if (!phone || !password) {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'Phone and password are required.')
+  if (!name || !phone || !password) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Name, phone, and password are required.')
   }
 
   if (!isValidVietnamPhone(phone)) {
@@ -76,9 +77,9 @@ authRoutes.post('/register', async (c) => {
   const passwordHash = await hashPassword(password)
 
   const result = await c.env.DB.prepare(
-    'INSERT INTO users (phone, password_hash, role, status) VALUES (?, ?, ?, ?)',
+    'INSERT INTO users (name, phone, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
   )
-    .bind(phone, passwordHash, 'student', 'pending')
+    .bind(name, phone, passwordHash, 'student', 'pending')
     .run()
 
   return c.json(
@@ -86,6 +87,7 @@ authRoutes.post('/register', async (c) => {
       success: true,
       data: {
         id: result.meta.last_row_id,
+        name,
         phone,
         role: 'student',
         status: 'pending',
@@ -110,7 +112,7 @@ authRoutes.post('/login', async (c) => {
   }
 
   const user = await c.env.DB.prepare(
-    'SELECT id, phone, password_hash, role, status FROM users WHERE phone = ? LIMIT 1',
+    'SELECT id, name, phone, password_hash, role, status FROM users WHERE phone = ? LIMIT 1',
   )
     .bind(phone)
     .first()
@@ -134,6 +136,7 @@ authRoutes.post('/login', async (c) => {
     token,
     user: {
       id: user.id,
+      name: user.name,
       phone: user.phone,
       role: user.role,
       status: user.status,
@@ -180,10 +183,28 @@ authRoutes.put('/password', requireAuth, async (c) => {
   return jsonSuccess(c, { password_changed: true })
 })
 
+authRoutes.put('/name', requireAuth, async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const name = normalizeName(body?.name)
+
+  if (!name) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Name is required.')
+  }
+
+  const authUser = c.get('authUser')
+  await c.env.DB.prepare(
+    'UPDATE users SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+  )
+    .bind(name, authUser.id)
+    .run()
+
+  return jsonSuccess(c, { id: authUser.id, name })
+})
+
 authRoutes.get('/me', requireAuth, async (c) => {
   const authUser = c.get('authUser')
   const user = await c.env.DB.prepare(
-    'SELECT id, phone, email, google_email, role, status FROM users WHERE id = ? LIMIT 1',
+    'SELECT id, name, phone, email, google_email, role, status FROM users WHERE id = ? LIMIT 1',
   )
     .bind(authUser.id)
     .first()
@@ -213,7 +234,7 @@ authRoutes.post('/google/login', async (c) => {
   const { claims } = result
 
   const user = await c.env.DB.prepare(
-    'SELECT id, phone, role, status, google_email FROM users WHERE google_sub = ? LIMIT 1',
+    'SELECT id, name, phone, role, status, google_email FROM users WHERE google_sub = ? LIMIT 1',
   )
     .bind(claims.sub)
     .first()
@@ -249,6 +270,7 @@ authRoutes.post('/google/login', async (c) => {
     token,
     user: {
       id: user.id,
+      name: user.name,
       phone: user.phone,
       role: user.role,
       status: user.status,
@@ -289,7 +311,7 @@ authRoutes.post('/google/link', requireAuth, async (c) => {
     .run()
 
   const updated = await c.env.DB.prepare(
-    'SELECT id, phone, email, google_email, role, status FROM users WHERE id = ? LIMIT 1',
+    'SELECT id, name, phone, email, google_email, role, status FROM users WHERE id = ? LIMIT 1',
   )
     .bind(authUser.id)
     .first()
@@ -307,7 +329,7 @@ authRoutes.delete('/google/link', requireAuth, async (c) => {
     .run()
 
   const updated = await c.env.DB.prepare(
-    'SELECT id, phone, email, google_email, role, status FROM users WHERE id = ? LIMIT 1',
+    'SELECT id, name, phone, email, google_email, role, status FROM users WHERE id = ? LIMIT 1',
   )
     .bind(authUser.id)
     .first()

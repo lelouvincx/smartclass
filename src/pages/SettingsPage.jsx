@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
 import { changeLanguage } from '@/i18n'
-import { changePassword, unlinkGoogle } from '@/lib/api'
+import { changePassword, unlinkGoogle, updateMyName } from '@/lib/api'
 import { startGoogleFlow } from '@/lib/google-oauth'
 import { getDefaultPathForRole } from '@/lib/navigation'
 import { Card, CardContent } from '@/components/ui/card'
@@ -78,6 +78,10 @@ export default function SettingsPage() {
   const { i18n, t } = useTranslation()
   const [isUnlinking, setIsUnlinking] = useState(false)
   const [showDisconnect, setShowDisconnect] = useState(false)
+  const [profileName, setProfileName] = useState(user?.name || '')
+  const [profileError, setProfileError] = useState('')
+  const [profileSuccess, setProfileSuccess] = useState('')
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -132,6 +136,30 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleProfileSubmit(event) {
+    event.preventDefault()
+    setProfileError('')
+    setProfileSuccess('')
+
+    const name = profileName.trim()
+    if (!name) {
+      setProfileError(t('settings.profile.nameRequired'))
+      return
+    }
+
+    setIsUpdatingProfile(true)
+    try {
+      await updateMyName(token, { name })
+      setProfileName(name)
+      await refreshUser()
+      setProfileSuccess(t('settings.profile.success'))
+    } catch (error) {
+      setProfileError(error.message)
+    } finally {
+      setIsUpdatingProfile(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -143,9 +171,9 @@ export default function SettingsPage() {
             <h1 className="text-sm font-semibold">{t('settings.title')}</h1>
           </div>
           <div className="flex items-center gap-2">
-            {user?.phone && (
+            {(user?.name || user?.phone) && (
               <span className="hidden text-sm text-muted-foreground sm:inline">
-                {user.phone}
+                {user.name || user.phone}
               </span>
             )}
             <ModeToggle />
@@ -153,6 +181,47 @@ export default function SettingsPage() {
         </div>
       </header>
       <main className="mx-auto grid max-w-lg gap-6 px-8 py-6">
+        <SettingSection
+          id="profile-setting"
+          title={t('settings.profile.title')}
+          description={t('settings.profile.description')}
+          toggleLabel={t('settings.sectionToggle', { title: t('settings.profile.title') })}
+        >
+          <form onSubmit={handleProfileSubmit}>
+            <FieldGroup>
+              <Field data-invalid={Boolean(profileError)}>
+                <FieldLabel htmlFor="settings-profile-name">
+                  {t('settings.profile.name')}
+                </FieldLabel>
+                <Input
+                  id="settings-profile-name"
+                  name="name"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  aria-invalid={Boolean(profileError)}
+                  aria-describedby={profileError ? 'profile-name-error' : undefined}
+                  value={profileName}
+                  onChange={(event) => {
+                    setProfileName(event.target.value)
+                    if (profileError) setProfileError('')
+                  }}
+                />
+              </Field>
+              {profileError && (
+                <FieldError id="profile-name-error">{profileError}</FieldError>
+              )}
+              {profileSuccess && (
+                <p role="status" className="text-sm text-success">{profileSuccess}</p>
+              )}
+              <Button type="submit" disabled={isUpdatingProfile}>
+                {isUpdatingProfile
+                  ? t('settings.profile.saving')
+                  : t('settings.profile.submit')}
+              </Button>
+            </FieldGroup>
+          </form>
+        </SettingSection>
         <SettingSection
           id="language-setting"
           title={t('settings.language.title')}

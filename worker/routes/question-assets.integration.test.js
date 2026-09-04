@@ -587,6 +587,8 @@ describe('teacher pending question asset set discovery', () => {
   it('returns only the latest pending set ID to a teacher', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const sourceFileId = await createSourceFile(exerciseId)
+    const active = await createReadySet(exerciseId, sourceFileId)
+    expect((await activateSet(exerciseId, active.id)).status).toBe(200)
     await createPendingSetData(exerciseId, sourceFileId)
     const latest = await createPendingSetData(exerciseId, sourceFileId)
 
@@ -1295,7 +1297,7 @@ describe('GET /api/question-assets/:assetId', () => {
     expect((await teacherRes.arrayBuffer()).byteLength).toBe(GENERATED_WEBP_BYTES.byteLength)
   })
 
-  it('serves an active confirmed file publicly with immutable caching', async () => {
+  it('serves an active confirmed file to an authorized student with private caching', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const sourceFileId = await createSourceFile(exerciseId)
     const assetSet = await createReadySet(exerciseId, sourceFileId)
@@ -1306,11 +1308,43 @@ describe('GET /api/question-assets/:assetId', () => {
       where asset_set_id = ? and q_id = 1
     `).bind(assetSet.id).first()
 
-    const res = await app.request(`/api/question-assets/${asset.id}`, {}, env)
+    const unauthenticated = await app.request(`/api/question-assets/${asset.id}`, {}, env)
+    expect(unauthenticated.status).toBe(401)
+
+    const res = await app.request(`/api/question-assets/${asset.id}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
 
     expect(res.status).toBe(200)
-    expect(res.headers.get('cache-control')).toBe('public, max-age=31536000, immutable')
+    expect(res.headers.get('cache-control')).toBe('private, no-store')
     expect((await res.arrayBuffer()).byteLength).toBe(GENERATED_WEBP_BYTES.byteLength)
+  })
+
+  it('blocks active question assets when the student grade does not overlap', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken, { grades: [12] })
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createReadySet(exerciseId, sourceFileId)
+    await activateSet(exerciseId, assetSet.id)
+    const asset = await env.DB.prepare(`
+      SELECT id
+      FROM exercise_question_assets
+      WHERE asset_set_id = ? AND q_id = 1
+    `).bind(assetSet.id).first()
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84123456789'",
+    ).first()
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
+      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
+    ])
+
+    const res = await app.request(`/api/question-assets/${asset.id}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+    expect(res.status).toBe(403)
+    await expect(res.json()).resolves.toMatchObject({
+      error: { code: 'GRADE_ACCESS_DENIED' },
+    })
   })
 })
 
