@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add a persistent desktop sidebar toggle that switches between labelled and compact navigation.
 - Let signed-in teachers securely change their own password from Settings after verifying their current password, with independently collapsible setting sections. [#87](https://github.com/lelouvincx/smartclass/pull/87)
 - Add a production API version endpoint that reports the deployed commit hash and verify it after Worker deployments. [#86](https://github.com/lelouvincx/smartclass/pull/86)
 - Add a dedicated, prioritized, and versioned todo list, link it from the README, and document the task lifecycle from planned work to completed change. [#82](https://github.com/lelouvincx/smartclass/pull/82)
