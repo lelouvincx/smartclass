@@ -25,7 +25,7 @@ function teacherRequest(path, method, body) {
 }
 
 describe('lectures API', () => {
-  it('lets a teacher create, edit, reorder, and delete lectures', async () => {
+  it('lets a teacher create, edit, show or hide, reorder, and delete lectures', async () => {
     const firstResponse = await teacherRequest('/', 'POST', {
       title: 'Orb Lecture A',
       section_name: 'Chapter 1',
@@ -50,17 +50,33 @@ describe('lectures API', () => {
     expect(updateResponse.status).toBe(200)
     expect((await updateResponse.json()).data.title).toBe('Orb Lecture A revised')
 
+    const hideResponse = await teacherRequest(`/${first.id}`, 'PUT', {
+      title: 'Orb Lecture A revised',
+      section_name: 'Chapter 1',
+      youtube_url: 'https://www.youtube.com/watch?v=abcdefghijk',
+      is_visible: false,
+    })
+    expect(hideResponse.status).toBe(200)
+    expect((await hideResponse.json()).data.is_visible).toBe(0)
+
     const orderResponse = await teacherRequest('/order', 'PUT', { ids: [second.id, first.id] })
     expect(orderResponse.status).toBe(200)
 
-    const listResponse = await app.request('/api/lectures', {
+    const studentListResponse = await app.request('/api/lectures', {
       headers: { Authorization: `Bearer ${studentToken}` },
     }, env)
-    expect(listResponse.status).toBe(200)
-    const lectures = (await listResponse.json()).data
+    expect(studentListResponse.status).toBe(200)
+    const studentLectures = (await studentListResponse.json()).data
       .filter((lecture) => [first.id, second.id].includes(lecture.id))
-    expect(lectures.map((lecture) => lecture.id)).toEqual([second.id, first.id])
-    expect(lectures.map((lecture) => lecture.order_index)).toEqual([0, 1])
+    expect(studentLectures.map((lecture) => lecture.id)).toEqual([second.id])
+
+    const teacherListResponse = await teacherRequest('/', 'GET')
+    expect(teacherListResponse.status).toBe(200)
+    const teacherLectures = (await teacherListResponse.json()).data
+      .filter((lecture) => [first.id, second.id].includes(lecture.id))
+    expect(teacherLectures.map((lecture) => lecture.id)).toEqual([second.id, first.id])
+    expect(teacherLectures.map((lecture) => lecture.order_index)).toEqual([0, 1])
+    expect(teacherLectures.map((lecture) => lecture.is_visible)).toEqual([1, 0])
 
     expect((await teacherRequest(`/${first.id}`, 'DELETE')).status).toBe(200)
     expect((await teacherRequest(`/${second.id}`, 'DELETE')).status).toBe(200)

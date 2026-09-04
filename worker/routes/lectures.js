@@ -31,6 +31,7 @@ function validateLecture(body) {
     title: typeof body?.title === 'string' ? body.title.trim() : '',
     section_name: typeof body?.section_name === 'string' ? body.section_name.trim() : '',
     youtube_url: typeof body?.youtube_url === 'string' ? body.youtube_url.trim() : '',
+    is_visible: body?.is_visible,
   }
 
   if (!lecture.title || !lecture.section_name || !lecture.youtube_url) {
@@ -41,21 +42,28 @@ function validateLecture(body) {
     return { error: 'YouTube URL must link to a valid video.' }
   }
 
+  if (lecture.is_visible !== undefined && typeof lecture.is_visible !== 'boolean') {
+    return { error: 'Lecture visibility must be true or false.' }
+  }
+
   return { lecture }
 }
 
 async function getLecture(db, id) {
   return db.prepare(`
-    SELECT id, title, section_name, youtube_url, order_index, created_by, created_at, updated_at
+    SELECT id, title, section_name, youtube_url, order_index, is_visible, created_by, created_at, updated_at
     FROM lectures
     WHERE id = ?
   `).bind(id).first()
 }
 
 lecturesRoutes.get('/', requireAuth, async (c) => {
+  const authUser = c.get('authUser')
+  const visibilityClause = authUser.role === 'teacher' ? '' : 'WHERE is_visible = 1'
   const result = await c.env.DB.prepare(`
-    SELECT id, title, section_name, youtube_url, order_index, created_by, created_at, updated_at
+    SELECT id, title, section_name, youtube_url, order_index, is_visible, created_by, created_at, updated_at
     FROM lectures
+    ${visibilityClause}
     ORDER BY order_index ASC, id ASC
   `).all()
 
@@ -74,13 +82,14 @@ lecturesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   ).first('value')
   const authUser = c.get('authUser')
   const result = await c.env.DB.prepare(`
-    INSERT INTO lectures (title, section_name, youtube_url, order_index, created_by)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO lectures (title, section_name, youtube_url, order_index, is_visible, created_by)
+    VALUES (?, ?, ?, ?, ?, ?)
   `).bind(
     lecture.title,
     lecture.section_name,
     lecture.youtube_url,
     nextOrder,
+    lecture.is_visible === undefined ? 1 : Number(lecture.is_visible),
     authUser.id,
   ).run()
 
@@ -132,9 +141,16 @@ lecturesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
 
   const result = await c.env.DB.prepare(`
     UPDATE lectures
-    SET title = ?, section_name = ?, youtube_url = ?, updated_at = CURRENT_TIMESTAMP
+    SET title = ?, section_name = ?, youtube_url = ?,
+        is_visible = COALESCE(?, is_visible), updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).bind(lecture.title, lecture.section_name, lecture.youtube_url, id).run()
+  `).bind(
+    lecture.title,
+    lecture.section_name,
+    lecture.youtube_url,
+    lecture.is_visible === undefined ? null : Number(lecture.is_visible),
+    id,
+  ).run()
 
   if (result.meta.changes === 0) {
     return jsonError(c, 404, 'NOT_FOUND', 'Lecture not found.')

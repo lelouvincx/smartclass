@@ -31,6 +31,7 @@ const lectures = [
     section_name: 'Chapter 1',
     youtube_url: 'https://youtu.be/abcdefghijk',
     order_index: 0,
+    is_visible: 1,
   },
   {
     id: 2,
@@ -38,6 +39,7 @@ const lectures = [
     section_name: 'Chapter 1',
     youtube_url: 'https://youtu.be/lmnopqrstuv',
     order_index: 1,
+    is_visible: 1,
   },
 ]
 
@@ -126,5 +128,28 @@ describe('TeacherLecturesPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Delete Introduction' }))
     expect(deleteLectureMock).toHaveBeenCalledWith('teacher-token', 1)
+  })
+
+  it('lets the teacher hide a lecture from students', async () => {
+    const user = userEvent.setup()
+    updateLectureMock.mockResolvedValue({ data: { ...lectures[0], is_visible: 0 } })
+    renderPage()
+
+    await screen.findByText('Introduction')
+    const hideButton = screen.getByRole('button', { name: 'Hide Introduction from students' })
+    expect(screen.queryByText('Visible to students')).not.toBeInTheDocument()
+    expect(hideButton.closest('li')).not.toHaveClass('bg-muted')
+
+    await user.click(hideButton)
+
+    expect(updateLectureMock).toHaveBeenCalledWith('teacher-token', 1, {
+      title: 'Introduction',
+      section_name: 'Chapter 1',
+      youtube_url: 'https://youtu.be/abcdefghijk',
+      is_visible: false,
+    })
+    const showButton = screen.getByRole('button', { name: 'Show Introduction to students' })
+    expect(screen.queryByText('Hidden from students')).not.toBeInTheDocument()
+    expect(showButton.closest('li')).toHaveClass('bg-muted', 'text-muted-foreground')
   })
 })
