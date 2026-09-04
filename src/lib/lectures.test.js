@@ -2,6 +2,7 @@ import {
   getLectureIdFromSlug,
   getLecturePath,
   getYouTubeEmbedUrl,
+  getYouTubeVideoId,
   groupLectureRuns,
 } from './lectures'
 
@@ -43,5 +44,20 @@ describe('lecture helpers', () => {
 
   it('returns null for an unsupported YouTube URL', () => {
     expect(getYouTubeEmbedUrl('https://youtube.com/channel/abcdefghijk')).toBeNull()
+  })
+
+  it('returns the canonical video id used by embeds and progress storage', () => {
+    expect(getYouTubeVideoId('https://youtu.be/abcdefghijk')).toBe('abcdefghijk')
+    expect(getYouTubeVideoId('https://youtube.com/channel/abcdefghijk')).toBeNull()
+  })
+
+  it('adds optional student-player parameters without changing the default URL', () => {
+    expect(getYouTubeEmbedUrl('https://youtu.be/abcdefghijk', {
+      enableJsApi: true,
+      origin: 'https://smartclass.example',
+      startSeconds: 42.9,
+    })).toBe('https://www.youtube-nocookie.com/embed/abcdefghijk?enablejsapi=1&origin=https%3A%2F%2Fsmartclass.example&start=42')
+    expect(getYouTubeEmbedUrl('https://youtu.be/abcdefghijk'))
+      .toBe('https://www.youtube-nocookie.com/embed/abcdefghijk')
   })
 })

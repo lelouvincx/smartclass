@@ -4,14 +4,15 @@ import { ArrowLeft, ArrowRight, ExternalLink, VideoOff } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { listLectures } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import { getLectureIdFromSlug, getLecturePath, getYouTubeEmbedUrl } from '@/lib/lectures'
+import { getLectureIdFromSlug, getLecturePath, getYouTubeVideoId } from '@/lib/lectures'
+import YouTubeLecturePlayer from '@/components/youtube-lecture-player'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 
 export default function StudentLecturePlayerPage() {
   const { t } = useTranslation()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const { lectureSlug } = useParams()
   const headingRef = useRef(null)
   const [lectures, setLectures] = useState([])
@@ -39,7 +40,7 @@ export default function StudentLecturePlayerPage() {
   const lecture = lectures[lectureIndex]
   const previous = lectureIndex > 0 ? lectures[lectureIndex - 1] : null
   const next = lectureIndex >= 0 && lectureIndex < lectures.length - 1 ? lectures[lectureIndex + 1] : null
-  const embedUrl = lecture ? getYouTubeEmbedUrl(lecture.youtube_url) : null
+  const videoId = lecture ? getYouTubeVideoId(lecture.youtube_url) : null
 
   useEffect(() => {
     if (!lecture) return
@@ -94,14 +95,13 @@ export default function StudentLecturePlayerPage() {
       </header>
 
       <div className="overflow-hidden rounded-[var(--sc-component-card-shape)] border border-border bg-black shadow-[var(--shadow-card)]">
-        {embedUrl ? (
-          <iframe
-            className="aspect-video w-full"
-            src={embedUrl}
+        {videoId ? (
+          <YouTubeLecturePlayer
+            key={`${user.id}:${lecture.id}:${videoId}`}
+            accountId={user.id}
+            lectureId={lecture.id}
+            videoId={videoId}
             title={t('student.lectures.videoTitle', { title: lecture.title })}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
           />
         ) : (
           <div className="flex aspect-video items-center justify-center p-6 text-center text-sm text-white">
