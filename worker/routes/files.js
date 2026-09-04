@@ -1,42 +1,50 @@
 import { Hono } from 'hono'
 import { jsonError } from '../lib/response.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const filesRoutes = new Hono()
 
-// Serve file from R2 with tiered auth based on file_type
-filesRoutes.get('/:fileId', async (c) => {
+// Serve files to teachers or students who can access the active student-safe PDF.
+filesRoutes.get('/:fileId', requireAuth, async (c) => {
   const fileId = c.req.param('fileId')
 
   // Lookup file metadata
   const file = await c.env.DB.prepare(
-    'SELECT id, r2_key, file_name, file_type FROM exercise_files WHERE id = ?'
+    'SELECT id, exercise_id, r2_key, file_name, file_type FROM exercise_files WHERE id = ?'
   ).bind(fileId).first()
 
   if (!file) {
     return jsonError(c, 404, 'NOT_FOUND', 'File not found')
   }
 
-  // Tiered auth based on file_type
-  // exercise_pdf: public (no auth required)
-  // solution_pdf, reference_image: teacher-only
-  if (file.file_type !== 'exercise_pdf') {
-    // Require teacher auth for non-public file types
-    let isTeacher = false
-    const authorization = c.req.header('Authorization') || ''
+  const authUser = c.get('authUser')
+  if (authUser.role !== 'teacher' && file.file_type !== 'exercise_pdf') {
+    return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this file')
+  }
 
-    if (authorization.startsWith('Bearer ') && c.env.JWT_SECRET) {
-      const token = authorization.slice(7)
-      try {
-        const { verifyAccessToken } = await import('../lib/auth.js')
-        const payload = await verifyAccessToken(token, c.env)
-        isTeacher = payload.role === 'teacher'
-      } catch {
-        isTeacher = false
-      }
+  if (authUser.role === 'student') {
+    const isActiveSource = await c.env.DB.prepare(`
+      SELECT 1
+      FROM exercise_question_asset_sets active_set
+      JOIN exercises exercise ON exercise.active_question_asset_set_id = active_set.id
+      WHERE active_set.exercise_id = ?
+        AND active_set.source_file_id = ?
+        AND active_set.confirmed_at IS NOT NULL
+      LIMIT 1
+    `).bind(file.exercise_id, file.id).first()
+    if (!isActiveSource) {
+      return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this file')
     }
 
-    if (!isTeacher) {
-      return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this file')
+    const access = await c.env.DB.prepare(`
+      SELECT 1
+      FROM student_grades student_grade
+      JOIN exercise_grades exercise_grade ON exercise_grade.grade = student_grade.grade
+      WHERE student_grade.user_id = ? AND exercise_grade.exercise_id = ?
+      LIMIT 1
+    `).bind(authUser.id, file.exercise_id).first()
+    if (!access) {
+      return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise file is not available for your grades')
     }
   }
 
@@ -56,7 +64,7 @@ filesRoutes.get('/:fileId', async (c) => {
     headers: {
       'Content-Type': contentType,
       'Content-Disposition': 'inline',
-      'Cache-Control': 'public, max-age=3600',
+      'Cache-Control': 'private, no-store',
     },
   })
 })

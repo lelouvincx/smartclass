@@ -1,5 +1,9 @@
 import { getSubmission, listMySubmissions } from '@/lib/api'
-import { clearSubmissionState, getSubmissionPointer } from '@/lib/submission-draft'
+import {
+  clearSubmissionState,
+  getSubmissionPointer,
+  setSubmissionPointer,
+} from '@/lib/submission-draft'
 
 export async function loadStudentExerciseStates({ accountId, exercises, token }) {
   const states = {}
@@ -34,6 +38,13 @@ export async function loadStudentExerciseStates({ accountId, exercises, token })
           return
         }
       }
+    }
+
+    if (exercise.in_progress_submission_id) {
+      const serverSubmissionId = String(exercise.in_progress_submission_id)
+      setSubmissionPointer(accountId, exercise.id, serverSubmissionId)
+      states[exercise.id] = { type: 'resume', submissionId: serverSubmissionId }
+      return
     }
 
     const submitted = submittedByExercise.get(exercise.id)

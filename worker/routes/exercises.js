@@ -10,6 +10,7 @@ import {
 } from '../lib/schema-parser.js'
 import { requestSchemaFromDeepSeek } from '../lib/deepseek.js'
 import { isValidExtractModel } from '../lib/extract-models.js'
+import { attachGrades, parseGrades } from '../lib/grades.js'
 import {
   MIN_QUESTION_ASSET_CONFIDENCE,
   toQuestionAssetResponse,
@@ -115,13 +116,49 @@ exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async
   }
 })
 
-// List all exercises (public)
-exercisesRoutes.get('/', async (c) => {
-  const exercises = await c.env.DB.prepare(`
+// List exercises available to the authenticated user.
+exercisesRoutes.get('/', requireAuth, async (c) => {
+  const authUser = c.get('authUser')
+  const isStudent = authUser.role === 'student'
+  const studentSubmissionJoin = isStudent
+    ? `LEFT JOIN submissions in_progress
+        ON in_progress.exercise_id = e.id
+        AND in_progress.user_id = ?
+        AND in_progress.submitted_at IS NULL
+        AND in_progress.id = (
+          SELECT active_submission.id
+          FROM submissions active_submission
+          WHERE active_submission.exercise_id = e.id
+            AND active_submission.user_id = in_progress.user_id
+            AND active_submission.submitted_at IS NULL
+          ORDER BY active_submission.started_at DESC, active_submission.id DESC
+          LIMIT 1
+        )`
+    : ''
+  const studentAccessClause = authUser.role === 'student'
+    ? `WHERE (
+        EXISTS (
+          SELECT 1
+          FROM student_grades student_grade
+          JOIN exercise_grades exercise_grade ON exercise_grade.grade = student_grade.grade
+          WHERE student_grade.user_id = ?
+            AND exercise_grade.exercise_id = e.id
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM exercise_question_asset_sets student_active_set
+          WHERE student_active_set.id = e.active_question_asset_set_id
+            AND student_active_set.exercise_id = e.id
+            AND student_active_set.confirmed_at IS NOT NULL
+        )
+      ) OR in_progress.id IS NOT NULL`
+    : ''
+  const statement = c.env.DB.prepare(`
     SELECT 
       e.*,
       COUNT(DISTINCT ef.id) as file_count,
       COUNT(DISTINCT ans.q_id) as question_count,
+      ${isStudent ? 'in_progress.id' : 'NULL'} AS in_progress_submission_id,
       CASE WHEN EXISTS (
         SELECT 1
         FROM exercise_question_asset_sets active_set
@@ -130,18 +167,33 @@ exercisesRoutes.get('/', async (c) => {
           AND active_set.confirmed_at IS NOT NULL
       ) THEN 1 ELSE 0 END AS is_student_ready
     FROM exercises e
+    ${studentSubmissionJoin}
     LEFT JOIN exercise_files ef ON e.id = ef.exercise_id
     LEFT JOIN answer_schemas ans ON e.id = ans.exercise_id
+    ${studentAccessClause}
     GROUP BY e.id
     ORDER BY e.created_at DESC
+  `)
+  const exercises = authUser.role === 'student'
+    ? await statement.bind(authUser.id, authUser.id).all()
+    : await statement.all()
+  const gradeResult = await c.env.DB.prepare(`
+    SELECT exercise_id, grade
+    FROM exercise_grades
+    ORDER BY grade
   `).all()
 
-  return jsonSuccess(c, exercises.results.map(toExerciseWithTiming))
+  return jsonSuccess(c, attachGrades(
+    exercises.results.map(toExerciseWithTiming),
+    gradeResult.results,
+    'exercise_id',
+  ))
 })
 
-// Get exercise detail with files and schema (public)
-exercisesRoutes.get('/:id', async (c) => {
+// Get exercise detail with files and schema.
+exercisesRoutes.get('/:id', requireAuth, async (c) => {
   const id = c.req.param('id')
+  const authUser = c.get('authUser')
 
   const exercise = await c.env.DB.prepare(
     'SELECT * FROM exercises WHERE id = ?'
@@ -151,23 +203,53 @@ exercisesRoutes.get('/:id', async (c) => {
     return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
   }
 
+  let inProgressSubmissionId = null
+  if (authUser.role === 'student') {
+    const access = await c.env.DB.prepare(`
+      SELECT
+        (
+          SELECT submission.id
+          FROM submissions submission
+          WHERE submission.user_id = ?
+            AND submission.exercise_id = ?
+            AND submission.submitted_at IS NULL
+          ORDER BY submission.started_at DESC, submission.id DESC
+          LIMIT 1
+        ) AS in_progress_submission_id,
+        EXISTS (
+          SELECT 1
+          FROM student_grades student_grade
+          JOIN exercise_grades exercise_grade ON exercise_grade.grade = student_grade.grade
+          WHERE student_grade.user_id = ? AND exercise_grade.exercise_id = ?
+        ) AS has_grade_access,
+        EXISTS (
+          SELECT 1
+          FROM exercise_question_asset_sets student_active_set
+          WHERE student_active_set.id = ?
+            AND student_active_set.exercise_id = ?
+            AND student_active_set.confirmed_at IS NOT NULL
+        ) AS is_ready
+    `).bind(
+      authUser.id,
+      id,
+      authUser.id,
+      id,
+      exercise.active_question_asset_set_id,
+      id,
+    ).first()
+    inProgressSubmissionId = access.in_progress_submission_id
+    if (!inProgressSubmissionId && !(access.has_grade_access && access.is_ready)) {
+      return access.has_grade_access
+        ? jsonError(c, 403, 'EXERCISE_NOT_READY', 'This exercise is not ready for students')
+        : jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your grades')
+    }
+  }
+
   const files = await c.env.DB.prepare(
     'SELECT * FROM exercise_files WHERE exercise_id = ? ORDER BY uploaded_at DESC, id DESC'
   ).bind(id).all()
 
-  // Determine if requester is a teacher (optional auth)
-  let isTeacher = false
-  const authorization = c.req.header('Authorization') || ''
-  if (authorization.startsWith('Bearer ') && c.env.JWT_SECRET) {
-    const token = authorization.slice(7)
-    try {
-      const { verifyAccessToken } = await import('../lib/auth.js')
-      const payload = await verifyAccessToken(token, c.env)
-      isTeacher = payload.role === 'teacher'
-    } catch {
-      isTeacher = false
-    }
-  }
+  const isTeacher = authUser.role === 'teacher'
 
   const schema = isTeacher || !exercise.active_question_asset_set_id
     ? await c.env.DB.prepare(`
@@ -221,14 +303,22 @@ exercisesRoutes.get('/:id', async (c) => {
         limit 1
       `).bind(id).first()
     : null
+  const gradeResult = await c.env.DB.prepare(`
+    SELECT grade
+    FROM exercise_grades
+    WHERE exercise_id = ?
+    ORDER BY grade
+  `).bind(id).all()
 
   return jsonSuccess(c, {
     ...toExerciseWithTiming(exercise),
     is_student_ready: questionAssetSetId === null ? 0 : 1,
     files: isTeacher ? files.results : [],
+    grades: gradeResult.results.map((row) => row.grade),
     schema: sanitizedSchema,
     question_asset_set_id: questionAssetSetId,
     question_assets: questionAssets,
+    ...(!isTeacher ? { in_progress_submission_id: inProgressSubmissionId } : {}),
     ...(isTeacher
       ? { pending_question_asset_set_id: pendingQuestionAssetSet?.id ?? null }
       : {}),
@@ -239,9 +329,14 @@ exercisesRoutes.get('/:id', async (c) => {
 exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
   const { title, duration_minutes, schema, is_timed = true, extract_model } = body || {}
+  const parsedGrades = parseGrades(body?.grades, { defaultToAll: true })
 
   if (!title || schema === undefined) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Title, is_timed, and schema are required')
+  }
+
+  if (parsedGrades.error) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
   }
 
   if (typeof is_timed !== 'boolean') {
@@ -289,9 +384,13 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
         VALUES (?, ?, ?, ?, ?)
       `).bind(exerciseId, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
     )
+    const gradeStmts = parsedGrades.grades.map((grade) => c.env.DB.prepare(`
+      INSERT INTO exercise_grades (exercise_id, grade)
+      VALUES (?, ?)
+    `).bind(exerciseId, grade))
 
     try {
-      await c.env.DB.batch(schemaStmts)
+      await c.env.DB.batch([...schemaStmts, ...gradeStmts])
     } catch (schemaError) {
       // Compensating delete: remove orphan exercise row
       await c.env.DB.prepare('DELETE FROM exercises WHERE id = ?').bind(exerciseId).run()
@@ -309,6 +408,7 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
     return jsonSuccess(c, {
       ...toExerciseWithTiming(created),
       files: [],
+      grades: parsedGrades.grades,
       schema: schemaResult.results,
     }, 201)
   } catch (error) {
@@ -329,6 +429,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     extract_model,
     question_asset_set_id,
     resolved_answer_candidate_keys,
+    grades,
   } = body || {}
 
   if (
@@ -339,12 +440,18 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     && extract_model === undefined
     && question_asset_set_id === undefined
     && resolved_answer_candidate_keys === undefined
+    && grades === undefined
   ) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'At least one update field is required')
   }
 
   if (is_timed !== undefined && typeof is_timed !== 'boolean') {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'is_timed must be boolean')
+  }
+
+  const parsedGrades = grades === undefined ? null : parseGrades(grades)
+  if (parsedGrades?.error) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
   }
 
   // extract_model: undefined → leave alone; null → reset to default; string → must be in allowlist.
@@ -486,6 +593,18 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
             VALUES (?, ?, ?, ?, ?)
           `).bind(id, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
         )
+      }
+    }
+
+    if (parsedGrades) {
+      batchStmts.push(c.env.DB.prepare(
+        'DELETE FROM exercise_grades WHERE exercise_id = ?',
+      ).bind(id))
+      for (const grade of parsedGrades.grades) {
+        batchStmts.push(c.env.DB.prepare(`
+          INSERT INTO exercise_grades (exercise_id, grade)
+          VALUES (?, ?)
+        `).bind(id, grade))
       }
     }
 
@@ -686,10 +805,17 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     const schemaResult = await c.env.DB.prepare(
       'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
     ).bind(id).all()
+    const gradeResult = await c.env.DB.prepare(`
+      SELECT grade
+      FROM exercise_grades
+      WHERE exercise_id = ?
+      ORDER BY grade
+    `).bind(id).all()
 
     return jsonSuccess(c, {
       ...toExerciseWithTiming(exercise),
       files: files.results,
+      grades: gradeResult.results.map((row) => row.grade),
       schema: schemaResult.results,
     })
   } catch (error) {

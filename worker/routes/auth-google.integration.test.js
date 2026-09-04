@@ -158,6 +158,7 @@ describe('POST /api/auth/google/login', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect(body.data.token).toBeTruthy()
+    expect(body.data.user.name).toBe('Test Student')
     expect(body.data.user.phone).toBe('+84900000001')
     expect(body.data.user.role).toBe('student')
 

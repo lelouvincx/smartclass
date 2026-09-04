@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { ClipboardList, RefreshCw, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
+import { GradeBadges } from '@/components/grade-checkbox-group'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -19,6 +21,7 @@ function formatUpdatedAt(value, language) {
 
 export default function TeacherExercisesPage() {
   const { t, i18n } = useTranslation()
+  const { token } = useAuth()
   const [items, setItems] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -29,7 +32,7 @@ export default function TeacherExercisesPage() {
     setError('')
 
     try {
-      const response = await listExercises()
+      const response = await listExercises(token)
       setItems(response.data || [])
       setLastRefreshed(new Date())
     } catch (loadError) {
@@ -41,7 +44,7 @@ export default function TeacherExercisesPage() {
 
   useEffect(() => {
     loadExercises()
-  }, [])
+  }, [token])
 
   return (
     <div className="space-y-6">
@@ -108,6 +111,7 @@ export default function TeacherExercisesPage() {
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.duration')}</th>
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.questions')}</th>
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.files')}</th>
+                    <th scope="col" className="px-3 py-3 lg:px-4">{t('common.gradeAccess')}</th>
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.readiness')}</th>
                     <th scope="col" className="px-3 py-3 lg:px-4">{t('teacher.exercises.updated')}</th>
                   </tr>
@@ -127,6 +131,7 @@ export default function TeacherExercisesPage() {
                       <td className="px-3 py-3 lg:px-4">{Number(item.duration_minutes) > 0 ? formatDuration(item.duration_minutes, i18n.resolvedLanguage) : t('teacher.exercises.untimed')}</td>
                       <td className="px-3 py-3 lg:px-4">{item.question_count}</td>
                       <td className="px-3 py-3 lg:px-4">{item.file_count}</td>
+                      <td className="px-3 py-3 lg:px-4"><GradeBadges grades={item.grades} /></td>
                       <td className="px-3 py-3 lg:px-4">
                         <Badge variant={item.is_student_ready ? 'secondary' : 'outline'}>
                           {t(item.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
@@ -155,6 +160,10 @@ export default function TeacherExercisesPage() {
                     <div>
                       <dt className="text-muted-foreground">{t('teacher.exercises.files')}</dt>
                       <dd>{item.file_count}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">{t('common.gradeAccess')}</dt>
+                      <dd className="mt-1"><GradeBadges grades={item.grades} /></dd>
                     </div>
                     <div className="col-span-2">
                       <dt className="text-muted-foreground">{t('teacher.exercises.readiness')}</dt>

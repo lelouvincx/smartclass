@@ -96,6 +96,7 @@ describe('TeacherCreateExercisePage', () => {
         },
       ],
       extract_model: null,
+      grades: [10, 11, 12],
     })
   })
 
@@ -138,6 +139,7 @@ describe('TeacherCreateExercisePage', () => {
         },
       ],
       extract_model: null,
+      grades: [10, 11, 12],
     })
   })
 
@@ -279,7 +281,24 @@ describe('TeacherCreateExercisePage', () => {
         { q_id: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
       ],
       extract_model: null,
+      grades: [10, 11, 12],
     })
+  })
+
+  it('creates an exercise for multiple selected grades', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 405 } })
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Grade Quiz')
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
+    await uploadRequiredPdfs(user)
+    await user.click(screen.getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(createExerciseMock).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      grades: [10, 11],
+    }))
   })
 
   it('blocks save when boolean sub-questions have no answer selected', async () => {

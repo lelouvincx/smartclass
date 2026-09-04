@@ -26,7 +26,7 @@ export function StudentLayout() {
     <AppShell
       items={navigation}
       workspaceLabel={t('common.student')}
-      userLabel={user?.phone}
+      userLabel={user?.name || user?.phone}
       onLogout={handleLogout}
       focusedWorkspace={isTakingExercise}
     >

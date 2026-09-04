@@ -1,24 +1,10 @@
 import { Hono } from 'hono'
-import { verifyAccessToken } from '../lib/auth.js'
 import { jsonError } from '../lib/response.js'
+import { requireAuth } from '../middleware/auth.js'
 
 const questionAssetFilesRoutes = new Hono()
 
-async function isTeacherRequest(c) {
-  const authorization = c.req.header('Authorization') || ''
-  if (!authorization.startsWith('Bearer ') || !c.env.JWT_SECRET) {
-    return false
-  }
-
-  try {
-    const payload = await verifyAccessToken(authorization.slice(7), c.env)
-    return payload.role === 'teacher'
-  } catch {
-    return false
-  }
-}
-
-questionAssetFilesRoutes.get('/:assetId', async (c) => {
+questionAssetFilesRoutes.get('/:assetId', requireAuth, async (c) => {
   const assetId = Number.parseInt(c.req.param('assetId'), 10)
   if (!Number.isInteger(assetId) || assetId < 1) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'assetId must be a positive integer')
@@ -30,13 +16,9 @@ questionAssetFilesRoutes.get('/:assetId', async (c) => {
       , question_asset.r2_key
       , question_asset.mime_type
       , asset_set.id as asset_set_id
+      , asset_set.exercise_id
       , asset_set.confirmed_at
       , exercise.active_question_asset_set_id
-      , exists (
-          select 1
-          from submissions submission
-          where submission.question_asset_set_id = asset_set.id
-        ) as is_submission_pinned
     from exercise_question_assets question_asset
     join exercise_question_asset_sets asset_set on asset_set.id = question_asset.asset_set_id
     join exercises exercise on exercise.id = asset_set.exercise_id
@@ -47,14 +29,33 @@ questionAssetFilesRoutes.get('/:assetId', async (c) => {
     return jsonError(c, 404, 'NOT_FOUND', 'Question asset not found')
   }
 
-  const isPublicConfirmedAsset = asset.confirmed_at
-    && (
-      asset.active_question_asset_set_id === asset.asset_set_id
-      || asset.is_submission_pinned === 1
-    )
+  const authUser = c.get('authUser')
+  if (authUser.role !== 'teacher') {
+    const ownedSubmission = asset.confirmed_at
+      ? await c.env.DB.prepare(`
+          SELECT 1
+          FROM submissions
+          WHERE user_id = ? AND question_asset_set_id = ?
+          LIMIT 1
+        `).bind(authUser.id, asset.asset_set_id).first()
+      : null
+    const currentGradeAccess = asset.confirmed_at
+      && asset.active_question_asset_set_id === asset.asset_set_id
+      ? await c.env.DB.prepare(`
+          SELECT 1
+          FROM student_grades student_grade
+          JOIN exercise_grades exercise_grade ON exercise_grade.grade = student_grade.grade
+          WHERE student_grade.user_id = ? AND exercise_grade.exercise_id = ?
+          LIMIT 1
+        `).bind(authUser.id, asset.exercise_id).first()
+      : null
 
-  if (!isPublicConfirmedAsset && !(await isTeacherRequest(c))) {
-    return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this question asset')
+    if (!ownedSubmission && !currentGradeAccess) {
+      const code = asset.confirmed_at && asset.active_question_asset_set_id === asset.asset_set_id
+        ? 'GRADE_ACCESS_DENIED'
+        : 'FORBIDDEN'
+      return jsonError(c, 403, code, 'You do not have access to this question asset')
+    }
   }
 
   const object = await c.env.BUCKET.get(asset.r2_key)
@@ -67,9 +68,7 @@ questionAssetFilesRoutes.get('/:assetId', async (c) => {
     headers: {
       'Content-Type': asset.mime_type,
       'Content-Disposition': 'inline',
-      'Cache-Control': isPublicConfirmedAsset
-        ? 'public, max-age=31536000, immutable'
-        : 'private, no-store',
+      'Cache-Control': 'private, no-store',
     },
   })
 })

@@ -7,7 +7,7 @@ import { changeLanguage } from '@/i18n'
 import { StudentLayout } from './student-layout'
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({ user: { phone: '+84900000001' }, logout: vi.fn() }),
+  useAuth: () => ({ user: { name: 'Test Student', phone: '+84900000001' }, logout: vi.fn() }),
 }))
 
 function renderLayout(initialEntry = '/student') {
@@ -24,6 +24,13 @@ afterEach(() => {
 })
 
 describe('StudentLayout navigation', () => {
+  it('shows the student name in the account label', () => {
+    renderLayout()
+
+    expect(screen.getAllByText('Test Student').length).toBeGreaterThan(0)
+    expect(screen.queryByText('+84900000001')).not.toBeInTheDocument()
+  })
+
   it('marks the current destination in the student navigation', () => {
     renderLayout('/student/exercises')
 

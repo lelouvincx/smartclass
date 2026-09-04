@@ -7,9 +7,10 @@ import app from '../index.js'
  */
 export async function seedTeacher() {
   await env.DB.prepare(`
-    INSERT INTO users (phone, password_hash, role, status)
-    VALUES ('+84865481769', '$2b$10$cjeRekzD2GzbtRoxaVXj9ebzER0KjObLyqL89LeJ.zbpKBZhQ4maG', 'teacher', 'active')
+    INSERT INTO users (name, phone, password_hash, role, status)
+    VALUES ('Test Teacher', '+84865481769', '$2b$10$cjeRekzD2GzbtRoxaVXj9ebzER0KjObLyqL89LeJ.zbpKBZhQ4maG', 'teacher', 'active')
     ON CONFLICT(phone) DO UPDATE SET
+      name = excluded.name,
       password_hash = excluded.password_hash,
       role = 'teacher',
       status = 'active',
@@ -35,16 +36,28 @@ export async function loginAsTeacher() {
  * Seed a student account for testing.
  * Uses the same bcrypt hash as teacher (password: "123").
  */
-export async function seedStudent(phone = '+84123456789') {
+export async function seedStudent(phone = '+84123456789', name = 'Test Student') {
   await env.DB.prepare(`
-    INSERT INTO users (phone, password_hash, role, status)
-    VALUES (?, '$2b$10$cjeRekzD2GzbtRoxaVXj9ebzER0KjObLyqL89LeJ.zbpKBZhQ4maG', 'student', 'active')
+    INSERT INTO users (name, phone, password_hash, role, status)
+    VALUES (?, ?, '$2b$10$cjeRekzD2GzbtRoxaVXj9ebzER0KjObLyqL89LeJ.zbpKBZhQ4maG', 'student', 'active')
     ON CONFLICT(phone) DO UPDATE SET
+      name = excluded.name,
       password_hash = excluded.password_hash,
       role = 'student',
       status = 'active',
       updated_at = CURRENT_TIMESTAMP
-  `).bind(phone).run()
+  `).bind(name, phone).run()
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      DELETE FROM student_grades
+      WHERE user_id = (SELECT id FROM users WHERE phone = ?)
+    `).bind(phone),
+    ...[10, 11, 12].map((grade) => env.DB.prepare(`
+      INSERT INTO student_grades (user_id, grade)
+      SELECT id, ? FROM users WHERE phone = ?
+    `).bind(grade, phone)),
+  ])
 }
 
 /**

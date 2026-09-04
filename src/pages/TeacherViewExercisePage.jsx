@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { createExerciseFileUpload, deleteExercise, getExercise, getFileUrl, updateExercise, uploadExerciseFile } from '@/lib/api'
+import { createExerciseFileUpload, deleteExercise, getExercise, getExerciseFileBlob, updateExercise, uploadExerciseFile } from '@/lib/api'
+import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
+import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,6 +24,7 @@ import ExtractModelSelect from '@/components/extract-model-select'
 import FileDropzone from '@/components/file-dropzone'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { formatDuration } from '@/lib/format'
+import { GRADES } from '@/lib/grades'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -231,12 +234,14 @@ export default function TeacherViewExercisePage() {
   const [saveError, setSaveError] = useState('')
 
   const [editTitle, setEditTitle] = useState('')
+  const [editGrades, setEditGrades] = useState([...GRADES])
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
   const [editExtractModel, setEditExtractModel] = useState(null)
   const [editRows, setEditRows] = useState([])
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
+  const [openingFileId, setOpeningFileId] = useState(null)
   const [autoGenerateKey, setAutoGenerateKey] = useState(
     location.state?.generateQuestionViews ? 1 : 0,
   )
@@ -268,6 +273,7 @@ export default function TeacherViewExercisePage() {
 
   function enterEditMode() {
     setEditTitle(exercise.title)
+    setEditGrades(exercise.grades || [...GRADES])
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
     setEditDuration(exercise.duration_minutes)
     setEditExtractModel(exercise.extract_model ?? null)
@@ -358,6 +364,7 @@ export default function TeacherViewExercisePage() {
   async function handleSave() {
     setSaveError('')
     if (!editTitle.trim()) { setSaveError(t('teacher.create.titleRequired')); return }
+    if (editGrades.length === 0) { setSaveError(t('common.gradeRequired')); return }
     if (editIsTimed && (!editDuration || Number(editDuration) <= 0)) {
       setSaveError(t('teacher.create.durationInvalid')); return
     }
@@ -368,6 +375,7 @@ export default function TeacherViewExercisePage() {
       const shouldGenerateQuestionViews = Boolean(editExerciseFile)
       const payload = {
         title: editTitle.trim(),
+        grades: editGrades,
         is_timed: editIsTimed,
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
         schema: toSchemaPayload(validatedRows),
@@ -417,6 +425,27 @@ export default function TeacherViewExercisePage() {
     }
   }
 
+  async function handleOpenExercisePdf(file) {
+    if (openingFileId) return
+    setOpeningFileId(file.id)
+    try {
+      const blob = await getExerciseFileBlob(file.id, token)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.target = '_blank'
+      link.rel = 'noreferrer'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch {
+      toast.error(t('teacher.view.fileOpenFailed'))
+    } finally {
+      setOpeningFileId(null)
+    }
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -451,7 +480,7 @@ export default function TeacherViewExercisePage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditing ? (
-                <div className="space-y-4 pr-32">
+                <div className="space-y-4 sm:pr-32">
                   <div className="space-y-2">
                     <Label htmlFor="edit-title">{t('teacher.create.titleLabel')}</Label>
                     <Input
@@ -461,6 +490,14 @@ export default function TeacherViewExercisePage() {
                       onChange={(e) => setEditTitle(e.target.value)}
                     />
                   </div>
+                  <GradeCheckboxGroup
+                    id="edit-exercise-grades"
+                    legend={t('common.gradeAccess')}
+                    description={t('common.gradeAccessDescription')}
+                    value={editGrades}
+                    onChange={setEditGrades}
+                    disabled={isSaving}
+                  />
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="edit-timed">{t('teacher.create.mode')}</Label>
@@ -500,6 +537,7 @@ export default function TeacherViewExercisePage() {
                     <Badge variant={exercise.is_student_ready ? 'secondary' : 'outline'}>
                       {t(exercise.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
                     </Badge>
+                    <GradeBadges grades={exercise.grades} />
                     <span className="text-sm text-muted-foreground">
                       {t('teacher.view.questionCount', { count: new Set((exercise.schema || []).map((row) => row.q_id)).size })}
                     </span>
@@ -553,10 +591,14 @@ export default function TeacherViewExercisePage() {
                   </Badge>
                   <span className="min-w-0 w-full break-words sm:flex-1">{f.file_name}</span>
                   {f.file_type === 'exercise_pdf' && (
-                    <Button variant="link" size="sm" asChild>
-                      <a href={getFileUrl(f.id)} target="_blank" rel="noreferrer">
-                        {t('teacher.view.viewFullPdf')}
-                      </a>
+                    <Button
+                      type="button"
+                      variant="link"
+                      size="sm"
+                      disabled={openingFileId === f.id}
+                      onClick={() => handleOpenExercisePdf(f)}
+                    >
+                      {openingFileId === f.id ? t('teacher.view.openingFile') : t('teacher.view.viewFullPdf')}
                     </Button>
                   )}
                 </li>

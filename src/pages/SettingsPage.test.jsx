@@ -7,13 +7,14 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { changeLanguage } from '@/i18n'
 import SettingsPage from './SettingsPage'
 
-const { authState, changePasswordMock } = vi.hoisted(() => ({
+const { authState, changePasswordMock, updateMyNameMock } = vi.hoisted(() => ({
   authState: {
-    user: { phone: '+84900000001', role: 'teacher', google_email: null },
+    user: { name: 'Nguyễn Văn An', phone: '+84900000001', role: 'teacher', google_email: null },
     token: 'token',
     refreshUser: vi.fn(),
   },
   changePasswordMock: vi.fn(),
+  updateMyNameMock: vi.fn(),
 }))
 
 vi.mock('@/lib/auth-context', () => ({
@@ -24,12 +25,15 @@ vi.mock('@/lib/api', () => ({
   changePassword: changePasswordMock,
   linkGoogle: vi.fn(),
   unlinkGoogle: vi.fn(),
+  updateMyName: updateMyNameMock,
 }))
 
 afterEach(() => {
   localStorage.clear()
   changePasswordMock.mockReset()
-  authState.user = { phone: '+84900000001', role: 'teacher', google_email: null }
+  updateMyNameMock.mockReset()
+  authState.refreshUser.mockReset()
+  authState.user = { name: 'Nguyễn Văn An', phone: '+84900000001', role: 'teacher', google_email: null }
   return act(() => changeLanguage('en'))
 })
 
@@ -50,10 +54,12 @@ describe('SettingsPage sections', () => {
 
     expect(screen.getByRole('heading', { name: 'Settings', level: 1 })).toBeInTheDocument()
 
+    const profileToggle = screen.getByRole('button', { name: 'Profile settings' })
     const languageToggle = screen.getByRole('button', { name: 'Language settings' })
     const passwordToggle = screen.getByRole('button', { name: 'Change password settings' })
     const accountsToggle = screen.getByRole('button', { name: 'Connected accounts settings' })
 
+    expect(profileToggle).toHaveAttribute('aria-expanded', 'true')
     expect(languageToggle).toHaveAttribute('aria-expanded', 'true')
     expect(passwordToggle).toHaveAttribute('aria-expanded', 'true')
     expect(accountsToggle).toHaveAttribute('aria-expanded', 'true')
@@ -73,6 +79,27 @@ describe('SettingsPage sections', () => {
 
     expect(screen.getByLabelText('Current password')).toBeVisible()
     expect(screen.getByLabelText('Current password')).toHaveValue('keep-this-value')
+  })
+})
+
+describe('SettingsPage profile name', () => {
+  it('lets a student rename themselves and refreshes their session profile', async () => {
+    const user = userEvent.setup()
+    authState.user = { ...authState.user, role: 'student' }
+    updateMyNameMock.mockResolvedValue({ data: { name: 'Nguyễn An' } })
+    authState.refreshUser.mockResolvedValue()
+    renderPage()
+
+    const nameInput = screen.getByRole('textbox', { name: 'Name' })
+    expect(nameInput).toHaveValue('Nguyễn Văn An')
+    expect(nameInput).toHaveAttribute('autocomplete', 'name')
+    await user.clear(nameInput)
+    await user.type(nameInput, '  Nguyễn An  ')
+    await user.click(screen.getByRole('button', { name: 'Save name' }))
+
+    expect(updateMyNameMock).toHaveBeenCalledWith('token', { name: 'Nguyễn An' })
+    expect(authState.refreshUser).toHaveBeenCalledOnce()
+    expect(await screen.findByRole('status')).toHaveTextContent('Name updated successfully.')
   })
 })
 

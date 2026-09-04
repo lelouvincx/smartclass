@@ -49,8 +49,10 @@ export default function StudentExercisesPage() {
     setError('')
 
     try {
-      const response = await listExercises()
-      const exercises = (response.data || []).filter((exercise) => exercise.is_student_ready === 1)
+      const response = await listExercises(token)
+      const exercises = (response.data || []).filter((exercise) => (
+        exercise.is_student_ready === 1 || exercise.in_progress_submission_id
+      ))
       setItems(exercises)
       setExerciseStates(await loadStudentExerciseStates({
         accountId: user.id,

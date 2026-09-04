@@ -167,6 +167,31 @@ describe('POST /api/submissions', () => {
     const body = await res.json()
     expect(body.error.code).toBe('VALIDATION_ERROR')
   })
+
+  it('rejects a new attempt without an overlapping grade', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken, { grades: [12] })
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84123456789'",
+    ).first()
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
+      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
+    ])
+
+    const res = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${studentToken}`,
+      },
+      body: JSON.stringify({ exercise_id: exerciseId }),
+    }, env)
+
+    expect(res.status).toBe(403)
+    await expect(res.json()).resolves.toMatchObject({
+      error: { code: 'GRADE_ACCESS_DENIED' },
+    })
+  })
 })
 
 describe('PUT /api/submissions/:id/submit', () => {

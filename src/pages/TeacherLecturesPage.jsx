@@ -22,13 +22,16 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
+import { GRADES } from '@/lib/grades'
 
 const EMPTY_FORM = {
   title: '',
   section_name: '',
   youtube_url: '',
+  grades: [...GRADES],
 }
 
 export default function TeacherLecturesPage() {
@@ -73,6 +76,10 @@ export default function TeacherLecturesPage() {
   async function handleSubmit(event) {
     event.preventDefault()
     setError('')
+    if (form.grades.length === 0) {
+      setError(t('common.gradeRequired'))
+      return
+    }
     setIsSaving(true)
 
     try {
@@ -97,6 +104,7 @@ export default function TeacherLecturesPage() {
       title: lecture.title,
       section_name: lecture.section_name,
       youtube_url: lecture.youtube_url,
+      grades: lecture.grades || [...GRADES],
     })
     setError('')
     setDialogOpen(true)
@@ -225,6 +233,14 @@ export default function TeacherLecturesPage() {
                 required
               />
             </div>
+            <GradeCheckboxGroup
+              id="lecture-grades"
+              legend={t('common.gradeAccess')}
+              description={t('common.gradeAccessDescription')}
+              value={form.grades}
+              onChange={(grades) => updateField('grades', grades)}
+              disabled={isSaving}
+            />
             {error && (
               <p id="lecture-form-error" role="alert" className="rounded-[var(--sc-component-control-shape)] bg-destructive/10 p-3 text-sm text-destructive">
                 {error}
@@ -305,6 +321,7 @@ export default function TeacherLecturesPage() {
                           <span className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-semibold tabular-nums text-muted-foreground">{sequence}</span>
                           <div className="min-w-0">
                             <p className="font-medium leading-6 break-words">{lecture.title}</p>
+                            <GradeBadges className="mt-2" grades={lecture.grades} />
                             <Button
                               type="button"
                               variant="ghost"

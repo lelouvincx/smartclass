@@ -19,6 +19,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 
 vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({
+    token: 'teacher-token',
     logout: logoutMock,
   }),
 }))
@@ -86,6 +87,7 @@ describe('TeacherExercisesPage', () => {
     expect(screen.getAllByRole('link', { name: /view physics quiz/i })).toHaveLength(2)
     expect(screen.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('scope', 'col')
     expect(screen.queryByText('2026-03-11 19:00:00')).not.toBeInTheDocument()
+    expect(listExercisesMock).toHaveBeenCalledWith('teacher-token')
   })
 
   it('labels exercises that still require preparation in both list layouts', async () => {

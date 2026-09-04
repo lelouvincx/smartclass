@@ -139,6 +139,29 @@ describe('StudentExercisesPage', () => {
     expect(resumeLinks[0]).toHaveAttribute('href', '/student/exercises/42/take')
   })
 
+  it('restores Resume from server state after grade access changes', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [{
+        id: 42,
+        title: 'Quiz',
+        duration_minutes: 30,
+        question_count: 10,
+        is_timed: 1,
+        is_student_ready: 0,
+        in_progress_submission_id: 99,
+      }],
+    })
+
+    render(
+      <MemoryRouter>
+        <StudentExercisesPage />
+      </MemoryRouter>,
+    )
+
+    const resumeLinks = await screen.findAllByRole('link', { name: /resume quiz/i })
+    expect(resumeLinks[0]).toHaveAttribute('href', '/student/exercises/42/take')
+  })
+
   it('labels a completed exercise as View result', async () => {
     listExercisesMock.mockResolvedValue({
       data: [{ id: 42, title: 'Quiz', duration_minutes: 30, question_count: 10, is_timed: 1, is_student_ready: 1 }],

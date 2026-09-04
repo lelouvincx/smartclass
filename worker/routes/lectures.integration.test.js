@@ -117,4 +117,64 @@ describe('lectures API', () => {
 
     expect(response.status).toBe(401)
   })
+
+  it('returns 404 when updating grades for a missing lecture', async () => {
+    const response = await teacherRequest('/999999', 'PUT', {
+      title: 'Missing lecture',
+      section_name: 'Grade access',
+      youtube_url: 'https://youtu.be/missing1234',
+      grades: [10, 11],
+    })
+
+    expect(response.status).toBe(404)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'NOT_FOUND' },
+    })
+  })
+
+  it('stores multiple lecture grades and filters student access by overlap', async () => {
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84911111111'",
+    ).first()
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
+      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
+    ])
+    const matchingResponse = await teacherRequest('/', 'POST', {
+      title: 'Grade 10 and 11 lecture',
+      section_name: 'Grade access',
+      youtube_url: 'https://youtu.be/grade1011ab',
+      grades: [10, 11],
+    })
+    const excludedResponse = await teacherRequest('/', 'POST', {
+      title: 'Grade 12 lecture',
+      section_name: 'Grade access',
+      youtube_url: 'https://youtu.be/grade12only',
+      grades: [12],
+    })
+    expect(matchingResponse.status).toBe(201)
+    expect(excludedResponse.status).toBe(201)
+    const matching = (await matchingResponse.json()).data
+    const excluded = (await excludedResponse.json()).data
+    expect(matching.grades).toEqual([10, 11])
+
+    const studentListResponse = await app.request('/api/lectures', {
+      headers: { Authorization: `Bearer ${studentToken}` },
+    }, env)
+    const studentIds = (await studentListResponse.json()).data.map((lecture) => lecture.id)
+    expect(studentIds).toContain(matching.id)
+    expect(studentIds).not.toContain(excluded.id)
+
+    const updateResponse = await teacherRequest(`/${excluded.id}`, 'PUT', {
+      title: excluded.title,
+      section_name: excluded.section_name,
+      youtube_url: excluded.youtube_url,
+      grades: [10, 12],
+    })
+    expect(updateResponse.status).toBe(200)
+    expect((await updateResponse.json()).data.grades).toEqual([10, 12])
+
+    expect((await teacherRequest(`/${matching.id}`, 'DELETE')).status).toBe(200)
+    expect((await teacherRequest(`/${excluded.id}`, 'DELETE')).status).toBe(200)
+  })
 })

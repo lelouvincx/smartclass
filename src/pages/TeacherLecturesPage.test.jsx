@@ -32,6 +32,7 @@ const lectures = [
     youtube_url: 'https://youtu.be/abcdefghijk',
     order_index: 0,
     is_visible: 1,
+    grades: [10, 11, 12],
   },
   {
     id: 2,
@@ -40,6 +41,7 @@ const lectures = [
     youtube_url: 'https://youtu.be/lmnopqrstuv',
     order_index: 1,
     is_visible: 1,
+    grades: [10, 11],
   },
 ]
 
@@ -100,9 +102,27 @@ describe('TeacherLecturesPage', () => {
         title: 'Exam review',
         section_name: 'Revision',
         youtube_url: 'https://youtu.be/zyxwvutsrqp',
+        grades: [10, 11, 12],
       })
     })
     expect(listLecturesMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('creates a lecture for multiple selected grades', async () => {
+    const user = userEvent.setup()
+    createLectureMock.mockResolvedValue({ data: { id: 3 } })
+    renderPage()
+
+    await user.click(screen.getByRole('button', { name: 'Add lecture' }))
+    fireEvent.change(screen.getByLabelText('Lecture title'), { target: { value: 'Grade lesson' } })
+    fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'Revision' } })
+    fireEvent.change(screen.getByLabelText('YouTube URL'), { target: { value: 'https://youtu.be/zyxwvutsrqp' } })
+    await user.click(screen.getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: 'Create lecture' }))
+
+    expect(createLectureMock).toHaveBeenCalledWith('teacher-token', expect.objectContaining({
+      grades: [10, 11],
+    }))
   })
 
   it('edits, reorders, and deletes lectures', async () => {

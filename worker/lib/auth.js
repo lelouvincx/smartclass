@@ -24,6 +24,10 @@ export function normalizePhone(phone) {
   return trimmed
 }
 
+export function normalizeName(name) {
+  return typeof name === 'string' ? name.trim() : ''
+}
+
 export function isValidVietnamPhone(phone) {
   return PHONE_REGEX.test(phone)
 }

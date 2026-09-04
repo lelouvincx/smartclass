@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -8,6 +8,8 @@ import TeacherStudentsPage from './TeacherStudentsPage'
 const createStudentMock = vi.fn()
 const approveStudentMock = vi.fn()
 const listStudentsMock = vi.fn()
+const updateStudentNameMock = vi.fn()
+const updateStudentGradesMock = vi.fn()
 const logoutMock = vi.fn()
 const navigateMock = vi.fn()
 
@@ -23,6 +25,8 @@ vi.mock('../lib/api', async (importOriginal) => {
     createStudent: (...args) => createStudentMock(...args),
     approveStudent: (...args) => approveStudentMock(...args),
     listStudents: (...args) => listStudentsMock(...args),
+    updateStudentName: (...args) => updateStudentNameMock(...args),
+    updateStudentGrades: (...args) => updateStudentGradesMock(...args),
   }
 })
 
@@ -49,6 +53,8 @@ describe('TeacherStudentsPage', () => {
     createStudentMock.mockReset()
     approveStudentMock.mockReset()
     listStudentsMock.mockReset()
+    updateStudentNameMock.mockReset()
+    updateStudentGradesMock.mockReset()
     logoutMock.mockReset()
     navigateMock.mockReset()
     toastMock.success.mockReset()
@@ -100,8 +106,8 @@ describe('TeacherStudentsPage', () => {
   it('renders student list table', async () => {
     listStudentsMock.mockResolvedValue({
       data: [
-        { id: 1, phone: '+84123456789', role: 'student', status: 'active', created_at: '2026-05-07 10:00:00' },
-        { id: 2, phone: '+84987654321', role: 'student', status: 'pending', created_at: '2026-05-06 09:00:00' },
+        { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'active', grades: [10, 11], created_at: '2026-05-07 10:00:00' },
+        { id: 2, name: 'Trần Thị Bình', phone: '+84987654321', role: 'student', status: 'pending', grades: [12], created_at: '2026-05-06 09:00:00' },
       ],
     })
 
@@ -111,12 +117,42 @@ describe('TeacherStudentsPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText('+84123456789')).toBeInTheDocument()
+    expect(await screen.findByText('Nguyễn Văn An')).toBeInTheDocument()
+    expect(screen.getByText('Trần Thị Bình')).toBeInTheDocument()
+    expect(screen.getByText('+84123456789')).toBeInTheDocument()
     expect(screen.getByText('+84987654321')).toBeInTheDocument()
     expect(screen.getAllByText('Active').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Pending').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Grade 10').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Grade 11').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('Grade 12').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByTestId('responsive-student-list')).toHaveClass('grid')
-    expect(screen.getByText('+84123456789')).toHaveClass('min-w-0')
+    expect(screen.getByText('Nguyễn Văn An')).toHaveClass('min-w-0')
+  })
+
+  it('bulk-assigns multiple grade memberships to selected students', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({
+      data: [
+        { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'active', grades: [10], created_at: '2026-05-07 10:00:00' },
+        { id: 2, name: 'Trần Thị Bình', phone: '+84987654321', role: 'student', status: 'active', grades: [12], created_at: '2026-05-06 09:00:00' },
+      ],
+    })
+    updateStudentGradesMock.mockResolvedValue({ data: {}, message: 'Student grades updated.' })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    await user.click(await screen.findByLabelText('Select Nguyễn Văn An'))
+    await user.click(screen.getByLabelText('Select Trần Thị Bình'))
+    const bulkGrades = screen.getByRole('group', { name: 'Grades to assign' })
+    await user.click(within(bulkGrades).getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: 'Assign grades to 2 students' }))
+
+    expect(updateStudentGradesMock).toHaveBeenCalledWith('test-token', {
+      student_ids: [1, 2],
+      grades: [10, 11],
+    })
+    await waitFor(() => expect(listStudentsMock).toHaveBeenCalledTimes(2))
   })
 
   it('renders create student form', async () => {
@@ -130,6 +166,7 @@ describe('TeacherStudentsPage', () => {
 
     await screen.findByText(/no students yet/i)
 
+    expect(screen.getByLabelText('Name')).toBeRequired()
     expect(screen.getByPlaceholderText(/\+84xxx/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create student/i })).toBeInTheDocument()
   })
@@ -138,7 +175,7 @@ describe('TeacherStudentsPage', () => {
     const user = userEvent.setup()
     listStudentsMock.mockResolvedValue({ data: [] })
     createStudentMock.mockResolvedValue({
-      data: { id: 3, phone: '+84111111111', role: 'student', status: 'active', defaultPassword: '123' },
+      data: { id: 3, name: 'Nguyễn Văn An', phone: '+84111111111', role: 'student', status: 'active', defaultPassword: '123' },
       message: 'Student account created with default password 123.',
     })
 
@@ -150,12 +187,17 @@ describe('TeacherStudentsPage', () => {
 
     await screen.findByText(/no students yet/i)
 
+    await user.type(screen.getByLabelText('Name'), '  Nguyễn Văn An  ')
     const input = screen.getByPlaceholderText(/\+84xxx/)
     await user.type(input, '+84111111111')
     await user.click(screen.getByRole('button', { name: /create student/i }))
 
     await waitFor(() => {
-      expect(createStudentMock).toHaveBeenCalledWith('test-token', { phone: '+84111111111' })
+      expect(createStudentMock).toHaveBeenCalledWith('test-token', {
+        name: 'Nguyễn Văn An',
+        phone: '+84111111111',
+        grades: [10, 11, 12],
+      })
     })
 
     await waitFor(() => {
@@ -176,6 +218,7 @@ describe('TeacherStudentsPage', () => {
 
     await screen.findByText(/no students yet/i)
 
+    await user.type(screen.getByLabelText('Name'), 'Nguyễn Văn An')
     await user.type(screen.getByPlaceholderText(/\+84xxx/), '+84865481769')
     await user.click(screen.getByRole('button', { name: /create student/i }))
 
@@ -194,10 +237,61 @@ describe('TeacherStudentsPage', () => {
 
     await screen.findByText(/no students yet/i)
 
+    await user.type(screen.getByLabelText('Name'), 'Nguyễn Văn An')
     await user.click(screen.getByRole('button', { name: /create student/i }))
 
     expect(await screen.findByText(/phone is required/i)).toBeInTheDocument()
     expect(createStudentMock).not.toHaveBeenCalled()
+  })
+
+  it('shows validation error for an empty name', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({ data: [] })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    await screen.findByText(/no students yet/i)
+    await user.type(screen.getByPlaceholderText(/\+84xxx/), '+84111111111')
+    await user.click(screen.getByRole('button', { name: /create student/i }))
+
+    expect(await screen.findByText(/name is required/i)).toBeInTheDocument()
+    expect(createStudentMock).not.toHaveBeenCalled()
+  })
+
+  it('lets a teacher rename a student and refreshes the list', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({
+      data: [{
+        id: 1,
+        name: 'Nguyễn Văn An',
+        phone: '+84123456789',
+        role: 'student',
+        status: 'active',
+        created_at: '2026-05-07 10:00:00',
+      }],
+    })
+    updateStudentNameMock.mockResolvedValue({
+      data: { id: 1, name: 'Nguyễn An' },
+      message: 'Student name updated.',
+    })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: 'Rename Nguyễn Văn An' }))
+    const dialog = screen.getByRole('dialog', { name: 'Rename student' })
+    const nameInput = within(dialog).getByRole('textbox', { name: 'Name' })
+    await user.clear(nameInput)
+    await user.type(nameInput, '  Nguyễn An  ')
+    await user.click(within(dialog).getByRole('button', { name: 'Save name' }))
+
+    await waitFor(() => {
+      expect(updateStudentNameMock).toHaveBeenCalledWith('test-token', 1, {
+        name: 'Nguyễn An',
+      })
+    })
+    await waitFor(() => {
+      expect(listStudentsMock).toHaveBeenCalledTimes(2)
+    })
   })
 
   it('shows status filter tabs', async () => {
@@ -238,8 +332,8 @@ describe('TeacherStudentsPage', () => {
     beforeEach(() => {
       listStudentsMock.mockResolvedValue({
         data: [
-          { id: 1, phone: '+84123456789', role: 'student', status: 'pending', created_at: '2026-05-07 10:00:00' },
-          { id: 2, phone: '+84987654321', role: 'student', status: 'active', created_at: '2026-05-06 09:00:00' },
+          { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'pending', created_at: '2026-05-07 10:00:00' },
+          { id: 2, name: 'Trần Thị Bình', phone: '+84987654321', role: 'student', status: 'active', created_at: '2026-05-06 09:00:00' },
         ],
       })
     })

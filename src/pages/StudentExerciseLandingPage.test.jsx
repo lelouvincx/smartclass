@@ -202,6 +202,22 @@ describe('StudentExerciseLandingPage', () => {
     expect(screen.getByRole('button', { name: /start over/i })).toBeInTheDocument()
   })
 
+  it('restores an in-progress submission reported by the server', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: {
+        ...TIMED_EXERCISE,
+        is_student_ready: 0,
+        in_progress_submission_id: 50,
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('50')
+  })
+
   it('preserves a saved attempt when its status check fails temporarily', async () => {
     setSubmissionPointer(7, 1, '50')
     getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })

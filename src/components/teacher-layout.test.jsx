@@ -5,7 +5,7 @@ import { vi, describe, it, expect } from 'vitest'
 import { TeacherLayout } from './teacher-layout'
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({ user: { phone: '+84865481769' }, logout: vi.fn() }),
+  useAuth: () => ({ user: { name: 'Test Teacher', phone: '+84865481769' }, logout: vi.fn() }),
 }))
 
 function renderLayout(initialEntry = '/teacher') {
@@ -17,6 +17,13 @@ function renderLayout(initialEntry = '/teacher') {
 }
 
 describe('TeacherLayout navigation', () => {
+  it('shows the teacher name in the account label', () => {
+    renderLayout()
+
+    expect(screen.getAllByText('Test Teacher').length).toBeGreaterThan(0)
+    expect(screen.queryByText('+84865481769')).not.toBeInTheDocument()
+  })
+
   it('marks the current destination in the teacher navigation', () => {
     renderLayout('/teacher/students')
 
