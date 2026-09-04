@@ -25,7 +25,6 @@
 - Use `jsonSuccess` and `jsonError` from `worker/lib/response.js` for API responses.
 - Keep frontend API operations behind `request()` in `src/lib/api.js`. Use XHR only when upload-progress events are required.
 - Use `DB.batch()` when multiple D1 statements must commit atomically; separate `.run()` calls are not one transaction.
-- When adding or changing a D1 migration, update `docs/schema.dbml` in the same change.
 
 ## Maintenance
 
