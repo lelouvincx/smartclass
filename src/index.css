@@ -50,3 +50,17 @@
     --sc-motion-expressive: var(--sc-motion-standard);
   }
 }
+
+@media (orientation: landscape) and (max-height: 500px) {
+  [data-app-shell-persistent-navigation] {
+    display: none;
+  }
+
+  [data-app-shell-mobile-header] {
+    display: flex;
+  }
+
+  [data-app-shell-content] {
+    padding-inline-start: 0;
+  }
+}

@@ -163,6 +163,7 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
       </a>
       <aside
         id="desktop-sidebar"
+        data-app-shell-persistent-navigation
         className={cn(
           'fixed inset-y-0 start-0 z-40 hidden flex-col border-e bg-sidebar text-sidebar-foreground shadow-sm transition-[width] duration-[var(--sc-motion-duration-medium)] ease-[var(--sc-motion-standard)] motion-reduce:transition-none lg:flex',
           effectiveSidebarCollapsed ? 'w-28' : 'w-56',
@@ -207,7 +208,10 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
           : <ShellFooter userLabel={userLabel} onLogout={onLogout} />}
       </aside>
 
-      <aside className="fixed inset-y-0 start-0 z-40 hidden w-28 flex-col border-e bg-sidebar text-sidebar-foreground shadow-sm md:flex lg:hidden">
+      <aside
+        data-app-shell-persistent-navigation
+        className="fixed inset-y-0 start-0 z-40 hidden w-28 flex-col border-e bg-sidebar text-sidebar-foreground shadow-sm md:flex lg:hidden"
+      >
         <div className="flex min-h-16 items-center justify-center border-b">
           <span
             role="img"
@@ -223,7 +227,10 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
         <RailFooter userLabel={userLabel} onLogout={onLogout} />
       </aside>
 
-      <header className="sticky top-0 z-40 flex min-h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden">
+      <header
+        data-app-shell-mobile-header
+        className="sticky top-0 z-40 flex min-h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden"
+      >
         <Brand workspaceLabel={workspaceLabel} />
         <Button
           variant="outline"
@@ -259,7 +266,7 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
         </SheetContent>
       </Sheet>
 
-      <div className={cn(
+      <div data-app-shell-content className={cn(
         'md:ps-28 lg:transition-[padding] lg:duration-[var(--sc-motion-duration-medium)] lg:ease-[var(--sc-motion-standard)] lg:motion-reduce:transition-none',
         effectiveSidebarCollapsed ? 'lg:ps-28' : 'lg:ps-56',
       )}>

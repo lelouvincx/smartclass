@@ -48,6 +48,18 @@ describe('StudentLayout navigation', () => {
     expect(within(dialog).getByRole('button', { name: 'Close' })).toBeInTheDocument()
   })
 
+  it('exposes the shell regions needed to use mobile navigation in short landscape viewports', () => {
+    renderLayout('/student/exercises/9/take')
+
+    expect(document.querySelectorAll('[data-app-shell-persistent-navigation]')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'Open navigation' }).closest('header')).toHaveAttribute(
+      'data-app-shell-mobile-header',
+    )
+    expect(document.getElementById('main-content').parentElement).toHaveAttribute(
+      'data-app-shell-content',
+    )
+  })
+
   it('localizes the mobile navigation close button', async () => {
     const user = userEvent.setup()
     await act(() => changeLanguage('vi'))
