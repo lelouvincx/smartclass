@@ -21,6 +21,7 @@
 ## Change contract
 
 - For behavioral changes, add or update the failing test first, then implement the smallest change that makes it pass.
+- When maintaining `DESIGN.md`, keep normative tokens in Google-format YAML front matter, keep rationale in Google's canonical section order, align values with `src/design-system/tokens.css`, and run `npx @google/design.md lint DESIGN.md`.
 - Use `jsonSuccess` and `jsonError` from `worker/lib/response.js` for API responses.
 - Keep frontend API operations behind `request()` in `src/lib/api.js`. Use XHR only when upload-progress events are required.
 - Use `DB.batch()` when multiple D1 statements must commit atomically; separate `.run()` calls are not one transaction.
