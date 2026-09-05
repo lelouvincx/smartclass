@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Let teachers set a finite or unlimited exercise attempt limit, allocate stable numbered student attempts, and let students open every attempt’s separate score and review from the exercise or submission history.
+- Let teachers set a finite or unlimited exercise attempt limit, allocate stable numbered student attempts, and let students open every attempt’s separate score and review from the exercise or submission history. [#109](https://github.com/lelouvincx/smartclass/pull/109)
 - Support exercise PDFs whose question numbering restarts in named sections while preserving one global grading and navigation order. [#104](https://github.com/lelouvincx/smartclass/pull/104)
 
 ### Changed
