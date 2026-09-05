@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0015_add_grade_access
+// Last updated: migration 0017_add_exercise_attempt_limits
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -39,6 +39,7 @@ Table exercises {
   id               integer [pk, increment]
   title            text    [not null]
   duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
+  max_attempts     integer [default: 1, note: 'NULL = unlimited; otherwise a positive per-student attempt limit']
   pdf_key          text    [note: 'Legacy R2 key — superseded by exercise_files']
   extract_model    text    [note: 'Official DeepSeek vision model id for image extraction; NULL = use server default']
   active_question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Teacher-confirmed set currently shown to new submissions']
@@ -200,6 +201,7 @@ Table submissions {
   id              integer [pk, increment]
   exercise_id     integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
   user_id         integer [ref: > users.id, note: 'NULL for guest submissions']
+  attempt_number  integer [note: 'Positive authenticated attempt identity; temporarily nullable during expand deployment']
   mode            text    [not null, note: 'timed | untimed | guest']
   score           real    [note: 'Populated after grading (v0.3+)']
   total_questions integer [note: 'COUNT(DISTINCT q_id) at submission creation time']
@@ -208,6 +210,12 @@ Table submissions {
   question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Pinned question and answer-schema version; NULL only for legacy Stage A fallback']
   created_at      text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at      text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (user_id, exercise_id, attempt_number) [unique, name: 'idx_submissions_user_exercise_attempt', note: 'Partial index for authenticated submissions']
+  }
+
+  Note: 'An expand-deployment compatibility trigger assigns attempt_number when the previous Worker omits it.'
 }
 
 Table submission_answers {

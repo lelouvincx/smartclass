@@ -22,6 +22,7 @@ const SUBMISSION_MCQ = {
   id: 10,
   exercise_id: 1,
   exercise_title: 'Algebra Quiz',
+  attempt_number: 2,
   score: 7.5,
   started_at: '2026-03-15 10:00:00',
   submitted_at: '2026-03-15 10:05:00',
@@ -36,6 +37,7 @@ const SUBMISSION_MIXED = {
   id: 11,
   exercise_id: 2,
   exercise_title: 'Mixed Quiz',
+  attempt_number: 1,
   score: 5.0,
   started_at: '2026-03-15 10:00:00',
   submitted_at: '2026-03-15 10:30:00',
@@ -82,6 +84,7 @@ describe('StudentSummaryPage', () => {
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION_MCQ })
     renderPage()
     expect(await screen.findByText('Algebra Quiz')).toBeInTheDocument()
+    expect(screen.getByText('Attempt 2')).toBeInTheDocument()
   })
 
   it('shows score', async () => {

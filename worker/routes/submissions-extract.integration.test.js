@@ -69,7 +69,7 @@ async function startSubmission(exerciseId, token = studentToken) {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
     },
-    body: JSON.stringify({ exercise_id: exerciseId }),
+    body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
   }, env)
   const body = await res.json()
   return body.data.id

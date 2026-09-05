@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -71,6 +71,25 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
   })
 
+  it('defaults new exercises to one attempt', () => {
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    expect(screen.getByRole('radio', { name: 'Limited' })).toBeChecked()
+    expect(screen.getByLabelText('Maximum attempts')).toHaveValue(1)
+  })
+
+  it('requires a positive whole number for a limited attempt count', async () => {
+    const user = userEvent.setup()
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Practice set')
+    fireEvent.change(screen.getByLabelText('Maximum attempts'), { target: { value: '1.5' } })
+    fireEvent.submit(screen.getByRole('button', { name: 'Save Exercise' }).closest('form'))
+
+    expect(screen.getByText(/positive whole number/i)).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
+  })
+
   it('requires separate student and teacher PDFs before saving', async () => {
     const user = userEvent.setup()
 
@@ -115,7 +134,26 @@ describe('TeacherCreateExercisePage', () => {
       ],
       extract_model: null,
       grades: [12],
+      max_attempts: 1,
     })
+  })
+
+  it('saves an unlimited attempt limit', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 102 } })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Practice set')
+    await user.click(screen.getByRole('radio', { name: 'Unlimited' }))
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
+    await uploadRequiredPdfs(user)
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(createExerciseMock).toHaveBeenCalledWith(
+      'test-token',
+      expect.objectContaining({ max_attempts: null }),
+    )
   })
 
   it('keeps generate button disabled when answer pdf is missing', () => {
@@ -163,6 +201,7 @@ describe('TeacherCreateExercisePage', () => {
       ],
       extract_model: null,
       grades: [12],
+      max_attempts: 1,
     })
   })
 
@@ -341,6 +380,7 @@ describe('TeacherCreateExercisePage', () => {
       title: 'Bool Quiz',
       is_timed: true,
       duration_minutes: 60,
+      max_attempts: 1,
       schema: [
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },

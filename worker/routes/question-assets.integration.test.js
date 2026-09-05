@@ -1303,7 +1303,7 @@ describe('student question asset resolution', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     expect(startRes.status).toBe(201)
     const started = (await startRes.json()).data
@@ -1381,7 +1381,7 @@ describe('student question asset resolution', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
 
     expect(startRes.status).toBe(409)

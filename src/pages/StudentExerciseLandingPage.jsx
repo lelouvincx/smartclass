@@ -34,16 +34,18 @@ export default function StudentExerciseLandingPage() {
   const [exercise, setExercise] = useState(null)
   const [questionCount, setQuestionCount] = useState(0)
   const [hasResumable, setHasResumable] = useState(false)
-  const [submittedSubmissionId, setSubmittedSubmissionId] = useState(null)
+  const [submittedSubmissions, setSubmittedSubmissions] = useState([])
   const [isStarting, setIsStarting] = useState(false)
   const [startError, setStartError] = useState('')
   const [showStartOver, setShowStartOver] = useState(false)
   const [resumableSubmissionId, setResumableSubmissionId] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     async function load() {
       setIsLoading(true)
       setError('')
+      setSubmittedSubmissions([])
       try {
         const res = await getExercise(id, token)
         const ex = res.data
@@ -53,8 +55,24 @@ export default function StudentExerciseLandingPage() {
         setQuestionCount(uniqueQIds.size)
 
         const savedSubId = getSubmissionPointer(accountId, id)
+        const hasServerAttemptState = Object.hasOwn(ex, 'latest_attempt_number')
         let resumable = false
-        if (savedSubId) {
+        if (hasServerAttemptState) {
+          if (ex.in_progress_submission_id) {
+            const serverSubmissionId = String(ex.in_progress_submission_id)
+            if (savedSubId && savedSubId !== serverSubmissionId) {
+              clearSubmissionState(accountId, id, savedSubId)
+            }
+            setSubmissionPointer(accountId, id, serverSubmissionId)
+            setHasResumable(true)
+            setResumableSubmissionId(serverSubmissionId)
+            resumable = true
+          } else {
+            if (savedSubId) clearSubmissionState(accountId, id, savedSubId)
+            setHasResumable(false)
+            setResumableSubmissionId(null)
+          }
+        } else if (savedSubId) {
           try {
             const subRes = await getSubmission(token, savedSubId)
             if (subRes.data && !subRes.data.submitted_at) {
@@ -84,16 +102,28 @@ export default function StudentExerciseLandingPage() {
           resumable = true
         }
 
-        if (!resumable) {
-          try {
-            const subsRes = await listMySubmissions(token, { exerciseId: id, limit: 1 })
-            const latest = subsRes.data?.submissions?.[0]
-            if (latest?.submitted_at) {
-              setSubmittedSubmissionId(latest.id)
-            }
-          } catch {
-            // best effort — ignore if submissions check fails
+        try {
+          const pageSize = 100
+          const submissions = []
+          let offset = 0
+
+          while (true) {
+            const subsRes = await listMySubmissions(token, {
+              exerciseId: id,
+              limit: pageSize,
+              offset,
+            })
+            const page = subsRes.data?.submissions || []
+            submissions.push(...page)
+
+            const total = Number(subsRes.data?.total)
+            if (page.length < pageSize || (Number.isFinite(total) && submissions.length >= total)) break
+            offset += page.length
           }
+
+          setSubmittedSubmissions(submissions)
+        } catch {
+          // best effort — exercise actions remain available if results cannot be loaded
         }
       } catch (err) {
         setError(err.message)
@@ -102,17 +132,25 @@ export default function StudentExerciseLandingPage() {
       }
     }
     load()
-  }, [accountId, id, t, token])
+  }, [accountId, id, reloadKey, t, token])
 
   async function handleStart({ replacing = false } = {}) {
     setIsStarting(true)
     setStartError('')
     try {
-      const subRes = await createSubmission(token, { exercise_id: Number(id) })
+      const payload = {
+        exercise_id: Number(id),
+        known_latest_attempt_number: exercise.latest_attempt_number ?? 0,
+      }
+      if (replacing) payload.replace_submission_id = Number(resumableSubmissionId)
+      const subRes = await createSubmission(token, payload)
       if (replacing) clearSubmissionState(accountId, id, resumableSubmissionId)
       setSubmissionPointer(accountId, id, subRes.data.id)
       navigate(`/student/exercises/${id}/take`)
     } catch (err) {
+      if (['ATTEMPT_LIMIT_REACHED', 'ATTEMPT_STATE_CHANGED'].includes(err.code)) {
+        setReloadKey((key) => key + 1)
+      }
       setStartError(err.message)
       setShowStartOver(false)
       setIsStarting(false)
@@ -144,7 +182,7 @@ export default function StudentExerciseLandingPage() {
     )
   }
 
-  if (exercise.is_student_ready !== 1 && !hasResumable && !submittedSubmissionId) {
+  if (exercise.is_student_ready !== 1 && !hasResumable && submittedSubmissions.length === 0) {
     return (
       <Card className="max-w-2xl">
         <CardContent className="space-y-4 pt-6">
@@ -161,6 +199,14 @@ export default function StudentExerciseLandingPage() {
       </Card>
     )
   }
+
+  const hasServerStartState = Object.hasOwn(exercise, 'can_start_attempt')
+  const canStartAttempt = hasServerStartState
+    ? Boolean(exercise.can_start_attempt)
+    : submittedSubmissions.length === 0
+  const canStartOver = hasServerStartState
+    ? Boolean(exercise.can_start_attempt)
+    : true
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -194,16 +240,41 @@ export default function StudentExerciseLandingPage() {
             </span>
           </div>
 
-          {submittedSubmissionId ? (
+          {startError && <p role="alert" className="text-sm text-destructive">{startError}</p>}
+
+          {hasResumable ? (
+            <div className="space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button className="min-h-[48px] px-5" onClick={handleResume}>{t('student.landing.resume')}</Button>
+                {canStartOver ? (
+                  <Button variant="outline" onClick={() => setShowStartOver(true)} disabled={isStarting}>
+                    {isStarting ? t('student.landing.starting') : t('student.landing.startOver')}
+                  </Button>
+                ) : (
+                  <p className="self-center text-sm text-muted-foreground">{t('student.attempt.noneRemaining')}</p>
+                )}
+                <Button variant="ghost" asChild>
+                  <Link to="/student/exercises">{t('student.landing.back')}</Link>
+                </Button>
+              </div>
+            </div>
+          ) : submittedSubmissions.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 rounded-lg bg-success/10 px-4 py-3 text-sm text-success">
+              <div className="flex items-center gap-2 rounded-lg bg-success-muted px-4 py-3 text-sm text-success">
                 <CheckCircle className="h-5 w-5 shrink-0" />
                 {t('student.landing.submitted')}
               </div>
-              <div className="flex gap-3">
-                <Button asChild>
-                  <Link to={`/student/submissions/${submittedSubmissionId}/summary`}>{t('student.landing.viewResult')}</Link>
-                </Button>
+              <p className="text-sm font-medium">
+                {canStartAttempt
+                  ? t('student.attempt.next', { number: exercise.next_attempt_number })
+                  : t('student.attempt.noneRemaining')}
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {canStartAttempt && (
+                  <Button onClick={() => handleStart()} disabled={isStarting}>
+                    {isStarting ? t('student.landing.starting') : t('student.landing.tryAgain')}
+                  </Button>
+                )}
                 <Button variant="ghost" asChild>
                   <Link to="/student/exercises">{t('student.landing.back')}</Link>
                 </Button>
@@ -211,19 +282,13 @@ export default function StudentExerciseLandingPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {startError && <p role="alert" className="text-sm text-destructive">{startError}</p>}
               <div className="flex flex-col gap-3 sm:flex-row">
-              {hasResumable ? (
-                <>
-                  <Button className="min-h-[48px] px-5" onClick={handleResume}>{t('student.landing.resume')}</Button>
-                  <Button variant="outline" onClick={() => setShowStartOver(true)} disabled={isStarting}>
-                    {isStarting ? t('student.landing.starting') : t('student.landing.startOver')}
-                  </Button>
-                </>
-              ) : (
+              {canStartAttempt ? (
                 <Button className="min-h-[48px] px-6 text-base" onClick={() => handleStart()} disabled={isStarting}>
                   {isStarting ? t('student.landing.starting') : t('student.exercises.start')}
                 </Button>
+              ) : (
+                <p className="self-center text-sm text-muted-foreground">{t('student.attempt.noneRemaining')}</p>
               )}
               <Button variant="ghost" asChild>
                 <Link to="/student/exercises">{t('student.landing.back')}</Link>
@@ -233,6 +298,40 @@ export default function StudentExerciseLandingPage() {
           )}
         </CardContent>
       </Card>
+
+      {submittedSubmissions.length > 0 && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-[length:var(--sc-type-title-size)] leading-[var(--sc-type-title-line-height)] font-[var(--sc-type-title-weight)]">
+              {t('student.landing.resultsTitle')}
+            </h2>
+            <ul className="mt-4 divide-y" aria-label={t('student.landing.resultsTitle')}>
+              {submittedSubmissions.map((submission) => (
+                <li key={submission.id} className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {t('student.attempt.label', { number: submission.attempt_number })}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {submission.score === null || submission.score === undefined
+                        ? t('student.results.noScore')
+                        : `${submission.score} / 10`}
+                    </p>
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <Link
+                      to={`/student/submissions/${submission.id}/summary`}
+                      aria-label={t('student.landing.viewAttemptResult', { number: submission.attempt_number })}
+                    >
+                      {t('student.landing.viewResult')}
+                    </Link>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
       <Dialog open={showStartOver} onOpenChange={setShowStartOver}>
         <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>

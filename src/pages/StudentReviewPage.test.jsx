@@ -26,6 +26,7 @@ const SUBMISSION = {
   id: 5,
   exercise_id: 2,
   exercise_title: 'Algebra Quiz',
+  attempt_number: 3,
   mode: 'timed',
   score: 7.5,
   total_questions: 3,
@@ -81,7 +82,10 @@ describe('StudentReviewPage', () => {
     renderReviewPage()
 
     expect(await screen.findByText('Algebra Quiz')).toBeInTheDocument()
-    expect(screen.getAllByText(/7\.5/).length).toBeGreaterThan(0)
+    expect(screen.getByText('Attempt 3')).toBeInTheDocument()
+    const scoreBadge = screen.getByText('7.5 / 10')
+    expect(scoreBadge).toHaveClass('bg-success-muted', 'text-success')
+    expect(scoreBadge.className).not.toMatch(/green-/)
   })
 
   it('shows the pinned question image without rendering the exercise PDF', async () => {

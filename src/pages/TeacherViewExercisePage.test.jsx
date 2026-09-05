@@ -36,6 +36,8 @@ const EXERCISE_MCQ = {
   title: 'Physics Quiz',
   duration_minutes: 45,
   is_timed: 1,
+  max_attempts: 1,
+  highest_attempt_number: 0,
   question_count: 2,
   updated_at: '2026-03-10 12:00:00',
   is_student_ready: 1,
@@ -117,6 +119,7 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByText('Ready for students')).toBeInTheDocument()
     expect(screen.getByText('Grade 10')).toBeInTheDocument()
     expect(screen.getByText('Grade 11')).toBeInTheDocument()
+    expect(screen.getByText('1 attempt')).toBeInTheDocument()
   })
 
   it('renders untimed badge when duration_minutes is 0', async () => {
@@ -288,6 +291,48 @@ describe('TeacherViewExercisePage', () => {
       'teacher-token',
       5,
       expect.objectContaining({ grades: [10, 11, 12] }),
+    )
+  })
+
+  it('updates the exercise to unlimited attempts', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    updateExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, max_attempts: null } })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.click(screen.getByRole('radio', { name: 'Unlimited' }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(updateExerciseMock).toHaveBeenCalledWith(
+      'teacher-token',
+      5,
+      expect.objectContaining({ max_attempts: null }),
+    )
+    expect(await screen.findByText('Unlimited attempts')).toBeInTheDocument()
+  })
+
+  it('warns before lowering a limit below attempts students already started', async () => {
+    const user = userEvent.setup()
+    const exercise = { ...EXERCISE_MCQ, max_attempts: 3, highest_attempt_number: 2 }
+    getExerciseMock.mockResolvedValue({ data: exercise })
+    updateExerciseMock.mockResolvedValue({ data: { ...exercise, max_attempts: 1 } })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.clear(screen.getByLabelText('Maximum attempts'))
+    await user.type(screen.getByLabelText('Maximum attempts'), '1')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(updateExerciseMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: /lower attempt limit/i })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /lower limit/i }))
+    expect(updateExerciseMock).toHaveBeenCalledWith(
+      'teacher-token',
+      5,
+      expect.objectContaining({ max_attempts: 1 }),
     )
   })
 

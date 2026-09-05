@@ -20,6 +20,10 @@ import {
 const exercisesRoutes = new Hono()
 const MIN_ANSWER_CONFIDENCE = 0.75
 
+function isValidMaxAttempts(value) {
+  return value === null || (Number.isInteger(value) && value > 0)
+}
+
 function toExerciseWithTiming(exercise) {
   if (!exercise) {
     return exercise
@@ -28,6 +32,26 @@ function toExerciseWithTiming(exercise) {
   return {
     ...exercise,
     is_timed: exercise.duration_minutes > 0 ? 1 : 0,
+  }
+}
+
+function withStudentAttemptState(exercise) {
+  const { has_grade_access: hasGradeAccess, ...publicExercise } = exercise
+  const latestAttemptNumber = exercise.latest_attempt_number ?? 0
+  const attemptsRemaining = exercise.max_attempts === null
+    ? null
+    : Math.max(exercise.max_attempts - latestAttemptNumber, 0)
+
+  return {
+    ...publicExercise,
+    latest_attempt_number: latestAttemptNumber,
+    next_attempt_number: latestAttemptNumber + 1,
+    attempts_remaining: attemptsRemaining,
+    can_start_attempt: hasGradeAccess
+      && exercise.is_student_ready
+      && (attemptsRemaining === null || attemptsRemaining > 0)
+      ? 1
+      : 0,
   }
 }
 
@@ -155,7 +179,7 @@ exercisesRoutes.get('/', requireAuth, async (c) => {
           WHERE active_submission.exercise_id = e.id
             AND active_submission.user_id = in_progress.user_id
             AND active_submission.submitted_at IS NULL
-          ORDER BY active_submission.started_at DESC, active_submission.id DESC
+          ORDER BY active_submission.attempt_number DESC, active_submission.id DESC
           LIMIT 1
         )`
     : ''
@@ -183,6 +207,21 @@ exercisesRoutes.get('/', requireAuth, async (c) => {
       COUNT(DISTINCT ef.id) as file_count,
       COUNT(DISTINCT ans.q_id) as question_count,
       ${isStudent ? 'in_progress.id' : 'NULL'} AS in_progress_submission_id,
+      ${isStudent ? 'in_progress.attempt_number' : 'NULL'} AS in_progress_attempt_number,
+      ${isStudent ? `coalesce((
+        select max(student_submission.attempt_number)
+        from submissions student_submission
+        where student_submission.exercise_id = e.id
+          and student_submission.user_id = ?
+      ), 0)` : '0'} AS latest_attempt_number,
+      ${isStudent ? `exists (
+        select 1
+        from student_grades state_student_grade
+        join exercise_grades state_exercise_grade
+          on state_exercise_grade.grade = state_student_grade.grade
+        where state_student_grade.user_id = ?
+          and state_exercise_grade.exercise_id = e.id
+      )` : '0'} AS has_grade_access,
       CASE WHEN EXISTS (
         SELECT 1
         FROM exercise_question_asset_sets active_set
@@ -199,7 +238,7 @@ exercisesRoutes.get('/', requireAuth, async (c) => {
     ORDER BY e.created_at DESC
   `)
   const exercises = authUser.role === 'student'
-    ? await statement.bind(authUser.id, authUser.id).all()
+    ? await statement.bind(authUser.id, authUser.id, authUser.id, authUser.id).all()
     : await statement.all()
   const gradeResult = await c.env.DB.prepare(`
     SELECT exercise_id, grade
@@ -208,7 +247,11 @@ exercisesRoutes.get('/', requireAuth, async (c) => {
   `).all()
 
   return jsonSuccess(c, attachGrades(
-    exercises.results.map(toExerciseWithTiming),
+    exercises.results.map(exercise => (
+      isStudent
+        ? withStudentAttemptState(toExerciseWithTiming(exercise))
+        : toExerciseWithTiming(exercise)
+    )),
     gradeResult.results,
     'exercise_id',
   ))
@@ -227,7 +270,7 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
     return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
   }
 
-  let inProgressSubmissionId = null
+  let studentAttemptState = null
   if (authUser.role === 'student') {
     const access = await c.env.DB.prepare(`
       SELECT
@@ -237,9 +280,23 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
           WHERE submission.user_id = ?
             AND submission.exercise_id = ?
             AND submission.submitted_at IS NULL
-          ORDER BY submission.started_at DESC, submission.id DESC
+          ORDER BY submission.attempt_number DESC, submission.id DESC
           LIMIT 1
         ) AS in_progress_submission_id,
+        (
+          SELECT submission.attempt_number
+          FROM submissions submission
+          WHERE submission.user_id = ?
+            AND submission.exercise_id = ?
+            AND submission.submitted_at IS NULL
+          ORDER BY submission.attempt_number DESC, submission.id DESC
+          LIMIT 1
+        ) AS in_progress_attempt_number,
+        COALESCE((
+          SELECT MAX(submission.attempt_number)
+          FROM submissions submission
+          WHERE submission.user_id = ? AND submission.exercise_id = ?
+        ), 0) AS latest_attempt_number,
         EXISTS (
           SELECT 1
           FROM student_grades student_grade
@@ -258,11 +315,19 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
       id,
       authUser.id,
       id,
+      authUser.id,
+      id,
+      authUser.id,
+      id,
       exercise.active_question_asset_set_id,
       id,
     ).first()
-    inProgressSubmissionId = access.in_progress_submission_id
-    if (!inProgressSubmissionId && !(access.has_grade_access && access.is_ready)) {
+    studentAttemptState = withStudentAttemptState({
+      max_attempts: exercise.max_attempts,
+      ...access,
+      is_student_ready: access.is_ready,
+    })
+    if (!access.in_progress_submission_id && !(access.has_grade_access && access.is_ready)) {
       return access.has_grade_access
         ? jsonError(c, 403, 'EXERCISE_NOT_READY', 'This exercise is not ready for students')
         : jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your grades')
@@ -335,6 +400,13 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
         limit 1
       `).bind(id).first()
     : null
+  const highestAttempt = isTeacher
+    ? await c.env.DB.prepare(`
+        SELECT COALESCE(MAX(attempt_number), 0) AS highest_attempt_number
+        FROM submissions
+        WHERE exercise_id = ?
+      `).bind(id).first()
+    : null
   const gradeResult = await c.env.DB.prepare(`
     SELECT grade
     FROM exercise_grades
@@ -350,9 +422,19 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
     schema: sanitizedSchema,
     question_asset_set_id: questionAssetSetId,
     question_assets: questionAssets,
-    ...(!isTeacher ? { in_progress_submission_id: inProgressSubmissionId } : {}),
+    ...(!isTeacher ? {
+      latest_attempt_number: studentAttemptState.latest_attempt_number,
+      next_attempt_number: studentAttemptState.next_attempt_number,
+      in_progress_submission_id: studentAttemptState.in_progress_submission_id,
+      in_progress_attempt_number: studentAttemptState.in_progress_attempt_number,
+      attempts_remaining: studentAttemptState.attempts_remaining,
+      can_start_attempt: studentAttemptState.can_start_attempt,
+    } : {}),
     ...(isTeacher
-      ? { pending_question_asset_set_id: pendingQuestionAssetSet?.id ?? null }
+      ? {
+          pending_question_asset_set_id: pendingQuestionAssetSet?.id ?? null,
+          highest_attempt_number: highestAttempt.highest_attempt_number,
+        }
       : {}),
   })
 })
@@ -360,11 +442,15 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
 // Create exercise with answer schema (teacher only)
 exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { title, duration_minutes, schema, is_timed = true, extract_model } = body || {}
+  const { title, duration_minutes, schema, is_timed = true, extract_model, max_attempts } = body || {}
   const parsedGrades = parseGrades(body?.grades, { defaultToAll: true })
 
-  if (!title || schema === undefined) {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'Title, is_timed, and schema are required')
+  if (!title || schema === undefined || !Object.hasOwn(body || {}, 'max_attempts')) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Title, is_timed, max_attempts, and schema are required')
+  }
+
+  if (!isValidMaxAttempts(max_attempts)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'max_attempts must be null or a positive integer')
   }
 
   if (parsedGrades.error) {
@@ -403,9 +489,9 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
   try {
     const exerciseResult = await c.env.DB.prepare(`
-      INSERT INTO exercises (title, duration_minutes, created_by, extract_model)
-      VALUES (?, ?, ?, ?)
-    `).bind(title, normalizedDuration, authUser.id, normalizedExtractModel).run()
+      INSERT INTO exercises (title, duration_minutes, max_attempts, created_by, extract_model)
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(title, normalizedDuration, max_attempts, authUser.id, normalizedExtractModel).run()
 
     const exerciseId = exerciseResult.meta.last_row_id
 
@@ -474,6 +560,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     question_asset_set_id,
     resolved_answer_candidate_keys,
     grades,
+    max_attempts,
   } = body || {}
   let schema = body?.schema
 
@@ -486,12 +573,17 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     && question_asset_set_id === undefined
     && resolved_answer_candidate_keys === undefined
     && grades === undefined
+    && max_attempts === undefined
   ) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'At least one update field is required')
   }
 
   if (is_timed !== undefined && typeof is_timed !== 'boolean') {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'is_timed must be boolean')
+  }
+
+  if (max_attempts !== undefined && !isValidMaxAttempts(max_attempts)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'max_attempts must be null or a positive integer')
   }
 
   const parsedGrades = grades === undefined ? null : parseGrades(grades)
@@ -637,6 +729,10 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     if (extract_model !== undefined) {
       updates.push('extract_model = ?')
       params.push(extract_model) // null clears it back to "use default"
+    }
+    if (max_attempts !== undefined) {
+      updates.push('max_attempts = ?')
+      params.push(max_attempts)
     }
 
     if (updates.length > 0) {
@@ -916,9 +1012,15 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       WHERE exercise_id = ?
       ORDER BY grade
     `).bind(id).all()
+    const highestAttempt = await c.env.DB.prepare(`
+      SELECT COALESCE(MAX(attempt_number), 0) AS highest_attempt_number
+      FROM submissions
+      WHERE exercise_id = ?
+    `).bind(id).first()
 
     return jsonSuccess(c, {
       ...toExerciseWithTiming(exercise),
+      highest_attempt_number: highestAttempt.highest_attempt_number,
       files: files.results,
       grades: gradeResult.results.map((row) => row.grade),
       schema: schemaResult.results,

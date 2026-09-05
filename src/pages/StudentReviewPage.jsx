@@ -60,9 +60,9 @@ function ScoreBadge({ score }) {
   if (score === null || score === undefined) return null
 
   const colorClass =
-    score >= 7 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-    score >= 4 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-    'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+    score >= 7 ? 'bg-success-muted text-success' :
+    score >= 4 ? 'bg-warning-muted text-warning' :
+    'bg-destructive-muted text-destructive'
 
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colorClass}`}>
@@ -123,7 +123,7 @@ export default function StudentReviewPage() {
     )
   }
 
-  const { exercise_title, score, submitted_at, answers = [], question_assets: questionAssets = [] } = submission
+  const { exercise_title, attempt_number, score, submitted_at, answers = [], question_assets: questionAssets = [] } = submission
 
   const questionGroups = groupAnswers(answers)
   const currentIndex = questionGroups.findIndex((group) => group.q_id === currentQId)
@@ -152,6 +152,7 @@ export default function StudentReviewPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{exercise_title}</h1>
+          <p className="mt-1 text-sm font-medium">{t('student.attempt.label', { number: attempt_number })}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t('student.results.submitted', { date: submittedDate })}</p>
         </div>
         <div className="flex items-center gap-3">

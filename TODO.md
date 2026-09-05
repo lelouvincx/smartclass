@@ -25,7 +25,7 @@ Priorities apply within each version:
 - [ ] **P1** Let students scan an exercise-sheet QR code to open a submission form pre-filled with the exercise and signed-in student
   - [ ] **P1** Generate a QR code for each exercise
 
-**Outcome:** students get richer answer guidance and can move efficiently from printed exercises to online submission.
+**Outcome:** students get richer answer guidance, retain each allowed attempt, and can move efficiently from printed exercises to online submission.
 
 ## v0.8: Account management
 

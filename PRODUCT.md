@@ -1,6 +1,6 @@
 # SmartClass product truth
 
-**Last reviewed:** 2026-09-04
+**Last reviewed:** 2026-09-05
 
 SmartClass is an assessment platform for teaching and learning. It is a focused learning workspace, not a marketing surface.
 
@@ -38,6 +38,8 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 - Teachers prepare an exercise through one review workflow. SmartClass detects section and question regions in the Exercise PDF, renders ordered question images, and combines Answer PDF parsing with deterministic green-highlight candidates from the Answer PDF in one editable answer table.
 - A teacher reviews every generated image and final answer, resolves conflicts, and activates both as one version. A rejected question can be retried, replaced with one clean screenshot, or resolved by replacing the source PDF. Scanned-PDF vision detection is not enabled; unsupported PDFs require screenshots or replacement.
 - Students can browse or start only exercises with a teacher-confirmed active question set and at least one grade that overlaps their memberships. A started submission pins that set and its answer-schema snapshot, and remains available if current grade access later changes, so later exercise or access changes cannot break an active attempt or historical review.
+- Teachers set a positive maximum number of attempts for each exercise or allow unlimited attempts. Existing exercises default to one attempt. Lowering a limit never deletes or renumbers attempts students already started; it only prevents new attempts above the limit.
+- Each submission is one numbered attempt by one student on one exercise. Starting allocates the next positive attempt number. Every attempt keeps its own answers, timing, score, and pinned question set, and all submitted attempts remain separately available from both the exercise landing page and submission history.
 - Students enter answers directly in the take page. It does not offer an answer-photo upload or input-mode selector.
 - Grading runs after submission. Results distinguish correct, incorrect, and skipped answers and use a score on a 0–10 scale.
 - A student starts an attempt explicitly from the exercise landing page. On desktop and tablet, the take experience temporarily uses a compact app rail and wide workspace to prioritize the selected question image while keeping matching answer controls visible. On phones, the answer-sheet control appears first, followed by the selected-question preview and then its answer controls; tapping the preview opens a full-screen viewer with pinch and button zoom, and landscape orientation provides more reading space. An authenticated download of the complete answer-free Exercise PDF remains available for paper or another device. Answer sheets group sectioned exercises by source section and show the printed local question number. Numbered, Previous, and Next navigation update the image and answer controls together at every size.

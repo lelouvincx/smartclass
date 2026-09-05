@@ -20,10 +20,10 @@ import {
 } from '@/components/ui/table'
 
 /**
- * Score badge with color coding:
- *   green  ≥ 7.0
- *   yellow ≥ 4.0
- *   red    < 4.0
+ * Score badge with semantic status coding:
+ *   success     ≥ 7.0
+ *   warning     ≥ 4.0
+ *   destructive < 4.0
  */
 function ScoreBadge({ score }) {
   if (score === null || score === undefined) {
@@ -31,9 +31,9 @@ function ScoreBadge({ score }) {
   }
 
   const colorClass =
-    score >= 7 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-    score >= 4 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' :
-    'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+    score >= 7 ? 'bg-success-muted text-success' :
+    score >= 4 ? 'bg-warning-muted text-warning' :
+    'bg-destructive-muted text-destructive'
 
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${colorClass}`}>
@@ -116,7 +116,12 @@ export default function StudentSubmissionsPage() {
                 <TableBody>
                   {submissions.map((sub) => (
                     <TableRow key={sub.id}>
-                      <TableCell className="font-medium">{sub.exercise_title}</TableCell>
+                      <TableCell>
+                        <span className="block font-medium">{sub.exercise_title}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {t('student.attempt.label', { number: sub.attempt_number })}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <ScoreBadge score={sub.score} />
                       </TableCell>

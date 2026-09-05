@@ -80,7 +80,7 @@ describe('POST /api/submissions', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
 
     expect(res.status).toBe(409)
@@ -99,7 +99,7 @@ describe('POST /api/submissions', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
 
     expect(res.status).toBe(201)
@@ -128,7 +128,7 @@ describe('POST /api/submissions', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
 
     expect(res.status).toBe(201)
@@ -142,7 +142,7 @@ describe('POST /api/submissions', () => {
     const res = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
 
     expect(res.status).toBe(401)
@@ -155,7 +155,7 @@ describe('POST /api/submissions', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: 99999 }),
+      body: JSON.stringify({ exercise_id: 99999, known_latest_attempt_number: 0 }),
     }, env)
 
     expect(res.status).toBe(404)
@@ -194,7 +194,7 @@ describe('POST /api/submissions', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
 
     expect(res.status).toBe(403)
@@ -213,7 +213,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -258,7 +258,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -318,7 +318,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -346,7 +346,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -384,7 +384,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -411,7 +411,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -444,7 +444,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -480,7 +480,7 @@ describe('PUT /api/submissions/:id/submit', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -510,7 +510,7 @@ describe('PUT /api/submissions/:id/submit', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -534,7 +534,7 @@ describe('PUT /api/submissions/:id/submit', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -563,7 +563,7 @@ describe('GET /api/submissions/:id', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -623,7 +623,7 @@ describe('GET /api/submissions/:id', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const createBody = await createRes.json()
     const submissionId = createBody.data.id
@@ -643,7 +643,7 @@ describe('GET /api/submissions/:id', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const submissionId = (await createRes.json()).data.id
 
@@ -682,7 +682,7 @@ describe('GET /api/submissions/:id', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const submissionId = (await createRes.json()).data.id
 
@@ -724,7 +724,7 @@ describe('GET /api/submissions/:id', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const submissionId = (await createRes.json()).data.id
 
@@ -771,7 +771,7 @@ describe('GET /api/submissions/:id', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const submissionId = (await createRes.json()).data.id
 
@@ -799,7 +799,7 @@ describe('GET /api/submissions/:id/exercise-pdf', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const submissionId = (await createRes.json()).data.id
 
@@ -820,7 +820,7 @@ describe('GET /api/submissions/:id/exercise-pdf', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const submissionId = (await createRes.json()).data.id
     await seedStudent('+84111222444')
@@ -851,7 +851,7 @@ describe('Grading — auto-grade on submit', () => {
     const createRes = await app.request('/api/submissions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const { data } = await createRes.json()
     return data.id
@@ -973,7 +973,7 @@ describe('GET /api/submissions (list)', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId }),
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
     }, env)
     const { id: submissionId } = (await createRes.json()).data
 
@@ -1054,7 +1054,7 @@ describe('GET /api/submissions (list)', () => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${studentToken}`,
       },
-      body: JSON.stringify({ exercise_id: exerciseId2 }),
+      body: JSON.stringify({ exercise_id: exerciseId2, known_latest_attempt_number: 0 }),
     }, env)
 
     const res = await app.request('/api/submissions', {
