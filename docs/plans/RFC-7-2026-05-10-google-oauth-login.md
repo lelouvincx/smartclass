@@ -274,7 +274,7 @@ Worker env (`.dev.vars` + `wrangler secret`):
 
 Google Cloud Console:
 - Create OAuth 2.0 Client ID (Web app).
-- Origins: `http://localhost:5173`, `https://smartclass.lelouvincx.com`.
+- Origins: `http://localhost:5173`, `https://toanthaythanh.com`.
 - Redirect URIs: same + `/auth/google/callback`.
 - Consent screen External, scopes `openid email profile`, name "SmartClass".
 

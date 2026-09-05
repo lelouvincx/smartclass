@@ -124,14 +124,14 @@ The teacher seed is idempotent and can be re-run safely.
 
 Production domains:
 
-- Backend: https://api.smartclass.lelouvincx.com
-- Frontend: https://smartclass.lelouvincx.com
+- Backend: https://api.toanthaythanh.com
+- Frontend: https://toanthaythanh.com
 - Dbdocs: https://dbdocs.io/lelouvincx/smartclass
 
 Setup summary:
 
 1. Cloudflare Pages project `smartclass` via GitHub App:
-2. Worker route: `api.smartclass.lelouvincx.com`
+2. Worker custom domain: `api.toanthaythanh.com`
 3. GitHub repository secrets:
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
@@ -148,10 +148,10 @@ Repository automation:
 #### Post-deploy smoke checks
 
 ```bash
-curl -s https://api.smartclass.lelouvincx.com/api/health
+curl -s https://api.toanthaythanh.com/api/health
 ```
 
-Then verify browser login flow at `https://smartclass.lelouvincx.com`.
+Then verify browser login flow at `https://toanthaythanh.com`.
 
 </details>
 
