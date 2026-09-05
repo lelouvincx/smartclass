@@ -73,7 +73,9 @@ describe('StudentExercisesPage', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByRole('table', { name: 'Available exercises' })).toBeInTheDocument()
+    const table = await screen.findByRole('table', { name: 'Available exercises' })
+    expect(table).toBeInTheDocument()
+    expect(table.parentElement).toHaveClass('overflow-x-auto')
     expect(screen.getAllByText('Algebra Quiz')).toHaveLength(2)
     expect(screen.getAllByText('30 min')).toHaveLength(2)
     expect(screen.getByText('15')).toBeInTheDocument()

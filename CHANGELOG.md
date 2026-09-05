@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Keep exercise creation controls and exercise-library tables usable without clipping on narrow and short-landscape viewports.
+
 ### Security
 
 ## [0.5] - 2026-09-05

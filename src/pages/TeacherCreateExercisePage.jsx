@@ -389,7 +389,7 @@ export default function TeacherCreateExercisePage() {
         {/* Metadata card */}
         <Card>
           <CardContent className="pt-5">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2">
               {/* Title — required */}
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="title">
@@ -432,24 +432,24 @@ export default function TeacherCreateExercisePage() {
                 <Label htmlFor="duration">
                   {t('teacher.create.duration')}{isTimed && <span aria-hidden="true" className="text-destructive"> *</span>}
                 </Label>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row">
                   <Input
                     id="duration"
                     type="number"
                     value={durationMinutes}
                     onChange={(e) => setDurationMinutes(e.target.value)}
                     disabled={!isTimed}
-                    className="w-24"
+                    className="w-full sm:w-24"
                   />
                   {isTimed && (
-                    <div className="flex flex-1 gap-1.5 items-center" role="group" aria-label={t('teacher.create.presets')}>
+                    <div className="grid w-full flex-1 grid-cols-3 gap-1.5" role="group" aria-label={t('teacher.create.presets')}>
                       {[60, 90, 120].map((mins) => (
                         <Button
                           key={mins}
                           type="button"
                           variant={Number(durationMinutes) === mins ? 'default' : 'outline'}
                           size="sm"
-                          className="h-10 px-3 text-sm flex-1"
+                          className="h-10 px-2 text-sm"
                           onClick={() => setDurationMinutes(mins)}
                         >
                           {formatDuration(mins, i18n.resolvedLanguage)}
@@ -523,12 +523,12 @@ export default function TeacherCreateExercisePage() {
         <Card>
           <CardHeader className="border-b px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3 text-sm">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                 <span className="text-muted-foreground">{t('teacher.create.questions', { count: stats.total })}</span>
                 <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
                 <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
               </div>
-              <div className="flex gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                 {['all', 'errors', 'warnings'].map((f) => (
                   <Button
                     key={f}
