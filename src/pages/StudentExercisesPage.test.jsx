@@ -183,6 +183,54 @@ describe('StudentExercisesPage', () => {
     expect(resultLinks[0]).toHaveAttribute('href', '/student/submissions/88/summary')
   })
 
+  it('offers Start after a submitted attempt while capacity remains', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [{
+        id: 42,
+        title: 'Practice Quiz',
+        duration_minutes: 30,
+        question_count: 10,
+        is_timed: 1,
+        is_student_ready: 1,
+        latest_attempt_number: 1,
+        in_progress_submission_id: null,
+        can_start_attempt: true,
+      }],
+    })
+    listMySubmissionsMock.mockResolvedValue({
+      data: { submissions: [{ id: 88, exercise_id: 42, attempt_number: 1, submitted_at: '2026-09-03 05:00:00' }] },
+    })
+
+    render(<MemoryRouter><StudentExercisesPage /></MemoryRouter>)
+
+    expect(await screen.findAllByRole('link', { name: /start practice quiz/i })).toHaveLength(2)
+    expect(screen.queryByRole('link', { name: /view practice quiz result/i })).not.toBeInTheDocument()
+  })
+
+  it('offers the latest result when the attempt limit is exhausted', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [{
+        id: 42,
+        title: 'Mock Exam',
+        duration_minutes: 30,
+        question_count: 10,
+        is_timed: 1,
+        is_student_ready: 1,
+        latest_attempt_number: 1,
+        in_progress_submission_id: null,
+        can_start_attempt: false,
+      }],
+    })
+    listMySubmissionsMock.mockResolvedValue({
+      data: { submissions: [{ id: 88, exercise_id: 42, attempt_number: 1, submitted_at: '2026-09-03 05:00:00' }] },
+    })
+
+    render(<MemoryRouter><StudentExercisesPage /></MemoryRouter>)
+
+    expect(await screen.findAllByRole('link', { name: /view mock exam result/i })).toHaveLength(2)
+    expect(screen.queryByRole('link', { name: /start mock exam/i })).not.toBeInTheDocument()
+  })
+
   it('displays error message when API fails', async () => {
     listExercisesMock.mockRejectedValue(new Error('Network error'))
 

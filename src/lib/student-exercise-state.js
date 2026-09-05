@@ -22,6 +22,29 @@ export async function loadStudentExerciseStates({ accountId, exercises, token })
 
   await Promise.all(exercises.map(async (exercise) => {
     const submissionId = getSubmissionPointer(accountId, exercise.id)
+    const hasServerAttemptState = Object.hasOwn(exercise, 'latest_attempt_number')
+
+    if (hasServerAttemptState) {
+      if (exercise.in_progress_submission_id) {
+        const serverSubmissionId = String(exercise.in_progress_submission_id)
+        if (submissionId && submissionId !== serverSubmissionId) {
+          clearSubmissionState(accountId, exercise.id, submissionId)
+        }
+        setSubmissionPointer(accountId, exercise.id, serverSubmissionId)
+        states[exercise.id] = { type: 'resume', submissionId: serverSubmissionId }
+        return
+      }
+
+      if (submissionId) clearSubmissionState(accountId, exercise.id, submissionId)
+      if (exercise.can_start_attempt) return
+
+      const submitted = submittedByExercise.get(exercise.id)
+      if (submitted) {
+        states[exercise.id] = { type: 'result', submissionId: submitted.id }
+      }
+      return
+    }
+
     if (submissionId) {
       try {
         const response = await getSubmission(token, submissionId)

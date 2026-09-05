@@ -25,6 +25,7 @@ import FileDropzone from '@/components/file-dropzone'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { formatDuration } from '@/lib/format'
 import { GRADES } from '@/lib/grades'
+import { AttemptLimitField } from '@/components/attempt-limit-field'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -274,6 +275,7 @@ export default function TeacherViewExercisePage() {
 
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showLimitWarning, setShowLimitWarning] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -283,6 +285,7 @@ export default function TeacherViewExercisePage() {
   const [editGrades, setEditGrades] = useState([...GRADES])
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
+  const [editMaxAttempts, setEditMaxAttempts] = useState(1)
   const [editRows, setEditRows] = useState([])
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
@@ -321,6 +324,7 @@ export default function TeacherViewExercisePage() {
     setEditGrades(exercise.grades || [...GRADES])
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
     setEditDuration(exercise.duration_minutes)
+    setEditMaxAttempts(exercise.max_attempts)
     setEditRows(schemaToRows(exercise.schema))
     setEditExerciseFile(null)
     setEditSolutionFile(null)
@@ -398,16 +402,30 @@ export default function TeacherViewExercisePage() {
     setEditRows(newRows)
   }, [])
 
-  async function handleSave() {
+  async function handleSave({ confirmLimitReduction = false } = {}) {
     setSaveError('')
     if (!editTitle.trim()) { setSaveError(t('teacher.create.titleRequired')); return }
     if (editGrades.length === 0) { setSaveError(t('common.gradeRequired')); return }
     if (editIsTimed && (!editDuration || Number(editDuration) <= 0)) {
       setSaveError(t('teacher.create.durationInvalid')); return
     }
+    if (editMaxAttempts !== null && (!Number.isInteger(Number(editMaxAttempts)) || Number(editMaxAttempts) <= 0)) {
+      setSaveError(t('teacher.attemptLimit.invalid')); return
+    }
     if (hasErrors) { setSaveError(t('teacher.create.fixErrors')); return }
+    const isLoweringLimit = editMaxAttempts !== null
+      && (exercise.max_attempts === null || Number(editMaxAttempts) < Number(exercise.max_attempts))
+    if (
+      !confirmLimitReduction
+      && isLoweringLimit
+      && Number(exercise.highest_attempt_number) > Number(editMaxAttempts)
+    ) {
+      setShowLimitWarning(true)
+      return
+    }
 
     setIsSaving(true)
+    setShowLimitWarning(false)
     try {
       const shouldGenerateQuestionViews = Boolean(editExerciseFile)
       const payload = {
@@ -415,6 +433,7 @@ export default function TeacherViewExercisePage() {
         grades: editGrades,
         is_timed: editIsTimed,
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
+        max_attempts: editMaxAttempts === null ? null : Number(editMaxAttempts),
         schema: toSchemaPayload(validatedRows),
         extract_model: null,
       }
@@ -536,6 +555,13 @@ export default function TeacherViewExercisePage() {
                     onChange={setEditGrades}
                     disabled={isSaving}
                   />
+                  <AttemptLimitField
+                    id="edit-attempt-limit"
+                    value={editMaxAttempts}
+                    onChange={setEditMaxAttempts}
+                    disabled={isSaving}
+                    className="max-w-md"
+                  />
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="edit-timed">{t('teacher.create.mode')}</Label>
@@ -574,6 +600,11 @@ export default function TeacherViewExercisePage() {
                     <GradeBadges grades={exercise.grades} />
                     <span className="text-sm text-muted-foreground">
                       {t('teacher.view.questionCount', { count: new Set((exercise.schema || []).map((row) => row.q_id)).size })}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {exercise.max_attempts === null
+                        ? t('teacher.attemptLimit.unlimitedAttempts')
+                        : t('teacher.attemptLimit.attemptCount', { count: exercise.max_attempts })}
                     </span>
                   </div>
                 </>
@@ -707,6 +738,25 @@ export default function TeacherViewExercisePage() {
           )}
         </Card>
       )}
+
+      <Dialog open={showLimitWarning} onOpenChange={setShowLimitWarning}>
+        <DialogContent closeLabel={t('common.close')}>
+          <DialogHeader>
+            <DialogTitle>{t('teacher.attemptLimit.lowerTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('teacher.attemptLimit.lowerDescription', { limit: editMaxAttempts })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowLimitWarning(false)}>
+              {t('teacher.view.cancel')}
+            </Button>
+            <Button onClick={() => handleSave({ confirmLimitReduction: true })}>
+              {t('teacher.attemptLimit.lowerConfirm')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation dialog */}
       <Dialog

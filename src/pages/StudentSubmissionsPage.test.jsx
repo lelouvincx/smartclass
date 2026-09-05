@@ -32,6 +32,7 @@ const SUBMISSIONS = [
     id: 10,
     exercise_id: 1,
     exercise_title: 'Algebra Quiz',
+    attempt_number: 2,
     mode: 'timed',
     score: 7.5,
     total_questions: 10,
@@ -41,6 +42,7 @@ const SUBMISSIONS = [
     id: 11,
     exercise_id: 2,
     exercise_title: 'Physics Test',
+    attempt_number: 1,
     mode: 'untimed',
     score: 3.0,
     total_questions: 5,
@@ -77,10 +79,16 @@ describe('StudentSubmissionsPage', () => {
 
     expect(await screen.findByText('Algebra Quiz')).toBeInTheDocument()
     expect(screen.getByText('Physics Test')).toBeInTheDocument()
+    expect(screen.getByText('Attempt 2')).toBeInTheDocument()
+    expect(screen.getByText('Attempt 1')).toBeInTheDocument()
   })
 
   it('displays scores with color-coded badges', async () => {
-    listMySubmissionsMock.mockResolvedValue({ data: { submissions: SUBMISSIONS, total: 2 } })
+    const submissions = [
+      ...SUBMISSIONS,
+      { ...SUBMISSIONS[0], id: 12, attempt_number: 3, score: 5 },
+    ]
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions, total: 3 } })
 
     render(
       <MemoryRouter>
@@ -88,11 +96,13 @@ describe('StudentSubmissionsPage', () => {
       </MemoryRouter>
     )
 
-    await screen.findByText('Algebra Quiz')
-    // Score 7.5 shown as "7.5 / 10"
-    expect(screen.getByText(/7\.5/)).toBeInTheDocument()
-    // Score 3 shown as "3 / 10"
-    expect(screen.getByText(/3/)).toBeInTheDocument()
+    await screen.findByText('5 / 10')
+    expect(screen.getByText('7.5 / 10')).toHaveClass('bg-success-muted', 'text-success')
+    expect(screen.getByText('5 / 10')).toHaveClass('bg-warning-muted', 'text-warning')
+    expect(screen.getByText('3 / 10')).toHaveClass('bg-destructive-muted', 'text-destructive')
+    expect(document.querySelector('[class*="green-"]')).not.toBeInTheDocument()
+    expect(document.querySelector('[class*="yellow-"]')).not.toBeInTheDocument()
+    expect(document.querySelector('[class*="red-"]')).not.toBeInTheDocument()
   })
 
   it('renders a Review button for each submission', async () => {

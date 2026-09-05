@@ -29,6 +29,7 @@ import { SchemaTable } from '@/components/schema-table'
 import { GradeDropdown } from '@/components/grade-checkbox-group'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
+import { AttemptLimitField } from '@/components/attempt-limit-field'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -196,6 +197,7 @@ export default function TeacherCreateExercisePage() {
   const [grades, setGrades] = useState([12])
   const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
+  const [maxAttempts, setMaxAttempts] = useState(1)
   const [exerciseFile, setExerciseFile] = useState(null)
   const [answerFile, setAnswerFile] = useState(null)
   const [rows, setRows] = useState(newRows('mcq', '1'))
@@ -334,6 +336,7 @@ export default function TeacherCreateExercisePage() {
         grades,
         is_timed: isTimed,
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
+        max_attempts: maxAttempts === null ? null : Number(maxAttempts),
         schema: toSchemaPayload(validatedRows),
         extract_model: null,
       }
@@ -368,6 +371,9 @@ export default function TeacherCreateExercisePage() {
     if (grades.length === 0) { setError(t('common.gradeRequired')); return }
     if (isTimed && (!durationMinutes || Number(durationMinutes) <= 0)) {
       setError(t('teacher.create.durationInvalid')); return
+    }
+    if (maxAttempts !== null && (!Number.isInteger(Number(maxAttempts)) || Number(maxAttempts) <= 0)) {
+      setError(t('teacher.attemptLimit.invalid')); return
     }
     if (validatedRows.length === 0) { setError(t('teacher.create.questionRequired')); return }
     if (stats.errorsCount > 0) { setError(t('teacher.create.fixErrors')); return }
@@ -429,6 +435,14 @@ export default function TeacherCreateExercisePage() {
                 value={grades}
                 onChange={setGrades}
                 disabled={isSaving}
+              />
+
+              <AttemptLimitField
+                id="attempt-limit"
+                value={maxAttempts}
+                onChange={setMaxAttempts}
+                disabled={isSaving}
+                className="max-w-md md:col-span-2"
               />
 
               {/* Timed mode toggle */}

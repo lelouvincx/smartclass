@@ -82,6 +82,7 @@ export async function createExercise(token, overrides = {}) {
     title: 'Test Quiz',
     is_timed: true,
     duration_minutes: 60,
+    max_attempts: 1,
     schema: [
       { q_id: 1, type: 'mcq', correct_answer: 'B' },
       { q_id: 2, type: 'boolean', sub_id: 'a', correct_answer: '1' },

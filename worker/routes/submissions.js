@@ -51,6 +51,7 @@ submissionsRoutes.get('/', requireAuth, async (c) => {
     SELECT
       s.id,
       s.exercise_id,
+      s.attempt_number,
       e.title AS exercise_title,
       s.mode,
       s.score,
@@ -80,18 +81,74 @@ submissionsRoutes.get('/', requireAuth, async (c) => {
 // Create a new submission (start an exercise attempt)
 submissionsRoutes.post('/', requireAuth, async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { exercise_id } = body || {}
+  const { exercise_id, known_latest_attempt_number, replace_submission_id } = body || {}
 
-  if (!exercise_id) {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'exercise_id is required')
+  if (!Number.isInteger(exercise_id) || exercise_id < 1) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'exercise_id must be a positive integer')
+  }
+  if (!Number.isInteger(known_latest_attempt_number) || known_latest_attempt_number < 0) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'known_latest_attempt_number must be a non-negative integer')
+  }
+  if (
+    replace_submission_id !== undefined
+    && (!Number.isInteger(replace_submission_id) || replace_submission_id < 1)
+  ) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'replace_submission_id must be a positive integer')
   }
 
   const authUser = c.get('authUser')
+  const selectSubmission = async (clause, ...bindings) => c.env.DB.prepare(`
+    select
+      id
+      , exercise_id
+      , user_id
+      , attempt_number
+      , mode
+      , total_questions
+      , started_at
+      , submitted_at
+      , question_asset_set_id
+    from submissions
+    where ${clause}
+  `).bind(...bindings).first()
+
+  const currentResumable = await selectSubmission(
+    `user_id = ? and exercise_id = ? and submitted_at is null
+     order by attempt_number desc, id desc limit 1`,
+    authUser.id,
+    exercise_id,
+  )
+  if (replace_submission_id === undefined && currentResumable) {
+    return jsonSuccess(c, currentResumable)
+  }
+
+  const nextAttemptNumber = known_latest_attempt_number + 1
+  const resumableCondition = replace_submission_id === undefined
+    ? `not exists (
+        select 1
+        from submissions resumable
+        where resumable.user_id = ?
+          and resumable.exercise_id = e.id
+          and resumable.submitted_at is null
+      )`
+    : `? = (
+        select resumable.id
+        from submissions resumable
+        where resumable.user_id = ?
+          and resumable.exercise_id = e.id
+          and resumable.submitted_at is null
+        order by resumable.attempt_number desc, resumable.id desc
+        limit 1
+      )`
+  const resumableBindings = replace_submission_id === undefined
+    ? [authUser.id]
+    : [replace_submission_id, authUser.id]
 
   const result = await c.env.DB.prepare(`
     insert into submissions (
       exercise_id
       , user_id
+      , attempt_number
       , mode
       , total_questions
       , started_at
@@ -99,6 +156,7 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
     )
     select
       e.id
+      , ?
       , ?
       , case when e.duration_minutes > 0 then 'timed' else 'untimed' end
       , (
@@ -121,26 +179,83 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
         where student_grade.user_id = ?
           and exercise_grade.exercise_id = e.id
       )
-  `).bind(authUser.id, exercise_id, authUser.id).run()
+      and coalesce((
+        select max(existing.attempt_number)
+        from submissions existing
+        where existing.user_id = ? and existing.exercise_id = e.id
+      ), 0) = ?
+      and (e.max_attempts is null or ? <= e.max_attempts)
+      and ${resumableCondition}
+  `).bind(
+    authUser.id,
+    nextAttemptNumber,
+    exercise_id,
+    authUser.id,
+    authUser.id,
+    known_latest_attempt_number,
+    nextAttemptNumber,
+    ...resumableBindings,
+  ).run()
 
   if (result.meta.changes === 0) {
-    const existing = await c.env.DB.prepare(
-      'select id from exercises where id = ?'
-    ).bind(exercise_id).first()
-    if (!existing) {
-      return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
+    const replay = await selectSubmission(
+      'user_id = ? and exercise_id = ? and attempt_number = ?',
+      authUser.id,
+      exercise_id,
+      nextAttemptNumber,
+    )
+    if (replay) {
+      return jsonSuccess(c, replay)
     }
 
-    const gradeAccess = await c.env.DB.prepare(`
-      select 1
-      from student_grades student_grade
-      join exercise_grades exercise_grade on exercise_grade.grade = student_grade.grade
-      where student_grade.user_id = ? and exercise_grade.exercise_id = ?
-      limit 1
-    `).bind(authUser.id, exercise_id).first()
-    return gradeAccess
-      ? jsonError(c, 409, 'EXERCISE_NOT_READY', 'Exercise is not ready for students')
-      : jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your grades')
+    const state = await c.env.DB.prepare(`
+      select
+        e.id
+        , e.max_attempts
+        , coalesce((
+            select max(existing.attempt_number)
+            from submissions existing
+            where existing.user_id = ? and existing.exercise_id = e.id
+          ), 0) as latest_attempt_number
+        , exists (
+            select 1
+            from student_grades student_grade
+            join exercise_grades exercise_grade on exercise_grade.grade = student_grade.grade
+            where student_grade.user_id = ? and exercise_grade.exercise_id = e.id
+          ) as has_grade_access
+        , exists (
+            select 1
+            from exercise_question_asset_sets active_set
+            where active_set.id = e.active_question_asset_set_id
+              and active_set.exercise_id = e.id
+              and active_set.confirmed_at is not null
+          ) as is_ready
+      from exercises e
+      where e.id = ?
+    `).bind(authUser.id, authUser.id, exercise_id).first()
+    if (!state) {
+      return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
+    }
+    if (!state.has_grade_access) {
+      return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your grades')
+    }
+    if (!state.is_ready) {
+      return jsonError(c, 409, 'EXERCISE_NOT_READY', 'Exercise is not ready for students')
+    }
+    if (state.max_attempts !== null && state.latest_attempt_number >= state.max_attempts) {
+      return jsonError(c, 409, 'ATTEMPT_LIMIT_REACHED', 'The attempt limit has been reached')
+    }
+
+    const latestResumable = await selectSubmission(
+      `user_id = ? and exercise_id = ? and submitted_at is null
+       order by attempt_number desc, id desc limit 1`,
+      authUser.id,
+      exercise_id,
+    )
+    if (replace_submission_id === undefined && latestResumable) {
+      return jsonSuccess(c, latestResumable)
+    }
+    return jsonError(c, 409, 'ATTEMPT_STATE_CHANGED', 'Attempt state changed; reload the exercise')
   }
 
   const submissionId = result.meta.last_row_id
@@ -150,6 +265,7 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
       id
       , exercise_id
       , user_id
+      , attempt_number
       , mode
       , total_questions
       , started_at
@@ -180,6 +296,7 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
         id
         , exercise_id
         , user_id
+        , attempt_number
         , submitted_at
         , total_questions
         , question_asset_set_id
@@ -289,6 +406,7 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
         id
         , exercise_id
         , user_id
+        , attempt_number
         , mode
         , total_questions
         , started_at
@@ -370,7 +488,7 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
     // Fetch submission + exercise title in one query
     const submission = await c.env.DB.prepare(`
       SELECT
-        s.id, s.exercise_id, s.user_id, s.mode, s.total_questions,
+        s.id, s.exercise_id, s.user_id, s.attempt_number, s.mode, s.total_questions,
         s.started_at, s.submitted_at, s.score, s.question_asset_set_id,
         e.title AS exercise_title
       FROM submissions s
