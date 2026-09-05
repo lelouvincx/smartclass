@@ -8,17 +8,12 @@ Priorities apply within each version:
 - **P1:** important and expected in the version
 - **P2:** optional; defer before delaying the version
 
-## v0.5: Lectures
-
-- [ ] **P1** Plan guest mode: design IndexedDB storage, guest route access, and a data model for anonymous exercise completion
-
-**Outcome:** a complete learning experience with exercises and video lectures.
-
 ## v0.6: Guest mode and launch readiness
 
 - [ ] **P0** Let guests browse exercises and lectures without logging in and save exercise results in IndexedDB
 - [ ] **P0** Polish the interface and mobile experience
 - [ ] **P0** Add structured production logging and monitoring
+- [ ] **P1** Plan guest mode: design IndexedDB storage, guest route access, and a data model for anonymous exercise completion
 - [ ] **P1** Prompt guests to register after engagement
 - [ ] **P1** Buy and configure the production domain
 - [ ] **P1** Add a cost analysis and estimation dashboard

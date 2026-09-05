@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.5] - 2026-09-05
+
+### Added
+
 - Add teacher-managed grade 10–12 memberships, bulk student assignment, and grade-overlap access enforcement for exercises, lectures, and protected learning files. [#99](https://github.com/lelouvincx/smartclass/pull/99)
 - Add names to student accounts, let teachers and students rename themselves, and let teachers rename students from the student list. [#99](https://github.com/lelouvincx/smartclass/pull/99)
 - Remember each authenticated student's YouTube lecture position in the current browser and resume it after refresh or revisit without autoplay. [#97](https://github.com/lelouvincx/smartclass/pull/97)
