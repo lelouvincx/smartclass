@@ -175,19 +175,19 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Biology Quiz')
     expect(screen.getByText('biology.pdf')).toBeInTheDocument()
-    expect(screen.getByText('Exercise PDF')).toBeInTheDocument()
+    expect(screen.getByText('Exercise PDF')).toHaveClass('bg-sc-primary-container')
     await user.click(screen.getByRole('button', { name: 'View full PDF' }))
     expect(getExerciseFileBlobMock).toHaveBeenCalledWith(1, 'teacher-token')
     expect(openClick).toHaveBeenCalledTimes(1)
     openClick.mockRestore()
   })
 
-  it('never exposes the raw extraction model identifier', async () => {
+  it('does not expose the default image-extraction model', async () => {
     getExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, extract_model: 'provider/private-model-id' } })
     renderPage()
 
     await screen.findByText('Physics Quiz')
-    expect(screen.getByText('Answer reading: Custom')).toBeInTheDocument()
+    expect(screen.queryByText(/answer reading/i)).not.toBeInTheDocument()
     expect(screen.queryByText('provider/private-model-id')).not.toBeInTheDocument()
   })
 
@@ -227,6 +227,8 @@ describe('TeacherViewExercisePage', () => {
 
     // Title should become an input
     expect(screen.getByLabelText('Exercise title')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Grade access' })).toBeInTheDocument()
+    expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     // Save and Cancel buttons should appear
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
@@ -277,7 +279,9 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Physics Quiz')
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
-    await user.click(screen.getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: 'Grade access' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(updateExerciseMock).toHaveBeenCalledWith(

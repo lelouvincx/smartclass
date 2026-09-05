@@ -1,6 +1,15 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { GRADES, hasAllGrades } from '@/lib/grades'
 import { cn } from '@/lib/utils'
 
@@ -72,6 +81,79 @@ export default function GradeCheckboxGroup({
           />
         ))}
       </div>
+    </fieldset>
+  )
+}
+
+export function GradeDropdown({
+  id,
+  legend,
+  description,
+  value,
+  onChange,
+  disabled = false,
+  className,
+}) {
+  const { t } = useTranslation()
+  const allSelected = hasAllGrades(value)
+  const descriptionId = description ? `${id}-description` : undefined
+  const summary = allSelected
+    ? t('common.allGrades')
+    : value.length > 0
+      ? value.map((grade) => t('common.grade', { grade })).join(', ')
+      : t('common.selectGrades')
+
+  function toggleGrade(grade) {
+    const nextGrades = value.includes(grade)
+      ? value.filter((item) => item !== grade)
+      : [...value, grade].sort((a, b) => a - b)
+    onChange(nextGrades)
+  }
+
+  return (
+    <fieldset className={cn('space-y-2', className)} disabled={disabled}>
+      <legend className="text-sm font-medium">{legend}</legend>
+      {description && (
+        <p id={descriptionId} className="text-xs leading-5 text-muted-foreground">{description}</p>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            id={id}
+            type="button"
+            variant="outline"
+            className="w-full justify-between px-3 font-normal"
+            aria-label={legend}
+            aria-describedby={descriptionId}
+            disabled={disabled}
+          >
+            <span className="min-w-0 truncate">{summary}</span>
+            <ChevronDown aria-hidden="true" className="text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-[var(--radix-dropdown-menu-trigger-width)]">
+          <DropdownMenuCheckboxItem
+            checked={allSelected}
+            onCheckedChange={(checked) => onChange(checked ? [...GRADES] : [])}
+            onSelect={(event) => event.preventDefault()}
+            className="min-h-[var(--sc-component-hit-target)] px-3 pr-9"
+          >
+            {t('common.allGrades')}
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuSeparator />
+          {GRADES.map((grade) => (
+            <DropdownMenuCheckboxItem
+              key={grade}
+              checked={value.includes(grade)}
+              onCheckedChange={() => toggleGrade(grade)}
+              onSelect={(event) => event.preventDefault()}
+              className="min-h-[var(--sc-component-hit-target)] px-3 pr-9"
+            >
+              {t('common.grade', { grade })}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
     </fieldset>
   )
 }

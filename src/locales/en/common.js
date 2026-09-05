@@ -21,6 +21,7 @@ export default {
   student: 'Student',
   allGrades: 'All grades',
   grade: 'Grade {{grade}}',
+  selectGrades: 'Select grades',
   gradeAccess: 'Grade access',
   gradeAccessDescription: 'Choose every grade that can access this content.',
   gradeRequired: 'Select at least one grade.',

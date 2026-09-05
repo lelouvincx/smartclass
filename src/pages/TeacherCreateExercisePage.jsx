@@ -23,10 +23,10 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { FileCheck2, FileText } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
-import GradeCheckboxGroup from '@/components/grade-checkbox-group'
-import ExtractModelSelect from '@/components/extract-model-select'
+import { GradeDropdown } from '@/components/grade-checkbox-group'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
 import { GRADES } from '@/lib/grades'
@@ -197,8 +197,6 @@ export default function TeacherCreateExercisePage() {
   const [grades, setGrades] = useState([...GRADES])
   const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
-  // null = use server default; non-null = a specific model id from the allowlist.
-  const [extractModel, setExtractModel] = useState(null)
   const [exerciseFile, setExerciseFile] = useState(null)
   const [answerFile, setAnswerFile] = useState(null)
   const [rows, setRows] = useState(newRows('mcq', '1'))
@@ -338,7 +336,7 @@ export default function TeacherCreateExercisePage() {
         is_timed: isTimed,
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
         schema: toSchemaPayload(validatedRows),
-        extract_model: extractModel,
+        extract_model: null,
       }
       const createResponse = await createExercise(token, payload)
       const exerciseId = createResponse.data.id
@@ -424,9 +422,9 @@ export default function TeacherCreateExercisePage() {
                 />
               </div>
 
-              <GradeCheckboxGroup
+              <GradeDropdown
                 id="exercise-grades"
-                className="md:col-span-2"
+                className="max-w-md md:col-span-2"
                 legend={t('common.gradeAccess')}
                 description={t('common.gradeAccessDescription')}
                 value={grades}
@@ -481,14 +479,10 @@ export default function TeacherCreateExercisePage() {
                 </div>
               </div>
 
-              {/* Image-extraction model picker — teacher-only choice */}
-              <div className="md:col-span-2 space-y-2">
-                <ExtractModelSelect value={extractModel} onChange={setExtractModel} />
-              </div>
-
               {/* Exercise PDF upload */}
-              <div className="space-y-2">
-                <Label htmlFor="exerciseFile">
+              <div data-testid="exercise-pdf-upload" className="space-y-2 rounded-[var(--sc-component-control-shape)] border border-primary/20 bg-sc-primary-container p-4 text-sc-on-primary-container">
+                <Label htmlFor="exerciseFile" className="gap-2">
+                  <FileText aria-hidden="true" className="size-4" />
                   {t('teacher.create.exercisePdf')} <span aria-hidden="true" className="text-destructive">*</span>
                 </Label>
                 <FileDropzone
@@ -498,14 +492,15 @@ export default function TeacherCreateExercisePage() {
                   file={exerciseFile}
                   onChange={setExerciseFile}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-sc-on-primary-container/80">
                   {t('teacher.create.exercisePdfHint')}
                 </p>
               </div>
 
               {/* Answer PDF upload + answer extraction grouped as related actions */}
-              <div className="space-y-2">
-                <Label htmlFor="answerFile">
+              <div data-testid="answer-pdf-upload" className="space-y-2 rounded-[var(--sc-component-control-shape)] border border-[var(--sc-tertiary)]/20 bg-sc-tertiary-container p-4 text-sc-on-tertiary-container">
+                <Label htmlFor="answerFile" className="gap-2">
+                  <FileCheck2 aria-hidden="true" className="size-4" />
                   {t('teacher.create.answerPdf')} <span aria-hidden="true" className="text-destructive">*</span>
                 </Label>
                 <FileDropzone
@@ -515,7 +510,7 @@ export default function TeacherCreateExercisePage() {
                   file={answerFile}
                   onChange={setAnswerFile}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-sc-on-tertiary-container/80">
                   {t('teacher.create.answerPdfHint')}
                 </p>
                 <Button

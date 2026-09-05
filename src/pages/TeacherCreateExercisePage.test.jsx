@@ -65,7 +65,10 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
     expect(screen.getByRole('group', { name: /duration presets/i })).toHaveClass('grid-cols-3')
     expect(screen.getByText(/questions: 1/i).parentElement).toHaveClass('flex-wrap')
-    expect(screen.getByRole('button', { name: /^all$/i }).parentElement).toHaveClass('grid-cols-2')
+    expect(screen.getByRole('button', { name: /grade access/i })).toHaveTextContent('All grades')
+    expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
+    expect(screen.getByTestId('exercise-pdf-upload')).toHaveClass('bg-sc-primary-container')
+    expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
   })
 
   it('requires separate student and teacher PDFs before saving', async () => {
@@ -355,7 +358,9 @@ describe('TeacherCreateExercisePage', () => {
     await user.type(screen.getByLabelText(/exercise title/i), 'Grade Quiz')
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await uploadRequiredPdfs(user)
-    await user.click(screen.getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: 'Grade access' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', expect.objectContaining({

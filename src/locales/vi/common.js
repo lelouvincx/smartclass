@@ -21,6 +21,7 @@ export default {
   student: 'học sinh',
   allGrades: 'Tất cả khối',
   grade: 'Khối {{grade}}',
+  selectGrades: 'Chọn khối',
   gradeAccess: 'Quyền truy cập theo khối',
   gradeAccessDescription: 'Chọn tất cả khối được phép truy cập nội dung này.',
   gradeRequired: 'Chọn ít nhất một khối.',

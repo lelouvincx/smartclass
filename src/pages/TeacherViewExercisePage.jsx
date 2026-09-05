@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { FileCheck2, FileText } from 'lucide-react'
 import { createExerciseFileUpload, deleteExercise, getExercise, getExerciseFileBlob, updateExercise, uploadExerciseFile } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
-import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
+import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,7 +21,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { SchemaTable } from '@/components/schema-table'
-import ExtractModelSelect from '@/components/extract-model-select'
 import FileDropzone from '@/components/file-dropzone'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { formatDuration } from '@/lib/format'
@@ -283,7 +283,6 @@ export default function TeacherViewExercisePage() {
   const [editGrades, setEditGrades] = useState([...GRADES])
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
-  const [editExtractModel, setEditExtractModel] = useState(null)
   const [editRows, setEditRows] = useState([])
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
@@ -322,7 +321,6 @@ export default function TeacherViewExercisePage() {
     setEditGrades(exercise.grades || [...GRADES])
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
     setEditDuration(exercise.duration_minutes)
-    setEditExtractModel(exercise.extract_model ?? null)
     setEditRows(schemaToRows(exercise.schema))
     setEditExerciseFile(null)
     setEditSolutionFile(null)
@@ -418,7 +416,7 @@ export default function TeacherViewExercisePage() {
         is_timed: editIsTimed,
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
         schema: toSchemaPayload(validatedRows),
-        extract_model: editExtractModel,
+        extract_model: null,
       }
       const res = await updateExercise(token, exercise.id, payload)
       let updatedExercise = res.data
@@ -529,8 +527,9 @@ export default function TeacherViewExercisePage() {
                       onChange={(e) => setEditTitle(e.target.value)}
                     />
                   </div>
-                  <GradeCheckboxGroup
+                  <GradeDropdown
                     id="edit-exercise-grades"
+                    className="max-w-md"
                     legend={t('common.gradeAccess')}
                     description={t('common.gradeAccessDescription')}
                     value={editGrades}
@@ -563,10 +562,6 @@ export default function TeacherViewExercisePage() {
                       </div>
                     )}
                   </div>
-                  <ExtractModelSelect
-                    value={editExtractModel}
-                    onChange={setEditExtractModel}
-                  />
                 </div>
               ) : (
                 <>
@@ -581,9 +576,6 @@ export default function TeacherViewExercisePage() {
                       {t('teacher.view.questionCount', { count: new Set((exercise.schema || []).map((row) => row.q_id)).size })}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('teacher.model.answerReading', { choice: exercise.extract_model ? t('teacher.model.custom') : t('teacher.model.recommendedShort') })}
-                  </p>
                 </>
               )}
             </div>
@@ -625,7 +617,16 @@ export default function TeacherViewExercisePage() {
             <ul className={`space-y-1 ${isEditing ? 'mb-4' : ''}`}>
               {exercise.files.map((f) => (
                 <li key={f.id} className="flex flex-col items-start gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge
+                    variant="outline"
+                    className={f.file_type === 'exercise_pdf'
+                      ? 'border-primary/20 bg-sc-primary-container text-sc-on-primary-container'
+                      : f.file_type === 'solution_pdf'
+                        ? 'border-[var(--sc-tertiary)]/20 bg-sc-tertiary-container text-sc-on-tertiary-container'
+                        : 'bg-muted text-muted-foreground'}
+                  >
+                    {f.file_type === 'exercise_pdf' && <FileText aria-hidden="true" data-icon="inline-start" />}
+                    {f.file_type === 'solution_pdf' && <FileCheck2 aria-hidden="true" data-icon="inline-start" />}
                     {t(`teacher.file.${f.file_type === 'exercise_pdf' ? 'exercisePdf' : f.file_type === 'solution_pdf' ? 'answerPdf' : f.file_type === 'reference_image' ? 'referenceImage' : 'file'}`)}
                   </Badge>
                   <span className="min-w-0 w-full break-words sm:flex-1">{f.file_name}</span>
@@ -648,8 +649,8 @@ export default function TeacherViewExercisePage() {
           )}
           {isEditing && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <div id="exercise-pdf-replacement" className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{t('teacher.view.replaceExercisePdf')}</Label>
+              <div id="exercise-pdf-replacement" className="space-y-1.5 rounded-[var(--sc-component-control-shape)] border border-primary/20 bg-sc-primary-container p-4 text-sc-on-primary-container">
+                <Label className="gap-2 text-xs"><FileText aria-hidden="true" className="size-4" />{t('teacher.view.replaceExercisePdf')}</Label>
                 <FileDropzone
                   id="edit-exercise-file"
                   accept=".pdf"
@@ -658,8 +659,8 @@ export default function TeacherViewExercisePage() {
                   onChange={setEditExerciseFile}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{t('teacher.view.replaceAnswerPdf')}</Label>
+              <div className="space-y-1.5 rounded-[var(--sc-component-control-shape)] border border-[var(--sc-tertiary)]/20 bg-sc-tertiary-container p-4 text-sc-on-tertiary-container">
+                <Label className="gap-2 text-xs"><FileCheck2 aria-hidden="true" className="size-4" />{t('teacher.view.replaceAnswerPdf')}</Label>
                 <FileDropzone
                   accept=".pdf"
                   hint={t('teacher.file.pdfOnly')}

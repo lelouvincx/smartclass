@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Simplify exercise forms with a compact grade selector, the default image-extraction model, and distinct Exercise PDF and Answer PDF colors.
 - Refine the dedicated lecture viewer so the title, player, local playback-resume cue, YouTube fallback, and previous/next navigation read as one focused learning sequence. [#101](https://github.com/lelouvincx/smartclass/pull/101)
 
 ### Deprecated

@@ -342,12 +342,6 @@ export function deleteExercise(token, id) {
   })
 }
 
-// Vision-LLM models the teacher can pick for image extraction (v0.4 PR C2).
-// Public endpoint — no auth required. Returns { models: [...], default: id }.
-export function getExtractModels() {
-  return request('/api/extract-models')
-}
-
 export function getExercise(id, token) {
   return request(`/api/exercises/${id}`, {
     headers: token ? authHeaders(token) : {},
