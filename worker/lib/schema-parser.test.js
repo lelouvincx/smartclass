@@ -19,7 +19,34 @@ describe('schema parser utils', () => {
     const rows = normalizeSchemaRows([
       { q_id: '1', type: 'multiple_choice', correct_answer: 'c', confidence: 0.9 },
     ])
-    expect(rows[0]).toMatchObject({ q_id: 1, type: 'mcq', correct_answer: 'C' })
+    expect(rows[0]).toMatchObject({
+      q_id: 1,
+      section_key: 'main',
+      section_title: null,
+      local_number: 1,
+      type: 'mcq',
+      correct_answer: 'C',
+    })
+  })
+
+  it('normalizes and preserves section-aware question descriptors', () => {
+    const rows = normalizeSchemaRows([
+      {
+        q_id: '3',
+        section_key: ' section-2 ',
+        section_title: ' Phần II – Trả lời ngắn ',
+        local_number: '1',
+        type: 'number',
+        correct_answer: '42',
+      },
+    ])
+
+    expect(rows[0]).toMatchObject({
+      q_id: 3,
+      section_key: 'section-2',
+      section_title: 'Phần II – Trả lời ngắn',
+      local_number: 1,
+    })
   })
 
   it('normalizes boolean sub-question rows with T/F aliases to 0/1', () => {
@@ -111,6 +138,76 @@ describe('schema parser utils', () => {
       { q_id: 2, type: 'boolean', sub_id: 'd', correct_answer: '1', confidence: 0.9 },
     ])
     expect(errors).toContain('Row 2: duplicate (q_id, sub_id) pair (2, a)')
+  })
+
+  it('allows the same local number in different sections', () => {
+    const errors = validateSchemaRows([
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'mcq', sub_id: null, correct_answer: 'A', confidence: 0.9 },
+      { q_id: 2, section_key: 'section-2', section_title: 'Phần II', local_number: 1, type: 'numeric', sub_id: null, correct_answer: '42', confidence: 0.9 },
+    ])
+
+    expect(errors).toHaveLength(0)
+  })
+
+  it('rejects duplicate local numbers within one section', () => {
+    const errors = validateSchemaRows([
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'mcq', sub_id: null, correct_answer: 'A', confidence: 0.9 },
+      { q_id: 2, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'numeric', sub_id: null, correct_answer: '42', confidence: 0.9 },
+    ])
+
+    expect(errors).toContain('Row 2: (section_key, local_number) (section-1, 1) already maps to q_id 1')
+  })
+
+  it('rejects one q_id mapped to different section descriptors', () => {
+    const errors = validateSchemaRows([
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.9 },
+      { q_id: 1, section_key: 'section-2', section_title: 'Phần II', local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.9 },
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'boolean', sub_id: 'c', correct_answer: '1', confidence: 0.9 },
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.9 },
+    ])
+
+    expect(errors).toContain('Row 2: q_id 1 has conflicting section descriptor')
+  })
+
+  it('rejects missing or invalid section mappings', () => {
+    const normalizedRows = normalizeSchemaRows([
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', type: 'mcq', correct_answer: 'A', confidence: 0.9 },
+      { q_id: 2, section_title: 'Phần II', local_number: 1, type: 'numeric', correct_answer: '42', confidence: 0.9 },
+    ])
+    const errors = validateSchemaRows([
+      { q_id: 1, section_key: '', section_title: null, local_number: 1, type: 'mcq', sub_id: null, correct_answer: 'A', confidence: 0.9 },
+      { q_id: 2, section_key: 'section-1', section_title: 'Phần I', local_number: null, type: 'numeric', sub_id: null, correct_answer: '42', confidence: 0.9 },
+      ...normalizedRows,
+    ])
+
+    expect(errors).toContain('Row 1: section_key is required')
+    expect(errors).toContain('Row 2: local_number must be a positive integer')
+    expect(errors).toContain('Row 3: local_number must be a positive integer')
+    expect(errors).toContain('Row 4: section_key is required')
+  })
+
+  it('requires all boolean subrows to share section title as well as key, number, and type', () => {
+    const errors = validateSchemaRows([
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.9 },
+      { q_id: 1, section_key: 'section-1', section_title: 'Part I', local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.9 },
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'boolean', sub_id: 'c', correct_answer: '1', confidence: 0.9 },
+      { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.9 },
+    ])
+
+    expect(errors).toContain('Row 2: q_id 1 has conflicting section descriptor')
+  })
+
+  it('rejects a non-boolean row mixed into one boolean q_id', () => {
+    const descriptor = { section_key: 'section-1', section_title: 'Phần I', local_number: 1 }
+    const errors = validateSchemaRows([
+      { q_id: 1, ...descriptor, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.9 },
+      { q_id: 1, ...descriptor, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.9 },
+      { q_id: 1, ...descriptor, type: 'boolean', sub_id: 'c', correct_answer: '1', confidence: 0.9 },
+      { q_id: 1, ...descriptor, type: 'mcq', sub_id: null, correct_answer: 'A', confidence: 0.9 },
+    ])
+
+    expect(errors).toContain('Row 4: q_id 1 already used as boolean, cannot reuse as mcq')
+    expect(errors).toContain('q_id 1: boolean question must have exactly sub-questions a, b, c, d')
   })
 
   it('builds confidence aggregate and warnings', () => {

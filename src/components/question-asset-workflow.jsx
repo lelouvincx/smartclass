@@ -53,6 +53,28 @@ function uniqueQuestionIds(schema) {
   return [...new Set((schema || []).map(row => Number(row.q_id)))]
 }
 
+function uniqueQuestionDescriptors(schema) {
+  const byId = new Map()
+  for (const row of schema || []) {
+    const qId = Number(row.q_id)
+    if (!byId.has(qId)) {
+      byId.set(qId, {
+        q_id: qId,
+        section_key: row.section_key ?? 'main',
+        section_title: row.section_title ?? null,
+        local_number: Number(row.local_number ?? row.q_id),
+      })
+    }
+  }
+  return [...byId.values()]
+}
+
+function descriptorSetsMatch(leftRows, rightRows) {
+  const canonical = rows => uniqueQuestionDescriptors(rows)
+    .sort((left, right) => left.q_id - right.q_id)
+  return JSON.stringify(canonical(leftRows)) === JSON.stringify(canonical(rightRows))
+}
+
 function latestExercisePdf(files) {
   return (files || []).find(file => file.file_type === 'exercise_pdf') || null
 }
@@ -113,10 +135,12 @@ function validAnswerSchema(schema) {
   return schema.length > 0 && schema.every(hasValidFinalAnswer)
 }
 
-function groupAssets(questionIds, assets) {
-  return questionIds.map(qId => ({
-    qId,
-    assets: (assets || []).filter(asset => asset.q_id === qId),
+function groupAssets(questionDescriptors, assets) {
+  return questionDescriptors.map(descriptor => ({
+    qId: descriptor.q_id,
+    sectionTitle: descriptor.section_title,
+    localNumber: descriptor.local_number,
+    assets: (assets || []).filter(asset => asset.q_id === descriptor.q_id),
   }))
 }
 
@@ -239,9 +263,16 @@ function QuestionAnswerReview({
   const { t } = useTranslation()
 
   function questionLabel(row) {
+    const number = row.local_number ?? row.q_id
+    const question = row.section_title
+      ? t('teacher.questionViews.questionInSection', {
+        section: row.section_title,
+        number,
+      })
+      : t('teacher.questionViews.question', { number })
     return row.sub_id
-      ? t('teacher.questionViews.answerPart', { number: row.q_id, part: row.sub_id })
-      : t('teacher.questionViews.question', { number: row.q_id })
+      ? `${question}${row.sub_id}`
+      : question
   }
 
   function answerControl(row, errorId) {
@@ -433,11 +464,15 @@ export default function QuestionAssetWorkflow({
   const autoStartedFor = useRef(null)
 
   const questionIds = useMemo(() => uniqueQuestionIds(exercise.schema), [exercise.schema])
+  const questionDescriptors = useMemo(
+    () => uniqueQuestionDescriptors(exercise.schema),
+    [exercise.schema],
+  )
   const sourceFile = useMemo(() => latestExercisePdf(exercise.files), [exercise.files])
   const answerSourceFile = useMemo(() => latestAnswerPdf(exercise.files), [exercise.files])
   const groups = useMemo(
-    () => groupAssets(questionIds, draft?.assets),
-    [draft?.assets, questionIds],
+    () => groupAssets(questionDescriptors, draft?.assets),
+    [draft?.assets, questionDescriptors],
   )
   const answerReview = useMemo(
     () => mergeAnswerCandidates(answerSchema, draft?.answer_candidates || []),
@@ -487,6 +522,9 @@ export default function QuestionAssetWorkflow({
             expected_question_count: questionIds.length,
           })
           parsedRows = parsed.data.schema || []
+          if (!descriptorSetsMatch(parsedRows, exercise.schema || [])) {
+            throw new Error('Answer PDF question sections do not match the exercise schema')
+          }
           parserModelId = parsed.data.model_id || null
           parserStatus = 'parsed'
         } catch {
@@ -496,13 +534,13 @@ export default function QuestionAssetWorkflow({
 
       setAnswerSchema(exercise.schema || [])
       const source = await getExerciseFileBlob(sourceFile.id, token)
-      const generated = await generateQuestionAssets(source, questionIds, {
+      const generated = await generateQuestionAssets(source, questionDescriptors, {
         onProgress: setProgress,
         schemaRows: exercise.schema,
       })
       if (answerPdf) {
         try {
-          const answerGeneration = await generateQuestionAssets(answerPdf, questionIds, {
+          const answerGeneration = await generateQuestionAssets(answerPdf, questionDescriptors, {
             schemaRows: exercise.schema,
             createAssets: false,
           })
@@ -581,6 +619,7 @@ export default function QuestionAssetWorkflow({
     loadDraft,
     phase,
     questionIds,
+    questionDescriptors,
     sourceFile,
     t,
     token,
@@ -611,7 +650,7 @@ export default function QuestionAssetWorkflow({
     setProgress({ stage: 'reading', current: 0, total: 1 })
     try {
       const source = await getExerciseFileBlob(sourceFile.id, token)
-      const generated = await generateQuestionAssets(source, questionIds, {
+      const generated = await generateQuestionAssets(source, questionDescriptors, {
         questionIdsToRender: [qId],
         onProgress: setProgress,
         schemaRows: exercise.schema,
@@ -687,7 +726,7 @@ export default function QuestionAssetWorkflow({
     setResolvedAnswerKeys(current => new Set(current).add(row.key))
   }
 
-  const questionReviews = groups.map(({ qId, assets }) => {
+  const questionReviews = groups.map(({ qId, sectionTitle, localNumber, assets }) => {
     const answerRows = answerReview.rows.filter(row => Number(row.q_id) === qId)
     const isRejected = assets.some(asset => asset.rejected_at)
     const isLowConfidence = assets.some(asset => (
@@ -701,6 +740,8 @@ export default function QuestionAssetWorkflow({
 
     return {
       qId,
+      sectionTitle,
+      localNumber,
       assets,
       answerRows,
       isRejected,
@@ -711,9 +752,8 @@ export default function QuestionAssetWorkflow({
       needsAttention: isRejected || isLowConfidence || isMissing || hasUnresolvedAnswer || hasInvalidAnswer,
     }
   })
-  const attentionQuestionIds = questionReviews
+  const attentionQuestions = questionReviews
     .filter(review => review.needsAttention)
-    .map(review => review.qId)
   const sourceIsCurrent = Boolean(sourceFile && draft?.asset_set?.source_file_id === sourceFile.id)
   const answerSourceIsCurrent = Boolean(
     draft
@@ -872,7 +912,7 @@ export default function QuestionAssetWorkflow({
         onResolve={handleResolveAnswer}
       />
 
-      {attentionQuestionIds.length > 0 && (
+      {attentionQuestions.length > 0 && (
         <nav
           className="rounded-lg border border-warning/40 bg-warning-muted/40 p-4"
           aria-labelledby="attention-question-outline-title"
@@ -886,15 +926,20 @@ export default function QuestionAssetWorkflow({
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   {t('teacher.questionViews.attentionOutlineDescription', {
-                    count: attentionQuestionIds.length,
+                    count: attentionQuestions.length,
                   })}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                {attentionQuestionIds.map(qId => (
-                  <Button key={qId} type="button" variant="outline" size="sm" asChild>
-                    <a href={`#question-review-${qId}`}>
-                      {t('teacher.questionViews.question', { number: qId })}
+                {attentionQuestions.map(review => (
+                  <Button key={review.qId} type="button" variant="outline" size="sm" asChild>
+                    <a href={`#question-review-${review.qId}`}>
+                      {review.sectionTitle
+                        ? t('teacher.questionViews.questionInSection', {
+                          section: review.sectionTitle,
+                          number: review.localNumber,
+                        })
+                        : t('teacher.questionViews.question', { number: review.localNumber })}
                     </a>
                   </Button>
                 ))}
@@ -907,6 +952,8 @@ export default function QuestionAssetWorkflow({
       <div className="space-y-4">
         {questionReviews.map(({
           qId,
+          sectionTitle,
+          localNumber,
           assets,
           answerRows,
           isRejected,
@@ -924,7 +971,14 @@ export default function QuestionAssetWorkflow({
             >
               <CardHeader className="border-b px-5 py-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="font-semibold">{t('teacher.questionViews.question', { number: qId })}</h3>
+                  <h3 className="font-semibold">
+                    {sectionTitle
+                      ? t('teacher.questionViews.questionInSection', {
+                        section: sectionTitle,
+                        number: localNumber,
+                      })
+                      : t('teacher.questionViews.question', { number: localNumber })}
+                  </h3>
                   {isRejected ? (
                     <Badge variant="destructive">{t('teacher.questionViews.replacementRequired')}</Badge>
                   ) : isLowConfidence || isMissing || hasUnresolvedAnswer || hasInvalidAnswer ? (

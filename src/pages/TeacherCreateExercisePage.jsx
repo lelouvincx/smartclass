@@ -55,6 +55,7 @@ function validateRows(rows, t) {
   })
 
   const booleanSubIds = new Map()
+  const sourceQuestions = new Map()
   rows.forEach((row) => {
     if (row.type === 'boolean' && row.sub_id) {
       if (!booleanSubIds.has(String(row.q_id))) {
@@ -63,6 +64,15 @@ function validateRows(rows, t) {
       booleanSubIds.get(String(row.q_id)).add(row.sub_id)
     }
   })
+  for (const row of rows) {
+    const key = `${row.section_key ?? 'main'}:${row.local_number ?? row.q_id}`
+    const existing = sourceQuestions.get(key)
+    if (existing !== undefined && String(existing) !== String(row.q_id)) {
+      sourceQuestions.set(key, null)
+    } else if (existing === undefined) {
+      sourceQuestions.set(key, row.q_id)
+    }
+  }
 
   return rows.map((row) => {
     const errors = []
@@ -71,6 +81,13 @@ function validateRows(rows, t) {
 
     if (!row.q_id || Number.isNaN(qid) || qid <= 0) {
       errors.push(t('teacher.schema.positiveInteger'))
+    }
+    const localNumber = Number.parseInt(String(row.local_number ?? ''), 10)
+    if (Number.isNaN(localNumber) || localNumber <= 0) {
+      errors.push(t('teacher.schema.positiveLocalNumber'))
+    }
+    if (sourceQuestions.get(`${row.section_key ?? 'main'}:${row.local_number ?? row.q_id}`) === null) {
+      errors.push(t('teacher.schema.uniqueLocalNumber'))
     }
 
     if (row.type === 'boolean') {
@@ -111,9 +128,15 @@ function validateRows(rows, t) {
 
 function toSchemaPayload(rows) {
   return rows.map((row) => {
+    const identity = {
+      section_key: row.section_key ?? 'main',
+      section_title: row.section_title?.trim() || null,
+      local_number: Number.parseInt(String(row.local_number ?? row.q_id), 10),
+    }
     if (row.type === 'boolean') {
       return {
         q_id: Number.parseInt(String(row.q_id), 10),
+        ...identity,
         type: 'boolean',
         sub_id: row.sub_id,
         correct_answer: row.correct_answer,
@@ -121,6 +144,7 @@ function toSchemaPayload(rows) {
     }
     return {
       q_id: Number.parseInt(String(row.q_id), 10),
+      ...identity,
       type: row.type,
       correct_answer: normalizeAnswer(row.type, row.correct_answer),
     }
@@ -129,7 +153,7 @@ function toSchemaPayload(rows) {
 
 // --- Row factory ---
 
-function newRows(type, nextQid = '') {
+function newRows(type, nextQid = '', descriptor = {}) {
   const makeId = () =>
     typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
@@ -139,6 +163,9 @@ function newRows(type, nextQid = '') {
     return BOOLEAN_SUB_IDS.map((sub_id) => ({
       id: makeId(),
       q_id: nextQid,
+      section_key: descriptor.section_key ?? 'main',
+      section_title: descriptor.section_title ?? null,
+      local_number: descriptor.local_number ?? nextQid,
       sub_id,
       type: 'boolean',
       correct_answer: '',
@@ -149,6 +176,9 @@ function newRows(type, nextQid = '') {
   return [{
     id: makeId(),
     q_id: nextQid,
+    section_key: descriptor.section_key ?? 'main',
+    section_title: descriptor.section_title ?? null,
+    local_number: descriptor.local_number ?? nextQid,
     sub_id: null,
     type,
     correct_answer: '',
@@ -196,37 +226,25 @@ export default function TeacherCreateExercisePage() {
 
   function handleUpdateRow(id, field, value) {
     setRows((prev) => {
+      const targetRow = prev.find((r) => r.id === id)
       if (field === 'type') {
-        const targetRow = prev.find((r) => r.id === id)
         if (!targetRow) return prev
         const qid = targetRow.q_id
         const otherRows = prev.filter((r) => r.q_id !== qid)
         const insertIndex = prev.findIndex((r) => r.q_id === qid)
-        const replacement = newRows(value, qid)
+        const replacement = newRows(value, qid, targetRow)
         const result = [...otherRows]
         result.splice(insertIndex, 0, ...replacement)
         return result
       }
       return prev.map((row) => {
-        if (row.id !== id) return row
+        const updateWholeQuestion = targetRow?.type === 'boolean'
+          && ['section_title', 'local_number'].includes(field)
+          && row.q_id === targetRow.q_id
+        if (row.id !== id && !updateWholeQuestion) return row
         if (field === 'correct_answer') return { ...row, correct_answer: value }
-        if (field === 'q_id') return { ...row, q_id: value }
         return { ...row, [field]: value }
       })
-    })
-  }
-
-  function handleUpdateQid(id, value) {
-    setRows((prev) => {
-      const targetRow = prev.find((r) => r.id === id)
-      if (!targetRow) return prev
-      if (targetRow.type === 'boolean') {
-        const oldQid = targetRow.q_id
-        return prev.map((r) =>
-          r.type === 'boolean' && r.q_id === oldQid ? { ...r, q_id: value } : r
-        )
-      }
-      return prev.map((r) => r.id === id ? { ...r, q_id: value } : r)
     })
   }
 
@@ -271,6 +289,9 @@ export default function TeacherCreateExercisePage() {
         return {
           id: makeId(),
           q_id: String(row.q_id),
+          section_key: row.section_key ?? 'main',
+          section_title: row.section_title ?? null,
+          local_number: String(row.local_number ?? row.q_id),
           sub_id: row.sub_id ?? null,
           type: row.type,
           correct_answer: confidence >= LOW_CONFIDENCE_THRESHOLD
@@ -549,7 +570,6 @@ export default function TeacherCreateExercisePage() {
           <SchemaTable
             rows={visibleRows}
             onUpdateRow={handleUpdateRow}
-            onUpdateQid={handleUpdateQid}
             onDeleteRow={handleDeleteRow}
             onReorder={filter === 'all' ? handleReorder : undefined}
             showConfidence

@@ -41,6 +41,12 @@ function DragHandleButton({ listeners, attributes, isDragging, questionNumber })
   )
 }
 
+function displayQuestionNumber(row) {
+  return row.section_title
+    ? `${row.section_title}, ${row.local_number ?? row.q_id}`
+    : row.local_number ?? row.q_id
+}
+
 // ── SortableStandardRow ─────────────────────────────────────────────────────────
 
 function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) {
@@ -69,22 +75,29 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
       className={cn('border-t align-top', isDragging && 'bg-muted/60')}
     >
       <td className="w-7 px-1 py-2">
-        <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={row.q_id} />
+        <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={displayQuestionNumber(row)} />
+      </td>
+
+      <td className="px-3 py-2">
+        <span className="block min-w-36 py-3 text-sm font-medium">
+          {row.section_title || t('teacher.schema.mainSection')}
+        </span>
       </td>
 
       <td className="px-3 py-2">
         <Input
-          aria-label={t('teacher.schema.questionNumberAria', { number: row.q_id })}
-          type="text"
-          value={row.q_id}
-          onChange={(e) => onUpdateRow(row.id, 'q_id', e.target.value)}
+          aria-label={t('teacher.schema.localNumberAria', { question: displayQuestionNumber(row) })}
+          type="number"
+          min="1"
+          value={row.local_number ?? row.q_id}
+          onChange={(e) => onUpdateRow(row.id, 'local_number', e.target.value)}
           className="min-h-[48px] w-20"
         />
       </td>
 
       <td className="px-3 py-2">
         <select
-          aria-label={t('teacher.schema.answerTypeAria', { number: row.q_id })}
+          aria-label={t('teacher.schema.answerTypeAria', { number: displayQuestionNumber(row) })}
           value={row.type}
           onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
           className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
@@ -97,7 +110,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
 
       <td className="px-3 py-2">
         <Input
-          aria-label={t('teacher.schema.correctAnswerAria', { number: row.q_id })}
+          aria-label={t('teacher.schema.correctAnswerAria', { number: displayQuestionNumber(row) })}
           type="text"
           value={row.correct_answer}
           onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
@@ -139,7 +152,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
 // A boolean question has 4 sub-rows (a,b,c,d). The drag handle and sortable ref
 // are attached only to the first <tr>; the remaining rows follow visually.
 
-function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow, showConfidence }) {
+function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfidence }) {
   const { t } = useTranslation()
   const firstRow = groupRows[0]
   const qid = String(firstRow.q_id)
@@ -173,22 +186,30 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           {/* Drag handle cell — only on first sub-row */}
           <td className="w-7 px-1 py-2">
             {i === 0 && (
-              <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={row.q_id} />
+              <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={displayQuestionNumber(row)} />
             )}
           </td>
 
-          {/* q_id — editable on first row only */}
+          <td className="px-3 py-2">
+            {i === 0 && (
+              <span className="block min-w-36 py-3 text-sm font-medium">
+                {row.section_title || t('teacher.schema.mainSection')}
+              </span>
+            )}
+          </td>
+
           <td className="px-3 py-2">
             {i === 0 ? (
               <Input
-                aria-label={t('teacher.schema.questionNumberAria', { number: row.q_id })}
-                type="text"
-                value={row.q_id}
-                onChange={(e) => onUpdateQid(row.id, e.target.value)}
+                aria-label={t('teacher.schema.localNumberAria', { question: displayQuestionNumber(row) })}
+                type="number"
+                min="1"
+                value={row.local_number ?? row.q_id}
+                onChange={(e) => onUpdateRow(row.id, 'local_number', e.target.value)}
                 className="min-h-[48px] w-20"
               />
             ) : (
-              <span className="px-2 text-sm text-muted-foreground">{row.q_id}</span>
+              <span className="px-2 text-sm text-muted-foreground">{row.local_number ?? row.q_id}</span>
             )}
           </td>
 
@@ -196,7 +217,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
           <td className="px-3 py-2">
             {i === 0 ? (
               <select
-                aria-label={t('teacher.schema.answerTypeAria', { number: row.q_id })}
+                aria-label={t('teacher.schema.answerTypeAria', { number: displayQuestionNumber(row) })}
                 value="boolean"
                 onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
                 className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
@@ -221,7 +242,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
                   value="1"
                   checked={row.correct_answer === '1'}
                   onChange={() => onUpdateRow(row.id, 'correct_answer', '1')}
-                  aria-label={t('teacher.schema.questionPartTrue', { number: row.q_id, part: row.sub_id })}
+                  aria-label={t('teacher.schema.questionPartTrue', { number: displayQuestionNumber(row), part: row.sub_id })}
                 />
                 {t('teacher.schema.true')}
               </label>
@@ -232,7 +253,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
                   value="0"
                   checked={row.correct_answer === '0'}
                   onChange={() => onUpdateRow(row.id, 'correct_answer', '0')}
-                  aria-label={t('teacher.schema.questionPartFalse', { number: row.q_id, part: row.sub_id })}
+                  aria-label={t('teacher.schema.questionPartFalse', { number: displayQuestionNumber(row), part: row.sub_id })}
                 />
                 {t('teacher.schema.false')}
               </label>
@@ -280,12 +301,11 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onUpdateQid, onDeleteRow
 // Props:
 //   rows           — flat validated row array (may include .confidence, .warnings)
 //   onUpdateRow    — (id, field, value) => void
-//   onUpdateQid    — (id, value) => void
 //   onDeleteRow    — (id) => void
 //   onReorder      — (newRows) => void  — called with full reordered rows array
 //   showConfidence — boolean (default false)
 
-export function SchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow, onReorder, showConfidence = false }) {
+export function SchemaTable({ rows, onUpdateRow, onDeleteRow, onReorder, showConfidence = false }) {
   const { t } = useTranslation()
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -341,6 +361,7 @@ export function SchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow, onReo
           <thead>
             <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
               <th className="w-7 px-1 py-2" />
+              <th className="px-3 py-2">{t('teacher.schema.section')}</th>
               <th className="px-3 py-2">{t('teacher.schema.questionNumber')}</th>
               <th className="px-3 py-2">{t('teacher.schema.type')}</th>
               <th className="px-3 py-2">{t('teacher.schema.correctAnswer')}</th>
@@ -362,7 +383,6 @@ export function SchemaTable({ rows, onUpdateRow, onUpdateQid, onDeleteRow, onReo
                       key={qid}
                       groupRows={groupRows}
                       onUpdateRow={onUpdateRow}
-                      onUpdateQid={onUpdateQid}
                       onDeleteRow={onDeleteRow}
                       showConfidence={showConfidenceCol}
                     />

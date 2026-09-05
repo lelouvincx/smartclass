@@ -65,10 +65,11 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
   const { t } = useTranslation()
   const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
   const status = computeStatus(answer, question.is_correct)
+  const questionNumber = question.local_number ?? question.q_id
 
   return (
     <tr className="border-t">
-      <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: question.q_id })}</td>
+      <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: questionNumber })}</td>
       <td className="px-4 py-3 text-sm font-medium">{display}</td>
       {correctAnswer !== undefined && (
         <td className="px-4 py-3 text-sm text-muted-foreground">{correctAnswer ?? '—'}</td>
@@ -90,6 +91,7 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
  */
 export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
   const { t } = useTranslation()
+  const questionNumber = group.local_number ?? group.q_id
   return (
     <>
       {group.subRows.map(({ sub_id }) => {
@@ -99,7 +101,7 @@ export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
 
         return (
           <tr key={sub_id} className="border-t">
-            <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: `${group.q_id}${sub_id}` })}</td>
+            <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: `${questionNumber}${sub_id}` })}</td>
             <td className="px-4 py-3 text-sm font-medium">
               <BooleanAnswerBadge value={raw} />
             </td>

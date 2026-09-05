@@ -44,6 +44,11 @@ function validateSchemaItems(schema) {
   // Normalize into the shape validateSchemaRows expects
   const rows = schema.map((item) => ({
     q_id: Number.isInteger(item.q_id) ? item.q_id : Number.parseInt(String(item.q_id ?? ''), 10),
+    section_key: item.section_key ?? 'main',
+    section_title: item.section_title ?? null,
+    local_number: item.local_number ?? (
+      Number.isInteger(item.q_id) ? item.q_id : Number.parseInt(String(item.q_id ?? ''), 10)
+    ),
     type: item.type ?? '',
     sub_id: item.sub_id ?? null,
     correct_answer: item.correct_answer === undefined || item.correct_answer === null
@@ -61,6 +66,9 @@ function schemasMatch(left, right) {
   const normalize = rows => rows
     .map(row => ({
       q_id: Number(row.q_id),
+      section_key: row.section_key ?? 'main',
+      section_title: row.section_title ?? null,
+      local_number: Number(row.local_number ?? row.q_id),
       sub_id: row.sub_id ?? null,
       type: row.type,
       correct_answer: String(row.correct_answer),
@@ -71,6 +79,14 @@ function schemasMatch(left, right) {
     ))
 
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
+}
+
+function questionIdentity(item) {
+  return {
+    sectionKey: item.section_key ?? 'main',
+    sectionTitle: item.section_title ?? null,
+    localNumber: Number(item.local_number ?? item.q_id),
+  }
 }
 
 exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async (c) => {
@@ -94,11 +110,19 @@ exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async
 
     const rawRows = parseModelSchemaContent(modelContent)
     const parsedRows = normalizeSchemaRows(rawRows)
-    const normalizedRows = parsedRows.map(row => (
-      row.confidence < MIN_ANSWER_CONFIDENCE
+    const normalizedRows = parsedRows.map((row) => {
+      const invalidNumericAnswer = row.type === 'numeric'
+        && row.correct_answer !== ''
+        && Number.isNaN(Number(row.correct_answer))
+
+      if (invalidNumericAnswer) {
+        return { ...row, correct_answer: '', confidence: 0.3 }
+      }
+
+      return row.confidence < MIN_ANSWER_CONFIDENCE
         ? { ...row, correct_answer: '' }
         : row
-    ))
+    })
     const errors = validateSchemaRows(normalizedRows, { allowBlankAnswers: true })
 
     if (errors.length > 0) {
@@ -253,13 +277,14 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
 
   const schema = isTeacher || !exercise.active_question_asset_set_id
     ? await c.env.DB.prepare(`
-        select q_id, sub_id, type, correct_answer
+        select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
         from answer_schemas
         where exercise_id = ?
         order by q_id asc, sub_id asc
       `).bind(id).all()
     : await c.env.DB.prepare(`
-        select snapshot.q_id, snapshot.sub_id, snapshot.type, snapshot.correct_answer
+        select snapshot.q_id, snapshot.section_key, snapshot.section_title,
+          snapshot.local_number, snapshot.sub_id, snapshot.type, snapshot.correct_answer
         from exercise_question_answer_schemas snapshot
         join exercise_question_asset_sets asset_set on asset_set.id = snapshot.asset_set_id
         where snapshot.asset_set_id = ?
@@ -292,7 +317,14 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
   // Strip correct_answer from schema for non-teachers
   const sanitizedSchema = isTeacher
     ? schema.results
-    : schema.results.map(({ q_id, sub_id, type }) => ({ q_id, sub_id, type }))
+    : schema.results.map(({
+        q_id,
+        section_key,
+        section_title,
+        local_number,
+        sub_id,
+        type,
+      }) => ({ q_id, section_key, section_title, local_number, sub_id, type }))
 
   const pendingQuestionAssetSet = isTeacher
     ? await c.env.DB.prepare(`
@@ -378,12 +410,24 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
     const exerciseId = exerciseResult.meta.last_row_id
 
     // Batch insert answer schemas (atomic) — include sub_id
-    const schemaStmts = schema.map((item) =>
-      c.env.DB.prepare(`
-        INSERT INTO answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
-        VALUES (?, ?, ?, ?, ?)
-      `).bind(exerciseId, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
-    )
+    const schemaStmts = schema.map((item) => {
+      const identity = questionIdentity(item)
+      return c.env.DB.prepare(`
+        INSERT INTO answer_schemas (
+          exercise_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        exerciseId,
+        item.q_id,
+        identity.sectionKey,
+        identity.sectionTitle,
+        identity.localNumber,
+        item.sub_id ?? null,
+        item.type,
+        item.correct_answer,
+      )
+    })
     const gradeStmts = parsedGrades.grades.map((grade) => c.env.DB.prepare(`
       INSERT INTO exercise_grades (exercise_id, grade)
       VALUES (?, ?)
@@ -402,7 +446,8 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
     ).bind(exerciseId).first()
 
     const schemaResult = await c.env.DB.prepare(
-      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
+      `SELECT q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+       FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC`
     ).bind(exerciseId).all()
 
     return jsonSuccess(c, {
@@ -424,13 +469,13 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
   const {
     title,
     duration_minutes,
-    schema,
     is_timed,
     extract_model,
     question_asset_set_id,
     resolved_answer_candidate_keys,
     grades,
   } = body || {}
+  let schema = body?.schema
 
   if (
     !title
@@ -515,6 +560,27 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     }
 
     if (schema) {
+      if (Array.isArray(schema)) {
+        const currentSchema = await c.env.DB.prepare(`
+          select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+          from answer_schemas
+          where exercise_id = ?
+        `).bind(id).all()
+        const currentByKey = new Map(currentSchema.results.map(row => [
+          `${row.q_id}:${row.sub_id ?? ''}`,
+          row,
+        ]))
+        schema = schema.map(item => {
+          const current = currentByKey.get(`${item.q_id}:${item.sub_id ?? ''}`)
+          if (!current) return item
+          return {
+            ...item,
+            section_key: Object.hasOwn(item, 'section_key') ? item.section_key : current.section_key,
+            section_title: Object.hasOwn(item, 'section_title') ? item.section_title : current.section_title,
+            local_number: Object.hasOwn(item, 'local_number') ? item.local_number : current.local_number,
+          }
+        })
+      }
       const schemaError = validateSchemaItems(schema)
       if (schemaError) {
         return jsonError(c, 400, 'INVALID_SCHEMA', schemaError)
@@ -524,7 +590,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     let shouldReplaceSchema = Boolean(schema)
     if (schema && question_asset_set_id === undefined && currentExercise.active_question_asset_set_id) {
       const currentSchema = await c.env.DB.prepare(`
-        select q_id, sub_id, type, correct_answer
+        select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
         from answer_schemas
         where exercise_id = ?
       `).bind(id).all()
@@ -542,11 +608,9 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
 
     let activation = null
     if (question_asset_set_id !== undefined) {
-      const expectedQuestionIds = [...new Set(schema.map((item) => Number(item.q_id)))]
       activation = await validateQuestionAssetSetForActivation(c.env, {
         exerciseId: Number(id),
         setId: question_asset_set_id,
-        expectedQuestionIds,
         schemaRows: schema,
         resolvedAnswerCandidateKeys: resolved_answer_candidate_keys || [],
       })
@@ -587,11 +651,22 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     if (shouldReplaceSchema && question_asset_set_id === undefined) {
       batchStmts.push(c.env.DB.prepare('DELETE FROM answer_schemas WHERE exercise_id = ?').bind(id))
       for (const item of schema) {
+        const identity = questionIdentity(item)
         batchStmts.push(
           c.env.DB.prepare(`
-            INSERT INTO answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
-            VALUES (?, ?, ?, ?, ?)
-          `).bind(id, item.q_id, item.sub_id ?? null, item.type, item.correct_answer)
+            INSERT INTO answer_schemas (
+              exercise_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `).bind(
+            id,
+            item.q_id,
+            identity.sectionKey,
+            identity.sectionTitle,
+            identity.localNumber,
+            item.sub_id ?? null,
+            item.type,
+            item.correct_answer,
+          )
         )
       }
     }
@@ -610,30 +685,46 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
 
     if (activation) {
       const authUser = c.get('authUser')
-      const expectedQuestionIds = [...new Set(schema.map((item) => Number(item.q_id)))]
-      const expectedPlaceholders = expectedQuestionIds.map(() => '?').join(', ')
       const confirmedAt = new Date().toISOString()
-      const proposedSchemaRows = schema.map(() => '(?, ?, ?, ?)').join(', ')
-      const proposedSchemaBindings = schema.flatMap(item => [
-        item.q_id,
-        item.sub_id ?? null,
-        item.type,
-        item.correct_answer,
-      ])
+      const proposedSchemaJson = JSON.stringify(schema.map((item) => {
+        const identity = questionIdentity(item)
+        return {
+          q_id: item.q_id,
+          section_key: identity.sectionKey,
+          section_title: identity.sectionTitle,
+          local_number: identity.localNumber,
+          sub_id: item.sub_id ?? null,
+          type: item.type,
+          correct_answer: item.correct_answer,
+        }
+      }))
       const resolvedKeys = resolved_answer_candidate_keys || []
-      const resolvedRows = resolvedKeys.length > 0
-        ? resolvedKeys.map(() => '(?, ?)').join(', ')
-        : '(null, null)'
-      const resolvedBindings = resolvedKeys.flatMap(key => [key.q_id, key.sub_id ?? null])
+      const resolvedKeysJson = JSON.stringify(resolvedKeys.map(key => ({
+        q_id: key.q_id,
+        sub_id: key.sub_id ?? null,
+      })))
 
       batchStmts.push(c.env.DB.prepare('delete from answer_schemas where exercise_id = ?').bind(id))
       batchStmts.push(c.env.DB.prepare(`
         with
-          proposed_schema (q_id, sub_id, type, correct_answer) as (
-            values ${proposedSchemaRows}
+          proposed_schema (
+            q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+          ) as (
+            select
+              cast(json_extract(value, '$.q_id') as integer),
+              json_extract(value, '$.section_key'),
+              json_extract(value, '$.section_title'),
+              cast(json_extract(value, '$.local_number') as integer),
+              json_extract(value, '$.sub_id'),
+              json_extract(value, '$.type'),
+              json_extract(value, '$.correct_answer')
+            from json_each(?)
           )
           , resolved (q_id, sub_id) as (
-            values ${resolvedRows}
+            select
+              cast(json_extract(value, '$.q_id') as integer),
+              json_extract(value, '$.sub_id')
+            from json_each(?)
           )
         update exercise_question_asset_sets as s
         set confirmed_by = ?, confirmed_at = ?
@@ -655,11 +746,32 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
             limit 1
           )
           and s.detection_method <> 'vision'
+          and not exists (
+            select 1
+            from proposed_schema proposed
+            left join exercise_question_answer_schemas pinned
+              on pinned.asset_set_id = s.id
+              and pinned.q_id = proposed.q_id
+              and coalesce(pinned.sub_id, '') = coalesce(proposed.sub_id, '')
+            where pinned.id is null
+              or pinned.section_key <> proposed.section_key
+              or pinned.section_title is not proposed.section_title
+              or pinned.local_number <> proposed.local_number
+              or pinned.type <> proposed.type
+          )
+          and not exists (
+            select 1
+            from exercise_question_answer_schemas pinned
+            left join proposed_schema proposed
+              on proposed.q_id = pinned.q_id
+              and coalesce(proposed.sub_id, '') = coalesce(pinned.sub_id, '')
+            where pinned.asset_set_id = s.id and proposed.q_id is null
+          )
           and (
             select count(distinct a.q_id)
             from exercise_question_assets a
             where a.asset_set_id = s.id
-          ) = ?
+          ) = (select count(distinct q_id) from proposed_schema)
           and not exists (
             select 1
             from exercise_question_assets a
@@ -667,7 +779,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
               and (
                 a.rejected_at is not null
                 or (a.source_kind = 'pdf_crop' and a.confidence < ?)
-                or a.q_id not in (${expectedPlaceholders})
+                or a.q_id not in (select distinct q_id from proposed_schema)
               )
           )
           and not exists (
@@ -713,61 +825,53 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
               )
           )
       `).bind(
-        ...proposedSchemaBindings,
-        ...resolvedBindings,
+        proposedSchemaJson,
+        resolvedKeysJson,
         authUser.id,
         confirmedAt,
         question_asset_set_id,
         id,
         id,
         id,
-        expectedQuestionIds.length,
         MIN_QUESTION_ASSET_CONFIDENCE,
-        ...expectedQuestionIds,
       ))
 
-      const [firstSchemaItem, ...remainingSchemaItems] = schema
       batchStmts.push(c.env.DB.prepare(`
         insert into exercise_question_answer_schemas (
-          asset_set_id
-          , q_id
-          , sub_id
-          , type
-          , correct_answer
+          asset_set_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
         )
-        values (case when changes() = 1 then ? else null end, ?, ?, ?, ?)
-      `).bind(
-        question_asset_set_id,
-        firstSchemaItem.q_id,
-        firstSchemaItem.sub_id ?? null,
-        firstSchemaItem.type,
-        firstSchemaItem.correct_answer,
-      ))
+        select null, 1, 'main', null, 1, null, 'mcq', '' where changes() <> 1
+      `))
 
-      for (const item of remainingSchemaItems) {
+      for (const item of schema) {
         batchStmts.push(c.env.DB.prepare(`
-          insert into exercise_question_answer_schemas (
-            asset_set_id
-            , q_id
-            , sub_id
-            , type
-            , correct_answer
-          )
-          values (?, ?, ?, ?, ?)
+          update exercise_question_answer_schemas
+          set correct_answer = ?
+          where asset_set_id = ? and q_id = ? and coalesce(sub_id, '') = coalesce(?, '')
         `).bind(
+          item.correct_answer,
           question_asset_set_id,
           item.q_id,
           item.sub_id ?? null,
-          item.type,
-          item.correct_answer,
         ))
       }
 
       for (const item of schema) {
+        const identity = questionIdentity(item)
         batchStmts.push(c.env.DB.prepare(`
-          insert into answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
-          values (?, ?, ?, ?, ?)
-        `).bind(id, item.q_id, item.sub_id ?? null, item.type, item.correct_answer))
+          insert into answer_schemas (
+            exercise_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+          ) values (?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          id,
+          item.q_id,
+          identity.sectionKey,
+          identity.sectionTitle,
+          identity.localNumber,
+          item.sub_id ?? null,
+          item.type,
+          item.correct_answer,
+        ))
       }
 
       batchStmts.push(c.env.DB.prepare(`
@@ -803,7 +907,8 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     ).bind(id).all()
 
     const schemaResult = await c.env.DB.prepare(
-      'SELECT q_id, sub_id, type, correct_answer FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC'
+      `SELECT q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+       FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC`
     ).bind(id).all()
     const gradeResult = await c.env.DB.prepare(`
       SELECT grade

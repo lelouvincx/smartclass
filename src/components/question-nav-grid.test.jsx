@@ -33,6 +33,12 @@ const SCHEMA_MIXED = [
   { q_id: 3, type: 'numeric', sub_id: null },
 ]
 
+const SCHEMA_SECTIONED = [
+  { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'mcq', sub_id: null },
+  { q_id: 2, section_key: 'section-1', section_title: 'Phần I', local_number: 2, type: 'mcq', sub_id: null },
+  { q_id: 3, section_key: 'section-2', section_title: 'Phần II', local_number: 1, type: 'numeric', sub_id: null },
+]
+
 // --- Tests: QuestionNavGrid ---
 
 describe('QuestionNavGrid', () => {
@@ -192,6 +198,22 @@ describe('QuestionNavGrid', () => {
     expect(screen.getByLabelText('Jump to question 3')).toHaveTextContent(/^3$/)
     expect(screen.getByLabelText('Jump to question 1')).toHaveAccessibleDescription('Answered')
     expect(screen.getByLabelText('Jump to question 3')).toHaveAccessibleDescription('Unanswered')
+  })
+
+  it('groups sectioned questions and uses local numbers with full accessible labels', () => {
+    render(
+      <QuestionNavGrid
+        schema={SCHEMA_SECTIONED}
+        answers={{}}
+        currentQId={3}
+        onJump={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Phần I' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Phần II' })).toBeVisible()
+    expect(screen.getByLabelText('Jump to Phần I, question 1')).toHaveTextContent('1')
+    expect(screen.getByLabelText('Jump to Phần II, question 1')).toHaveAttribute('aria-current', 'step')
   })
 })
 

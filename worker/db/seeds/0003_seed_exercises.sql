@@ -39,7 +39,7 @@ where exercises.id in (6, 7, 8, 9);
 delete from answer_schemas
 where exercise_id in (6, 7, 8, 9);
 
-insert into answer_schemas (exercise_id, q_id, sub_id, type, correct_answer)
+with seed_answer_schemas (exercise_id, q_id, sub_id, type, correct_answer) as (
 values
   (6, 1, null, 'mcq', 'B')
   , (6, 2, null, 'mcq', 'B')
@@ -152,4 +152,8 @@ values
   , (9, 21, 'd', 'boolean', '0')
   , (9, 22, null, 'numeric', '48')
   , (9, 23, null, 'numeric', '37')
-  , (9, 24, null, 'numeric', '66.6');
+  , (9, 24, null, 'numeric', '66.6')
+)
+insert into answer_schemas (exercise_id, q_id, local_number, sub_id, type, correct_answer)
+select exercise_id, q_id, q_id, sub_id, type, correct_answer
+from seed_answer_schemas;

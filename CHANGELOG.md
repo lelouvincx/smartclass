@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Support exercise PDFs whose question numbering restarts in named sections while preserving one global grading and navigation order.
+
 ### Changed
 
 - Refine the dedicated lecture viewer so the title, player, local playback-resume cue, YouTube fallback, and previous/next navigation read as one focused learning sequence. [#101](https://github.com/lelouvincx/smartclass/pull/101)

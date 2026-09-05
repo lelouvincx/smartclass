@@ -120,7 +120,10 @@ Table exercise_question_assets {
 Table answer_schemas {
   id             integer [pk, increment]
   exercise_id    integer [not null, ref: > exercises.id]
-  q_id           integer [not null, note: 'Question number (1-based)']
+  q_id           integer [not null, note: 'Globally ordered grading and navigation slot (1-based)']
+  section_key    text    [not null, default: 'main', note: 'Opaque stable source section identity']
+  section_title  text    [note: 'Source-facing Unicode section heading; NULL for unsectioned exercises']
+  local_number   integer [not null, default: 1, note: 'Question number shown within the source section']
   sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
   type           text    [not null, note: 'mcq | boolean | numeric']
   correct_answer text    [not null, note: 'mcq: A/B/C/D  boolean: 0/1  numeric: number string']
@@ -129,6 +132,8 @@ Table answer_schemas {
 
   indexes {
     (exercise_id, q_id, sub_id) [unique, name: 'idx_answer_schemas_unique',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+    (exercise_id, section_key, local_number, sub_id) [unique, name: 'idx_answer_schemas_source_identity',
       note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
   }
 
@@ -142,7 +147,10 @@ Table answer_schemas {
 Table exercise_question_answer_schemas {
   id             integer [pk, increment]
   asset_set_id   integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
-  q_id           integer [not null]
+  q_id           integer [not null, note: 'Globally ordered grading and navigation slot (1-based)']
+  section_key    text    [not null, default: 'main', note: 'Opaque stable source section identity']
+  section_title  text    [note: 'Source-facing Unicode section heading; NULL for unsectioned exercises']
+  local_number   integer [not null, default: 1, note: 'Question number shown within the source section']
   sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
   type           text    [not null, note: 'mcq | boolean | numeric']
   correct_answer text    [not null]
@@ -151,9 +159,11 @@ Table exercise_question_answer_schemas {
   indexes {
     (asset_set_id, q_id, sub_id) [unique, name: 'idx_exercise_question_answer_schemas_set_key',
       note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+    (asset_set_id, section_key, local_number, sub_id) [unique, name: 'idx_exercise_question_answer_schemas_source_identity',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
   }
 
-  Note: 'Immutable answer-schema snapshot used for pinned attempts and historical review.'
+  Note: 'Descriptor and type shape is pinned when the pending asset set is created; answers are finalized at activation and the confirmed snapshot is immutable.'
 }
 
 Table exercise_question_answer_candidates {

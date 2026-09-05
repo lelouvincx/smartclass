@@ -398,6 +398,9 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
     const answersResult = await c.env.DB.prepare(`
       select
         a.q_id,
+        a.section_key,
+        a.section_title,
+        a.local_number,
         a.sub_id,
         a.type,
         a.correct_answer,
@@ -543,13 +546,13 @@ submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
     // minimal columns above. We need (q_id, sub_id, type) only.
     const schemaResult = submission.question_asset_set_id
       ? await c.env.DB.prepare(`
-          select q_id, sub_id, type
+          select q_id, section_key, section_title, local_number, sub_id, type
           from exercise_question_answer_schemas
           where asset_set_id = ?
           order by q_id asc, sub_id asc
         `).bind(submission.question_asset_set_id).all()
       : await c.env.DB.prepare(`
-          select q_id, sub_id, type
+          select q_id, section_key, section_title, local_number, sub_id, type
           from answer_schemas
           where exercise_id = ?
           order by q_id asc, sub_id asc

@@ -29,11 +29,25 @@ function buildSidebarRows(answers) {
   for (const a of answers) {
     if (!seen.has(a.q_id)) {
       if (a.type === 'boolean') {
-        const entry = { q_id: a.q_id, type: 'boolean', subs: [a] }
+        const entry = {
+          q_id: a.q_id,
+          section_key: a.section_key ?? 'main',
+          section_title: a.section_title ?? null,
+          local_number: a.local_number ?? a.q_id,
+          type: 'boolean',
+          subs: [a],
+        }
         seen.set(a.q_id, entry)
         rows.push(entry)
       } else {
-        const entry = { q_id: a.q_id, type: a.type, answer: a }
+        const entry = {
+          q_id: a.q_id,
+          section_key: a.section_key ?? 'main',
+          section_title: a.section_title ?? null,
+          local_number: a.local_number ?? a.q_id,
+          type: a.type,
+          answer: a,
+        }
         seen.set(a.q_id, entry)
         rows.push(entry)
       }
@@ -163,22 +177,36 @@ export function SubmissionReviewSidebar({ submission, currentQId, onJump }) {
                   const chosen = rowChosen(row)
                   const pts = rowPts(row)
                   return (
-                    <tr key={row.q_id} className="border-t first:border-t-0">
-                      <td colSpan={4} className="p-0">
-                        <button
-                          type="button"
-                          aria-label={t('student.results.reviewQuestion', { number: row.q_id })}
-                          aria-current={currentQId === row.q_id ? 'step' : undefined}
-                          onClick={() => onJump?.(row.q_id)}
-                          className={`grid min-h-[48px] w-full grid-cols-[1.25rem_2rem_1fr_2.5rem] items-center px-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${currentQId === row.q_id ? 'bg-primary/10' : ''}`}
-                        >
-                          <span><StatusDot status={status} t={t} /></span>
-                          <span className="font-medium text-muted-foreground">{idx + 1}</span>
-                          <span className="font-medium">{chosen}</span>
-                          <span className="text-right text-muted-foreground">{pts}</span>
-                        </button>
-                      </td>
-                    </tr>
+                    <React.Fragment key={row.q_id}>
+                      {row.section_title && rows[idx - 1]?.section_key !== row.section_key && (
+                        <tr className="border-t bg-muted/50">
+                          <th colSpan={4} scope="rowgroup" className="px-2 py-2 text-left font-semibold">
+                            {row.section_title}
+                          </th>
+                        </tr>
+                      )}
+                      <tr className="border-t first:border-t-0">
+                        <td colSpan={4} className="p-0">
+                          <button
+                            type="button"
+                            aria-label={row.section_title
+                              ? t('student.results.reviewQuestionInSection', {
+                                section: row.section_title,
+                                number: row.local_number,
+                              })
+                              : t('student.results.reviewQuestion', { number: row.local_number })}
+                            aria-current={currentQId === row.q_id ? 'step' : undefined}
+                            onClick={() => onJump?.(row.q_id)}
+                            className={`grid min-h-[48px] w-full grid-cols-[1.25rem_2rem_1fr_2.5rem] items-center px-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${currentQId === row.q_id ? 'bg-primary/10' : ''}`}
+                          >
+                            <span><StatusDot status={status} t={t} /></span>
+                            <span className="font-medium text-muted-foreground">{row.local_number ?? idx + 1}</span>
+                            <span className="font-medium">{chosen}</span>
+                            <span className="text-right text-muted-foreground">{pts}</span>
+                          </button>
+                        </td>
+                      </tr>
+                    </React.Fragment>
                   )
                 })}
               </tbody>

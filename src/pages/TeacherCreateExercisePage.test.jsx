@@ -103,6 +103,9 @@ describe('TeacherCreateExercisePage', () => {
       schema: [
         {
           q_id: 1,
+          section_key: 'main',
+          section_title: null,
+          local_number: 1,
           type: 'mcq',
           correct_answer: 'B',
         },
@@ -146,6 +149,9 @@ describe('TeacherCreateExercisePage', () => {
       schema: [
         {
           q_id: 1,
+          section_key: 'main',
+          section_title: null,
+          local_number: 1,
           type: 'mcq',
           correct_answer: 'C',
         },
@@ -233,6 +239,50 @@ describe('TeacherCreateExercisePage', () => {
     expect(createExerciseMock).not.toHaveBeenCalled()
   })
 
+  it('keeps repeated local numbers from different parsed sections', async () => {
+    const user = userEvent.setup()
+    extractTextFromPdfMock.mockResolvedValue('Phần I Câu 1. A Phần II Câu 1. B')
+    parseExerciseSchemaMock.mockResolvedValue({
+      data: {
+        schema: [
+          {
+            q_id: 1,
+            section_key: 'section-1',
+            section_title: 'Phần I',
+            local_number: 1,
+            sub_id: null,
+            type: 'mcq',
+            correct_answer: 'A',
+            confidence: 0.95,
+          },
+          {
+            q_id: 2,
+            section_key: 'section-2',
+            section_title: 'Phần II',
+            local_number: 1,
+            sub_id: null,
+            type: 'mcq',
+            correct_answer: 'B',
+            confidence: 0.95,
+          },
+        ],
+      },
+    })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.upload(
+      screen.getByLabelText(/Answer PDF — teacher copy/i),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByText('Phần I')).toBeInTheDocument()
+    expect(screen.getByText('Phần II')).toBeInTheDocument()
+    expect(screen.getByLabelText('Source number for Phần I, 1')).toHaveValue(1)
+    expect(screen.getByLabelText('Source number for Phần II, 1')).toHaveValue(1)
+  })
+
   it('adding a boolean row creates 4 sub-question toggles (a,b,c,d)', async () => {
     const user = userEvent.setup()
 
@@ -287,10 +337,10 @@ describe('TeacherCreateExercisePage', () => {
       is_timed: true,
       duration_minutes: 60,
       schema: [
-        { q_id: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
-        { q_id: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
-        { q_id: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
-        { q_id: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
       ],
       extract_model: null,
       grades: [10, 11, 12],
@@ -342,7 +392,7 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     // Default state: 1 MCQ row → 1 drag handle
-    await screen.findByLabelText(/question number 1/i)
+    await screen.findByLabelText(/source number for 1/i)
     const handles = screen.getAllByRole('button', { name: /move question/i })
     expect(handles.length).toBeGreaterThanOrEqual(1)
   })
