@@ -68,6 +68,8 @@ describe('SettingsPage sections', () => {
     expect(passwordToggle).toHaveAttribute('aria-expanded', 'false')
     expect(accountsToggle).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByLabelText('Current password')).not.toBeVisible()
+    expect(screen.queryByText('Choose the name shown on your SmartClass account.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Choose the language used in the teacher and student application.')).not.toBeInTheDocument()
 
     await user.click(passwordToggle)
     await user.type(screen.getByLabelText('Current password'), 'keep-this-value')
