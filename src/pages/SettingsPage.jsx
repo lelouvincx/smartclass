@@ -38,8 +38,8 @@ function GoogleGIcon({ className }) {
   )
 }
 
-function SettingSection({ id, title, description, toggleLabel, children }) {
-  const [isExpanded, setIsExpanded] = useState(true)
+function SettingSection({ id, title, toggleLabel, children }) {
+  const [isExpanded, setIsExpanded] = useState(false)
   const contentId = `${id}-content`
 
   return (
@@ -63,7 +63,6 @@ function SettingSection({ id, title, description, toggleLabel, children }) {
             />
           </button>
         </h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       <CardContent id={contentId} hidden={!isExpanded} className="pb-4">
         {children}
@@ -184,7 +183,6 @@ export default function SettingsPage() {
         <SettingSection
           id="profile-setting"
           title={t('settings.profile.title')}
-          description={t('settings.profile.description')}
           toggleLabel={t('settings.sectionToggle', { title: t('settings.profile.title') })}
         >
           <form onSubmit={handleProfileSubmit}>
@@ -225,7 +223,6 @@ export default function SettingsPage() {
         <SettingSection
           id="language-setting"
           title={t('settings.language.title')}
-          description={t('settings.language.description')}
           toggleLabel={t('settings.sectionToggle', { title: t('settings.language.title') })}
         >
           <Label htmlFor="language">{t('settings.language.label')}</Label>
@@ -243,7 +240,6 @@ export default function SettingsPage() {
           <SettingSection
             id="password-setting"
             title={t('settings.password.title')}
-            description={t('settings.password.description')}
             toggleLabel={t('settings.sectionToggle', { title: t('settings.password.title') })}
           >
             <form onSubmit={handlePasswordChange}>
@@ -319,7 +315,6 @@ export default function SettingsPage() {
         <SettingSection
           id="accounts-setting"
           title={t('settings.accounts.title')}
-          description={t('settings.accounts.description')}
           toggleLabel={t('settings.sectionToggle', { title: t('settings.accounts.title') })}
         >
           {isLinked ? (
