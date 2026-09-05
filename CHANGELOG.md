@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Support exercise PDFs whose question numbering restarts in named sections while preserving one global grading and navigation order.
+- Support exercise PDFs whose question numbering restarts in named sections while preserving one global grading and navigation order. [#104](https://github.com/lelouvincx/smartclass/pull/104)
 
 ### Changed
 
