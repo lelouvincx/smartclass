@@ -10,7 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Collapse every Settings section by default while keeping each section independently expandable.
+- Collapse every Settings section by default while keeping each section independently expandable. [#103](https://github.com/lelouvincx/smartclass/pull/103)
 - Refine the dedicated lecture viewer so the title, player, local playback-resume cue, YouTube fallback, and previous/next navigation read as one focused learning sequence. [#101](https://github.com/lelouvincx/smartclass/pull/101)
 
 ### Deprecated
