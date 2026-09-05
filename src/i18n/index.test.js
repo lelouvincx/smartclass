@@ -20,13 +20,13 @@ afterEach(async () => {
 })
 
 describe('language preference', () => {
-  it('defaults to English without inferring the browser language', () => {
-    expect(getInitialLanguage({ getItem: () => null })).toBe('en')
+  it('defaults to Vietnamese without inferring the browser language', () => {
+    expect(getInitialLanguage({ getItem: () => null })).toBe('vi')
   })
 
   it('restores only supported saved languages', () => {
     expect(getInitialLanguage({ getItem: () => 'vi' })).toBe('vi')
-    expect(getInitialLanguage({ getItem: () => 'fr' })).toBe('en')
+    expect(getInitialLanguage({ getItem: () => 'fr' })).toBe('vi')
   })
 
   it('persists changes and updates the document language', async () => {
@@ -37,11 +37,11 @@ describe('language preference', () => {
     expect(document.documentElement.lang).toBe('vi')
   })
 
-  it('falls back to English for unsupported changes', async () => {
+  it('falls back to Vietnamese for unsupported changes', async () => {
     await changeLanguage('fr')
 
-    expect(i18n.resolvedLanguage).toBe('en')
-    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('en')
+    expect(i18n.resolvedLanguage).toBe('vi')
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('vi')
   })
 
   it('keeps English and Vietnamese resource keys in parity', () => {

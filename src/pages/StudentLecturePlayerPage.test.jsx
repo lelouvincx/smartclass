@@ -42,7 +42,7 @@ describe('StudentLecturePlayerPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Worked example' })).toBeInTheDocument()
     expect(listLecturesMock).toHaveBeenCalledWith('student-token')
-    expect(screen.getByTitle('Worked example video')).toHaveAttribute(
+    expect(await screen.findByTitle('Worked example video')).toHaveAttribute(
       'src',
       expect.stringContaining('https://www.youtube-nocookie.com/embed/lmnopqrstuv?enablejsapi=1'),
     )
