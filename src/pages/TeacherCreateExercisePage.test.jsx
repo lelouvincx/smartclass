@@ -140,7 +140,9 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Untimed Quiz')
     await user.click(screen.getByLabelText('Timed mode toggle'))
-    expect(screen.getByLabelText(/duration \(minutes\)/i)).toBeDisabled()
+    const durationInput = screen.getByLabelText(/duration \(minutes\)/i)
+    expect(durationInput).toBeDisabled()
+    expect(durationInput).toHaveValue(null)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))

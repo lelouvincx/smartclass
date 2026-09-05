@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Simplify exercise forms with a compact grade selector that defaults to grade 12, the default image-extraction model, and distinct Exercise PDF and Answer PDF colors.
+- Simplify exercise forms with a compact grade selector that defaults to grade 12, a blank duration field in untimed mode, the default image-extraction model, and distinct Exercise PDF and Answer PDF colors.
 - Collapse every Settings section by default while keeping each section independently expandable. [#103](https://github.com/lelouvincx/smartclass/pull/103)
 - Refine the dedicated lecture viewer so the title, player, local playback-resume cue, YouTube fallback, and previous/next navigation read as one focused learning sequence. [#101](https://github.com/lelouvincx/smartclass/pull/101)
 

@@ -454,7 +454,7 @@ export default function TeacherCreateExercisePage() {
                   <Input
                     id="duration"
                     type="number"
-                    value={durationMinutes}
+                    value={isTimed ? durationMinutes : ''}
                     onChange={(e) => setDurationMinutes(e.target.value)}
                     disabled={!isTimed}
                     className="w-full sm:w-24"
