@@ -8,6 +8,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+### Security
+
+## [0.5] - 2026-09-05
+
+### Added
+
 - Add teacher-managed grade 10–12 memberships, bulk student assignment, and grade-overlap access enforcement for exercises, lectures, and protected learning files. [#99](https://github.com/lelouvincx/smartclass/pull/99)
 - Add names to student accounts, let teachers and students rename themselves, and let teachers rename students from the student list. [#99](https://github.com/lelouvincx/smartclass/pull/99)
 - Remember each authenticated student's YouTube lecture position in the current browser and resume it after refresh or revisit without autoplay. [#97](https://github.com/lelouvincx/smartclass/pull/97)
@@ -30,6 +44,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Publish the accumulated lecture and learning-experience work as v0.5 and advance planned work to v0.6. [#100](https://github.com/lelouvincx/smartclass/pull/100)
 - Require light- and dark-mode visual QA evidence in pull request descriptions and close browser sessions during post-merge cleanup. [#98](https://github.com/lelouvincx/smartclass/pull/98)
 - Make `DESIGN.md` a lintable Google DESIGN.md contract with machine-readable colors, typography, spacing, shapes, and component tokens. [#94](https://github.com/lelouvincx/smartclass/pull/94)
 - Replace the student PDF iframe with synchronized isolated-question images and direct answer controls. Give desktop attempts a compact app rail, wide workspace, and narrow answer rail so questions remain dominant. On phones, place the selected question preview between the answer-sheet control and matching answer choices, open it in a full-screen pinch-and-button zoom viewer, retain an authenticated download of the complete answer-free Exercise PDF, and use the mobile header instead of a space-consuming sidebar in short landscape viewports. Remove the Manual/Photo selector and answer-photo upload from the take page. [#91](https://github.com/lelouvincx/smartclass/pull/91)
