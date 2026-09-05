@@ -31,7 +31,7 @@ create trigger submissions_assign_attempt_number_compat
 after insert on submissions
 for each row
 when new.user_id is not null and new.attempt_number is null
-begin
+BEGIN
   update submissions
   set attempt_number = (
     select coalesce(max(existing.attempt_number), 0) + 1

@@ -215,7 +215,7 @@ Table submissions {
     (user_id, exercise_id, attempt_number) [unique, name: 'idx_submissions_user_exercise_attempt', note: 'Partial index for authenticated submissions']
   }
 
-  Note: 'An expand-deployment compatibility trigger assigns attempt_number when the previous Worker omits it.'
+  Note: 'During the expand deployment, a compatibility trigger assigns attempt_number when the previous Worker omits it.'
 }
 
 Table submission_answers {
