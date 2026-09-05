@@ -116,7 +116,7 @@ export default function StudentExercisesPage() {
 
         {!isLoading && !error && items.length > 0 && (
           <>
-            <div className="hidden sm:block">
+            <div className="hidden overflow-x-auto sm:block">
               <table className="min-w-full border-collapse text-sm">
                 <caption className="sr-only">{t('student.exercises.available')}</caption>
                 <thead className="bg-muted text-left text-muted-foreground">

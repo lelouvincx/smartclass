@@ -56,6 +56,18 @@ describe('TeacherCreateExercisePage', () => {
     logoutMock.mockReset()
   })
 
+  it('lets the metadata form shrink to narrow mobile widths', () => {
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    expect(screen.getByLabelText(/exercise title/i).parentElement?.parentElement).toHaveClass(
+      'grid-cols-[minmax(0,1fr)]',
+    )
+    expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
+    expect(screen.getByRole('group', { name: /duration presets/i })).toHaveClass('grid-cols-3')
+    expect(screen.getByText(/questions: 1/i).parentElement).toHaveClass('flex-wrap')
+    expect(screen.getByRole('button', { name: /^all$/i }).parentElement).toHaveClass('grid-cols-2')
+  })
+
   it('requires separate student and teacher PDFs before saving', async () => {
     const user = userEvent.setup()
 

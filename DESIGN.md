@@ -219,9 +219,13 @@ SmartClass uses `html { font-size: 125% }` as a readable default without making 
 
 ## Layout
 
+Desktop and mobile are equal product targets. Every interface change must preserve the complete task flow, content hierarchy, and access to primary actions in both form factors; neither may be deferred as follow-up work. Start with fluid, shrinkable content and add desktop composition at breakpoints. Avoid fixed content widths, unbreakable action rows, and minimum-size grid tracks that can force document-level horizontal overflow.
+
 Desktop uses a fixed, quiet sidebar that people can collapse to the compact labelled-icon rail. Remember that preference on the device and keep the centered content column no wider than 64rem. The active exercise-taking route is the intentional exception: temporarily use the compact rail and a wide workspace without changing the saved sidebar preference, bound the answer rail, and give remaining width to the question image. Main page composition follows a 24–32px vertical rhythm. Cards use 16–24px internal padding and responsive grids rather than fixed card widths.
 
-At mobile widths and in short landscape viewports, replace the sidebar with a labelled menu button and a left drawer so navigation never consumes scarce reading width. The drawer must close through its close control, overlay dismissal, Escape, and route selection. Keep every interactive target at least 48 × 48 CSS pixels. Tables may scroll horizontally, but primary actions and essential labels must remain discoverable without hover. Wide isolated-question images use a fit-width inline preview that opens a full-screen viewer: portrait starts at a readable scale with swipe, pinch, and button zoom, while landscape starts fit-to-width.
+At mobile widths and in short landscape viewports, replace the sidebar with a labelled menu button and a left drawer so navigation never consumes scarce reading width. The drawer must close through its close control, overlay dismissal, Escape, and route selection. Keep every interactive target at least 48 × 48 CSS pixels.
+
+At these viewports, the document must not scroll horizontally. Dense tables and schemas may instead scroll horizontally within their own visibly bounded container, but primary actions and essential labels must remain discoverable without hover. Wide isolated-question images use a fit-width inline preview that opens a full-screen viewer: portrait starts at a readable scale with swipe, pinch, and button zoom, while landscape starts fit-to-width.
 
 Prefer summary cards and dedicated detail routes over unbounded inline expansion. Long titles wrap or expose their full value; truncation requires a full-title affordance.
 
@@ -261,7 +265,6 @@ Motion explains state and hierarchy; it is not decoration. Keep dense flows shor
 - **Do** keep learning content, progress, and the next action visually dominant.
 - **Do** use semantic headings, landmarks, current-route state, visible focus, and labelled icon controls.
 - **Do** provide useful empty-state recovery and preserve full access to long titles.
-- **Do** test the shell and primary tasks at desktop and 390px mobile widths.
 - **Don't** copy third-party brand assets, course images, or proprietary copy into SmartClass.
 - **Don't** use controls smaller than 48 × 48px or rely on hover-only actions.
 - **Don't** let support widgets, floating controls, or sticky actions overlap learning content.
@@ -269,3 +272,14 @@ Motion explains state and hierarchy; it is not decoration. Keep dense flows shor
 - **Don't** create excessive inline expansion that pushes the next course or task far below the fold.
 - **Don't** treat Material guidance as a requirement to replace shadcn/Radix primitives or imitate every Material component.
 - **Don't** add expressive motion, oversized type, or high shape contrast to dense assessment and administration rows.
+
+### Frontend acceptance
+
+For every frontend change:
+
+1. **Scope:** Treat a route as affected when it changes directly or renders a changed shared component. On each affected route, exercise the primary task and test the default state, every state added or changed, and each of these states when present in the changed component or layout: loading, empty, error or validation, longest realistic content, and open drawers, menus, dialogs, sticky controls, or floating controls.
+2. **Baseline behavior:** Complete those checks at 390 × 844 mobile and 1280 × 800 desktop. A state does not need to be repeated in both themes unless its implementation is theme-specific.
+3. **Theme coverage:** At each baseline viewport, visually inspect at least one affected state in both light and dark mode. This creates four required baseline combinations: mobile light, mobile dark, desktop light, and desktop dark. Inspect every theme-specific state in both themes.
+4. **Compression checks:** For changes to layout, sizing, text, navigation, tables or schemas, images, sticky regions, or floating controls, also test 320 × 568 portrait and 844 × 390 landscape. One theme is sufficient for these checks unless theme-specific styling changes layout or visibility.
+5. **Pass criteria:** A check passes only when the complete task remains usable; content hierarchy and primary actions remain readable and reachable; content and controls are not clipped or overlapped; the document does not scroll horizontally; intentional inner scrollers are visibly bounded and discoverable; interactions do not rely on hover; and contrast and focus remain visible in both themes.
+6. **Evidence:** In the pull request description, list every route and state tested. Attach at least one screenshot or recording for each required baseline combination and each required compression viewport; evidence need not duplicate every tested state. Use recordings for changed interactions. Mark each inapplicable compression viewport as `N/A` with a reason, and report every check that could not run.

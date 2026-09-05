@@ -78,6 +78,7 @@ describe('TeacherExercisesPage', () => {
 
     const table = await screen.findByRole('table', { name: 'Teacher exercise library' })
     expect(table).toBeInTheDocument()
+    expect(table.parentElement).toHaveClass('overflow-x-auto')
     expect(table.closest('[data-slot="card"]')).toHaveClass('py-0')
     expect(table.closest('[data-slot="card"]')).not.toHaveClass('py-4')
     expect(screen.getAllByText('Physics Quiz')).toHaveLength(2)
