@@ -39,7 +39,7 @@ function GoogleGIcon({ className }) {
 }
 
 function SettingSection({ id, title, description, toggleLabel, children }) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
   const contentId = `${id}-content`
 
   return (
