@@ -14,7 +14,6 @@ Priorities apply within each version:
 - [ ] **P0** Add structured production logging and monitoring
 - [ ] **P1** Plan guest mode: design IndexedDB storage, guest route access, and a data model for anonymous exercise completion
 - [ ] **P1** Prompt guests to register after engagement
-- [ ] **P1** Buy and configure the production domain
 - [ ] **P1** Add a cost analysis and estimation dashboard
 
 **Outcome:** anonymous users can try a reliable, production-ready platform before registering.
