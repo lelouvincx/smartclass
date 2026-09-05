@@ -25,6 +25,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Allow the production frontend domain to call the API so Google sign-in can complete. [#108](https://github.com/lelouvincx/smartclass/pull/108)
 - Keep exercise creation controls and exercise-library tables usable without clipping on narrow and short-landscape viewports. [#102](https://github.com/lelouvincx/smartclass/pull/102)
 
 ### Security

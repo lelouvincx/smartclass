@@ -16,7 +16,9 @@ import { BUILD_COMMIT } from './version.js'
 const app = new Hono()
 
 app.use('/api/*', async (c, next) => {
-  const allowedOrigin = c.env.APP_CORS_ORIGIN || 'http://localhost:5173'
+  const allowedOrigin = c.env.APP_ENV === 'production'
+    ? 'https://toanthaythanh.com'
+    : c.env.APP_CORS_ORIGIN || 'http://localhost:5173'
 
   return cors({
     origin: (origin) => {
