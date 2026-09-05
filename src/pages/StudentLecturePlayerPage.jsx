@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, ExternalLink, VideoOff } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, History, VideoOff } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import { listLectures } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -78,65 +78,79 @@ export default function StudentLecturePlayerPage() {
   }
 
   return (
-    <article className="mx-auto max-w-5xl space-y-6">
-      <Button asChild variant="ghost" className="-ms-2">
-        <Link to="/student/lectures"><ArrowLeft aria-hidden="true" />{t('student.lectures.back')}</Link>
-      </Button>
-
-      <header className="space-y-2">
-        <p className="text-sm font-medium text-primary">{lecture.section_name}</p>
+    <article className="mx-auto max-w-5xl space-y-7">
+      <header className="space-y-5 border-b border-border pb-6">
+        <Button asChild variant="ghost" className="-ms-2">
+          <Link to="/student/lectures"><ArrowLeft aria-hidden="true" />{t('student.lectures.back')}</Link>
+        </Button>
         <h1
           ref={headingRef}
           tabIndex={-1}
-          className="text-[length:var(--sc-type-headline-size)] leading-[var(--sc-type-headline-line-height)] font-[var(--sc-type-headline-weight)] tracking-[-0.03em] text-balance outline-none"
+          className="max-w-[28ch] text-[length:var(--sc-type-headline-size)] leading-[var(--sc-type-headline-line-height)] font-[var(--sc-type-headline-weight)] tracking-[-0.03em] text-balance outline-none"
         >
           {lecture.title}
         </h1>
+        <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+          <BookOpen className="size-4 text-primary" aria-hidden="true" />
+          {lecture.section_name}
+        </p>
       </header>
 
-      <div className="overflow-hidden rounded-[var(--sc-component-card-shape)] border border-border bg-black shadow-[var(--shadow-card)]">
-        {videoId ? (
-          <YouTubeLecturePlayer
-            key={`${user.id}:${lecture.id}:${videoId}`}
-            accountId={user.id}
-            lectureId={lecture.id}
-            videoId={videoId}
-            title={t('student.lectures.videoTitle', { title: lecture.title })}
-          />
-        ) : (
-          <div className="flex aspect-video items-center justify-center p-6 text-center text-sm text-white">
-            {t('student.lectures.embedUnavailable')}
-          </div>
-        )}
-      </div>
+      <section
+        aria-label={t('student.lectures.videoTitle', { title: lecture.title })}
+        className="overflow-hidden rounded-[var(--sc-component-card-shape)] border border-border bg-card shadow-[var(--shadow-card)]"
+      >
+        <div className="bg-black">
+          {videoId ? (
+            <YouTubeLecturePlayer
+              key={`${user.id}:${lecture.id}:${videoId}`}
+              accountId={user.id}
+              lectureId={lecture.id}
+              videoId={videoId}
+              title={t('student.lectures.videoTitle', { title: lecture.title })}
+            />
+          ) : (
+            <div className="flex aspect-video items-center justify-center p-6 text-center text-sm text-white">
+              {t('student.lectures.embedUnavailable')}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-3 border-t border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <History className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            {t('student.lectures.playbackResume')}
+          </p>
+          <Button asChild variant="ghost" className="self-start sm:self-auto">
+            <a href={lecture.youtube_url} target="_blank" rel="noreferrer">
+              {t('student.lectures.openYoutube')}<ExternalLink aria-hidden="true" />
+            </a>
+          </Button>
+        </div>
+      </section>
 
-      <div className="flex justify-end">
-        <Button asChild variant="outline">
-          <a href={lecture.youtube_url} target="_blank" rel="noreferrer">
-            {t('student.lectures.openYoutube')}<ExternalLink aria-hidden="true" />
-          </a>
-        </Button>
-      </div>
-
-      <nav aria-label={t('student.lectures.sequenceNavigation')} className="grid gap-3 border-t pt-6 sm:grid-cols-2">
+      <nav aria-label={t('student.lectures.sequenceNavigation')} className="grid gap-3 sm:grid-cols-2">
         {previous ? (
           <Link
             to={getLecturePath(previous)}
             aria-label={t('student.lectures.previousNamed', { title: previous.title })}
-            className="group flex min-h-[72px] items-center gap-3 rounded-[var(--sc-component-card-shape)] border bg-card p-4 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="group flex min-h-24 items-center gap-4 rounded-[var(--sc-component-card-shape)] border bg-card p-4 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <ArrowLeft className="size-5 shrink-0 text-primary" aria-hidden="true" />
-            <span className="min-w-0"><span className="block text-xs text-muted-foreground">{t('student.lectures.previous')}</span><span className="block font-medium">{previous.title}</span></span>
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-muted text-primary transition-colors group-hover:bg-sc-primary-container">
+              <ArrowLeft className="size-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 space-y-1"><span className="block text-xs font-medium text-muted-foreground">{t('student.lectures.previous')}</span><span className="block font-semibold leading-snug text-foreground">{previous.title}</span></span>
           </Link>
         ) : <span />}
         {next && (
           <Link
             to={getLecturePath(next)}
             aria-label={t('student.lectures.nextNamed', { title: next.title })}
-            className="group flex min-h-[72px] items-center justify-end gap-3 rounded-[var(--sc-component-card-shape)] border border-primary/15 bg-sc-primary-container p-4 text-end text-sc-on-primary-container shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/30 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="group flex min-h-24 items-center justify-end gap-4 rounded-[var(--sc-component-card-shape)] border border-primary/15 bg-sc-primary-container p-4 text-end text-sc-on-primary-container shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/35 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
-            <span className="min-w-0"><span className="block text-xs opacity-75">{t('student.lectures.next')}</span><span className="block font-semibold">{next.title}</span></span>
-            <ArrowRight className="size-5 shrink-0 transition-transform group-hover:translate-x-1 motion-reduce:transition-none" aria-hidden="true" />
+            <span className="min-w-0 space-y-1"><span className="block text-xs font-medium opacity-75">{t('student.lectures.next')}</span><span className="block font-semibold leading-snug">{next.title}</span></span>
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-primary text-primary-foreground">
+              <ArrowRight className="size-5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+            </span>
           </Link>
         )}
       </nav>

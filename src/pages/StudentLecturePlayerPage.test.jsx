@@ -42,11 +42,12 @@ describe('StudentLecturePlayerPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Worked example' })).toBeInTheDocument()
     expect(listLecturesMock).toHaveBeenCalledWith('student-token')
-    expect(await screen.findByTitle('Worked example video')).toHaveAttribute(
+    expect(screen.getByTitle('Worked example video')).toHaveAttribute(
       'src',
       expect.stringContaining('https://www.youtube-nocookie.com/embed/lmnopqrstuv?enablejsapi=1'),
     )
     expect(screen.getByText('Chapter 1')).toBeInTheDocument()
+    expect(screen.getByText('Playback resumes on this device')).toBeInTheDocument()
     expect(screen.queryByText('Lecture 2 of 3')).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Previous: Introduction' })).toHaveAttribute('href', '/student/lectures/1-introduction')
     expect(screen.getByRole('link', { name: 'Next: Functions' })).toHaveAttribute('href', '/student/lectures/3-functions')
