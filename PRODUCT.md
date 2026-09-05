@@ -32,7 +32,7 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 
 ## Assessment model
 
-- Exercises may be timed or untimed and target one or more grades (10, 11, or 12), defaulting to all three. Teachers provide an answer-free Exercise PDF for students and a separate teacher-only Answer PDF containing answers or green highlights. Keeping the student copy free of answer cues is the teacher's responsibility.
+- Exercises may be timed or untimed and target one or more grades (10, 11, or 12), defaulting to grade 12. Teachers provide an answer-free Exercise PDF for students and a separate teacher-only Answer PDF containing answers or green highlights. Keeping the student copy free of answer cues is the teacher's responsibility.
 - Supported answer types are multiple choice (A/B/C/D), numeric, and true/false questions with four independently answered sub-questions (`a`–`d`). Exercises may group questions into named sections whose printed numbering restarts. SmartClass keeps a separate global question order for grading and navigation.
 - Teachers prepare an exercise through one review workflow. SmartClass detects section and question regions in the Exercise PDF, renders ordered question images, and combines Answer PDF parsing with deterministic green-highlight candidates from the Answer PDF in one editable answer table.
 - A teacher reviews every generated image and final answer, resolves conflicts, and activates both as one version. A rejected question can be retried, replaced with one clean screenshot, or resolved by replacing the source PDF. Scanned-PDF vision detection is not enabled; unsupported PDFs require screenshots or replacement.

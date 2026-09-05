@@ -29,7 +29,6 @@ import { SchemaTable } from '@/components/schema-table'
 import { GradeDropdown } from '@/components/grade-checkbox-group'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
-import { GRADES } from '@/lib/grades'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -194,7 +193,7 @@ export default function TeacherCreateExercisePage() {
   const { token } = useAuth()
 
   const [title, setTitle] = useState('')
-  const [grades, setGrades] = useState([...GRADES])
+  const [grades, setGrades] = useState([12])
   const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [exerciseFile, setExerciseFile] = useState(null)

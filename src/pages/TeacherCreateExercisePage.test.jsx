@@ -65,7 +65,7 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
     expect(screen.getByRole('group', { name: /duration presets/i })).toHaveClass('grid-cols-3')
     expect(screen.getByText(/questions: 1/i).parentElement).toHaveClass('flex-wrap')
-    expect(screen.getByRole('button', { name: /grade access/i })).toHaveTextContent('All grades')
+    expect(screen.getByRole('button', { name: /grade access/i })).toHaveTextContent('Grade 12')
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     expect(screen.getByTestId('exercise-pdf-upload')).toHaveClass('bg-sc-primary-container')
     expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
@@ -114,7 +114,7 @@ describe('TeacherCreateExercisePage', () => {
         },
       ],
       extract_model: null,
-      grades: [10, 11, 12],
+      grades: [12],
     })
   })
 
@@ -160,7 +160,7 @@ describe('TeacherCreateExercisePage', () => {
         },
       ],
       extract_model: null,
-      grades: [10, 11, 12],
+      grades: [12],
     })
   })
 
@@ -346,7 +346,7 @@ describe('TeacherCreateExercisePage', () => {
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
       ],
       extract_model: null,
-      grades: [10, 11, 12],
+      grades: [12],
     })
   })
 
@@ -359,12 +359,12 @@ describe('TeacherCreateExercisePage', () => {
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Grade access' }))
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 10' }))
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      grades: [10, 11],
+      grades: [10, 12],
     }))
   })
 
