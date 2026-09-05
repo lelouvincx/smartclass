@@ -37,11 +37,11 @@ vi.mock('../lib/auth-context', () => ({
 
 async function uploadRequiredPdfs(user) {
   await user.upload(
-    screen.getByLabelText(/Exercise PDF — student copy/i),
+    screen.getByLabelText(/Exercise PDF/i),
     new File(['exercise-pdf'], 'questions.pdf', { type: 'application/pdf' }),
   )
   await user.upload(
-    screen.getByLabelText(/Answer PDF — teacher copy/i),
+    screen.getByLabelText(/Answer PDF/i),
     new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }),
   )
 }
@@ -194,8 +194,8 @@ describe('TeacherCreateExercisePage', () => {
     const answerPdf = new File(['fake-pdf'], 'answer.pdf', { type: 'application/pdf' })
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Fallback Quiz')
-    await user.upload(screen.getByLabelText(/Exercise PDF — student copy/i), new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }))
-    await user.upload(screen.getByLabelText(/Answer PDF — teacher copy/i), answerPdf)
+    await user.upload(screen.getByLabelText(/Exercise PDF/i), new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }))
+    await user.upload(screen.getByLabelText(/Answer PDF/i), answerPdf)
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
     expect(await screen.findByText('DeepSeek unavailable')).toBeInTheDocument()
@@ -224,7 +224,7 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.upload(
-      screen.getByLabelText(/Answer PDF — teacher copy/i),
+      screen.getByLabelText(/Answer PDF/i),
       new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
     )
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
@@ -272,7 +272,7 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.upload(
-      screen.getByLabelText(/Answer PDF — teacher copy/i),
+      screen.getByLabelText(/Answer PDF/i),
       new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
     )
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
