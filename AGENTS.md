@@ -18,6 +18,13 @@
 - For local product testing, sign in automatically with a seed account instead of asking Chinh: teacher `+84865481769` or active student `+84900000001`, both with password `123`.
 - Do not seed `exercise_files` rows unless the corresponding local R2 objects are also seeded.
 
+## Local API development
+
+- When local Wrangler needs the DeepSeek credential, run `agent-secrets run --bundle smartclass-deepseek -- /Users/lelouvincx/.local/bin/smartclass-wrangler-dev dev`.
+- Find the wrapper source at `/Users/lelouvincx/Developer/agent-skills/bin/smartclass-wrangler-dev`; do not edit the projected `~/.local/bin` symlink.
+- Use the wrapper's `probe` operation to verify credential presence without printing its value.
+- Keep the wrapper limited to its fixed local `wrangler dev --local` command and presence probe. Do not add argument forwarding.
+
 ## Change contract
 
 - For behavioral changes, add or update the failing test first, then implement the smallest change that makes it pass.
