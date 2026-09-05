@@ -1,9 +1,10 @@
-export const QUESTION_DETECTOR_VERSION = 'text-geometry-v1'
+export const QUESTION_DETECTOR_VERSION = 'text-geometry-v2'
 
 const CONFIDENCE = 0.8
 const QUESTION_MARKER = /^\s*(?:câu|question)\s+(\d+)(?=\s|[:.)-]|$)/iu
+const SECTIONED_QUESTION_MARKER = /^\s*(?:câu|question)\s+(\d+)\s*[.)-]/iu
 const SOLUTION_MARKER = /^\s*(?:lời\s*giải|đáp\s*án|đáp\s*số|solution|answer)(?=\s|[:.)-]|$)/iu
-const SECTION_MARKER = /^\s*(?:phần|part|section)\s+(?:\d+|[ivxlcdm]+)(?=\s|[:.)-]|$)/iu
+const SECTION_MARKER = /^\s*(?:phần|part|section)\s+(?:\d+|[ivxlcdm]+)\s*[:.)-]/iu
 
 export class QuestionDetectionError extends Error {
   constructor(code, message, details = undefined) {
@@ -16,20 +17,20 @@ export class QuestionDetectionError extends Error {
 
 /**
  * Detect question crops from ordered, top-left PDF text geometry.
- * Questions are returned in the first-occurrence order of expectedQuestionIds.
+ * Questions are returned in the first-occurrence order of expected questions.
  */
-export function detectQuestionRegions(pages, expectedQuestionIds) {
-  const expected = validateExpectedIds(expectedQuestionIds)
+export function detectQuestionRegions(pages, expectedQuestions) {
+  const expected = validateExpectedQuestions(expectedQuestions)
   const normalizedPages = validatePages(pages)
-  const events = collectEvents(normalizedPages)
+  const events = collectEvents(normalizedPages, expected)
   const markers = events.filter(event => event.type === 'question')
   validateMarkers(markers, expected)
 
   const byId = new Map(markers.map(marker => [marker.qId, marker]))
   const warnings = []
-  const questions = expected.map(qId => buildQuestion(
-    qId,
-    byId.get(qId),
+  const questions = expected.descriptors.map(descriptor => buildQuestion(
+    descriptor.q_id,
+    byId.get(descriptor.q_id),
     markers,
     events,
     normalizedPages,
@@ -45,18 +46,51 @@ export function detectQuestionRegions(pages, expectedQuestionIds) {
   }
 }
 
-function validateExpectedIds(ids) {
-  if (!Array.isArray(ids) || ids.length === 0) fail('INVALID_EXPECTED_QUESTION_IDS', 'Expected question IDs must be a non-empty array')
+function validateExpectedQuestions(questions) {
+  if (!Array.isArray(questions) || questions.length === 0) fail('INVALID_EXPECTED_QUESTION_IDS', 'Expected questions must be a non-empty array')
   const result = []
-  const seen = new Set()
-  for (const id of ids) {
-    if (!Number.isSafeInteger(id) || id <= 0) fail('INVALID_EXPECTED_QUESTION_IDS', 'Expected question IDs must be positive integers')
-    if (!seen.has(id)) {
-      seen.add(id)
-      result.push(id)
+  const byId = new Map()
+  for (const question of questions) {
+    const descriptor = Number.isSafeInteger(question)
+      ? { q_id: question, section_key: 'main', section_title: null, local_number: question }
+      : question
+    if (!descriptor || !positiveInteger(descriptor.q_id) || typeof descriptor.section_key !== 'string' ||
+        !descriptor.section_key || (descriptor.section_title !== null && typeof descriptor.section_title !== 'string') ||
+        !positiveInteger(descriptor.local_number)) {
+      fail('INVALID_EXPECTED_QUESTION_IDS', 'Expected questions must be positive IDs or valid descriptors')
+    }
+    const previous = byId.get(descriptor.q_id)
+    if (previous && (previous.section_key !== descriptor.section_key || previous.local_number !== descriptor.local_number)) {
+      fail('INVALID_EXPECTED_QUESTION_IDS', `Question ${descriptor.q_id} has conflicting descriptors`, { qId: descriptor.q_id })
+    }
+    if (!previous) {
+      const normalized = { ...descriptor }
+      byId.set(normalized.q_id, normalized)
+      result.push(normalized)
     }
   }
-  return result
+
+  const byLocation = new Map()
+  for (const descriptor of result) {
+    const location = descriptorKey(descriptor.section_key, descriptor.local_number)
+    byLocation.set(location, [...(byLocation.get(location) || []), descriptor])
+  }
+  const ambiguous = [...byLocation].find(([, descriptors]) => descriptors.length > 1)
+  if (ambiguous) {
+    const [sectionKey, localNumber] = ambiguous[0].split('\0')
+    fail('AMBIGUOUS_QUESTION_DESCRIPTOR_MAPPING', 'More than one question descriptor maps to the same section and local number', {
+      sectionKey,
+      localNumber: Number(localNumber),
+    })
+  }
+  return {
+    descriptors: result,
+    byLocation,
+    sectionAware: result.some(descriptor => descriptor.section_key !== 'main'),
+    sectionKeys: [...new Set(result
+      .map(descriptor => descriptor.section_key)
+      .filter(sectionKey => sectionKey !== 'main'))],
+  }
 }
 
 function validatePages(pages) {
@@ -81,28 +115,84 @@ function validatePages(pages) {
   })
 }
 
-function collectEvents(pages) {
+function collectEvents(pages, expected) {
   const events = []
   for (const page of pages) {
     for (const item of page.items) {
-      const question = item.text.match(QUESTION_MARKER)
-      if (question) events.push({ type: 'question', qId: Number(question[1]), pageNumber: page.pageNumber, item })
+      const question = item.text.match(expected.sectionAware ? SECTIONED_QUESTION_MARKER : QUESTION_MARKER)
+      if (question) events.push({ type: 'question', localNumber: Number(question[1]), pageNumber: page.pageNumber, item })
       if (SOLUTION_MARKER.test(item.text)) events.push({ type: 'solution', pageNumber: page.pageNumber, item })
       if (SECTION_MARKER.test(item.text)) events.push({ type: 'section', pageNumber: page.pageNumber, item })
     }
   }
-  return events.sort(compareEvents)
+  const ordered = events.sort(compareEvents)
+  if (!expected.sectionAware) {
+    for (const event of ordered) {
+      if (event.type === 'question') {
+        event.qId = expected.byLocation.get(descriptorKey('main', event.localNumber))?.[0].q_id ?? event.localNumber
+      }
+    }
+    return ordered
+  }
+
+  let sectionIndex = -1
+  let sectionKey = 'main'
+  const seenLocations = new Set()
+  const lastLocalNumber = new Map()
+  for (const event of ordered) {
+    if (event.type === 'section') {
+      sectionIndex += 1
+      sectionKey = expected.sectionKeys[sectionIndex] ?? `section-${sectionIndex + 1}`
+      continue
+    }
+    if (event.type !== 'question') continue
+
+    const location = descriptorKey(sectionKey, event.localNumber)
+    if (seenLocations.has(location)) {
+      fail('DUPLICATE_QUESTION_MARKER', `Question ${event.localNumber} has more than one marker in ${sectionKey}`, {
+        sectionKey,
+        localNumber: event.localNumber,
+      })
+    }
+    const previousLocalNumber = lastLocalNumber.get(sectionKey)
+    if (previousLocalNumber !== undefined && event.localNumber < previousLocalNumber) {
+      fail('UNHEADED_SECTION_RESET', 'Question numbering reset without a section heading', {
+        sectionKey,
+        previousLocalNumber,
+        localNumber: event.localNumber,
+      })
+    }
+    seenLocations.add(location)
+    lastLocalNumber.set(sectionKey, event.localNumber)
+
+    const descriptors = expected.byLocation.get(location)
+    if (!descriptors) {
+      if (sectionKey === 'main') {
+        fail('QUESTION_BEFORE_REQUIRED_SECTION', `Question ${event.localNumber} appears before a required section heading`, {
+          localNumber: event.localNumber,
+        })
+      }
+      fail('MISSING_QUESTION_DESCRIPTOR_MAPPING', 'No question descriptor matches the detected section and local number', {
+        sectionKey,
+        localNumber: event.localNumber,
+      })
+    }
+    event.qId = descriptors[0].q_id
+    event.sectionKey = sectionKey
+  }
+  return ordered
 }
 
 function validateMarkers(markers, expected) {
-  const expectedSet = new Set(expected)
+  const expectedIds = expected.descriptors.map(descriptor => descriptor.q_id)
+  const expectedSet = new Set(expectedIds)
   const counts = new Map()
   for (const marker of markers) counts.set(marker.qId, (counts.get(marker.qId) || 0) + 1)
   const duplicate = [...counts].find(([, count]) => count > 1)?.[0]
   if (duplicate !== undefined) fail('DUPLICATE_QUESTION_MARKER', `Question ${duplicate} has more than one marker`, { qId: duplicate })
   const unexpected = markers.find(marker => !expectedSet.has(marker.qId))
   if (unexpected) fail('UNEXPECTED_QUESTION_MARKER', `Unexpected question marker ${unexpected.qId}`, { qId: unexpected.qId })
-  const missing = expected.find(qId => !counts.has(qId))
+  const missing = expectedIds.find(qId => !counts.has(qId))
   if (missing !== undefined) fail('MISSING_QUESTION_MARKER', `Missing marker for question ${missing}`, { qId: missing })
 }
 
@@ -182,6 +272,8 @@ function isBefore(a, b) { return !b || compareEvents(a, b) < 0 }
 function isBeforeOrSame(a, b) { return !b || compareEvents(a, b) <= 0 }
 function finite(value) { return Number.isFinite(value) }
 function positive(value) { return finite(value) && value > 0 }
+function positiveInteger(value) { return Number.isSafeInteger(value) && value > 0 }
+function descriptorKey(sectionKey, localNumber) { return `${sectionKey}\0${localNumber}` }
 function questionPadding(item) { return Math.min(34, item.height * 2.5) }
 function verticalPadding(item) { return Math.min(12, item.height) }
 function boundaryPadding(boundary) {

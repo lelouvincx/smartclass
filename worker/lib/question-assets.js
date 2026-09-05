@@ -10,7 +10,7 @@ export function toQuestionAssetResponse(asset) {
 
 export async function validateQuestionAssetSetForActivation(
   env,
-  { exerciseId, setId, expectedQuestionIds, schemaRows, resolvedAnswerCandidateKeys = [] },
+  { exerciseId, setId, schemaRows, resolvedAnswerCandidateKeys = [] },
 ) {
   const assetSet = await env.DB.prepare(`
     select
@@ -52,6 +52,20 @@ export async function validateQuestionAssetSetForActivation(
   if (assetSet.detection_method === 'vision') {
     return { error: 'Vision-generated question assets are not enabled' }
   }
+
+  const pinnedSchema = await env.DB.prepare(`
+    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+    from exercise_question_answer_schemas
+    where asset_set_id = ?
+    order by q_id asc, sub_id asc
+  `).bind(setId).all()
+  if (pinnedSchema.results.length === 0) {
+    return { error: 'Question asset set has no pinned schema shape; generate a replacement set' }
+  }
+  if (!schemaShapesMatch(schemaRows, pinnedSchema.results)) {
+    return { error: 'Question asset set schema shape changed after generation' }
+  }
+  const expectedQuestionIds = [...new Set(pinnedSchema.results.map(row => Number(row.q_id)))]
 
   const assets = await env.DB.prepare(`
     select *
@@ -122,7 +136,28 @@ export async function validateQuestionAssetSetForActivation(
     }
   }
 
-  return { assetSet, assets: assets.results, candidates: candidates.results }
+  return {
+    assetSet,
+    assets: assets.results,
+    candidates: candidates.results,
+    pinnedSchema: pinnedSchema.results,
+  }
+}
+
+function schemaShapesMatch(proposedRows, pinnedRows) {
+  if (proposedRows.length !== pinnedRows.length) return false
+  const shape = rows => rows.map(row => ({
+    q_id: Number(row.q_id),
+    section_key: row.section_key ?? 'main',
+    section_title: row.section_title ?? null,
+    local_number: Number(row.local_number ?? row.q_id),
+    sub_id: row.sub_id ?? null,
+    type: row.type,
+  })).sort((left, right) => (
+    left.q_id - right.q_id
+    || String(left.sub_id ?? '').localeCompare(String(right.sub_id ?? ''))
+  ))
+  return JSON.stringify(shape(proposedRows)) === JSON.stringify(shape(pinnedRows))
 }
 
 function answerKey(row) {

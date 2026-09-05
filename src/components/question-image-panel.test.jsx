@@ -149,6 +149,22 @@ describe('QuestionImagePanel', () => {
     }
   })
 
+  it('uses the source-facing question label in image controls', async () => {
+    const user = userEvent.setup()
+    render(
+      <QuestionImagePanel
+        token="student-token"
+        assets={ASSETS.slice(2, 3)}
+        currentQId={2}
+        questionLabel="Phần II, 1"
+      />,
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'View question Phần II, 1 larger' }))
+
+    expect(screen.getByRole('heading', { name: 'Question Phần II, 1' })).toBeInTheDocument()
+  })
+
   it('shows a retry action when the selected image cannot be loaded', async () => {
     const user = userEvent.setup()
     vi.mocked(getQuestionAssetBlob)

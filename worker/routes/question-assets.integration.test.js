@@ -290,6 +290,21 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets', () => {
       source_file_id: sourceFileId,
       confirmed_at: null,
     })
+
+    const snapshot = await env.DB.prepare(`
+      select q_id, sub_id, type, section_key, section_title, local_number
+      from exercise_question_answer_schemas
+      where asset_set_id = ?
+      order by q_id, sub_id
+    `).bind(body.data.id).all()
+    expect(snapshot.results).toEqual(DEFAULT_SCHEMA.map((schemaRow) => ({
+      q_id: schemaRow.q_id,
+      sub_id: schemaRow.sub_id ?? null,
+      type: schemaRow.type,
+      section_key: 'main',
+      section_title: null,
+      local_number: schemaRow.q_id,
+    })))
   })
 
   it('ties a pending set to the current teacher-only Answer PDF and parser result', async () => {
@@ -531,6 +546,17 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/assets', ()
     const res = await uploadGeneratedAsset(exerciseId, assetSet.id, {}, studentToken)
 
     expect(res.status).toBe(403)
+  })
+
+  it('rejects an asset outside the schema shape pinned when the set was created', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createPendingSetData(exerciseId, sourceFileId)
+
+    const res = await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 99 })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error.code).toBe('INVALID_ASSET_QUESTION')
   })
 })
 
@@ -836,6 +862,61 @@ describe('PUT /api/exercises/:exerciseId/question-asset-sets/:setId/questions/:q
 })
 
 describe('PUT /api/exercises/:id question asset activation', () => {
+  it('keeps pinned section identity immutable while allowing answer corrections', async () => {
+    const sectionedSchema = [
+      {
+        q_id: 1,
+        section_key: 'section-1',
+        section_title: 'Phần I',
+        local_number: 1,
+        type: 'mcq',
+        correct_answer: 'B',
+      },
+      {
+        q_id: 2,
+        section_key: 'section-2',
+        section_title: 'Phần II',
+        local_number: 1,
+        type: 'numeric',
+        correct_answer: '42',
+      },
+    ]
+    const { id: exerciseId } = await createExercise(teacherToken, { schema: sectionedSchema })
+    const sourceFileId = await createSourceFile(exerciseId)
+    const firstSet = await createPendingSetData(exerciseId, sourceFileId)
+    await uploadGeneratedAsset(exerciseId, firstSet.id, { q_id: 1 })
+    await uploadGeneratedAsset(exerciseId, firstSet.id, { q_id: 2 })
+
+    const changedIdentity = sectionedSchema.map((row) => (
+      row.q_id === 2
+        ? { ...row, section_key: 'section-1', section_title: 'Phần I', local_number: 2 }
+        : row
+    ))
+    const rejected = await activateSet(exerciseId, firstSet.id, changedIdentity)
+    expect(rejected.status).toBe(409)
+    expect((await rejected.json()).error.message).toContain('schema shape')
+
+    const correctedAnswers = sectionedSchema.map((row) => (
+      row.q_id === 2 ? { ...row, correct_answer: '43' } : row
+    ))
+    const activated = await activateSet(exerciseId, firstSet.id, correctedAnswers)
+    expect(activated.status).toBe(200)
+
+    const snapshot = await env.DB.prepare(`
+      select q_id, section_key, section_title, local_number, correct_answer
+      from exercise_question_answer_schemas
+      where asset_set_id = ?
+      order by q_id
+    `).bind(firstSet.id).all()
+    expect(snapshot.results).toEqual(correctedAnswers.map((row) => ({
+      q_id: row.q_id,
+      section_key: row.section_key,
+      section_title: row.section_title,
+      local_number: row.local_number,
+      correct_answer: row.correct_answer,
+    })))
+  })
+
   it('activates a complete set when best-effort extracted text is unavailable', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const sourceFileId = await createSourceFile(exerciseId)
@@ -881,6 +962,28 @@ describe('PUT /api/exercises/:id question asset activation', () => {
       ...row,
       sub_id: row.sub_id ?? null,
     })))
+  })
+
+  it('activates a large parsed schema without per-question D1 bindings', async () => {
+    const schema = Array.from({ length: 101 }, (_, index) => ({
+      q_id: index + 1,
+      section_key: index < 50 ? 'section-1' : 'section-2',
+      section_title: index < 50 ? 'Phần I' : 'Phần II',
+      local_number: index < 50 ? index + 1 : index - 49,
+      type: 'numeric',
+      correct_answer: String(index + 1),
+    }))
+    const { id: exerciseId } = await createExercise(teacherToken, { schema })
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createPendingSetData(exerciseId, sourceFileId)
+    for (const row of schema) {
+      expect((await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: row.q_id })).status).toBe(201)
+    }
+
+    const res = await activateSet(exerciseId, assetSet.id, schema)
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).data.active_question_asset_set_id).toBe(assetSet.id)
   })
 
   it('requires explicit teacher resolution when automatic answer candidates conflict', async () => {
@@ -1028,7 +1131,18 @@ describe('PUT /api/exercises/:id question asset activation', () => {
     },
     {
       name: 'an unexpected question',
-      arrange: async (exerciseId, setId) => uploadGeneratedAsset(exerciseId, setId, { q_id: 3 }),
+      arrange: async (_exerciseId, setId) => env.DB.prepare(`
+        insert into exercise_question_assets (
+          asset_set_id, q_id, segment_index, source_kind, source_page,
+          x, y, width, height, r2_key, mime_type, file_size,
+          pixel_width, pixel_height, accessible_text, confidence
+        )
+        select asset_set_id, 99, segment_index, source_kind, source_page,
+          x, y, width, height, r2_key || '-unexpected', mime_type, file_size,
+          pixel_width, pixel_height, accessible_text, confidence
+        from exercise_question_assets
+        where asset_set_id = ? and q_id = 1
+      `).bind(setId).run(),
     },
   ])('blocks activation with $name', async ({ arrange }) => {
     const { id: exerciseId } = await createExercise(teacherToken)

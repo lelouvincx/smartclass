@@ -45,6 +45,11 @@ const EXERCISE = {
   ],
 }
 
+const QUESTION_DESCRIPTORS = [
+  { q_id: 1, section_key: 'main', section_title: null, local_number: 1 },
+  { q_id: 2, section_key: 'main', section_title: null, local_number: 2 },
+]
+
 const generatedAsset = qId => ({
   qId,
   segmentIndex: 0,
@@ -172,7 +177,7 @@ describe('QuestionAssetWorkflow', () => {
 
     expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
       expect.any(Blob),
-      [1, 2],
+      QUESTION_DESCRIPTORS,
       expect.objectContaining({ onProgress: expect.any(Function) }),
     )
     expect(api.createQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, {
@@ -282,13 +287,13 @@ describe('QuestionAssetWorkflow', () => {
     expect(generateQuestionAssetsMock).toHaveBeenNthCalledWith(
       1,
       expect.any(Blob),
-      [1, 2],
+      QUESTION_DESCRIPTORS,
       expect.objectContaining({ schemaRows: EXERCISE.schema }),
     )
     expect(generateQuestionAssetsMock).toHaveBeenNthCalledWith(
       2,
       expect.any(Blob),
-      [1, 2],
+      QUESTION_DESCRIPTORS,
       expect.objectContaining({
         createAssets: false,
         schemaRows: EXERCISE.schema,
@@ -530,7 +535,7 @@ describe('QuestionAssetWorkflow', () => {
 
     expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
       expect.any(Blob),
-      [1, 2],
+      QUESTION_DESCRIPTORS,
       expect.objectContaining({
         onProgress: expect.any(Function),
         questionIdsToRender: [1],

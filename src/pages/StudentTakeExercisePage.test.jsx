@@ -209,6 +209,27 @@ describe('StudentTakeExercisePage', () => {
     expect(screen.queryByText(/^1\. Question 1$/)).not.toBeInTheDocument()
   })
 
+  it('shows section titles and restarted local numbers while keeping global navigation order', async () => {
+    const user = userEvent.setup()
+    const sectionedExercise = {
+      ...EXERCISE_MCQ,
+      schema: [
+        { q_id: 1, section_key: 'section-1', section_title: 'Phần I', local_number: 1, type: 'mcq', sub_id: null },
+        { q_id: 2, section_key: 'section-2', section_title: 'Phần II', local_number: 1, type: 'mcq', sub_id: null },
+      ],
+    }
+    getExerciseMock.mockResolvedValue({ data: sectionedExercise })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByRole('heading', { name: 'Phần I · Question 1' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Jump to Phần II, question 1' }))
+    expect(screen.getByRole('heading', { name: 'Phần II · Question 1' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Question Phần II, 1 option A')).toBeInTheDocument()
+  })
+
   it('uses one compact answer-sheet drawer on mobile and closes it after a question jump', async () => {
     const user = userEvent.setup()
     desktopViewport = false

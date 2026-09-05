@@ -34,7 +34,7 @@ function sortSegments(left, right) {
   return left.segment_index - right.segment_index
 }
 
-export function QuestionImagePanel({ token, assets = [], currentQId, adjacentQIds = [] }) {
+export function QuestionImagePanel({ token, assets = [], currentQId, adjacentQIds = [], questionLabel = currentQId }) {
   const { t } = useTranslation()
   const [assetStates, setAssetStates] = useState({})
   const [viewerAssetId, setViewerAssetId] = useState(null)
@@ -171,7 +171,7 @@ export function QuestionImagePanel({ token, assets = [], currentQId, adjacentQId
   }
 
   return (
-    <div className="space-y-3" aria-label={t('student.questionView.label', { id: currentQId })}>
+    <div className="space-y-3" aria-label={t('student.questionView.label', { id: questionLabel })}>
       {currentAssets.map((asset, index) => {
         const state = assetStates[asset.id] || { status: 'loading', url: null }
         return (
@@ -188,11 +188,11 @@ export function QuestionImagePanel({ token, assets = [], currentQId, adjacentQId
                 className="group block w-full cursor-zoom-in text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
                 aria-label={currentAssets.length > 1
                   ? t('student.questionView.openSegmentLarge', {
-                    id: currentQId,
+                    id: questionLabel,
                     current: index + 1,
                     total: currentAssets.length,
                   })
-                  : t('student.questionView.openLarge', { id: currentQId })}
+                  : t('student.questionView.openLarge', { id: questionLabel })}
                 onClick={() => openViewer(asset.id)}
               >
                 <img
@@ -245,7 +245,7 @@ export function QuestionImagePanel({ token, assets = [], currentQId, adjacentQId
             </Button>
             <DialogHeader className="shrink-0 gap-1 border-b border-white/15 px-4 py-3 pr-16 text-left">
               <DialogTitle className="text-base font-semibold text-white">
-                {t('student.questionView.viewerTitle', { id: currentQId })}
+                {t('student.questionView.viewerTitle', { id: questionLabel })}
               </DialogTitle>
               <DialogDescription className="text-xs text-[var(--sc-ref-slate-300)]">
                 {t('student.questionView.viewerDescription')}

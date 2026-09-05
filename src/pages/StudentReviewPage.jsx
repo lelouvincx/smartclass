@@ -23,14 +23,29 @@ function groupAnswers(answers) {
   for (const row of answers) {
     if (row.type === 'boolean') {
       if (!seen.has(row.q_id)) {
-        const group = { q_id: row.q_id, type: 'boolean', subRows: [] }
+        const group = {
+          q_id: row.q_id,
+          section_key: row.section_key ?? 'main',
+          section_title: row.section_title ?? null,
+          local_number: row.local_number ?? row.q_id,
+          type: 'boolean',
+          subRows: [],
+        }
         groups.push(group)
         seen.set(row.q_id, group)
       }
       seen.get(row.q_id).subRows.push(row)
     } else {
       if (!seen.has(row.q_id)) {
-        groups.push({ q_id: row.q_id, type: row.type, sub_id: null, ...row })
+        groups.push({
+          q_id: row.q_id,
+          section_key: row.section_key ?? 'main',
+          section_title: row.section_title ?? null,
+          local_number: row.local_number ?? row.q_id,
+          type: row.type,
+          sub_id: null,
+          ...row,
+        })
         seen.set(row.q_id, true)
       }
     }
@@ -152,7 +167,7 @@ export default function StudentReviewPage() {
           ref={workspaceRef}
           className="grid scroll-mt-20 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(20rem,2fr)] lg:items-start"
         >
-          <Card className="lg:sticky lg:top-20">
+          <Card className="min-w-0 lg:sticky lg:top-20">
             <CardContent className="space-y-4 pt-5">
               <div className="flex items-baseline justify-between gap-3">
                 <h2
@@ -161,7 +176,12 @@ export default function StudentReviewPage() {
                   className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-live="polite"
                 >
-                  {t('student.results.questionHeading', { id: currentGroup.q_id })}
+                  {currentGroup.section_title
+                    ? t('student.results.questionHeadingInSection', {
+                      section: currentGroup.section_title,
+                      number: currentGroup.local_number,
+                    })
+                    : t('student.results.questionHeading', { id: currentGroup.local_number })}
                 </h2>
                 <span className="shrink-0 text-xs text-muted-foreground">
                   {t('student.take.questionProgress', { current: currentIndex + 1, total: questionGroups.length })}
@@ -172,11 +192,14 @@ export default function StudentReviewPage() {
                 assets={questionAssets}
                 currentQId={currentGroup.q_id}
                 adjacentQIds={adjacentQIds}
+                questionLabel={currentGroup.section_title
+                  ? `${currentGroup.section_title}, ${currentGroup.local_number}`
+                  : currentGroup.local_number}
               />
             </CardContent>
           </Card>
 
-          <div className="space-y-4">
+          <div className="min-w-0 space-y-4">
             <Card>
               <CardContent className="p-0">
                 <div className="overflow-x-auto">

@@ -103,28 +103,66 @@ questionAssetsRoutes.post(
       }
     }
 
-    const result = await c.env.DB.prepare(`
-      insert into exercise_question_asset_sets (
-        exercise_id
-        , source_file_id
-        , answer_source_file_id
-        , answer_parser_status
-        , detector_version
-        , detection_method
-      )
-      values (?, ?, ?, ?, ?, ?)
-    `).bind(
-      exerciseId,
-      source_file_id,
-      answer_source_file_id,
-      answer_parser_status,
-      detector_version.trim(),
-      detection_method,
-    ).run()
+    const nextSet = await c.env.DB.prepare(`
+      select coalesce(max(id), 0) + 1 as id from exercise_question_asset_sets
+    `).first()
+    const setId = nextSet.id
+    try {
+      const results = await c.env.DB.batch([
+        c.env.DB.prepare(`
+          insert into exercise_question_asset_sets (
+            id
+            , exercise_id
+            , source_file_id
+            , answer_source_file_id
+            , answer_parser_status
+            , detector_version
+            , detection_method
+          )
+          values (?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          setId,
+          exerciseId,
+          source_file_id,
+          answer_source_file_id,
+          answer_parser_status,
+          detector_version.trim(),
+          detection_method,
+        ),
+        c.env.DB.prepare(`
+          insert into exercise_question_answer_schemas (
+            asset_set_id
+            , q_id
+            , section_key
+            , section_title
+            , local_number
+            , sub_id
+            , type
+            , correct_answer
+          )
+          select ?, q_id, section_key, section_title,
+            local_number, sub_id, type, correct_answer
+          from answer_schemas
+          where exercise_id = ?
+        `).bind(setId, exerciseId),
+        c.env.DB.prepare(`
+          insert into exercise_question_answer_schemas (
+            asset_set_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+          )
+          select null, 1, 'main', null, 1, null, 'mcq', '' where changes() = 0
+        `),
+      ])
+      if (results[0].meta.changes !== 1) {
+        throw new Error('Question asset set was not created')
+      }
+    } catch (error) {
+      console.error('Question asset schema pinning error:', error)
+      return jsonError(c, 409, 'SCHEMA_PIN_FAILED', 'Failed to pin the current exercise schema')
+    }
 
     const assetSet = await c.env.DB.prepare(
       'select * from exercise_question_asset_sets where id = ?'
-    ).bind(result.meta.last_row_id).first()
+    ).bind(setId).first()
 
     return jsonSuccess(c, assetSet, 201)
   },
@@ -166,10 +204,23 @@ questionAssetsRoutes.post(
 
     const normalized = []
     const seen = new Set()
+    const pinnedRows = await c.env.DB.prepare(`
+      select q_id, sub_id, type
+      from exercise_question_answer_schemas
+      where asset_set_id = ?
+    `).bind(setId).all()
+    const pinnedByKey = new Map(pinnedRows.results.map(row => [
+      `${row.q_id}:${row.sub_id ?? ''}`,
+      row,
+    ]))
     for (const candidate of body.candidates) {
       const result = normalizeAnswerCandidate(candidate, assetSet)
       if (result.error) {
         return jsonError(c, 400, 'INVALID_ANSWER_CANDIDATE', result.error)
+      }
+      const pinned = pinnedByKey.get(`${result.candidate.q_id}:${result.candidate.sub_id ?? ''}`)
+      if (!pinned || pinned.type !== result.candidate.type) {
+        return jsonError(c, 400, 'INVALID_ANSWER_CANDIDATE', 'Candidate does not match the pinned schema shape')
       }
       const key = `${result.candidate.q_id}:${result.candidate.sub_id ?? ''}:${result.candidate.source_kind}`
       if (seen.has(key)) {
@@ -337,6 +388,16 @@ questionAssetsRoutes.post(
       || !hasValidRectangle
     ) {
       return jsonError(c, 400, 'INVALID_ASSET_METADATA', 'Generated question asset metadata is invalid')
+    }
+
+    const pinnedQuestion = await c.env.DB.prepare(`
+      select 1
+      from exercise_question_answer_schemas
+      where asset_set_id = ? and q_id = ?
+      limit 1
+    `).bind(setId, metadata.qId).first()
+    if (!pinnedQuestion) {
+      return jsonError(c, 400, 'INVALID_ASSET_QUESTION', 'Question does not belong to the pinned schema shape')
     }
 
     let inspectedImage

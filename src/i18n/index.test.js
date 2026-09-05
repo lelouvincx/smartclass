@@ -61,4 +61,11 @@ describe('language preference', () => {
     expect(resources.vi.translation.teacher.questionViews.confirmAnswers).toBe('Lưu')
     expect(resources.vi.translation.teacher.questionViews.confirm).toBe('Xác nhận và kích hoạt')
   })
+
+  it('uses concise PDF upload labels without em dashes', () => {
+    expect(resources.en.translation.teacher.create.exercisePdf).toBe('Exercise PDF')
+    expect(resources.en.translation.teacher.create.answerPdf).toBe('Answer PDF')
+    expect(resources.vi.translation.teacher.create.exercisePdf).toBe('PDF đề bài')
+    expect(resources.vi.translation.teacher.create.answerPdf).toBe('PDF đáp án')
+  })
 })

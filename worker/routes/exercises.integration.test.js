@@ -216,11 +216,11 @@ describe('POST /api/exercises/schema/parse', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.schema).toEqual([
-      { q_id: 1, type: 'mcq', sub_id: null, correct_answer: 'B', confidence: 0.92 },
-      { q_id: 2, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.85 },
-      { q_id: 2, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.85 },
-      { q_id: 2, type: 'boolean', sub_id: 'c', correct_answer: '', confidence: 0.6 },
-      { q_id: 2, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.85 },
+      { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'mcq', sub_id: null, correct_answer: 'B', confidence: 0.92 },
+      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.85 },
+      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.85 },
+      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'c', correct_answer: '', confidence: 0.6 },
+      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.85 },
     ])
     expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
     const requestBody = JSON.parse(fetch.mock.calls[0][1].body)
@@ -229,6 +229,51 @@ describe('POST /api/exercises/schema/parse', () => {
     expect(fetch.mock.calls[0][0]).toBe('https://api.deepseek.com/chat/completions')
     expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer test-key')
     expect(requestBody.model).toBe('deepseek-v4-flash')
+  })
+
+  it('keeps a parsed schema when the model guesses a non-numeric expression', async () => {
+    env.DEEPSEEK_API_KEY = 'test-key'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                schema: [
+                  { q_id: 1, type: 'numeric', correct_answer: '3π/2', confidence: 0.9 },
+                ],
+              }),
+            },
+          },
+        ],
+      }), { status: 200 })),
+    )
+
+    const res = await app.request('/api/exercises/schema/parse', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ source_text: 'Question 1 has answer 3π/2.' }),
+    }, env)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.schema).toEqual([
+      {
+        q_id: 1,
+        section_key: 'main',
+        section_title: null,
+        local_number: 1,
+        type: 'numeric',
+        sub_id: null,
+        correct_answer: '',
+        confidence: 0.3,
+      },
+    ])
+    expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
   })
 
   it('returns PARSE_ERROR when model response is not valid json', async () => {
@@ -644,6 +689,29 @@ describe('PUT /api/exercises/:id', () => {
     const body = await res.json()
     expect(body.data.schema).toHaveLength(1)
     expect(body.data.schema[0].correct_answer).toBe('42')
+  })
+
+  it('preserves section descriptors omitted by an older client', async () => {
+    const sectionedSchema = [
+      { q_id: 1, section_key: 'multiple-choice', section_title: 'Phần I', local_number: 1, type: 'mcq', correct_answer: 'A' },
+      { q_id: 2, section_key: 'written', section_title: 'Phần II', local_number: 1, type: 'numeric', correct_answer: '12' },
+    ]
+    const { id } = await createExercise(token, { schema: sectionedSchema })
+
+    const res = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        schema: sectionedSchema.map(({ q_id, type, correct_answer }) => ({ q_id, type, correct_answer })),
+      }),
+    }, env)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.schema).toEqual(sectionedSchema.map((row) => ({ ...row, sub_id: null })))
   })
 
   it('rejects string duration_minutes on update', async () => {

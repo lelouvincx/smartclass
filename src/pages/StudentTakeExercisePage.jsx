@@ -56,13 +56,27 @@ function groupSchema(schema) {
   for (const row of schema) {
     if (row.type === 'boolean') {
       if (!seen.has(row.q_id)) {
-        const group = { q_id: row.q_id, type: 'boolean', subRows: [] }
+        const group = {
+          q_id: row.q_id,
+          section_key: row.section_key ?? 'main',
+          section_title: row.section_title ?? null,
+          local_number: row.local_number ?? row.q_id,
+          type: 'boolean',
+          subRows: [],
+        }
         groups.push(group)
         seen.set(row.q_id, group)
       }
       seen.get(row.q_id).subRows.push(row)
     } else {
-      groups.push({ q_id: row.q_id, type: row.type, sub_id: null })
+      groups.push({
+        q_id: row.q_id,
+        section_key: row.section_key ?? 'main',
+        section_title: row.section_title ?? null,
+        local_number: row.local_number ?? row.q_id,
+        type: row.type,
+        sub_id: null,
+      })
       seen.set(row.q_id, true)
     }
   }
@@ -282,7 +296,14 @@ export default function StudentTakeExercisePage() {
 
         setSubmission(sub)
         const pinnedSchema = sub.question_asset_set_id && sub.answers?.length
-          ? sub.answers.map(({ q_id, sub_id, type }) => ({ q_id, sub_id, type }))
+          ? sub.answers.map(({
+              q_id,
+              section_key,
+              section_title,
+              local_number,
+              sub_id,
+              type,
+            }) => ({ q_id, section_key, section_title, local_number, sub_id, type }))
           : ex.schema || []
         const groups = groupSchema(pinnedSchema)
         setAttemptSchema(pinnedSchema)
@@ -542,10 +563,13 @@ export default function StudentTakeExercisePage() {
 
   // --- Render question input ---
   function renderQuestionInput(group) {
+    const inputLabel = group.section_title
+      ? `${group.section_title}, ${group.local_number}`
+      : group.local_number
     if (group.type === 'mcq') {
       return (
         <McqInput
-          qId={group.q_id}
+          qId={inputLabel}
           value={answers[group.q_id] ?? ''}
           onChange={(v) => handleAnswerChange(group.q_id, v)}
           submitted={false}
@@ -556,7 +580,7 @@ export default function StudentTakeExercisePage() {
     if (group.type === 'boolean') {
       return (
         <BooleanGroupInput
-          qId={group.q_id}
+          qId={inputLabel}
           subRows={group.subRows}
           subAnswers={answers[group.q_id] || {}}
           onSubChange={(subId, v) => handleBooleanSubChange(group.q_id, subId, v)}
@@ -567,7 +591,7 @@ export default function StudentTakeExercisePage() {
     }
     return (
       <NumericInput
-        qId={group.q_id}
+        qId={inputLabel}
         value={answers[group.q_id] ?? ''}
         onChange={(v) => handleAnswerChange(group.q_id, v)}
         submitted={false}
@@ -791,7 +815,15 @@ export default function StudentTakeExercisePage() {
                     className="text-lg font-semibold outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-live="polite"
                   >
-                    {t('student.take.questionTitle', { index: idx + 1, id: group.q_id })}
+                    {group.section_title
+                      ? t('student.take.questionTitleInSection', {
+                        section: group.section_title,
+                        number: group.local_number,
+                      })
+                      : t('student.take.questionTitle', {
+                        index: idx + 1,
+                        id: group.local_number,
+                      })}
                   </h2>
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {t('student.take.questionProgress', { current: idx + 1, total: questionGroups.length })}
@@ -802,6 +834,9 @@ export default function StudentTakeExercisePage() {
                   assets={submission?.question_assets || []}
                   currentQId={group.q_id}
                   adjacentQIds={adjacentQIds}
+                  questionLabel={group.section_title
+                    ? `${group.section_title}, ${group.local_number}`
+                    : group.local_number}
                 />
               </CardContent>
             </Card>

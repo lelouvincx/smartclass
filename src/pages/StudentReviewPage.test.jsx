@@ -161,6 +161,37 @@ describe('StudentReviewPage', () => {
     expect(screen.queryByText('B')).not.toBeInTheDocument()
   })
 
+  it('shows the pinned section title and local number in review', async () => {
+    const user = userEvent.setup()
+    const sectionedSubmission = {
+      ...SUBMISSION,
+      answers: SUBMISSION.answers.map(answer => answer.q_id === 3
+        ? { ...answer, section_key: 'section-2', section_title: 'Phần II', local_number: 1 }
+        : { ...answer, section_key: 'section-1', section_title: 'Phần I', local_number: answer.q_id }),
+    }
+    getSubmissionMock.mockResolvedValue({ data: sectionedSubmission })
+    renderReviewPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: 'Review Phần II, question 1' }))
+
+    expect(screen.getByRole('heading', { name: 'Phần II · Question 1' })).toBeInTheDocument()
+    expect(screen.getByRole('cell', { name: 'Q1' })).toBeInTheDocument()
+    expect(screen.queryByRole('cell', { name: 'Q3' })).not.toBeInTheDocument()
+    expect(await screen.findByAltText('Review question three')).toBeInTheDocument()
+  })
+
+  it('allows both review workspace columns to shrink within a mobile viewport', async () => {
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    renderReviewPage()
+
+    const heading = await screen.findByRole('heading', { name: 'Question 1' })
+    const workspace = heading.closest('.grid')
+
+    expect(workspace.children[0]).toHaveClass('min-w-0')
+    expect(workspace.children[1]).toHaveClass('min-w-0')
+  })
+
   it('renders multi-segment questions in order', async () => {
     const user = userEvent.setup()
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })

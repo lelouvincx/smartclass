@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { FileCheck2, FileText } from 'lucide-react'
 import { createExerciseFileUpload, deleteExercise, getExercise, getExerciseFileBlob, updateExercise, uploadExerciseFile } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
-import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
+import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,7 +21,6 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { SchemaTable } from '@/components/schema-table'
-import ExtractModelSelect from '@/components/extract-model-select'
 import FileDropzone from '@/components/file-dropzone'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { formatDuration } from '@/lib/format'
@@ -47,6 +47,7 @@ function validateRows(rows, t) {
   })
 
   const booleanSubIds = new Map()
+  const sourceQuestions = new Map()
   rows.forEach((row) => {
     if (row.type === 'boolean' && row.sub_id) {
       if (!booleanSubIds.has(String(row.q_id))) {
@@ -55,6 +56,15 @@ function validateRows(rows, t) {
       booleanSubIds.get(String(row.q_id)).add(row.sub_id)
     }
   })
+  for (const row of rows) {
+    const key = `${row.section_key ?? 'main'}:${row.local_number ?? row.q_id}`
+    const existing = sourceQuestions.get(key)
+    if (existing !== undefined && String(existing) !== String(row.q_id)) {
+      sourceQuestions.set(key, null)
+    } else if (existing === undefined) {
+      sourceQuestions.set(key, row.q_id)
+    }
+  }
 
   return rows.map((row) => {
     const errors = []
@@ -62,6 +72,13 @@ function validateRows(rows, t) {
 
     if (!row.q_id || Number.isNaN(qid) || qid <= 0) {
       errors.push(t('teacher.schema.positiveInteger'))
+    }
+    const localNumber = Number.parseInt(String(row.local_number ?? ''), 10)
+    if (Number.isNaN(localNumber) || localNumber <= 0) {
+      errors.push(t('teacher.schema.positiveLocalNumber'))
+    }
+    if (sourceQuestions.get(`${row.section_key ?? 'main'}:${row.local_number ?? row.q_id}`) === null) {
+      errors.push(t('teacher.schema.uniqueLocalNumber'))
     }
 
     if (row.type === 'boolean') {
@@ -96,10 +113,15 @@ function validateRows(rows, t) {
 
 function toSchemaPayload(rows) {
   return rows.map((row) => {
-    if (row.type === 'boolean') {
-      return { q_id: Number(row.q_id), type: 'boolean', sub_id: row.sub_id, correct_answer: row.correct_answer }
+    const identity = {
+      section_key: row.section_key ?? 'main',
+      section_title: row.section_title?.trim() || null,
+      local_number: Number(row.local_number ?? row.q_id),
     }
-    return { q_id: Number(row.q_id), type: row.type, correct_answer: normalizeAnswer(row.type, row.correct_answer) }
+    if (row.type === 'boolean') {
+      return { q_id: Number(row.q_id), ...identity, type: 'boolean', sub_id: row.sub_id, correct_answer: row.correct_answer }
+    }
+    return { q_id: Number(row.q_id), ...identity, type: row.type, correct_answer: normalizeAnswer(row.type, row.correct_answer) }
   })
 }
 
@@ -109,19 +131,28 @@ function makeId() {
     : Math.random().toString(36).slice(2)
 }
 
-function newRows(type, qid) {
+function newRows(type, qid, descriptor = {}) {
   if (type === 'boolean') {
     return BOOLEAN_SUB_IDS.map((sub_id) => ({
-      id: makeId(), q_id: qid, sub_id, type: 'boolean', correct_answer: '',
+      id: makeId(), q_id: qid, section_key: descriptor.section_key ?? 'main',
+      section_title: descriptor.section_title ?? null,
+      local_number: descriptor.local_number ?? qid, sub_id, type: 'boolean', correct_answer: '',
     }))
   }
-  return [{ id: makeId(), q_id: qid, sub_id: null, type, correct_answer: '' }]
+  return [{
+    id: makeId(), q_id: qid, section_key: descriptor.section_key ?? 'main',
+    section_title: descriptor.section_title ?? null,
+    local_number: descriptor.local_number ?? qid, sub_id: null, type, correct_answer: '',
+  }]
 }
 
 function schemaToRows(schema) {
   return (schema || []).map((row) => ({
     id: makeId(),
     q_id: String(row.q_id),
+    section_key: row.section_key ?? 'main',
+    section_title: row.section_title ?? null,
+    local_number: String(row.local_number ?? row.q_id),
     sub_id: row.sub_id ?? null,
     type: row.type,
     correct_answer: row.correct_answer ?? '',
@@ -146,13 +177,25 @@ function ViewSchemaTable({ schema }) {
     for (const row of schema) {
       if (row.type === 'boolean') {
         if (!seen.has(row.q_id)) {
-          const g = { q_id: row.q_id, type: 'boolean', subRows: [] }
+          const g = {
+            q_id: row.q_id,
+            section_title: row.section_title ?? null,
+            local_number: row.local_number ?? row.q_id,
+            type: 'boolean',
+            subRows: [],
+          }
           result.push(g)
           seen.set(row.q_id, g)
         }
         seen.get(row.q_id).subRows.push(row)
       } else {
-        result.push({ q_id: row.q_id, type: row.type, correct_answer: row.correct_answer })
+        result.push({
+          q_id: row.q_id,
+          section_title: row.section_title ?? null,
+          local_number: row.local_number ?? row.q_id,
+          type: row.type,
+          correct_answer: row.correct_answer,
+        })
         seen.set(row.q_id, true)
       }
     }
@@ -164,6 +207,7 @@ function ViewSchemaTable({ schema }) {
       <table className="min-w-full border-collapse text-sm">
         <thead>
           <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <th className="px-4 py-2">{t('teacher.schema.section')}</th>
             <th className="px-4 py-2">{t('teacher.schema.questionNumber')}</th>
             <th className="px-4 py-2">{t('teacher.schema.sub')}</th>
             <th className="px-4 py-2">{t('teacher.schema.type')}</th>
@@ -175,7 +219,8 @@ function ViewSchemaTable({ schema }) {
             if (g.type === 'boolean') {
               return g.subRows.map((sub, i) => (
                 <tr key={`${g.q_id}-${sub.sub_id}`} className="border-t">
-                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? g.q_id : ''}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? (g.section_title || t('teacher.schema.mainSection')) : ''}</td>
+                  <td className="px-4 py-2 text-muted-foreground">{i === 0 ? g.local_number : ''}</td>
                   <td className="px-4 py-2 font-mono text-muted-foreground">{sub.sub_id}</td>
                   <td className="px-4 py-2 text-muted-foreground">{i === 0 ? t('teacher.schema.trueFalse') : ''}</td>
                   <td className="px-4 py-2 font-medium">
@@ -194,7 +239,8 @@ function ViewSchemaTable({ schema }) {
             }
             return (
               <tr key={g.q_id} className="border-t">
-                <td className="px-4 py-2 text-muted-foreground">{g.q_id}</td>
+                <td className="px-4 py-2 text-muted-foreground">{g.section_title || t('teacher.schema.mainSection')}</td>
+                <td className="px-4 py-2 text-muted-foreground">{g.local_number}</td>
                 <td className="px-4 py-2 text-muted-foreground">—</td>
                 <td className="px-4 py-2 text-muted-foreground">
                   {g.type === 'mcq'
@@ -237,7 +283,6 @@ export default function TeacherViewExercisePage() {
   const [editGrades, setEditGrades] = useState([...GRADES])
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
-  const [editExtractModel, setEditExtractModel] = useState(null)
   const [editRows, setEditRows] = useState([])
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
@@ -276,7 +321,6 @@ export default function TeacherViewExercisePage() {
     setEditGrades(exercise.grades || [...GRADES])
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
     setEditDuration(exercise.duration_minutes)
-    setEditExtractModel(exercise.extract_model ?? null)
     setEditRows(schemaToRows(exercise.schema))
     setEditExerciseFile(null)
     setEditSolutionFile(null)
@@ -311,30 +355,23 @@ export default function TeacherViewExercisePage() {
 
   const handleUpdateRow = useCallback((rowId, field, value) => {
     setEditRows((prev) => {
+      const target = prev.find((r) => r.id === rowId)
+      if (!target) return prev
       if (field === 'type') {
-        const target = prev.find((r) => r.id === rowId)
-        if (!target) return prev
         const qid = target.q_id
         const withoutOld = prev.filter((r) => r.q_id !== qid)
         const insertAt = prev.findIndex((r) => r.q_id === qid)
-        const replacement = newRows(value, qid)
+        const replacement = newRows(value, qid, target)
         const final = [...withoutOld]
         final.splice(insertAt >= 0 ? insertAt : final.length, 0, ...replacement)
         return final
       }
-      return prev.map((r) => r.id !== rowId ? r : { ...r, [field]: value })
-    })
-  }, [])
-
-  const handleUpdateQid = useCallback((rowId, value) => {
-    setEditRows((prev) => {
-      const target = prev.find((r) => r.id === rowId)
-      if (!target) return prev
-      if (target.type === 'boolean') {
-        const oldQid = target.q_id
-        return prev.map((r) => r.type === 'boolean' && r.q_id === oldQid ? { ...r, q_id: value } : r)
-      }
-      return prev.map((r) => r.id === rowId ? { ...r, q_id: value } : r)
+      return prev.map((r) => {
+        const updateWholeQuestion = target.type === 'boolean'
+          && ['section_title', 'local_number'].includes(field)
+          && r.q_id === target.q_id
+        return r.id !== rowId && !updateWholeQuestion ? r : { ...r, [field]: value }
+      })
     })
   }, [])
 
@@ -379,7 +416,7 @@ export default function TeacherViewExercisePage() {
         is_timed: editIsTimed,
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
         schema: toSchemaPayload(validatedRows),
-        extract_model: editExtractModel,
+        extract_model: null,
       }
       const res = await updateExercise(token, exercise.id, payload)
       let updatedExercise = res.data
@@ -490,8 +527,9 @@ export default function TeacherViewExercisePage() {
                       onChange={(e) => setEditTitle(e.target.value)}
                     />
                   </div>
-                  <GradeCheckboxGroup
+                  <GradeDropdown
                     id="edit-exercise-grades"
+                    className="max-w-md"
                     legend={t('common.gradeAccess')}
                     description={t('common.gradeAccessDescription')}
                     value={editGrades}
@@ -524,10 +562,6 @@ export default function TeacherViewExercisePage() {
                       </div>
                     )}
                   </div>
-                  <ExtractModelSelect
-                    value={editExtractModel}
-                    onChange={setEditExtractModel}
-                  />
                 </div>
               ) : (
                 <>
@@ -542,9 +576,6 @@ export default function TeacherViewExercisePage() {
                       {t('teacher.view.questionCount', { count: new Set((exercise.schema || []).map((row) => row.q_id)).size })}
                     </span>
                   </div>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t('teacher.model.answerReading', { choice: exercise.extract_model ? t('teacher.model.custom') : t('teacher.model.recommendedShort') })}
-                  </p>
                 </>
               )}
             </div>
@@ -586,7 +617,16 @@ export default function TeacherViewExercisePage() {
             <ul className={`space-y-1 ${isEditing ? 'mb-4' : ''}`}>
               {exercise.files.map((f) => (
                 <li key={f.id} className="flex flex-col items-start gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge
+                    variant="outline"
+                    className={f.file_type === 'exercise_pdf'
+                      ? 'border-primary/20 bg-sc-primary-container text-sc-on-primary-container'
+                      : f.file_type === 'solution_pdf'
+                        ? 'border-[var(--sc-tertiary)]/20 bg-sc-tertiary-container text-sc-on-tertiary-container'
+                        : 'bg-muted text-muted-foreground'}
+                  >
+                    {f.file_type === 'exercise_pdf' && <FileText aria-hidden="true" data-icon="inline-start" />}
+                    {f.file_type === 'solution_pdf' && <FileCheck2 aria-hidden="true" data-icon="inline-start" />}
                     {t(`teacher.file.${f.file_type === 'exercise_pdf' ? 'exercisePdf' : f.file_type === 'solution_pdf' ? 'answerPdf' : f.file_type === 'reference_image' ? 'referenceImage' : 'file'}`)}
                   </Badge>
                   <span className="min-w-0 w-full break-words sm:flex-1">{f.file_name}</span>
@@ -609,8 +649,8 @@ export default function TeacherViewExercisePage() {
           )}
           {isEditing && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <div id="exercise-pdf-replacement" className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{t('teacher.view.replaceExercisePdf')}</Label>
+              <div id="exercise-pdf-replacement" className="space-y-1.5 rounded-[var(--sc-component-control-shape)] border border-primary/20 bg-sc-primary-container p-4 text-sc-on-primary-container">
+                <Label className="gap-2 text-xs"><FileText aria-hidden="true" className="size-4" />{t('teacher.view.replaceExercisePdf')}</Label>
                 <FileDropzone
                   id="edit-exercise-file"
                   accept=".pdf"
@@ -619,8 +659,8 @@ export default function TeacherViewExercisePage() {
                   onChange={setEditExerciseFile}
                 />
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{t('teacher.view.replaceAnswerPdf')}</Label>
+              <div className="space-y-1.5 rounded-[var(--sc-component-control-shape)] border border-[var(--sc-tertiary)]/20 bg-sc-tertiary-container p-4 text-sc-on-tertiary-container">
+                <Label className="gap-2 text-xs"><FileCheck2 aria-hidden="true" className="size-4" />{t('teacher.view.replaceAnswerPdf')}</Label>
                 <FileDropzone
                   accept=".pdf"
                   hint={t('teacher.file.pdfOnly')}
@@ -659,7 +699,6 @@ export default function TeacherViewExercisePage() {
             <SchemaTable
               rows={validatedRows}
               onUpdateRow={handleUpdateRow}
-              onUpdateQid={handleUpdateQid}
               onDeleteRow={handleDeleteRow}
               onReorder={handleReorderRows}
             />

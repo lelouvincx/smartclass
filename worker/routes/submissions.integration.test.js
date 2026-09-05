@@ -35,15 +35,25 @@ async function createExercise(token, overrides = {}) {
     ) values (?, ?, 'test-v1', 'text', ?, current_timestamp)
   `).bind(created.id, sourceFile.meta.last_row_id, teacher.id).run()
   const schema = await env.DB.prepare(`
-    select q_id, sub_id, type, correct_answer from answer_schemas where exercise_id = ?
+    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+    from answer_schemas where exercise_id = ?
   `).bind(created.id).all()
 
   await env.DB.batch([
     ...schema.results.map(row => env.DB.prepare(`
       insert into exercise_question_answer_schemas (
-        asset_set_id, q_id, sub_id, type, correct_answer
-      ) values (?, ?, ?, ?, ?)
-    `).bind(assetSet.meta.last_row_id, row.q_id, row.sub_id, row.type, row.correct_answer)),
+        asset_set_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+      ) values (?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      assetSet.meta.last_row_id,
+      row.q_id,
+      row.section_key,
+      row.section_title,
+      row.local_number,
+      row.sub_id,
+      row.type,
+      row.correct_answer,
+    )),
     env.DB.prepare(
       'update exercises set active_question_asset_set_id = ? where id = ?'
     ).bind(assetSet.meta.last_row_id, created.id),

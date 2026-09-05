@@ -41,6 +41,83 @@ describe('detectQuestionRegions', () => {
     expect(second.segments[0].accessibleText).toContain('PHẦN II: Algebra')
   })
 
+  it('maps repeated local numbers through ordered sections and keeps section state across pages', () => {
+    const descriptors = [
+      { q_id: 11, section_key: 'multiple-choice', section_title: 'Multiple choice', local_number: 1 },
+      { q_id: 12, section_key: 'multiple-choice', section_title: 'Multiple choice', local_number: 2 },
+      { q_id: 21, section_key: 'written-response', section_title: null, local_number: 1 },
+    ]
+    const result = detectQuestionRegions([
+      page(1, [
+        item('PHẦN I: Multiple choice', 10, 0),
+        item('Câu 1.', 30, 1),
+        item('First', 50, 2),
+      ]),
+      page(2, [
+        item('Question 2.', 20, 0),
+        item('Second', 40, 1),
+        item('SECTION 2. Written', 100, 2),
+        item('Câu 1.', 120, 3),
+        item('Third', 140, 4),
+      ]),
+    ], descriptors)
+
+    expect(result.questions.map(question => question.qId)).toEqual([11, 12, 21])
+    expect(result.questions[2].segments[0].accessibleText).toContain('SECTION 2. Written')
+  })
+
+  it('accepts a main-section descriptor as the object form of a legacy integer', () => {
+    const result = detectQuestionRegions([
+      page(1, [item('Câu 3', 20, 0), item('Body', 40, 1)]),
+    ], [{ q_id: 7, section_key: 'main', section_title: null, local_number: 3 }])
+
+    expect(result.questions.map(question => question.qId)).toEqual([7])
+  })
+
+  it('does not treat an unpunctuated section phrase as a heading', () => {
+    expect(() => detectQuestionRegions([
+      page(1, [item('PART I introduction', 10, 0), item('Question 1.', 30, 1)]),
+    ], [{ q_id: 1, section_key: 'section-1', section_title: null, local_number: 1 }]))
+      .toThrow(code('QUESTION_BEFORE_REQUIRED_SECTION'))
+  })
+
+  it('rejects duplicate local numbers only within the same section', () => {
+    expect(() => detectQuestionRegions([
+      page(1, [
+        item('PHẦN I:', 10, 0),
+        item('Câu 1.', 30, 1),
+        item('Question 1.', 80, 2),
+      ]),
+    ], [{ q_id: 1, section_key: 'section-1', section_title: null, local_number: 1 }]))
+      .toThrow(code('DUPLICATE_QUESTION_MARKER'))
+  })
+
+  it('rejects a local-number reset without a new section heading', () => {
+    expect(() => detectQuestionRegions([
+      page(1, [
+        item('SECTION 1:', 10, 0),
+        item('Question 5.', 30, 1),
+        item('Question 6.', 60, 2),
+        item('Question 1.', 90, 3),
+      ]),
+    ], [
+      { q_id: 1, section_key: 'opening', section_title: null, local_number: 5 },
+      { q_id: 2, section_key: 'opening', section_title: null, local_number: 6 },
+      { q_id: 3, section_key: 'closing', section_title: null, local_number: 1 },
+    ])).toThrow(code('UNHEADED_SECTION_RESET'))
+  })
+
+  it('rejects ambiguous and missing descriptor mappings', () => {
+    const pages = [page(1, [item('PHẦN I:', 10, 0), item('Câu 1.', 30, 1)])]
+    expect(() => detectQuestionRegions(pages, [
+      { q_id: 1, section_key: 'section-1', section_title: null, local_number: 1 },
+      { q_id: 2, section_key: 'section-1', section_title: null, local_number: 1 },
+    ])).toThrow(code('AMBIGUOUS_QUESTION_DESCRIPTOR_MAPPING'))
+    expect(() => detectQuestionRegions(pages, [
+      { q_id: 1, section_key: 'section-1', section_title: null, local_number: 2 },
+    ])).toThrow(code('MISSING_QUESTION_DESCRIPTOR_MAPPING'))
+  })
+
   it('keeps current-row glyphs above the marker and excludes next-question glyphs', () => {
     const result = detectQuestionRegions([
       page(1, [

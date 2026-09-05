@@ -37,11 +37,11 @@ vi.mock('../lib/auth-context', () => ({
 
 async function uploadRequiredPdfs(user) {
   await user.upload(
-    screen.getByLabelText(/Exercise PDF — student copy/i),
+    screen.getByLabelText(/Exercise PDF/i),
     new File(['exercise-pdf'], 'questions.pdf', { type: 'application/pdf' }),
   )
   await user.upload(
-    screen.getByLabelText(/Answer PDF — teacher copy/i),
+    screen.getByLabelText(/Answer PDF/i),
     new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }),
   )
 }
@@ -65,7 +65,10 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
     expect(screen.getByRole('group', { name: /duration presets/i })).toHaveClass('grid-cols-3')
     expect(screen.getByText(/questions: 1/i).parentElement).toHaveClass('flex-wrap')
-    expect(screen.getByRole('button', { name: /^all$/i }).parentElement).toHaveClass('grid-cols-2')
+    expect(screen.getByRole('button', { name: /grade access/i })).toHaveTextContent('Grade 12')
+    expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
+    expect(screen.getByTestId('exercise-pdf-upload')).toHaveClass('bg-sc-primary-container')
+    expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
   })
 
   it('requires separate student and teacher PDFs before saving', async () => {
@@ -103,12 +106,15 @@ describe('TeacherCreateExercisePage', () => {
       schema: [
         {
           q_id: 1,
+          section_key: 'main',
+          section_title: null,
+          local_number: 1,
           type: 'mcq',
           correct_answer: 'B',
         },
       ],
       extract_model: null,
-      grades: [10, 11, 12],
+      grades: [12],
     })
   })
 
@@ -134,7 +140,9 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Untimed Quiz')
     await user.click(screen.getByLabelText('Timed mode toggle'))
-    expect(screen.getByLabelText(/duration \(minutes\)/i)).toBeDisabled()
+    const durationInput = screen.getByLabelText(/duration \(minutes\)/i)
+    expect(durationInput).toBeDisabled()
+    expect(durationInput).toHaveValue(null)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
@@ -146,12 +154,15 @@ describe('TeacherCreateExercisePage', () => {
       schema: [
         {
           q_id: 1,
+          section_key: 'main',
+          section_title: null,
+          local_number: 1,
           type: 'mcq',
           correct_answer: 'C',
         },
       ],
       extract_model: null,
-      grades: [10, 11, 12],
+      grades: [12],
     })
   })
 
@@ -188,8 +199,8 @@ describe('TeacherCreateExercisePage', () => {
     const answerPdf = new File(['fake-pdf'], 'answer.pdf', { type: 'application/pdf' })
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Fallback Quiz')
-    await user.upload(screen.getByLabelText(/Exercise PDF — student copy/i), new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }))
-    await user.upload(screen.getByLabelText(/Answer PDF — teacher copy/i), answerPdf)
+    await user.upload(screen.getByLabelText(/Exercise PDF/i), new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }))
+    await user.upload(screen.getByLabelText(/Answer PDF/i), answerPdf)
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
     expect(await screen.findByText('DeepSeek unavailable')).toBeInTheDocument()
@@ -218,7 +229,7 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.upload(
-      screen.getByLabelText(/Answer PDF — teacher copy/i),
+      screen.getByLabelText(/Answer PDF/i),
       new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
     )
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
@@ -231,6 +242,50 @@ describe('TeacherCreateExercisePage', () => {
 
     expect(screen.getByText(/please fix all answer key errors/i)).toBeInTheDocument()
     expect(createExerciseMock).not.toHaveBeenCalled()
+  })
+
+  it('keeps repeated local numbers from different parsed sections', async () => {
+    const user = userEvent.setup()
+    extractTextFromPdfMock.mockResolvedValue('Phần I Câu 1. A Phần II Câu 1. B')
+    parseExerciseSchemaMock.mockResolvedValue({
+      data: {
+        schema: [
+          {
+            q_id: 1,
+            section_key: 'section-1',
+            section_title: 'Phần I',
+            local_number: 1,
+            sub_id: null,
+            type: 'mcq',
+            correct_answer: 'A',
+            confidence: 0.95,
+          },
+          {
+            q_id: 2,
+            section_key: 'section-2',
+            section_title: 'Phần II',
+            local_number: 1,
+            sub_id: null,
+            type: 'mcq',
+            correct_answer: 'B',
+            confidence: 0.95,
+          },
+        ],
+      },
+    })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.upload(
+      screen.getByLabelText(/Answer PDF/i),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByText('Phần I')).toBeInTheDocument()
+    expect(screen.getByText('Phần II')).toBeInTheDocument()
+    expect(screen.getByLabelText('Source number for Phần I, 1')).toHaveValue(1)
+    expect(screen.getByLabelText('Source number for Phần II, 1')).toHaveValue(1)
   })
 
   it('adding a boolean row creates 4 sub-question toggles (a,b,c,d)', async () => {
@@ -287,13 +342,13 @@ describe('TeacherCreateExercisePage', () => {
       is_timed: true,
       duration_minutes: 60,
       schema: [
-        { q_id: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
-        { q_id: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
-        { q_id: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
-        { q_id: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
       ],
       extract_model: null,
-      grades: [10, 11, 12],
+      grades: [12],
     })
   })
 
@@ -305,11 +360,13 @@ describe('TeacherCreateExercisePage', () => {
     await user.type(screen.getByLabelText(/exercise title/i), 'Grade Quiz')
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await uploadRequiredPdfs(user)
-    await user.click(screen.getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: 'Grade access' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 10' }))
+    await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledWith('test-token', expect.objectContaining({
-      grades: [10, 11],
+      grades: [10, 12],
     }))
   })
 
@@ -342,7 +399,7 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     // Default state: 1 MCQ row → 1 drag handle
-    await screen.findByLabelText(/question number 1/i)
+    await screen.findByLabelText(/source number for 1/i)
     const handles = screen.getAllByRole('button', { name: /move question/i })
     expect(handles.length).toBeGreaterThanOrEqual(1)
   })
