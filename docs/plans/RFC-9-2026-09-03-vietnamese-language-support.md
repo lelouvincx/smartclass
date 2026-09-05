@@ -10,7 +10,7 @@ dependencies: [RFC-6, RFC-8]
 
 ## Summary
 
-SmartClass will support English and Vietnamese throughout the authenticated teacher and student application. English remains the default. Users can select a language in Settings, and the browser stores that preference locally.
+SmartClass supports English and Vietnamese throughout the authenticated teacher and student application. Vietnamese is the default. Users can select a language in Settings, and the browser stores that preference locally.
 
 Login, registration, and API-originated messages remain English. SmartClass will not infer language from the browser, and this release does not add account-level language storage.
 
@@ -36,7 +36,8 @@ Login, registration, and API-originated messages remain English. SmartClass will
 ### Locale selection and persistence
 
 - Supported locale identifiers are `en` and `vi`.
-- English is always the initial fallback when no valid saved preference exists.
+- Vietnamese is always the initial language when no valid saved preference exists.
+- English remains the translation fallback for a missing resource key.
 - The selector lives in Settings because language is an explicit user preference.
 - The preference uses a versioned local-storage key so a future storage contract can migrate deliberately.
 - Changing the setting updates the application immediately and sets the document `lang` attribute.
@@ -102,7 +103,7 @@ API error and success messages remain server-owned English. Frontend-owned valid
 ## Acceptance criteria
 
 - Settings offers English and Tiếng Việt and applies changes immediately.
-- Reloading the same browser preserves a valid selection; absent or invalid values fall back to English.
+- Reloading the same browser preserves a valid selection; absent or invalid values default to Vietnamese.
 - Authenticated first-party UI and accessibility text are complete in both languages.
 - Login, registration, and API-originated messages remain English by design.
 - Dates, relative times, durations, numbers, and counts follow the selected locale without forcing a timezone.

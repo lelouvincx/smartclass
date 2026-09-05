@@ -9,7 +9,7 @@ import viSettings from '@/locales/vi/settings'
 import viStudent from '@/locales/vi/student'
 import viTeacher from '@/locales/vi/teacher'
 
-export const DEFAULT_LANGUAGE = 'en'
+export const DEFAULT_LANGUAGE = 'vi'
 export const SUPPORTED_LANGUAGES = ['en', 'vi']
 export const LANGUAGE_STORAGE_KEY = 'smartclass-language-v1'
 
@@ -44,7 +44,7 @@ i18n
   .init({
     resources,
     lng: initialLanguage,
-    fallbackLng: DEFAULT_LANGUAGE,
+    fallbackLng: 'en',
     supportedLngs: SUPPORTED_LANGUAGES,
     interpolation: { escapeValue: false },
     initImmediate: false,

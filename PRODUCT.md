@@ -23,6 +23,7 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 ## Account access
 
 - Teachers and students sign in with their phone number and password.
+- The authenticated teacher and student application defaults to Vietnamese. A user can switch between Vietnamese and English in Settings, and the current browser remembers that preference.
 - New student accounts require a name, whether students register themselves or a teacher creates the account. Legacy accounts may remain unnamed until updated.
 - A signed-in teacher or student can change their own name from Settings. Teachers can also rename student accounts from the student list.
 - A student can belong to one or more high-school grades: 10, 11, and 12. Grade memberships accumulate when appropriate, so a student can retain grade 10 access after also receiving grade 11 access. “All grades” is an interface shortcut for selecting all three memberships, not a stored grade.
