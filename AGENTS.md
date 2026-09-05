@@ -38,6 +38,7 @@
 
 - While iterating, run the tests relevant to the changed behavior.
 - For every frontend change, complete the [frontend acceptance checklist](DESIGN.md#frontend-acceptance) and include its required evidence in the pull request description.
+- Before archiving a thread, stop every local frontend and backend process that the thread started, verify that their listeners are gone, and leave processes owned by other threads running.
 - Before opening a pull request containing application or database changes, run:
   - `npm test`
   - `npm run test:worker`
