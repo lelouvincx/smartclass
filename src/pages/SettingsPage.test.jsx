@@ -47,8 +47,12 @@ function renderPage() {
   )
 }
 
+async function expandSection(user, name) {
+  await user.click(screen.getByRole('button', { name }))
+}
+
 describe('SettingsPage sections', () => {
-  it('lets users independently collapse and expand each visible setting', async () => {
+  it('starts collapsed and lets users independently expand and collapse each visible setting', async () => {
     const user = userEvent.setup()
     renderPage()
 
@@ -59,11 +63,15 @@ describe('SettingsPage sections', () => {
     const passwordToggle = screen.getByRole('button', { name: 'Change password settings' })
     const accountsToggle = screen.getByRole('button', { name: 'Connected accounts settings' })
 
-    expect(profileToggle).toHaveAttribute('aria-expanded', 'true')
-    expect(languageToggle).toHaveAttribute('aria-expanded', 'true')
-    expect(passwordToggle).toHaveAttribute('aria-expanded', 'true')
-    expect(accountsToggle).toHaveAttribute('aria-expanded', 'true')
+    expect(profileToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(languageToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(passwordToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(accountsToggle).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByLabelText('Current password')).not.toBeVisible()
+    expect(screen.queryByText('Choose the name shown on your SmartClass account.')).not.toBeInTheDocument()
+    expect(screen.queryByText('Choose the language used in the teacher and student application.')).not.toBeInTheDocument()
 
+    await user.click(passwordToggle)
     await user.type(screen.getByLabelText('Current password'), 'keep-this-value')
     await user.click(passwordToggle)
 
@@ -72,8 +80,8 @@ describe('SettingsPage sections', () => {
       'false',
     )
     expect(screen.queryByLabelText('Current password')).not.toBeVisible()
-    expect(screen.getByRole('combobox', { name: 'Language' })).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Connect Google' })).toBeVisible()
+    expect(screen.getByLabelText('Language')).not.toBeVisible()
+    expect(screen.getByText('Connect Google').closest('button')).not.toBeVisible()
 
     await user.click(screen.getByRole('button', { name: 'Change password settings' }))
 
@@ -90,6 +98,7 @@ describe('SettingsPage profile name', () => {
     authState.refreshUser.mockResolvedValue()
     renderPage()
 
+    await expandSection(user, 'Profile settings')
     const nameInput = screen.getByRole('textbox', { name: 'Name' })
     expect(nameInput).toHaveValue('Nguyễn Văn An')
     expect(nameInput).toHaveAttribute('autocomplete', 'name')
@@ -108,6 +117,7 @@ describe('SettingsPage language preference', () => {
     const user = userEvent.setup()
     renderPage()
 
+    await expandSection(user, 'Language settings')
     await act(async () => {
       await user.selectOptions(screen.getByRole('combobox', { name: 'Language' }), 'vi')
     })
@@ -119,9 +129,11 @@ describe('SettingsPage language preference', () => {
 })
 
 describe('SettingsPage teacher password change', () => {
-  it('provides password-manager-compatible fields only to teachers', () => {
+  it('provides password-manager-compatible fields only to teachers', async () => {
+    const user = userEvent.setup()
     const { unmount } = renderPage()
 
+    await expandSection(user, 'Change password settings')
     expect(screen.getByLabelText('Current password')).toHaveAttribute('autocomplete', 'current-password')
     expect(screen.getByLabelText('New password')).toHaveAttribute('autocomplete', 'new-password')
     expect(screen.getByLabelText('Confirm new password')).toHaveAttribute('autocomplete', 'new-password')
@@ -137,6 +149,7 @@ describe('SettingsPage teacher password change', () => {
     const user = userEvent.setup()
     renderPage()
 
+    await expandSection(user, 'Change password settings')
     await user.type(screen.getByLabelText('Current password'), '123')
     await user.type(screen.getByLabelText('New password'), 'new-password')
     await user.type(screen.getByLabelText('Confirm new password'), 'different-password')
@@ -151,6 +164,7 @@ describe('SettingsPage teacher password change', () => {
     changePasswordMock.mockRejectedValue(new Error('Current password is incorrect.'))
     renderPage()
 
+    await expandSection(user, 'Change password settings')
     await user.type(screen.getByLabelText('Current password'), 'wrong-password')
     await user.type(screen.getByLabelText('New password'), 'new-password')
     await user.type(screen.getByLabelText('Confirm new password'), 'new-password')
@@ -164,6 +178,7 @@ describe('SettingsPage teacher password change', () => {
     changePasswordMock.mockResolvedValue({ data: { password_changed: true } })
     renderPage()
 
+    await expandSection(user, 'Change password settings')
     await user.type(screen.getByLabelText('Current password'), '123')
     await user.type(screen.getByLabelText('New password'), 'new-password')
     await user.type(screen.getByLabelText('Confirm new password'), 'new-password')
