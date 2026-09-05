@@ -4,7 +4,7 @@
 
 - Before changing or describing shipped product behavior, read `PRODUCT.md`; it is authoritative. Treat `TODO.md` and superseded RFC content as proposals, not current behavior.
 - Before changing an established flow, read the relevant RFC under `docs/plans/` and any later RFC that supersedes it. RFCs preserve rationale and migration status but do not override `PRODUCT.md`.
-- Before frontend or visual work, read `DESIGN.md`. Use `src/design-system/tokens.css` and `src/design-system/` for normative tokens and product compositions; keep low-level shadcn primitives in `src/components/ui/`.
+- Before any frontend change—including a route, component, style, copy, or client-side interaction—read and follow `DESIGN.md`; it is the normative UI and frontend-acceptance contract.
 - When Hono behavior is uncertain, read `https://hono.dev/llms-small.txt` first, then only the relevant section of `https://hono.dev/llms-full.txt`.
 
 ## Safety and authorship
@@ -21,7 +21,7 @@
 ## Change contract
 
 - For behavioral changes, add or update the failing test first, then implement the smallest change that makes it pass.
-- When maintaining `DESIGN.md`, keep normative tokens in Google-format YAML front matter, keep rationale in Google's canonical section order, align values with `src/design-system/tokens.css`, and run `npx @google/design.md lint DESIGN.md`.
+- When editing `DESIGN.md`, keep its YAML front matter valid against the `@google/design.md` schema, retain Google's canonical `##` section names and order, keep `src/design-system/tokens.css` synchronized with front-matter token changes, and run `npx @google/design.md lint DESIGN.md`; it must exit successfully.
 - Use `jsonSuccess` and `jsonError` from `worker/lib/response.js` for API responses.
 - Keep frontend API operations behind `request()` in `src/lib/api.js`. Use XHR only when upload-progress events are required.
 - Use `DB.batch()` when multiple D1 statements must commit atomically; separate `.run()` calls are not one transaction.
@@ -37,7 +37,7 @@
 ## Completion
 
 - While iterating, run the tests relevant to the changed behavior.
-- Perform visual QA in both light and dark mode, and include evidence for both modes in the pull request description.
+- For every frontend change, complete the [frontend acceptance checklist](DESIGN.md#frontend-acceptance) and include its required evidence in the pull request description.
 - Before opening a pull request containing application or database changes, run:
   - `npm test`
   - `npm run test:worker`
