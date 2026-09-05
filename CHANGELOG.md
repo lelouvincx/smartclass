@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Run GitHub Actions on the Node 24 runtime by upgrading `actions/checkout` and `actions/setup-node` to v5, removing the deprecated Node 20 actions. [#106](https://github.com/lelouvincx/smartclass/pull/106)
 - Move the production frontend and API to `toanthaythanh.com` and retire the former `smartclass.lelouvincx.com` hostnames. [#105](https://github.com/lelouvincx/smartclass/pull/105)
 - Simplify exercise forms with a compact grade selector that defaults to grade 12, a blank duration field in untimed mode, the default image-extraction model, and distinct Exercise PDF and Answer PDF colors.
 - Collapse every Settings section by default while keeping each section independently expandable. [#103](https://github.com/lelouvincx/smartclass/pull/103)
