@@ -110,4 +110,14 @@ describe('StudentLayout navigation', () => {
     expect(document.getElementById('main-content')).toHaveClass('max-w-5xl')
     expect(screen.getByRole('button', { name: 'Collapse sidebar' })).toBeInTheDocument()
   })
+
+  it('temporarily uses the compact wide workspace while a student reviews a submission', () => {
+    renderLayout('/student/submissions/23/review')
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-28')
+    expect(document.getElementById('main-content')).toHaveClass('max-w-[90rem]')
+    expect(screen.queryByRole('button', { name: 'Expand sidebar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).not.toBeInTheDocument()
+    expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBeNull()
+  })
 })

@@ -91,8 +91,8 @@ describe('StudentSummaryPage', () => {
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION_MCQ })
     renderPage()
     await screen.findByText('Algebra Quiz')
-    expect(screen.getByText('7.5')).toBeInTheDocument()
-    expect(screen.getByText('out of 10')).toBeInTheDocument()
+    expect(screen.getByRole('meter', { name: 'Score' })).toHaveTextContent('7.5 / 10')
+    expect(screen.queryByText('out of 10')).not.toBeInTheDocument()
     expect(screen.getByRole('meter', { name: 'Score' })).toHaveAttribute('aria-valuetext', '7.5 out of 10')
   })
 
@@ -115,7 +115,7 @@ describe('StudentSummaryPage', () => {
     expect(screen.getByText('Correct parts')).toBeInTheDocument()
     expect(screen.getByText('Incorrect parts')).toBeInTheDocument()
     expect(screen.getByText('Skipped parts')).toBeInTheDocument()
-    expect(screen.getByText(/True\/False questions may contain multiple parts/i)).toBeInTheDocument()
+    expect(screen.queryByText(/True\/False questions may contain multiple parts/i)).not.toBeInTheDocument()
   })
 
   it('counts boolean sub-rows individually', async () => {
