@@ -33,7 +33,7 @@ describe('ScoreAllocationCard', () => {
 
     expect(screen.getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'Automatic allocation' })).toBeChecked()
-    expect(screen.getByText('Automatic allocation · final score normalized to 10')).toBeInTheDocument()
+    expect(screen.getByText('Automatic allocation · final score normalized to 10.0')).toBeInTheDocument()
     expect(screen.getByText('0.25')).toBeInTheDocument()
     expect(screen.getByText('0.50')).toBeInTheDocument()
     expect(screen.getByText('1.00')).toBeInTheDocument()
@@ -50,7 +50,7 @@ describe('ScoreAllocationCard', () => {
     expect(screen.getByLabelText('Points for Part I, question 2')).toHaveValue('3.33')
     expect(screen.getByLabelText('Points for Part II, question 1')).toHaveValue('3.33')
     expect(screen.getAllByRole('textbox')).toHaveLength(3)
-    expect(screen.getByText('10.00 of 10.00 allocated')).toBeInTheDocument()
+    expect(screen.getByText('10.0 of 10.0 allocated')).toBeInTheDocument()
   })
 
   it('validates on blur, clears the field error on input, and focuses linked summary on submit', async () => {

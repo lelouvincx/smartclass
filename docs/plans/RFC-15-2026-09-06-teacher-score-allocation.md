@@ -23,7 +23,7 @@ Teachers will choose one of 2 allocation modes:
 - **Automatic allocation** uses SmartClass's current type-based grading proportions
 - **Custom allocation** lets the teacher assign each question a maximum score
 
-The final exercise score remains 10. Custom allocations must total exactly 10.00 before the teacher can save or activate the exercise.
+The final exercise score remains 10.0. Custom allocations must total exactly 10.0 before the teacher can save or activate the exercise.
 
 ```diagram
 Exercise details and PDFs
@@ -32,7 +32,7 @@ Exercise details and PDFs
 Parse and correct answers
             │
             ▼
-Allocate 10.00 points
+Allocate 10.0 points
             │
             ▼
 Save, prepare images, review and activate
@@ -69,7 +69,7 @@ Each value:
 - must be at least 0.01
 - accepts no more than 2 decimal places
 
-The values for all distinct questions must total exactly 10.00. SmartClass stores each value as integer hundredths of a point. For example, 0.25 is stored as `25` and 1.00 as `100`.
+The values for all distinct questions must total exactly 10.0. SmartClass stores each value as integer hundredths of a point. For example, 0.25 is stored as `25` and 1.00 as `100`.
 
 SmartClass converts automatic proportions to integer hundredths with the largest-remainder method:
 
@@ -78,7 +78,7 @@ SmartClass converts automatic proportions to integer hundredths with the largest
 3. Assign remaining hundredths by descending fractional remainder.
 4. Break equal remainders by ascending global `q_id`.
 
-This produces deterministic values that total 10.00.
+This produces deterministic values that total 10.0.
 
 Custom allocation is unavailable when an exercise has more than 1,000 questions because every question must be worth at least 0.01. **Use type proportions** is unavailable when rounding would give any question 0.00. The interface explains the constraint and keeps the valid equal distribution.
 
@@ -105,23 +105,23 @@ The score allocation card follows the answer table because allocation depends on
 The card contains:
 
 - a heading, **Score allocation**
-- short text stating that the exercise total is 10 points
+- short text stating that the exercise total is 10.0 points
 - a radio group for **Automatic allocation** and **Custom allocation**
 - one compact row per question, grouped by source section
 - a persistent summary showing allocation status
 
-Automatic rows show the question label, answer type, and relative weight. The summary reads **Automatic allocation · final score normalized to 10**. Custom rows replace the relative weight with a labelled decimal input.
+Automatic rows show the question label, answer type, and relative weight. The summary reads **Automatic allocation · final score normalized to 10.0**. Custom rows replace the relative weight with a labelled decimal input.
 
 The summary uses text as well as colour:
 
-- **10.00 of 10.00 allocated** when the allocation is valid
-- **0.50 points remaining** when the total is below 10.00
-- **0.25 points over** when the total exceeds 10.00
+- **10.0 of 10.0 allocated** when the allocation is valid
+- **0.50 points remaining** when the total is below 10.0
+- **0.25 points over** when the total exceeds 10.0
 
 The step also provides 2 secondary actions in custom mode:
 
-- **Use type proportions** distributes 10.00 from the current automatic relative weights
-- **Use equal points** distributes 10.00 equally across all questions
+- **Use type proportions** distributes 10.0 from the current automatic relative weights
+- **Use equal points** distributes 10.0 equally across all questions
 
 Changing a question type recalculates automatic allocation. Custom allocation keeps the question's existing value. Adding or deleting a question makes a custom allocation invalid until the teacher redistributes or edits the values.
 
@@ -228,9 +228,9 @@ Implement this behavior test-first in these stages:
 - automatic allocation stores `NULL` and produces exactly the same scores as RFC-2
 - 1 correct answer in a 3-question automatic multiple-choice exercise remains 3.33
 - a teacher can switch to custom allocation and edit question values
-- equal distribution always totals 10.00 deterministically for up to 1,000 questions
-- type-proportion distribution totals 10.00 when every resulting question value is at least 0.01
-- save and activation reject missing, invalid, mixed, or non-10.00 allocations
+- equal distribution always totals 10.0 deterministically for up to 1,000 questions
+- type-proportion distribution totals 10.0 when every resulting question value is at least 0.01
+- save and activation reject missing, invalid, mixed, or non-10.0 allocations
 - true or false partial credit scales the configured question value
 - changing allocation on an active exercise requires replacement activation
 - allocation-changing updates reject exercises with unpinned legacy submissions
