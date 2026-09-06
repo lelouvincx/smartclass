@@ -10,6 +10,7 @@ const approveStudentMock = vi.fn()
 const listStudentsMock = vi.fn()
 const updateStudentNameMock = vi.fn()
 const updateStudentGradesMock = vi.fn()
+const updateStudentAccessTierMock = vi.fn()
 const logoutMock = vi.fn()
 const navigateMock = vi.fn()
 
@@ -27,6 +28,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     listStudents: (...args) => listStudentsMock(...args),
     updateStudentName: (...args) => updateStudentNameMock(...args),
     updateStudentGrades: (...args) => updateStudentGradesMock(...args),
+    updateStudentAccessTier: (...args) => updateStudentAccessTierMock(...args),
   }
 })
 
@@ -55,6 +57,7 @@ describe('TeacherStudentsPage', () => {
     listStudentsMock.mockReset()
     updateStudentNameMock.mockReset()
     updateStudentGradesMock.mockReset()
+    updateStudentAccessTierMock.mockReset()
     logoutMock.mockReset()
     navigateMock.mockReset()
     toastMock.success.mockReset()
@@ -116,8 +119,8 @@ describe('TeacherStudentsPage', () => {
   it('renders student list table', async () => {
     listStudentsMock.mockResolvedValue({
       data: [
-        { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'active', grades: [10, 11], created_at: '2026-05-07 10:00:00' },
-        { id: 2, name: 'Trần Thị Bình', phone: '+84987654321', role: 'student', status: 'pending', grades: [12], created_at: '2026-05-06 09:00:00' },
+        { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'active', access_tier: 'vip', grades: [10, 11], created_at: '2026-05-07 10:00:00' },
+        { id: 2, name: 'Trần Thị Bình', phone: '+84987654321', role: 'student', status: 'pending', access_tier: 'standard', grades: [12], created_at: '2026-05-06 09:00:00' },
       ],
     })
 
@@ -136,7 +139,10 @@ describe('TeacherStudentsPage', () => {
     expect(screen.getAllByText('Grade 10').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Grade 11').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Grade 12').length).toBeGreaterThanOrEqual(1)
-    expect(screen.getByTestId('responsive-student-list')).toHaveClass('grid')
+    const studentList = screen.getByTestId('responsive-student-list')
+    expect(within(studentList).getByText('VIP')).toBeInTheDocument()
+    expect(within(studentList).getByText('Standard')).toBeInTheDocument()
+    expect(studentList).toHaveClass('grid')
     expect(screen.getByText('Nguyễn Văn An')).toHaveClass('min-w-0')
   })
 
@@ -154,15 +160,40 @@ describe('TeacherStudentsPage', () => {
 
     await user.click(await screen.findByLabelText('Select Nguyễn Văn An'))
     await user.click(screen.getByLabelText('Select Trần Thị Bình'))
-    const bulkGrades = screen.getByRole('group', { name: 'Classes to assign' })
+    const bulkGrades = screen.getByRole('group', { name: 'Programmes to assign' })
     await user.click(within(bulkGrades).getByLabelText('Grade 12'))
-    await user.click(screen.getByRole('button', { name: 'Assign classes to 2 students' }))
+    await user.click(screen.getByRole('button', { name: 'Assign programmes to 2 students' }))
 
     expect(updateStudentGradesMock).toHaveBeenCalledWith('test-token', {
       student_ids: [1, 2],
       grades: [10, 11, 'dgnl'],
     })
     await waitFor(() => expect(listStudentsMock).toHaveBeenCalledTimes(2))
+  })
+
+  it('bulk-assigns one access tier without changing programmes', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({
+      data: [
+        { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'active', access_tier: 'standard', grades: [10], created_at: '2026-05-07 10:00:00' },
+        { id: 2, name: 'Trần Thị Bình', phone: '+84987654321', role: 'student', status: 'active', access_tier: 'standard', grades: [12], created_at: '2026-05-06 09:00:00' },
+      ],
+    })
+    updateStudentAccessTierMock.mockResolvedValue({ data: {}, message: 'Student access tier updated.' })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    await user.click(await screen.findByLabelText('Select Nguyễn Văn An'))
+    await user.click(screen.getByLabelText('Select Trần Thị Bình'))
+    const tierGroup = screen.getByRole('radiogroup', { name: 'Access tier to assign' })
+    await user.click(within(tierGroup).getByRole('radio', { name: 'VIP' }))
+    await user.click(screen.getByRole('button', { name: 'Assign tier to 2 students' }))
+
+    expect(updateStudentAccessTierMock).toHaveBeenCalledWith('test-token', {
+      student_ids: [1, 2],
+      access_tier: 'vip',
+    })
+    expect(updateStudentGradesMock).not.toHaveBeenCalled()
   })
 
   it('renders create student form', async () => {
@@ -200,6 +231,8 @@ describe('TeacherStudentsPage', () => {
     await user.type(screen.getByLabelText('Name'), '  Nguyễn Văn An  ')
     const input = screen.getByPlaceholderText(/\+84xxx/)
     await user.type(input, '+84111111111')
+    const createTierGroup = screen.getByRole('radiogroup', { name: 'Student access tier' })
+    await user.click(within(createTierGroup).getByRole('radio', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: /create student/i }))
 
     await waitFor(() => {
@@ -207,6 +240,7 @@ describe('TeacherStudentsPage', () => {
         name: 'Nguyễn Văn An',
         phone: '+84111111111',
         grades: [10, 11, 12, 'dgnl'],
+        access_tier: 'vip',
       })
     })
 

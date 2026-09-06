@@ -2,10 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
-import { listStudents, createStudent, approveStudent, updateStudentGrades, updateStudentName } from '@/lib/api'
+import { listStudents, createStudent, approveStudent, updateStudentAccessTier, updateStudentGrades, updateStudentName } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
+import AccessTierRadioGroup, { AccessTierBadge } from '@/components/access-tier-radio-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -55,10 +56,13 @@ export default function TeacherStudentsPage() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [newStudentGrades, setNewStudentGrades] = useState([...GRADES])
+  const [newStudentAccessTier, setNewStudentAccessTier] = useState('standard')
   const [creating, setCreating] = useState(false)
   const [selectedStudentIds, setSelectedStudentIds] = useState([])
   const [bulkGrades, setBulkGrades] = useState([...GRADES])
   const [isAssigningGrades, setIsAssigningGrades] = useState(false)
+  const [bulkAccessTier, setBulkAccessTier] = useState('standard')
+  const [isAssigningAccessTier, setIsAssigningAccessTier] = useState(false)
   const [approvingId, setApprovingId] = useState(null)
   const [renamingStudent, setRenamingStudent] = useState(null)
   const [renamedName, setRenamedName] = useState('')
@@ -145,10 +149,12 @@ export default function TeacherStudentsPage() {
         name: trimmedName,
         phone: trimmedPhone,
         grades: newStudentGrades,
+        access_tier: newStudentAccessTier,
       })
       setName('')
       setPhone('')
       setNewStudentGrades([...GRADES])
+      setNewStudentAccessTier('standard')
       setSuccessMessage(res.message || t('teacher.students.createdFallback'))
       await loadStudents()
     } catch (err) {
@@ -226,6 +232,25 @@ export default function TeacherStudentsPage() {
     }
   }
 
+  async function handleAssignAccessTier() {
+    if (selectedStudentIds.length === 0) return
+
+    setIsAssigningAccessTier(true)
+    try {
+      const res = await updateStudentAccessTier(token, {
+        student_ids: selectedStudentIds,
+        access_tier: bulkAccessTier,
+      })
+      toast.success(res.message || t('teacher.students.accessTierUpdatedFallback'))
+      setSelectedStudentIds([])
+      await loadStudents()
+    } catch (assignError) {
+      toast.error(assignError.message)
+    } finally {
+      setIsAssigningAccessTier(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader title={t('teacher.students.title')} description={t('teacher.students.description')} />
@@ -283,6 +308,14 @@ export default function TeacherStudentsPage() {
                 if (createError) setCreateError('')
               }}
               disabled={creating}
+            />
+            <AccessTierRadioGroup
+              id="new-student-access-tier"
+              legend={t('teacher.students.studentAccessTier')}
+              value={newStudentAccessTier}
+              onChange={setNewStudentAccessTier}
+              disabled={creating}
+              className="lg:col-span-2"
             />
             <Button className="w-full sm:w-fit" type="submit" disabled={creating}>
               {creating ? t('teacher.students.creating') : t('teacher.students.create')}
@@ -366,6 +399,23 @@ export default function TeacherStudentsPage() {
                     ? t('teacher.students.assigningGrades')
                     : t('teacher.students.assignGrades', { count: selectedStudentIds.length })}
                 </Button>
+                <AccessTierRadioGroup
+                  id="bulk-student-access-tier"
+                  legend={t('teacher.students.accessTierToAssign')}
+                  value={bulkAccessTier}
+                  onChange={setBulkAccessTier}
+                  disabled={isAssigningAccessTier}
+                  className="lg:col-start-2"
+                />
+                <Button
+                  type="button"
+                  onClick={handleAssignAccessTier}
+                  disabled={isAssigningAccessTier || selectedStudentIds.length === 0}
+                >
+                  {isAssigningAccessTier
+                    ? t('teacher.students.assigningAccessTier')
+                    : t('teacher.students.assignAccessTier', { count: selectedStudentIds.length })}
+                </Button>
               </div>
               <div data-testid="responsive-student-list" className="grid gap-3" aria-label={t('teacher.students.listLabel')}>
                 {students.map((student) => (
@@ -394,6 +444,9 @@ export default function TeacherStudentsPage() {
                         grades={student.grades}
                         emptyText={t('teacher.students.noGrades')}
                       />
+                      <div className="mt-2">
+                        <AccessTierBadge tier={student.access_tier} />
+                      </div>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {t('teacher.students.created', { date: formatCreatedDate(student.created_at, i18n.resolvedLanguage) })}
                       </p>

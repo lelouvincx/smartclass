@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 
-export default function StudentLecturesPage() {
+export default function StudentLecturesPage({ audience = 'student' }) {
   const { t } = useTranslation()
   const { token } = useAuth()
   const [lectures, setLectures] = useState([])
@@ -86,7 +86,7 @@ export default function StudentLecturesPage() {
                   return (
                     <li key={lecture.id}>
                       <Link
-                        to={getLecturePath(lecture)}
+                        to={getLecturePath(lecture, audience)}
                         aria-label={t('student.lectures.watchNumbered', { number: sequence, title: lecture.title })}
                         className="group flex min-h-[72px] items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/55 focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-inset focus-visible:ring-ring/50 sm:px-6"
                       >

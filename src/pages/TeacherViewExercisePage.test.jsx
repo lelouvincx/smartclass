@@ -287,7 +287,7 @@ describe('TeacherViewExercisePage', () => {
 
     // Title should become an input
     expect(screen.getByLabelText('Exercise title')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Class access' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Programme access' })).toBeInTheDocument()
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     // Save and Cancel buttons should appear
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
@@ -339,7 +339,7 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Physics Quiz')
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
-    await user.click(screen.getByRole('button', { name: 'Class access' }))
+    await user.click(screen.getByRole('button', { name: 'Programme access' }))
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: /save/i }))

@@ -10,9 +10,9 @@ Priorities apply within each version:
 
 ## v0.6: Guest mode and launch readiness
 
-- [ ] **P0** Let guests browse exercises and lectures without logging in and save exercise results in IndexedDB
+- [ ] **P0** Let guests browse exercises without logging in and save exercise results in IndexedDB
 - [ ] **P0** Add structured production logging and monitoring
-- [ ] **P1** Plan guest mode: design IndexedDB storage, guest route access, and a data model for anonymous exercise completion
+- [ ] **P1** Plan guest exercise mode: design IndexedDB storage, route access, and a data model for anonymous exercise completion
 - [ ] **P1** Prompt guests to register after engagement
 - [ ] **P1** Add a cost analysis and estimation dashboard
 

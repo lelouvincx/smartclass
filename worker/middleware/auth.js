@@ -26,6 +26,16 @@ export async function requireAuth(c, next) {
   }
 }
 
+export async function optionalAuth(c, next) {
+  const authorization = c.req.header('Authorization') || ''
+  if (!authorization) {
+    await next()
+    return
+  }
+
+  return requireAuth(c, next)
+}
+
 export function requireRole(role) {
   return async (c, next) => {
     const authUser = c.get('authUser')

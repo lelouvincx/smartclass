@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import StudentLecturesPage from './StudentLecturesPage'
 
 const listLecturesMock = vi.fn()
+const useAuthMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => ({
   ...await importOriginal(),
@@ -12,7 +13,7 @@ vi.mock('../lib/api', async (importOriginal) => ({
 }))
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({ token: 'student-token' }),
+  useAuth: () => useAuthMock(),
 }))
 
 const lectures = [
@@ -24,6 +25,7 @@ const lectures = [
 describe('StudentLecturesPage', () => {
   beforeEach(() => {
     listLecturesMock.mockReset()
+    useAuthMock.mockReturnValue({ token: 'student-token', user: { id: 7, role: 'student' } })
   })
 
   it('shows lectures as a numbered curriculum grouped by section', async () => {
@@ -43,5 +45,19 @@ describe('StudentLecturesPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Network down')
     expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+  })
+
+  it('lets an anonymous Guest browse public lectures on public URLs', async () => {
+    useAuthMock.mockReturnValue({ token: null, user: null })
+    listLecturesMock.mockResolvedValue({ data: lectures })
+
+    render(<MemoryRouter><StudentLecturesPage audience="guest" /></MemoryRouter>)
+
+    expect(await screen.findByText('Introduction')).toBeInTheDocument()
+    expect(listLecturesMock).toHaveBeenCalledWith(null)
+    expect(screen.getByRole('link', { name: 'Watch lecture 1: Introduction' })).toHaveAttribute(
+      'href',
+      '/lectures/1-introduction',
+    )
   })
 })

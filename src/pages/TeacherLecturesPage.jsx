@@ -24,6 +24,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
+import AccessTierRadioGroup, { AccessTierBadge, LECTURE_ACCESS_TIERS } from '@/components/access-tier-radio-group'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { GRADES } from '@/lib/grades'
@@ -33,6 +34,7 @@ const EMPTY_FORM = {
   section_name: '',
   youtube_url: '',
   grades: [...GRADES],
+  minimum_access_tier: 'standard',
 }
 
 export default function TeacherLecturesPage() {
@@ -116,6 +118,7 @@ export default function TeacherLecturesPage() {
       section_name: lecture.section_name,
       youtube_url: lecture.youtube_url,
       grades: lecture.grades || [...GRADES],
+      minimum_access_tier: lecture.minimum_access_tier || 'standard',
     })
     setError('')
     setDialogOpen(true)
@@ -200,7 +203,10 @@ export default function TeacherLecturesPage() {
       />
 
       <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="sm:max-w-lg" closeLabel={t('teacher.lectures.closeDialog')}>
+        <DialogContent
+          className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg"
+          closeLabel={t('teacher.lectures.closeDialog')}
+        >
           <DialogHeader>
             <DialogTitle>{editingId ? t('teacher.lectures.edit') : t('teacher.lectures.add')}</DialogTitle>
             <DialogDescription>{t('teacher.lectures.formDescription')}</DialogDescription>
@@ -250,6 +256,14 @@ export default function TeacherLecturesPage() {
               description={t('common.gradeAccessDescription')}
               value={form.grades}
               onChange={(grades) => updateField('grades', grades)}
+              disabled={isSaving}
+            />
+            <AccessTierRadioGroup
+              id="lecture-access-tier"
+              legend={t('teacher.lectures.minimumAccessTier')}
+              value={form.minimum_access_tier}
+              onChange={(tier) => updateField('minimum_access_tier', tier)}
+              tiers={LECTURE_ACCESS_TIERS}
               disabled={isSaving}
             />
             {error && (
@@ -332,7 +346,10 @@ export default function TeacherLecturesPage() {
                           <span className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-semibold tabular-nums text-muted-foreground">{sequence}</span>
                           <div className="min-w-0">
                             <p className="font-medium leading-6 break-words">{lecture.title}</p>
-                            <GradeBadges className="mt-2" grades={lecture.grades} />
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              <GradeBadges grades={lecture.grades} />
+                              <AccessTierBadge tier={lecture.minimum_access_tier} />
+                            </div>
                             <div className="-ml-2 flex flex-wrap items-center gap-1">
                               <Button asChild variant="ghost" size="sm" className="text-primary">
                                 <Link

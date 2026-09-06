@@ -400,7 +400,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.type(screen.getByLabelText(/exercise title/i), 'Grade Quiz')
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await uploadRequiredPdfs(user)
-    await user.click(screen.getByRole('button', { name: 'Class access' }))
+    await user.click(screen.getByRole('button', { name: 'Programme access' }))
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 10' }))
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))

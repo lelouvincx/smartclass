@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import StudentLecturePlayerPage from './StudentLecturePlayerPage'
 
 const listLecturesMock = vi.fn()
+const useAuthMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => ({
   ...await importOriginal(),
@@ -12,7 +13,7 @@ vi.mock('../lib/api', async (importOriginal) => ({
 }))
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({ token: 'student-token', user: { id: 7 } }),
+  useAuth: () => useAuthMock(),
 }))
 
 const lectures = [
@@ -44,10 +45,24 @@ function renderTeacherPage(slug = '2-worked-example') {
   )
 }
 
+function renderGuestPage(slug = '2-worked-example') {
+  return render(
+    <MemoryRouter initialEntries={[`/lectures/${slug}`]}>
+      <Routes>
+        <Route
+          path="/lectures/:lectureSlug"
+          element={<StudentLecturePlayerPage audience="guest" />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('StudentLecturePlayerPage', () => {
   beforeEach(() => {
     listLecturesMock.mockReset()
     listLecturesMock.mockResolvedValue({ data: lectures })
+    useAuthMock.mockReturnValue({ token: 'student-token', user: { id: 7 } })
   })
 
   it('embeds the selected lecture and provides sequential navigation', async () => {
@@ -85,5 +100,20 @@ describe('StudentLecturePlayerPage', () => {
     expect(screen.getByRole('link', { name: 'Back to Lectures' })).toHaveAttribute('href', '/teacher/lectures')
     expect(screen.getByRole('link', { name: 'Previous: Introduction' })).toHaveAttribute('href', '/teacher/lectures/1-introduction')
     expect(screen.getByRole('link', { name: 'Next: Functions' })).toHaveAttribute('href', '/teacher/lectures/3-functions')
+  })
+
+  it('lets an anonymous Guest watch without account-scoped playback tracking', async () => {
+    useAuthMock.mockReturnValue({ token: null, user: null })
+    renderGuestPage()
+
+    expect(await screen.findByRole('heading', { name: 'Worked example' })).toBeInTheDocument()
+    expect(listLecturesMock).toHaveBeenCalledWith(null)
+    expect(screen.getByTitle('Worked example video')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/lmnopqrstuv',
+    )
+    expect(screen.queryByText('Playback resumes on this device')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to Lectures' })).toHaveAttribute('href', '/lectures')
+    expect(screen.getByRole('link', { name: 'Next: Functions' })).toHaveAttribute('href', '/lectures/3-functions')
   })
 })

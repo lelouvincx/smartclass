@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getSubmission, getSubmissionExercisePdf } from './api'
+import { getSubmission, getSubmissionExercisePdf, listLectures } from './api'
 
 describe('API errors', () => {
   afterEach(() => {
@@ -42,6 +42,21 @@ describe('API errors', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:8787/api/submissions/10/exercise-pdf',
       { headers: { Authorization: 'Bearer student-token' } },
+    )
+  })
+
+  it('omits authorization when a Guest lists lectures', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: [] }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listLectures()
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8787/api/lectures',
+      { headers: {} },
     )
   })
 })

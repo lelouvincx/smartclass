@@ -21,16 +21,16 @@ describe('GradeCheckboxGroup', () => {
     const user = userEvent.setup()
     render(<TestGroup />)
 
-    expect(screen.getByLabelText('All classes')).toBeChecked()
+    expect(screen.getByLabelText('All programmes')).toBeChecked()
     await user.click(screen.getByLabelText('Grade 12'))
-    expect(screen.getByLabelText('All classes')).not.toBeChecked()
+    expect(screen.getByLabelText('All programmes')).not.toBeChecked()
     expect(screen.getByLabelText('Grade 10')).toBeChecked()
     expect(screen.getByLabelText('Grade 11')).toBeChecked()
     expect(screen.getByLabelText('Grade 12')).not.toBeChecked()
     expect(screen.getByLabelText('ĐGNL')).toBeChecked()
 
-    await user.click(screen.getByLabelText('All classes'))
-    expect(screen.getByLabelText('All classes')).toBeChecked()
+    await user.click(screen.getByLabelText('All programmes'))
+    expect(screen.getByLabelText('All programmes')).toBeChecked()
     expect(screen.getByLabelText('Grade 12')).toBeChecked()
     expect(screen.getByLabelText('ĐGNL')).toBeChecked()
   })
@@ -55,7 +55,7 @@ describe('GradeDropdown', () => {
     render(<TestDropdown />)
 
     const trigger = screen.getByRole('button', { name: 'Grade access' })
-    expect(trigger).toHaveTextContent('All classes')
+    expect(trigger).toHaveTextContent('All programmes')
 
     await user.click(trigger)
     const grade12 = screen.getByRole('menuitemcheckbox', { name: 'Grade 12' })
