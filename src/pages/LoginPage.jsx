@@ -113,7 +113,12 @@ export default function LoginPage() {
 
           <FieldSeparator className="my-4">or</FieldSeparator>
 
-          <GoogleSignInButton mode="login" className="w-full" />
+          <div className="grid gap-2">
+            <GoogleSignInButton mode="login" className="w-full" />
+            <Button variant="outline" className="w-full" asChild>
+              <Link to="/lectures">Continue as guest</Link>
+            </Button>
+          </div>
 
           <p className="mt-5 text-sm text-muted-foreground">
             No account?{' '}
