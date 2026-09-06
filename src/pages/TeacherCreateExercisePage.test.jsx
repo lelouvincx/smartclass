@@ -65,7 +65,7 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
     expect(screen.getByRole('group', { name: /duration presets/i })).toHaveClass('grid-cols-3')
     expect(screen.getByText(/questions: 1/i).parentElement).toHaveClass('flex-wrap')
-    expect(screen.getByRole('button', { name: /class access/i })).toHaveTextContent('Grade 12')
+    expect(screen.getByRole('button', { name: /programme access/i })).toHaveTextContent('Grade 12')
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     expect(screen.getByTestId('exercise-pdf-upload')).toHaveClass('bg-sc-primary-container')
     expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
