@@ -160,8 +160,11 @@ describe('TeacherStudentsPage', () => {
 
     await user.click(await screen.findByLabelText('Select Nguyễn Văn An'))
     await user.click(screen.getByLabelText('Select Trần Thị Bình'))
-    const bulkGrades = screen.getByRole('group', { name: 'Programmes to assign' })
-    await user.click(within(bulkGrades).getByLabelText('Grade 12'))
+    const bulkGrades = screen.getByRole('button', { name: 'Programmes to assign' })
+    expect(bulkGrades).toHaveTextContent('All programmes')
+    await user.click(bulkGrades)
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Assign programmes to 2 students' }))
 
     expect(updateStudentGradesMock).toHaveBeenCalledWith('test-token', {
@@ -209,6 +212,7 @@ describe('TeacherStudentsPage', () => {
 
     expect(screen.getByLabelText('Name')).toBeRequired()
     expect(screen.getByPlaceholderText(/\+84xxx/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Student programmes' })).toHaveTextContent('All programmes')
     expect(screen.getByRole('button', { name: /create student/i })).toBeInTheDocument()
   })
 

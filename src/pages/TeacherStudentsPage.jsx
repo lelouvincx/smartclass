@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router-dom'
 import { listStudents, createStudent, approveStudent, updateStudentAccessTier, updateStudentGrades, updateStudentName } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
-import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
+import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
 import AccessTierRadioGroup, { AccessTierBadge } from '@/components/access-tier-radio-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -297,9 +297,9 @@ export default function TeacherStudentsPage() {
                 disabled={creating}
               />
             </div>
-            <GradeCheckboxGroup
+            <GradeDropdown
               id="new-student-grades"
-              className="lg:col-span-2"
+              className="lg:col-span-2 lg:max-w-md"
               legend={t('teacher.students.studentGrades')}
               description={t('teacher.students.studentGradesDescription')}
               value={newStudentGrades}
@@ -383,7 +383,7 @@ export default function TeacherStudentsPage() {
                   />
                   {t('teacher.students.selectAll')}
                 </label>
-                <GradeCheckboxGroup
+                <GradeDropdown
                   id="bulk-student-grades"
                   legend={t('teacher.students.gradesToAssign')}
                   value={bulkGrades}
