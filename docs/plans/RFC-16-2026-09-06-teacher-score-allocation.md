@@ -1,5 +1,5 @@
 ---
-rfc: RFC-15
+rfc: RFC-16
 title: Teacher-adjustable score allocation
 date: 2026-09-06
 status: Accepted
@@ -38,7 +38,7 @@ Allocate 10.0 points
 Save, prepare images, review and activate
 ```
 
-RFC-15 supersedes RFC-2 only where RFC-2 fixes maximum points by answer type. RFC-2 remains authoritative for answer matching, skipped answers, numeric tolerance, boolean partial-credit ratios, synchronous grading, and the 0 to 10 result scale.
+RFC-16 supersedes RFC-2 only where RFC-2 fixes maximum points by answer type. RFC-2 remains authoritative for answer matching, skipped answers, numeric tolerance, boolean partial-credit ratios, synchronous grading, and the 0 to 10 result scale.
 
 ## Score model
 

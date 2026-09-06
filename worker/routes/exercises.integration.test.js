@@ -402,6 +402,7 @@ describe('GET /api/exercises/:id', () => {
     expect(body.data.files).toEqual([])
     body.data.schema.forEach((row) => {
       expect(row).not.toHaveProperty('correct_answer')
+      expect(row).not.toHaveProperty('max_score_hundredths')
     })
 
     const mcqRow = body.data.schema.find((r) => r.type === 'mcq')

@@ -22,7 +22,11 @@ npx wrangler d1 execute smartclass --local --file worker/db/migrations/0013_add_
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0014_add_lecture_visibility.sql
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0015_add_grade_access.sql
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0016_add_question_section_identity.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0017_add_exercise_attempt_limits.sql
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0017_cohere_answer_extraction.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0018_add_dgnl_access_class.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0019_add_access_tiers.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0020_add_score_allocation.sql
 
 # Remote
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0001_init.sql
@@ -41,7 +45,11 @@ npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0013_add
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0014_add_lecture_visibility.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0015_add_grade_access.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0016_add_question_section_identity.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0017_add_exercise_attempt_limits.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0017_cohere_answer_extraction.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0018_add_dgnl_access_class.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0019_add_access_tiers.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0020_add_score_allocation.sql
 ```
 
 If your database name is different, replace `smartclass` with your D1 database name.

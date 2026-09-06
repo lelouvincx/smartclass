@@ -895,21 +895,30 @@ describe('PUT /api/exercises/:exerciseId/question-asset-sets/:setId/questions/:q
 
 describe('PUT /api/exercises/:id question asset activation', () => {
   it('copies allocation into a pending set and allows changing it during activation', async () => {
-    const automaticSchema = [
-      { q_id: 1, type: 'mcq', correct_answer: 'B' },
-      { q_id: 2, type: 'numeric', correct_answer: '42' },
+    const initialSchema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'B', max_score_hundredths: 300 },
+      { q_id: 2, type: 'numeric', correct_answer: '42', max_score_hundredths: 700 },
     ]
-    const customSchema = automaticSchema.map((row, index) => ({
+    const changedSchema = initialSchema.map((row, index) => ({
       ...row,
-      max_score_hundredths: index === 0 ? 300 : 700,
+      max_score_hundredths: index === 0 ? 400 : 600,
     }))
-    const { id: exerciseId } = await createExercise(teacherToken, { schema: automaticSchema })
+    const { id: exerciseId } = await createExercise(teacherToken, { schema: initialSchema })
     const sourceFileId = await createSourceFile(exerciseId)
     const assetSet = await createPendingSetData(exerciseId, sourceFileId)
     await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 1 })
     await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 2 })
 
-    const activated = await activateSet(exerciseId, assetSet.id, customSchema)
+    const pendingResponse = await app.request(
+      `/api/exercises/${exerciseId}/question-asset-sets/${assetSet.id}`,
+      { headers: { Authorization: `Bearer ${teacherToken}` } },
+      env,
+    )
+    expect(pendingResponse.status).toBe(200)
+    expect((await pendingResponse.json()).data.schema.map(row => row.max_score_hundredths))
+      .toEqual([300, 700])
+
+    const activated = await activateSet(exerciseId, assetSet.id, changedSchema)
     expect(activated.status).toBe(200)
 
     const pinned = await env.DB.prepare(`
@@ -919,8 +928,8 @@ describe('PUT /api/exercises/:id question asset activation', () => {
       order by q_id
     `).bind(assetSet.id).all()
     expect(pinned.results).toEqual([
-      { q_id: 1, max_score_hundredths: 300 },
-      { q_id: 2, max_score_hundredths: 700 },
+      { q_id: 1, max_score_hundredths: 400 },
+      { q_id: 2, max_score_hundredths: 600 },
     ])
   })
 
