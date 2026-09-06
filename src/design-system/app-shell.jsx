@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { changeLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
 
 const SIDEBAR_STORAGE_KEY = 'smartclass-sidebar-collapsed'
@@ -168,7 +169,29 @@ function Navigation({ items, label, onNavigate, rail = false }) {
   )
 }
 
-function RailFooter({ accountAction, userLabel, onLogout }) {
+function LanguageSelect({ rail = false }) {
+  const { i18n, t } = useTranslation()
+
+  return (
+    <label className={cn('grid gap-1 text-muted-foreground', rail ? 'text-center text-xs' : 'text-sm')}>
+      <span>{t('settings.language.label')}</span>
+      <select
+        aria-label={t('settings.language.label')}
+        value={i18n.resolvedLanguage}
+        onChange={(event) => changeLanguage(event.target.value)}
+        className={cn(
+          'min-h-[var(--sc-component-hit-target)] rounded-[var(--sc-component-control-shape)] border border-input bg-background px-2 text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+          rail ? 'w-full text-xs' : 'w-full text-sm',
+        )}
+      >
+        <option value="en">{rail ? 'EN' : t('settings.language.english')}</option>
+        <option value="vi">{rail ? 'VI' : t('settings.language.vietnamese')}</option>
+      </select>
+    </label>
+  )
+}
+
+function RailFooter({ accountAction, showLanguageSwitcher, userLabel, onLogout }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-2 border-t px-2 py-3 text-xs">
@@ -190,6 +213,7 @@ function RailFooter({ accountAction, userLabel, onLogout }) {
         <ModeToggle className="size-[48px]" />
         <span aria-hidden="true">{t('common.theme')}</span>
       </div>
+      {showLanguageSwitcher && <LanguageSelect rail />}
       {onLogout ? (
         <Button
           variant="ghost"
@@ -211,7 +235,7 @@ function RailFooter({ accountAction, userLabel, onLogout }) {
   )
 }
 
-function ShellFooter({ accountAction, userLabel, onLogout, onNavigate }) {
+function ShellFooter({ accountAction, showLanguageSwitcher, userLabel, onLogout, onNavigate }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-3 border-t px-3 py-4">
@@ -232,6 +256,7 @@ function ShellFooter({ accountAction, userLabel, onLogout, onNavigate }) {
         )}
         <ModeToggle className="size-[48px]" />
       </div>
+      {showLanguageSwitcher && <LanguageSelect />}
       {onLogout ? (
         <Button
           variant="ghost"
@@ -253,7 +278,7 @@ function ShellFooter({ accountAction, userLabel, onLogout, onNavigate }) {
   )
 }
 
-export function AppShell({ accountAction, children, focusedWorkspace = false, items, onLogout, userLabel, workspaceLabel }) {
+export function AppShell({ accountAction, children, focusedWorkspace = false, items, onLogout, showLanguageSwitcher = false, userLabel, workspaceLabel }) {
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => globalThis.localStorage?.getItem(SIDEBAR_STORAGE_KEY) === 'true',
@@ -337,8 +362,8 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
           <Navigation items={items} label={navigationLabel} rail={effectiveSidebarCollapsed} />
         </div>
         {effectiveSidebarCollapsed
-          ? <RailFooter accountAction={accountAction} userLabel={userLabel} onLogout={onLogout} />
-          : <ShellFooter accountAction={accountAction} userLabel={userLabel} onLogout={onLogout} />}
+          ? <RailFooter accountAction={accountAction} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />
+          : <ShellFooter accountAction={accountAction} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />}
       </aside>
 
       <aside
@@ -357,7 +382,7 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
         <div className="flex-1 overflow-y-auto px-2 py-4">
           <Navigation items={items} label={navigationLabel} rail />
         </div>
-        <RailFooter accountAction={accountAction} userLabel={userLabel} onLogout={onLogout} />
+        <RailFooter accountAction={accountAction} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />
       </aside>
 
       <header
@@ -392,6 +417,7 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
           <div className="mt-auto">
             <ShellFooter
               accountAction={accountAction}
+              showLanguageSwitcher={showLanguageSwitcher}
               userLabel={userLabel}
               onLogout={onLogout}
               onNavigate={() => setNavigationOpen(false)}

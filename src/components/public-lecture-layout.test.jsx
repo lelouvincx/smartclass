@@ -1,8 +1,8 @@
 import React from 'react'
-import { act, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { changeLanguage } from '@/i18n'
+import { changeLanguage, LANGUAGE_STORAGE_KEY } from '@/i18n'
 import { PublicLectureLayout } from './public-lecture-layout'
 
 const useAuthMock = vi.fn()
@@ -45,6 +45,21 @@ describe('PublicLectureLayout', () => {
       expect(within(navigation).queryByRole('link', { name: /Exercises/ })).not.toBeInTheDocument()
     })
     expect(screen.getAllByRole('link', { name: 'Sign in' }).length).toBeGreaterThan(0)
+  })
+
+  it('lets a Guest change and persist the interface language', async () => {
+    useAuthMock.mockReturnValue({ user: null })
+
+    renderLayout()
+
+    const languageSelectors = screen.getAllByRole('combobox', { name: 'Language' })
+    expect(languageSelectors.length).toBeGreaterThan(0)
+
+    fireEvent.change(languageSelectors[0], { target: { value: 'vi' } })
+
+    expect(await screen.findAllByRole('navigation', { name: 'Điều hướng Khách' })).toHaveLength(2)
+    expect(localStorage.getItem(LANGUAGE_STORAGE_KEY)).toBe('vi')
+    expect(document.documentElement.lang).toBe('vi')
   })
 
   it('links an authenticated viewer back to their workspace', () => {

@@ -26,6 +26,7 @@ export function PublicLectureLayout() {
     <AppShell
       accountAction={accountAction}
       items={navigation}
+      showLanguageSwitcher={!user}
       workspaceLabel={t('common.accessTier.guest')}
     >
       <Outlet />
