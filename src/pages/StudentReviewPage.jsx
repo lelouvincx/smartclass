@@ -73,7 +73,7 @@ function ScoreBadge({ score }) {
 
 // --- Main page ---
 
-export default function StudentReviewPage() {
+export default function StudentReviewPage({ viewer = 'student' }) {
   const { t, i18n } = useTranslation()
   const { id } = useParams()
   const { token } = useAuth()
@@ -111,12 +111,15 @@ export default function StudentReviewPage() {
   }
 
   if (error) {
+    const backHref = viewer === 'teacher' ? '/teacher/exercises' : '/student/submissions'
     return (
       <Card className="max-w-2xl border-destructive/50">
         <CardContent className="pt-6">
           <p className="text-sm text-destructive">{error}</p>
           <Button variant="outline" asChild className="mt-4">
-            <Link to="/student/submissions">{t('student.results.backToHistory')}</Link>
+            <Link to={backHref}>
+              {t(viewer === 'teacher' ? 'teacher.submissions.backToExercises' : 'student.results.backToHistory')}
+            </Link>
           </Button>
         </CardContent>
       </Card>
@@ -124,6 +127,10 @@ export default function StudentReviewPage() {
   }
 
   const { exercise_title, attempt_number, score, submitted_at, answers = [], question_assets: questionAssets = [] } = submission
+  const isTeacherView = viewer === 'teacher'
+  const backHref = isTeacherView
+    ? `/teacher/exercises/${submission.exercise_id}`
+    : '/student/submissions'
 
   const questionGroups = groupAnswers(answers)
   const currentIndex = questionGroups.findIndex((group) => group.q_id === currentQId)
@@ -152,13 +159,21 @@ export default function StudentReviewPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">{exercise_title}</h1>
+          {isTeacherView && (
+            <p className="mt-1 font-medium text-foreground">{submission.student_name || submission.student_phone}</p>
+          )}
+          {isTeacherView && submission.student_name && (
+            <p className="text-sm text-muted-foreground">{submission.student_phone}</p>
+          )}
           <p className="mt-1 text-sm font-medium">{t('student.attempt.label', { number: attempt_number })}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t('student.results.submitted', { date: submittedDate })}</p>
         </div>
         <div className="flex items-center gap-3">
           <ScoreBadge score={score} />
           <Button variant="outline" size="sm" asChild>
-            <Link to="/student/submissions">{t('student.results.backToHistory')}</Link>
+            <Link to={backHref}>
+              {t(isTeacherView ? 'teacher.submissions.backToExercise' : 'student.results.backToHistory')}
+            </Link>
           </Button>
         </div>
       </div>

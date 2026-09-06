@@ -165,7 +165,7 @@ describe('student names', () => {
 })
 
 describe('student class access', () => {
-  it('lets a teacher assign and list the ĐGNL access class', async () => {
+  it('lets a teacher assign and list the DGNL access class', async () => {
     await seedStudent('+84900000060', 'ĐGNL Student')
     const teacherToken = await loginAsTeacher()
     const student = await env.DB.prepare(

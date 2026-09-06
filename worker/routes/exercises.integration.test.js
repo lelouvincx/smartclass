@@ -82,7 +82,7 @@ describe('GET /api/exercises', () => {
     expect(body.data.find(exercise => exercise.id === id).is_student_ready).toBe(1)
   })
 
-  it('lists only ready exercises that overlap a student access class, including ĐGNL', async () => {
+  it('lists only ready exercises that overlap a student access class, including DGNL', async () => {
     const phone = '+84900000070'
     await seedStudent(phone, 'Grade List Student')
     const student = await env.DB.prepare(

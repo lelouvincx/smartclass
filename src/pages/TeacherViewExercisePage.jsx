@@ -23,6 +23,7 @@ import {
 import { SchemaTable } from '@/components/schema-table'
 import FileDropzone from '@/components/file-dropzone'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
+import { TeacherExerciseSubmissions } from '@/components/teacher-exercise-submissions'
 import { formatDuration } from '@/lib/format'
 import { GRADES } from '@/lib/grades'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
@@ -481,7 +482,7 @@ export default function TeacherViewExercisePage() {
     }
   }
 
-  async function handleOpenExercisePdf(file) {
+  async function handleOpenPdf(file) {
     if (openingFileId) return
     setOpeningFileId(file.id)
     try {
@@ -640,6 +641,10 @@ export default function TeacherViewExercisePage() {
         </CardContent>
       </Card>
 
+      {!isEditing && (
+        <TeacherExerciseSubmissions exerciseId={exercise.id} token={token} />
+      )}
+
       {/* Files card */}
       <Card>
         <CardContent className="pt-5">
@@ -661,13 +666,14 @@ export default function TeacherViewExercisePage() {
                     {t(`teacher.file.${f.file_type === 'exercise_pdf' ? 'exercisePdf' : f.file_type === 'solution_pdf' ? 'answerPdf' : f.file_type === 'reference_image' ? 'referenceImage' : 'file'}`)}
                   </Badge>
                   <span className="min-w-0 w-full break-words sm:flex-1">{f.file_name}</span>
-                  {f.file_type === 'exercise_pdf' && (
+                  {['exercise_pdf', 'solution_pdf'].includes(f.file_type) && (
                     <Button
                       type="button"
                       variant="link"
                       size="sm"
+                      aria-label={t('teacher.view.viewPdfNamed', { name: f.file_name })}
                       disabled={openingFileId === f.id}
-                      onClick={() => handleOpenExercisePdf(f)}
+                      onClick={() => handleOpenPdf(f)}
                     >
                       {openingFileId === f.id ? t('teacher.view.openingFile') : t('teacher.view.viewFullPdf')}
                     </Button>

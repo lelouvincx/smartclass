@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 
 - Add ĐGNL as an access class for students, exercises, and lectures alongside grades 10 to 12. [#116](https://github.com/lelouvincx/smartclass/pull/116)
+- Let teachers list completed student submissions on an exercise and open each submission's question-first review. [#114](https://github.com/lelouvincx/smartclass/pull/114)
 - Let teachers set a finite or unlimited exercise attempt limit, allocate stable numbered student attempts, and let students open every attempt’s separate score and review from the exercise or submission history. [#109](https://github.com/lelouvincx/smartclass/pull/109)
 - Support exercise PDFs whose question numbering restarts in named sections while preserving one global grading and navigation order. [#104](https://github.com/lelouvincx/smartclass/pull/104)
 
@@ -28,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Show the authenticated PDF viewing action for both Exercise PDFs and teacher-only Answer PDFs. [#113](https://github.com/lelouvincx/smartclass/pull/113)
 - Let teachers open lectures on dedicated detail pages with previous and next navigation. [#112](https://github.com/lelouvincx/smartclass/pull/112)
 - Show exercise readiness with semantic green success and amber warning treatments. [#111](https://github.com/lelouvincx/smartclass/pull/111)
 - Keep D1 deployment migrations compatible with Cloudflare's remote parser when creating the submission attempt trigger. [#110](https://github.com/lelouvincx/smartclass/pull/110)

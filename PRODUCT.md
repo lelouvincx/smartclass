@@ -44,6 +44,7 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 - Grading runs after submission. Results distinguish correct, incorrect, and skipped answers and use a score on a 0–10 scale.
 - A student starts an attempt explicitly from the exercise landing page. On desktop and tablet, the take experience temporarily uses a compact app rail and wide workspace to prioritize the selected question image while keeping matching answer controls visible. On phones, the answer-sheet control appears first, followed by the selected-question preview and then its answer controls; tapping the preview opens a full-screen viewer with pinch and button zoom, and landscape orientation provides more reading space. An authenticated download of the complete answer-free Exercise PDF remains available for paper or another device. Answer sheets group sectioned exercises by source section and show the printed local question number. Numbered, Previous, and Next navigation update the image and answer controls together at every size.
 - Submitted attempts have a summary and a detailed question-first review using the pinned images. Correct-answer visibility is protected while an attempt is in progress.
+- Teachers can see completed submissions on each exercise page and open the same question-first review with the student's name and phone number. Teachers cannot inspect an attempt before the student submits it.
 
 ## Product principles
 
