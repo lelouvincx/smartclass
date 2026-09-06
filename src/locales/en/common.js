@@ -9,6 +9,7 @@ export default {
   logout: 'Log out',
   signIn: 'Sign in',
   openWorkspace: 'Open workspace',
+  comingSoon: 'Coming soon',
   skipToMain: 'Skip to main content',
   openNavigation: 'Open navigation',
   collapseSidebar: 'Collapse sidebar',

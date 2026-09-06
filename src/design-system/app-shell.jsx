@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
   GraduationCap,
+  LogIn,
   LogOut,
   Menu,
   PanelLeftClose,
@@ -40,11 +41,13 @@ function Brand({ workspaceLabel }) {
   )
 }
 
-function navigationItemClass(rail, isActive = false) {
+function navigationItemClass(rail, isActive = false, disabled = false) {
   return cn(
     'flex min-h-[var(--sc-component-hit-target)] w-full items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors',
     rail ? 'flex-col justify-center gap-1 px-2 py-2 text-center text-xs' : 'gap-3 px-3 py-2',
-    'hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+    disabled
+      ? 'cursor-not-allowed opacity-60'
+      : 'hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
     isActive && 'bg-accent text-accent-foreground',
   )
 }
@@ -55,7 +58,28 @@ function Navigation({ items, label, onNavigate, rail = false }) {
 
   return (
     <nav aria-label={label} className="grid gap-1">
-      {items.map(({ activePath, end, icon: Icon, label: itemLabel, options, to }) => {
+      {items.map(({ activePath, disabled, end, icon: Icon, label: itemLabel, options, status, to }) => {
+        if (disabled) {
+          const accessibleLabel = status ? `${itemLabel} — ${status}` : itemLabel
+          return (
+            <button
+              key={itemLabel}
+              type="button"
+              disabled
+              aria-label={accessibleLabel}
+              className={navigationItemClass(rail, false, true)}
+            >
+              <Icon className={cn('shrink-0', rail ? 'size-5' : 'size-4')} aria-hidden="true" />
+              <span className={cn(rail && 'max-w-full truncate')}>{itemLabel}</span>
+              {status && (
+                <span className={cn('text-[0.65rem] font-normal', !rail && 'ms-auto')} aria-hidden="true">
+                  {status}
+                </span>
+              )}
+            </button>
+          )
+        }
+
         if (options) {
           const isActive = location.pathname === activePath
           if (onNavigate) {
@@ -144,7 +168,7 @@ function Navigation({ items, label, onNavigate, rail = false }) {
   )
 }
 
-function RailFooter({ userLabel, onLogout }) {
+function RailFooter({ accountAction, userLabel, onLogout }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-2 border-t px-2 py-3 text-xs">
@@ -154,29 +178,40 @@ function RailFooter({ userLabel, onLogout }) {
           <span className="block truncate" title={userLabel}>{userLabel}</span>
         </p>
       )}
-      <Button variant="ghost" className="h-auto min-h-[var(--sc-component-hit-target)] w-full flex-col gap-1 px-1 py-2 text-xs" asChild>
-        <Link to="/settings">
-          <Settings className="size-5" aria-hidden="true" />
-          {t('common.settings')}
-        </Link>
-      </Button>
+      {onLogout && (
+        <Button variant="ghost" className="h-auto min-h-[var(--sc-component-hit-target)] w-full flex-col gap-1 px-1 py-2 text-xs" asChild>
+          <Link to="/settings">
+            <Settings className="size-5" aria-hidden="true" />
+            {t('common.settings')}
+          </Link>
+        </Button>
+      )}
       <div className="flex flex-col items-center gap-1 py-1 text-muted-foreground">
         <ModeToggle className="size-[48px]" />
         <span aria-hidden="true">{t('common.theme')}</span>
       </div>
-      <Button
-        variant="ghost"
-        className="h-auto min-h-[var(--sc-component-hit-target)] w-full flex-col gap-1 px-1 py-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
-        onClick={onLogout}
-      >
-        <LogOut className="size-5" aria-hidden="true" />
-        {t('common.logout')}
-      </Button>
+      {onLogout ? (
+        <Button
+          variant="ghost"
+          className="h-auto min-h-[var(--sc-component-hit-target)] w-full flex-col gap-1 px-1 py-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={onLogout}
+        >
+          <LogOut className="size-5" aria-hidden="true" />
+          {t('common.logout')}
+        </Button>
+      ) : accountAction ? (
+        <Button variant="ghost" className="h-auto min-h-[var(--sc-component-hit-target)] w-full flex-col gap-1 px-1 py-2 text-xs" asChild>
+          <Link to={accountAction.to}>
+            <LogIn className="size-5" aria-hidden="true" />
+            {accountAction.label}
+          </Link>
+        </Button>
+      ) : null}
     </div>
   )
 }
 
-function ShellFooter({ userLabel, onLogout, onNavigate }) {
+function ShellFooter({ accountAction, userLabel, onLogout, onNavigate }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-3 border-t px-3 py-4">
@@ -186,28 +221,39 @@ function ShellFooter({ userLabel, onLogout, onNavigate }) {
           <span className="font-medium text-foreground" title={userLabel}>{userLabel}</span>
         </p>
       )}
-      <div className="grid grid-cols-[1fr_auto] gap-2">
-        <Button variant="ghost" className="h-[48px] justify-start" asChild>
-          <Link to="/settings" onClick={onNavigate}>
-            <Settings aria-hidden="true" />
-            {t('common.settings')}
-          </Link>
-        </Button>
+      <div className={cn('grid gap-2', onLogout && 'grid-cols-[1fr_auto]')}>
+        {onLogout && (
+          <Button variant="ghost" className="h-[48px] justify-start" asChild>
+            <Link to="/settings" onClick={onNavigate}>
+              <Settings aria-hidden="true" />
+              {t('common.settings')}
+            </Link>
+          </Button>
+        )}
         <ModeToggle className="size-[48px]" />
       </div>
-      <Button
-        variant="ghost"
-        className="h-[48px] w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
-        onClick={onLogout}
-      >
-        <LogOut aria-hidden="true" />
-        {t('common.logout')}
-      </Button>
+      {onLogout ? (
+        <Button
+          variant="ghost"
+          className="h-[48px] w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={onLogout}
+        >
+          <LogOut aria-hidden="true" />
+          {t('common.logout')}
+        </Button>
+      ) : accountAction ? (
+        <Button variant="ghost" className="h-[48px] w-full justify-start" asChild>
+          <Link to={accountAction.to} onClick={onNavigate}>
+            <LogIn aria-hidden="true" />
+            {accountAction.label}
+          </Link>
+        </Button>
+      ) : null}
     </div>
   )
 }
 
-export function AppShell({ children, focusedWorkspace = false, items, onLogout, userLabel, workspaceLabel }) {
+export function AppShell({ accountAction, children, focusedWorkspace = false, items, onLogout, userLabel, workspaceLabel }) {
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => globalThis.localStorage?.getItem(SIDEBAR_STORAGE_KEY) === 'true',
@@ -291,8 +337,8 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
           <Navigation items={items} label={navigationLabel} rail={effectiveSidebarCollapsed} />
         </div>
         {effectiveSidebarCollapsed
-          ? <RailFooter userLabel={userLabel} onLogout={onLogout} />
-          : <ShellFooter userLabel={userLabel} onLogout={onLogout} />}
+          ? <RailFooter accountAction={accountAction} userLabel={userLabel} onLogout={onLogout} />
+          : <ShellFooter accountAction={accountAction} userLabel={userLabel} onLogout={onLogout} />}
       </aside>
 
       <aside
@@ -311,7 +357,7 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
         <div className="flex-1 overflow-y-auto px-2 py-4">
           <Navigation items={items} label={navigationLabel} rail />
         </div>
-        <RailFooter userLabel={userLabel} onLogout={onLogout} />
+        <RailFooter accountAction={accountAction} userLabel={userLabel} onLogout={onLogout} />
       </aside>
 
       <header
@@ -345,6 +391,7 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
           </div>
           <div className="mt-auto">
             <ShellFooter
+              accountAction={accountAction}
               userLabel={userLabel}
               onLogout={onLogout}
               onNavigate={() => setNavigationOpen(false)}

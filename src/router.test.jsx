@@ -34,7 +34,9 @@ describe('route guards', () => {
     )
 
     expect(await screen.findByText('Public lesson')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/')
+    screen.getAllByRole('link', { name: 'Sign in' }).forEach((link) => {
+      expect(link).toHaveAttribute('href', '/')
+    })
     expect(listLecturesMock).toHaveBeenCalledWith(null)
   })
 
