@@ -60,6 +60,7 @@ const EXERCISE_WITH_BOOLEAN = {
   grades: [12],
   files: [
     { id: 1, file_type: 'exercise_pdf', file_name: 'biology.pdf', r2_key: 'ex/1/bio.pdf' },
+    { id: 2, file_type: 'solution_pdf', file_name: 'biology-answers.pdf', r2_key: 'ex/1/bio-answers.pdf' },
   ],
   schema: [
     { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'A' },
@@ -166,7 +167,7 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.queryByRole('heading', { name: 'Answer key' })).not.toBeInTheDocument()
   })
 
-  it('loads an uploaded exercise PDF with teacher authentication', async () => {
+  it('loads uploaded exercise and answer PDFs with teacher authentication', async () => {
     const user = userEvent.setup()
     const fileBlob = new Blob(['pdf'], { type: 'application/pdf' })
     const openClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
@@ -178,10 +179,15 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Biology Quiz')
     expect(screen.getByText('biology.pdf')).toBeInTheDocument()
+    expect(screen.getByText('biology-answers.pdf')).toBeInTheDocument()
     expect(screen.getByText('Exercise PDF')).toHaveClass('bg-sc-primary-container')
-    await user.click(screen.getByRole('button', { name: 'View full PDF' }))
+    expect(screen.getByText('Answer PDF')).toHaveClass('bg-sc-tertiary-container')
+
+    await user.click(screen.getByRole('button', { name: 'View biology.pdf' }))
     expect(getExerciseFileBlobMock).toHaveBeenCalledWith(1, 'teacher-token')
-    expect(openClick).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('button', { name: 'View biology-answers.pdf' }))
+    expect(getExerciseFileBlobMock).toHaveBeenCalledWith(2, 'teacher-token')
+    expect(openClick).toHaveBeenCalledTimes(2)
     openClick.mockRestore()
   })
 
