@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import GradeCheckboxGroup, { GradeDropdown } from './grade-checkbox-group'
 
 function TestGroup() {
-  const [grades, setGrades] = useState([10, 11, 12])
+  const [grades, setGrades] = useState([10, 11, 12, 'dgnl'])
   return (
     <GradeCheckboxGroup
       id="test-grades"
@@ -17,25 +17,27 @@ function TestGroup() {
 }
 
 describe('GradeCheckboxGroup', () => {
-  it('supports all grades and multiple individual grades', async () => {
+  it('supports all classes and multiple individual classes', async () => {
     const user = userEvent.setup()
     render(<TestGroup />)
 
-    expect(screen.getByLabelText('All grades')).toBeChecked()
+    expect(screen.getByLabelText('All classes')).toBeChecked()
     await user.click(screen.getByLabelText('Grade 12'))
-    expect(screen.getByLabelText('All grades')).not.toBeChecked()
+    expect(screen.getByLabelText('All classes')).not.toBeChecked()
     expect(screen.getByLabelText('Grade 10')).toBeChecked()
     expect(screen.getByLabelText('Grade 11')).toBeChecked()
     expect(screen.getByLabelText('Grade 12')).not.toBeChecked()
+    expect(screen.getByLabelText('ĐGNL')).toBeChecked()
 
-    await user.click(screen.getByLabelText('All grades'))
-    expect(screen.getByLabelText('All grades')).toBeChecked()
+    await user.click(screen.getByLabelText('All classes'))
+    expect(screen.getByLabelText('All classes')).toBeChecked()
     expect(screen.getByLabelText('Grade 12')).toBeChecked()
+    expect(screen.getByLabelText('ĐGNL')).toBeChecked()
   })
 })
 
 function TestDropdown() {
-  const [grades, setGrades] = useState([10, 11, 12])
+  const [grades, setGrades] = useState([10, 11, 12, 'dgnl'])
   return (
     <GradeDropdown
       id="dropdown-grades"
@@ -48,19 +50,20 @@ function TestDropdown() {
 }
 
 describe('GradeDropdown', () => {
-  it('shows the selection in a compact dropdown and supports multiple grades', async () => {
+  it('shows the selection in a compact dropdown and supports multiple classes', async () => {
     const user = userEvent.setup()
     render(<TestDropdown />)
 
     const trigger = screen.getByRole('button', { name: 'Grade access' })
-    expect(trigger).toHaveTextContent('All grades')
+    expect(trigger).toHaveTextContent('All classes')
 
     await user.click(trigger)
     const grade12 = screen.getByRole('menuitemcheckbox', { name: 'Grade 12' })
     expect(grade12).toHaveAttribute('aria-checked', 'true')
     await user.click(grade12)
 
-    expect(trigger).toHaveTextContent('Grade 10, Grade 11')
+    expect(trigger).toHaveTextContent('Grade 10, Grade 11, ĐGNL')
     expect(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByRole('menuitemcheckbox', { name: 'ĐGNL' })).toHaveAttribute('aria-checked', 'true')
   })
 })

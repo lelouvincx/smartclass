@@ -140,7 +140,7 @@ describe('TeacherStudentsPage', () => {
     expect(screen.getByText('Nguyễn Văn An')).toHaveClass('min-w-0')
   })
 
-  it('bulk-assigns multiple grade memberships to selected students', async () => {
+  it('bulk-assigns multiple class memberships to selected students', async () => {
     const user = userEvent.setup()
     listStudentsMock.mockResolvedValue({
       data: [
@@ -154,13 +154,13 @@ describe('TeacherStudentsPage', () => {
 
     await user.click(await screen.findByLabelText('Select Nguyễn Văn An'))
     await user.click(screen.getByLabelText('Select Trần Thị Bình'))
-    const bulkGrades = screen.getByRole('group', { name: 'Grades to assign' })
+    const bulkGrades = screen.getByRole('group', { name: 'Classes to assign' })
     await user.click(within(bulkGrades).getByLabelText('Grade 12'))
-    await user.click(screen.getByRole('button', { name: 'Assign grades to 2 students' }))
+    await user.click(screen.getByRole('button', { name: 'Assign classes to 2 students' }))
 
     expect(updateStudentGradesMock).toHaveBeenCalledWith('test-token', {
       student_ids: [1, 2],
-      grades: [10, 11],
+      grades: [10, 11, 'dgnl'],
     })
     await waitFor(() => expect(listStudentsMock).toHaveBeenCalledTimes(2))
   })
@@ -206,7 +206,7 @@ describe('TeacherStudentsPage', () => {
       expect(createStudentMock).toHaveBeenCalledWith('test-token', {
         name: 'Nguyễn Văn An',
         phone: '+84111111111',
-        grades: [10, 11, 12],
+        grades: [10, 11, 12, 'dgnl'],
       })
     })
 

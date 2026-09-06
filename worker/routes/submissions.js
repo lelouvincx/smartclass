@@ -237,7 +237,7 @@ submissionsRoutes.post('/', requireAuth, async (c) => {
       return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
     }
     if (!state.has_grade_access) {
-      return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your grades')
+      return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your classes')
     }
     if (!state.is_ready) {
       return jsonError(c, 409, 'EXERCISE_NOT_READY', 'Exercise is not ready for students')

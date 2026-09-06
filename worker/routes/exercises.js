@@ -330,7 +330,7 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
     if (!access.in_progress_submission_id && !(access.has_grade_access && access.is_ready)) {
       return access.has_grade_access
         ? jsonError(c, 403, 'EXERCISE_NOT_READY', 'This exercise is not ready for students')
-        : jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your grades')
+        : jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your classes')
     }
   }
 

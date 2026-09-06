@@ -132,19 +132,19 @@ describe('lectures API', () => {
     })
   })
 
-  it('stores multiple lecture grades and filters student access by overlap', async () => {
+  it('stores multiple lecture access classes and filters student access by overlap', async () => {
     const student = await env.DB.prepare(
       "SELECT id FROM users WHERE phone = '+84911111111'",
     ).first()
     await env.DB.batch([
       env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
+      env.DB.prepare("INSERT INTO student_grades (user_id, grade) VALUES (?, 'dgnl')").bind(student.id),
     ])
     const matchingResponse = await teacherRequest('/', 'POST', {
-      title: 'Grade 10 and 11 lecture',
+      title: 'Grade 11 and ĐGNL lecture',
       section_name: 'Grade access',
       youtube_url: 'https://youtu.be/grade1011ab',
-      grades: [10, 11],
+      grades: [11, 'dgnl'],
     })
     const excludedResponse = await teacherRequest('/', 'POST', {
       title: 'Grade 12 lecture',
@@ -156,7 +156,7 @@ describe('lectures API', () => {
     expect(excludedResponse.status).toBe(201)
     const matching = (await matchingResponse.json()).data
     const excluded = (await excludedResponse.json()).data
-    expect(matching.grades).toEqual([10, 11])
+    expect(matching.grades).toEqual([11, 'dgnl'])
 
     const studentListResponse = await app.request('/api/lectures', {
       headers: { Authorization: `Bearer ${studentToken}` },
@@ -169,10 +169,10 @@ describe('lectures API', () => {
       title: excluded.title,
       section_name: excluded.section_name,
       youtube_url: excluded.youtube_url,
-      grades: [10, 12],
+      grades: [12, 'dgnl'],
     })
     expect(updateResponse.status).toBe(200)
-    expect((await updateResponse.json()).data.grades).toEqual([10, 12])
+    expect((await updateResponse.json()).data.grades).toEqual([12, 'dgnl'])
 
     expect((await teacherRequest(`/${matching.id}`, 'DELETE')).status).toBe(200)
     expect((await teacherRequest(`/${excluded.id}`, 'DELETE')).status).toBe(200)

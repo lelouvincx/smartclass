@@ -1,6 +1,6 @@
 # SmartClass product truth
 
-**Last reviewed:** 2026-09-05
+**Last reviewed:** 2026-09-06
 
 SmartClass is an assessment platform for teaching and learning. It is a focused learning workspace, not a marketing surface.
 
@@ -13,10 +13,10 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 
 ## Lecture model
 
-- Teachers create, edit, show or hide, reorder, and delete lectures. Each lecture has a section, title, supported public YouTube video URL, student visibility state, and one or more grade levels (10, 11, or 12). New lectures are visible by default and default to all three grades.
+- Teachers create, edit, show or hide, reorder, and delete lectures. Each lecture has a section, title, supported public YouTube video URL, student visibility state, and one or more access classes (grades 10, 11, 12, or ĐGNL). New lectures are visible by default and default to all four classes.
 - The lecture order is global. Consecutive lectures with the same section are presented together without changing that order.
 - Teachers can expand one embedded video at a time while managing the curriculum or open any lecture on a dedicated detail page with previous and next navigation. Teacher playback does not change student progress.
-- Students browse visible lectures that overlap at least one of their grade memberships and watch each one on a dedicated, readable URL with embedded playback and previous/next navigation. Hidden or non-overlapping lectures and their player pages are unavailable to students.
+- Students browse visible lectures that overlap at least one of their class memberships and watch each one on a dedicated, readable URL with embedded playback and previous/next navigation. Hidden or non-overlapping lectures and their player pages are unavailable to students.
 - SmartClass remembers each authenticated student's playback position for each lecture and YouTube video in the current browser. Refreshing or revisiting resumes from that position without autoplay. Reaching the end clears the saved position. Progress does not synchronize across browsers or devices.
 - Lecture browsing is available only to authenticated teachers and students.
 
@@ -26,18 +26,18 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 - The authenticated teacher and student application defaults to Vietnamese. A user can switch between Vietnamese and English in Settings, and the current browser remembers that preference.
 - New student accounts require a name, whether students register themselves or a teacher creates the account. Legacy accounts may remain unnamed until updated.
 - A signed-in teacher or student can change their own name from Settings. Teachers can also rename student accounts from the student list.
-- A student can belong to one or more high-school grades: 10, 11, and 12. Grade memberships accumulate when appropriate, so a student can retain grade 10 access after also receiving grade 11 access. “All grades” is an interface shortcut for selecting all three memberships, not a stored grade.
-- Only teachers can assign grade memberships. Teachers select grades when creating a student and can replace the memberships of multiple selected students at once. A self-registered student has no grade access until a teacher assigns it.
+- A student can belong to one or more access classes: grades 10, 11, 12, and ĐGNL. Class memberships accumulate when appropriate, so a student can retain grade 10 access after also receiving grade 11 access. “All classes” is an interface shortcut for selecting all four memberships, not a stored class.
+- Only teachers can assign class memberships. Teachers select classes when creating a student and can replace the memberships of multiple selected students at once. A self-registered student has no class access until a teacher assigns it.
 - A signed-in teacher can change their own password from Settings after verifying their current password.
 - Password changes never target another account; student password changes and teacher-managed password resets remain roadmap work.
 
 ## Assessment model
 
-- Exercises may be timed or untimed and target one or more grades (10, 11, or 12), defaulting to grade 12. Teachers provide an answer-free Exercise PDF for students and a separate teacher-only Answer PDF containing answers or green highlights. Keeping the student copy free of answer cues is the teacher's responsibility.
+- Exercises may be timed or untimed and target one or more access classes (grades 10, 11, 12, or ĐGNL), defaulting to grade 12. Teachers provide an answer-free Exercise PDF for students and a separate teacher-only Answer PDF containing answers or green highlights. Keeping the student copy free of answer cues is the teacher's responsibility.
 - Supported answer types are multiple choice (A/B/C/D), numeric, and true/false questions with four independently answered sub-questions (`a`–`d`). Exercises may group questions into named sections whose printed numbering restarts. SmartClass keeps a separate global question order for grading and navigation.
 - Teachers prepare an exercise through one review workflow. SmartClass detects section and question regions in the Exercise PDF, renders ordered question images, and combines Answer PDF parsing with deterministic green-highlight candidates from the Answer PDF in one editable answer table.
 - A teacher reviews every generated image and final answer, resolves conflicts, and activates both as one version. A rejected question can be retried, replaced with one clean screenshot, or resolved by replacing the source PDF. Scanned-PDF vision detection is not enabled; unsupported PDFs require screenshots or replacement.
-- Students can browse or start only exercises with a teacher-confirmed active question set and at least one grade that overlaps their memberships. A started submission pins that set and its answer-schema snapshot, and remains available if current grade access later changes, so later exercise or access changes cannot break an active attempt or historical review.
+- Students can browse or start only exercises with a teacher-confirmed active question set and at least one access class that overlaps their memberships. A started submission pins that set and its answer-schema snapshot, and remains available if current class access later changes, so later exercise or access changes cannot break an active attempt or historical review.
 - Teachers set a positive maximum number of attempts for each exercise or allow unlimited attempts. Existing exercises default to one attempt. Lowering a limit never deletes or renumbers attempts students already started; it only prevents new attempts above the limit.
 - Each submission is one numbered attempt by one student on one exercise. Starting allocates the next positive attempt number. Every attempt keeps its own answers, timing, score, and pinned question set, and all submitted attempts remain separately available from both the exercise landing page and submission history.
 - Students enter answers directly in the take page. It does not offer an answer-photo upload or input-mode selector.

@@ -10,8 +10,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { GRADES, hasAllGrades } from '@/lib/grades'
+import { GRADES, hasAllGrades, sortGrades } from '@/lib/grades'
 import { cn } from '@/lib/utils'
+
+function gradeLabel(t, grade) {
+  return grade === 'dgnl' ? t('common.dgnl') : t('common.grade', { grade })
+}
 
 function GradeOption({ id, label, checked, disabled, onChange }) {
   return (
@@ -48,7 +52,7 @@ export default function GradeCheckboxGroup({
   function toggleGrade(grade) {
     const nextGrades = value.includes(grade)
       ? value.filter((item) => item !== grade)
-      : [...value, grade].sort((a, b) => a - b)
+      : sortGrades([...value, grade])
     onChange(nextGrades)
   }
 
@@ -62,7 +66,7 @@ export default function GradeCheckboxGroup({
       {description && (
         <p id={descriptionId} className="text-xs leading-5 text-muted-foreground">{description}</p>
       )}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2">
         <GradeOption
           id={`${id}-all`}
           label={t('common.allGrades')}
@@ -74,7 +78,7 @@ export default function GradeCheckboxGroup({
           <GradeOption
             key={grade}
             id={`${id}-${grade}`}
-            label={t('common.grade', { grade })}
+            label={gradeLabel(t, grade)}
             checked={value.includes(grade)}
             disabled={disabled}
             onChange={() => toggleGrade(grade)}
@@ -100,13 +104,13 @@ export function GradeDropdown({
   const summary = allSelected
     ? t('common.allGrades')
     : value.length > 0
-      ? value.map((grade) => t('common.grade', { grade })).join(', ')
+      ? value.map((grade) => gradeLabel(t, grade)).join(', ')
       : t('common.selectGrades')
 
   function toggleGrade(grade) {
     const nextGrades = value.includes(grade)
       ? value.filter((item) => item !== grade)
-      : [...value, grade].sort((a, b) => a - b)
+      : sortGrades([...value, grade])
     onChange(nextGrades)
   }
 
@@ -149,7 +153,7 @@ export function GradeDropdown({
               onSelect={(event) => event.preventDefault()}
               className="min-h-[var(--sc-component-hit-target)] px-3 pr-9"
             >
-              {t('common.grade', { grade })}
+              {gradeLabel(t, grade)}
             </DropdownMenuCheckboxItem>
           ))}
         </DropdownMenuContent>
@@ -168,7 +172,7 @@ export function GradeBadges({ grades = [], emptyText, className }) {
   return (
     <span className={cn('flex flex-wrap gap-1.5', className)}>
       {grades.map((grade) => (
-        <Badge key={grade} variant="outline">{t('common.grade', { grade })}</Badge>
+        <Badge key={grade} variant="outline">{gradeLabel(t, grade)}</Badge>
       ))}
     </span>
   )

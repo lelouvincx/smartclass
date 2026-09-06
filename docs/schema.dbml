@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0017_add_exercise_attempt_limits
+// Last updated: migration 0018_add_dgnl_access_class
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -25,7 +25,7 @@ Table users {
 
 Table student_grades {
   user_id integer [not null, ref: > users.id, note: 'Student account; ON DELETE CASCADE']
-  grade   integer [not null, note: '10 | 11 | 12']
+  grade   integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
 
   indexes {
     (user_id, grade) [pk]
@@ -50,7 +50,7 @@ Table exercises {
 
 Table exercise_grades {
   exercise_id integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
-  grade       integer [not null, note: '10 | 11 | 12']
+  grade       integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
 
   indexes {
     (exercise_id, grade) [pk]
@@ -268,7 +268,7 @@ Table lectures {
 
 Table lecture_grades {
   lecture_id integer [not null, ref: > lectures.id, note: 'ON DELETE CASCADE']
-  grade      integer [not null, note: '10 | 11 | 12']
+  grade      integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
 
   indexes {
     (lecture_id, grade) [pk]

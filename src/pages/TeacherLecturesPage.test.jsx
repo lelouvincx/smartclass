@@ -119,7 +119,7 @@ describe('TeacherLecturesPage', () => {
         title: 'Exam review',
         section_name: 'Revision',
         youtube_url: 'https://youtu.be/zyxwvutsrqp',
-        grades: [10, 11, 12],
+        grades: [10, 11, 12, 'dgnl'],
       })
     })
     expect(listLecturesMock).toHaveBeenCalledTimes(2)
@@ -138,7 +138,7 @@ describe('TeacherLecturesPage', () => {
     await user.click(screen.getByRole('button', { name: 'Create lecture' }))
 
     expect(createLectureMock).toHaveBeenCalledWith('teacher-token', expect.objectContaining({
-      grades: [10, 11],
+      grades: [10, 11, 'dgnl'],
     }))
   })
 

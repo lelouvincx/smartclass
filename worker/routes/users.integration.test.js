@@ -164,8 +164,39 @@ describe('student names', () => {
   })
 })
 
-describe('student grade access', () => {
-  it("lets a teacher bulk-replace multiple students' grade memberships", async () => {
+describe('student class access', () => {
+  it('lets a teacher assign and list the ĐGNL access class', async () => {
+    await seedStudent('+84900000060', 'ĐGNL Student')
+    const teacherToken = await loginAsTeacher()
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84900000060'",
+    ).first()
+
+    const response = await app.request('/api/users/grades', {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${teacherToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ student_ids: [student.id], grades: ['dgnl'] }),
+    }, env)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      data: { student_ids: [student.id], grades: ['dgnl'] },
+    })
+
+    const listResponse = await app.request('/api/users', {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    await expect(listResponse.json()).resolves.toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({ id: student.id, grades: ['dgnl'] }),
+      ]),
+    })
+  })
+
+  it("lets a teacher bulk-replace multiple students' class memberships", async () => {
     await seedStudent('+84900000061', 'Grade Student One')
     await seedStudent('+84900000062', 'Grade Student Two')
     const teacherToken = await loginAsTeacher()

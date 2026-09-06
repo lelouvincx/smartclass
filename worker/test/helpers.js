@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:test'
 import app from '../index.js'
+import { GRADES } from '../lib/grades.js'
 
 /**
  * Seed the teacher account used for authenticated requests.
@@ -53,7 +54,7 @@ export async function seedStudent(phone = '+84123456789', name = 'Test Student')
       DELETE FROM student_grades
       WHERE user_id = (SELECT id FROM users WHERE phone = ?)
     `).bind(phone),
-    ...[10, 11, 12].map((grade) => env.DB.prepare(`
+    ...GRADES.map((grade) => env.DB.prepare(`
       INSERT INTO student_grades (user_id, grade)
       SELECT id, ? FROM users WHERE phone = ?
     `).bind(grade, phone)),
