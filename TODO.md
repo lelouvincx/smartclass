@@ -21,9 +21,10 @@ Priorities apply within each version:
 ## v0.7: Assessment depth
 
 - [ ] **P0** Add an explanation field to each answer, supporting images and Markdown with math notation
-- [ ] **P1** Improve the extraction LLM prompt
+- [ ] **P1** Improve Cohere student-photo extraction with orientation and perspective correction, then benchmark consented real photos
 - [ ] **P1** Let students scan an exercise-sheet QR code to open a submission form pre-filled with the exercise and signed-in student
   - [ ] **P1** Generate a QR code for each exercise
+- [ ] **P2** Remove the deprecated `exercises.extract_model` column after the Cohere Worker is deployed
 
 **Outcome:** students get richer answer guidance, retain each allowed attempt, and can move efficiently from printed exercises to online submission.
 

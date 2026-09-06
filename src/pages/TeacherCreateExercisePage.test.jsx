@@ -9,7 +9,7 @@ const createExerciseMock = vi.fn()
 const parseExerciseSchemaMock = vi.fn()
 const createExerciseFileUploadMock = vi.fn()
 const uploadExerciseFileMock = vi.fn()
-const extractTextFromPdfMock = vi.fn()
+const prepareAnswerPdfForParsingMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
@@ -23,7 +23,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 })
 
 vi.mock('../lib/pdf', () => ({
-  extractTextFromPdf: (...args) => extractTextFromPdfMock(...args),
+  prepareAnswerPdfForParsing: (...args) => prepareAnswerPdfForParsingMock(...args),
 }))
 
 const logoutMock = vi.fn()
@@ -52,7 +52,12 @@ describe('TeacherCreateExercisePage', () => {
     parseExerciseSchemaMock.mockReset()
     createExerciseFileUploadMock.mockReset()
     uploadExerciseFileMock.mockReset()
-    extractTextFromPdfMock.mockReset()
+    prepareAnswerPdfForParsingMock.mockReset()
+    prepareAnswerPdfForParsingMock.mockResolvedValue({
+      page_files: [new File(['page'], 'page-1.png', { type: 'image/png' })],
+      page_manifest: [{ file_name: 'page-1.png', page_number: 1, text: 'ĐÁP ÁN' }],
+      total_pages: 1,
+    })
     logoutMock.mockReset()
   })
 
@@ -132,7 +137,6 @@ describe('TeacherCreateExercisePage', () => {
           correct_answer: 'B',
         },
       ],
-      extract_model: null,
       grades: [12],
       max_attempts: 1,
     })
@@ -199,7 +203,6 @@ describe('TeacherCreateExercisePage', () => {
           correct_answer: 'C',
         },
       ],
-      extract_model: null,
       grades: [12],
       max_attempts: 1,
     })
@@ -226,8 +229,7 @@ describe('TeacherCreateExercisePage', () => {
   it('shows parse failure and still allows manual save', async () => {
     const user = userEvent.setup()
     createExerciseMock.mockResolvedValue({ data: { id: 303 } })
-    extractTextFromPdfMock.mockResolvedValue('Q1 A Q2 TRUE Q3 42')
-    parseExerciseSchemaMock.mockRejectedValue(new Error('DeepSeek unavailable'))
+    parseExerciseSchemaMock.mockRejectedValue(new Error('Cohere unavailable'))
 
     render(
       <MemoryRouter>
@@ -242,7 +244,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.upload(screen.getByLabelText(/Answer PDF/i), answerPdf)
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByText('DeepSeek unavailable')).toBeInTheDocument()
+    expect(await screen.findByText('Cohere unavailable')).toBeInTheDocument()
 
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'D')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
@@ -250,9 +252,8 @@ describe('TeacherCreateExercisePage', () => {
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
   })
 
-  it('leaves a low-confidence parsed answer blank until the teacher fills it', async () => {
+  it('keeps an unscored Cohere answer populated and marks it for review', async () => {
     const user = userEvent.setup()
-    extractTextFromPdfMock.mockResolvedValue('Question 1 may be B')
     parseExerciseSchemaMock.mockResolvedValue({
       data: {
         schema: [{
@@ -260,7 +261,7 @@ describe('TeacherCreateExercisePage', () => {
           sub_id: null,
           type: 'mcq',
           correct_answer: 'B',
-          confidence: 0.6,
+          confidence: null,
         }],
       },
     })
@@ -273,19 +274,13 @@ describe('TeacherCreateExercisePage', () => {
     )
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByLabelText(/correct answer for question 1/i)).toHaveValue('')
-    expect(screen.getByText('60%')).toBeInTheDocument()
-
-    await user.type(screen.getByLabelText(/exercise title/i), 'Needs review')
-    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
-
-    expect(screen.getByText(/please fix all answer key errors/i)).toBeInTheDocument()
-    expect(createExerciseMock).not.toHaveBeenCalled()
+    expect(await screen.findByLabelText(/correct answer for question 1/i)).toHaveValue('B')
+    expect(screen.getAllByText('Unscored, review required').length).toBeGreaterThan(0)
+    expect(screen.getByText(/warnings: 1/i)).toBeInTheDocument()
   })
 
   it('keeps repeated local numbers from different parsed sections', async () => {
     const user = userEvent.setup()
-    extractTextFromPdfMock.mockResolvedValue('Phần I Câu 1. A Phần II Câu 1. B')
     parseExerciseSchemaMock.mockResolvedValue({
       data: {
         schema: [
@@ -297,7 +292,7 @@ describe('TeacherCreateExercisePage', () => {
             sub_id: null,
             type: 'mcq',
             correct_answer: 'A',
-            confidence: 0.95,
+            confidence: null,
           },
           {
             q_id: 2,
@@ -307,7 +302,7 @@ describe('TeacherCreateExercisePage', () => {
             sub_id: null,
             type: 'mcq',
             correct_answer: 'B',
-            confidence: 0.95,
+            confidence: null,
           },
         ],
       },
@@ -387,7 +382,6 @@ describe('TeacherCreateExercisePage', () => {
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
       ],
-      extract_model: null,
       grades: [12],
     })
   })

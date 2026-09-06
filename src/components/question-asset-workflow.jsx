@@ -23,8 +23,9 @@ import {
   uploadGeneratedQuestionAsset,
 } from '@/lib/api'
 import { mergeAnswerCandidates } from '@/lib/answer-candidates'
-import { extractTextFromPdf } from '@/lib/pdf'
+import { prepareAnswerPdfForParsing } from '@/lib/pdf'
 import { generateQuestionAssets } from '@/lib/question-generation'
+import AnswerParseProgress from '@/components/answer-parse-progress'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -90,7 +91,7 @@ function candidateKey(row) {
 function answerPdfCandidates(rows, sourceFileId, modelId) {
   return (rows || []).flatMap((row) => {
     const answer = String(row.correct_answer ?? '').trim()
-    if (!answer || !Number.isFinite(row.confidence) || row.confidence < MIN_CONFIDENCE) return []
+    if (!answer) return []
 
     return [{
       q_id: Number(row.q_id),
@@ -99,9 +100,9 @@ function answerPdfCandidates(rows, sourceFileId, modelId) {
       proposed_answer: answer,
       source_kind: 'answer_pdf_text',
       source_file_id: sourceFileId,
-      extractor_version: 'schema-parser-v1',
-      model_id: modelId || null,
-      confidence: row.confidence,
+      extractor_version: 'cohere-parse-v5',
+      model_id: modelId || 'parse-v5.0',
+      confidence: row.confidence ?? null,
     }]
   })
 }
@@ -378,6 +379,11 @@ function QuestionAnswerReview({
                             : t('teacher.questionViews.greenEvidence', {
                               answer: candidate.proposed_answer,
                             })}
+                          {candidate.confidence === null && (
+                            <span className="text-muted-foreground">
+                              {' · '}{t('teacher.schema.unscored')}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -456,6 +462,7 @@ export default function QuestionAssetWorkflow({
   const [draft, setDraft] = useState(null)
   const [phase, setPhase] = useState('idle')
   const [progress, setProgress] = useState({ stage: '', current: 0, total: 1 })
+  const [answerParseProgress, setAnswerParseProgress] = useState(null)
   const [error, setError] = useState('')
   const [busyQuestionId, setBusyQuestionId] = useState(null)
   const [answerSchema, setAnswerSchema] = useState(() => exercise.schema || [])
@@ -514,13 +521,29 @@ export default function QuestionAssetWorkflow({
       let parserModelId = null
       if (answerSourceFile) {
         setProgress({ stage: 'answers', current: 0, total: 1 })
+        setAnswerParseProgress({ stage: 'reading', progress: 0 })
         try {
           answerPdf = await getExerciseFileBlob(answerSourceFile.id, token)
-          const sourceText = await extractTextFromPdf(answerPdf)
-          const parsed = await parseExerciseSchema(token, {
-            source_text: sourceText,
-            expected_question_count: questionIds.length,
+          const prepared = await prepareAnswerPdfForParsing(answerPdf, {
+            onProgress: ({ stage, current, total }) => setAnswerParseProgress({
+              stage,
+              progress: total ? current / total : 0,
+            }),
           })
+          setAnswerParseProgress({ stage: 'waiting', progress: 0 })
+          const parsed = await parseExerciseSchema(token, {
+            ...prepared,
+            expected_question_count: questionIds.length,
+            schema_shape: (exercise.schema || []).map(row => ({
+              q_id: Number(row.q_id),
+              section_key: row.section_key ?? 'main',
+              section_title: row.section_title ?? null,
+              local_number: Number(row.local_number ?? row.q_id),
+              type: row.type,
+              sub_id: row.sub_id ?? null,
+            })),
+          })
+          setAnswerParseProgress({ stage: 'applying', progress: 0 })
           parsedRows = parsed.data.schema || []
           if (!descriptorSetsMatch(parsedRows, exercise.schema || [])) {
             throw new Error('Answer PDF question sections do not match the exercise schema')
@@ -529,6 +552,8 @@ export default function QuestionAssetWorkflow({
           parserStatus = 'parsed'
         } catch {
           parserStatus = 'failed'
+        } finally {
+          setAnswerParseProgress(null)
         }
       }
 
@@ -822,6 +847,21 @@ export default function QuestionAssetWorkflow({
             <p className="text-sm text-muted-foreground">{t('teacher.questionViews.answerPdfRequired')}</p>
           )}
           {(phase === 'generating' || phase === 'loading') && (
+            answerParseProgress ? (
+              <AnswerParseProgress
+                stage={answerParseProgress.stage}
+                stageProgress={answerParseProgress.progress}
+                labels={{
+                  reading: t('teacher.answerParse.reading'),
+                  rendering: t('teacher.answerParse.rendering'),
+                  waiting: t('teacher.answerParse.waiting'),
+                  stillWaiting: t('teacher.answerParse.stillWaiting'),
+                  applying: t('teacher.answerParse.applying'),
+                  complete: t('teacher.answerParse.complete'),
+                  error: t('teacher.answerParse.error'),
+                }}
+              />
+            ) : (
             <div className="space-y-2" aria-live="polite">
               <div className="flex items-center justify-between gap-3 text-sm">
                 <span className="font-medium">
@@ -839,6 +879,7 @@ export default function QuestionAssetWorkflow({
                 max="1"
               />
             </div>
+            )
           )}
           {error && (
             <Alert variant="destructive">

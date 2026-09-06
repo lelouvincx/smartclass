@@ -1123,8 +1123,11 @@ function normalizeAnswerCandidate(candidate, assetSet) {
     return { error: 'Candidate question and type are invalid' }
   }
   if (!ANSWER_SOURCE_KINDS.has(sourceKind)) return { error: 'Candidate source kind is invalid' }
-  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
-    return { error: 'Candidate confidence must be between 0 and 1' }
+  const validConfidence = sourceKind === 'answer_pdf_text'
+    ? confidence === null || (Number.isFinite(confidence) && confidence >= 0 && confidence <= 1)
+    : Number.isFinite(confidence) && confidence >= 0 && confidence <= 1
+  if (!validConfidence) {
+    return { error: 'Candidate confidence must be null for text or between 0 and 1' }
   }
   if (
     (type === 'mcq' && !['A', 'B', 'C', 'D'].includes(proposedAnswer))

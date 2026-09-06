@@ -42,7 +42,7 @@ Table exercises {
   duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
   max_attempts     integer [default: 1, note: 'NULL = unlimited; otherwise a positive per-student attempt limit']
   pdf_key          text    [note: 'Legacy R2 key — superseded by exercise_files']
-  extract_model    text    [note: 'Official DeepSeek vision model id for image extraction; NULL = use server default']
+  extract_model    text    [note: 'Deprecated rollout-compatibility column; ignored by current code']
   active_question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Teacher-confirmed set currently shown to new submissions']
   created_by       integer [not null, ref: > users.id]
   created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
@@ -184,7 +184,7 @@ Table exercise_question_answer_candidates {
   source_y          real    [note: 'Normalized source coordinate for green-highlight evidence']
   source_width      real    [note: 'Normalized source coordinate for green-highlight evidence']
   source_height     real    [note: 'Normalized source coordinate for green-highlight evidence']
-  confidence        real    [not null, note: '0..1']
+  confidence        real    [note: 'NULL permitted only for answer_pdf_text; otherwise 0..1']
   created_at        text    [not null, default: 'CURRENT_TIMESTAMP']
 
   indexes {
@@ -193,7 +193,7 @@ Table exercise_question_answer_candidates {
     (asset_set_id, q_id, sub_id) [name: 'idx_exercise_question_answer_candidates_set']
   }
 
-  Note: 'Suggestions only. The teacher-confirmed schema remains the grading source of truth.'
+  Note: 'Suggestions only. Text candidates are unscored. Green-highlight candidates require a 0..1 confidence and bounded geometry. The teacher-confirmed schema remains the grading source of truth.'
 }
 
 // ── Submissions ────────────────────────────────────────────────────────────────

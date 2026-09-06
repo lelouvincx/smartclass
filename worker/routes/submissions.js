@@ -2,9 +2,8 @@ import { Hono } from 'hono'
 import { requireAuth } from '../middleware/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { gradeSubmission } from '../lib/grading.js'
-import { resolveModel } from '../lib/extract-models.js'
-import { requestAnswersFromImage } from '../lib/deepseek.js'
-import { validateExtractedAnswers, ExtractParseError } from '../lib/extract-validator.js'
+import { COHERE_MODEL, parseImageWithCohere } from '../lib/cohere.js'
+import { parseStudentPhotoAnswers } from '../lib/cohere-table-parser.js'
 import { toQuestionAssetResponse } from '../lib/question-assets.js'
 
 const submissionsRoutes = new Hono()
@@ -655,15 +654,6 @@ submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
       return jsonError(c, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Only image/jpeg and image/png are accepted')
     }
 
-    // ── Model selection ─────────────────────────────────────────────────────
-    // Source of truth is the exercise's teacher-configured extract_model.
-    // The student request is NOT allowed to override; any client-supplied
-    // model field is intentionally ignored.
-    const exerciseRow = await c.env.DB.prepare(
-      'SELECT extract_model FROM exercises WHERE id = (SELECT exercise_id FROM submissions WHERE id = ?)'
-    ).bind(submissionId).first()
-    const modelUsed = resolveModel(exerciseRow?.extract_model ?? null)
-
     // ── Upload to R2 ────────────────────────────────────────────────────────
     const timestamp = Date.now()
     const safeName = image.name || `upload-${timestamp}`
@@ -705,49 +695,31 @@ submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
 
     const schema = schemaResult.results
 
-    // ── Vision LLM call ──────────────────────────────────────────────────────
+    // ── Cohere Parse call ───────────────────────────────────────────────────
     const imageBytes = await image.arrayBuffer()
-    let rawContent
+    let markdown
     try {
-      rawContent = await requestAnswersFromImage(c.env, {
+      const parsed = await parseImageWithCohere(c.env, {
         imageBytes,
         contentType: image.type,
-        schema,
-        model: modelUsed,
+        requireHtmlTable: false,
       })
-    } catch (error) {
-      console.error('Vision extract error:', error)
+      markdown = parsed.markdown
+    } catch {
+      console.error('Cohere submission extraction failed', { category: 'provider' })
       return jsonError(
         c,
         502,
         'EXTRACTION_FAILED',
-        error.message || 'Failed to extract answers from image. Try a different model or use manual mode.',
+        'Failed to extract answers from image. Retry or use manual entry.',
       )
     }
 
-    // ── Validate + normalize ─────────────────────────────────────────────────
-    let extracted
-    let warnings
-    try {
-      const result = validateExtractedAnswers(rawContent, schema)
-      extracted = result.answers
-      warnings = result.warnings
-    } catch (error) {
-      if (error instanceof ExtractParseError) {
-        console.error('Extract parse error:', error.message, 'raw:', rawContent)
-        return jsonError(
-          c,
-          422,
-          'EXTRACT_PARSE_ERROR',
-          'Could not parse model output. Please retry or switch to manual mode.',
-        )
-      }
-      throw error
-    }
+    const { answers: extracted, warnings } = parseStudentPhotoAnswers(markdown, schema)
 
     return jsonSuccess(c, {
       file_id: fileId,
-      model_used: modelUsed,
+      model_used: COHERE_MODEL,
       extracted,
       warnings,
     })

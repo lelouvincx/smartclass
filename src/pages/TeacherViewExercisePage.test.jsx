@@ -196,15 +196,6 @@ describe('TeacherViewExercisePage', () => {
     openClick.mockRestore()
   })
 
-  it('does not expose the default image-extraction model', async () => {
-    getExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, extract_model: 'provider/private-model-id' } })
-    renderPage()
-
-    await screen.findByText('Physics Quiz')
-    expect(screen.queryByText(/answer reading/i)).not.toBeInTheDocument()
-    expect(screen.queryByText('provider/private-model-id')).not.toBeInTheDocument()
-  })
-
   it('shows "No files uploaded" when files array is empty', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     renderPage()

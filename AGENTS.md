@@ -20,7 +20,7 @@
 
 ## Local API development
 
-- When local Wrangler needs the DeepSeek credential, run `agent-secrets run --bundle smartclass-deepseek -- /Users/lelouvincx/.local/bin/smartclass-wrangler-dev dev`.
+- When local Wrangler needs the Cohere credential, use `agent-secrets run --bundle smartclass-cohere -- /Users/lelouvincx/.local/bin/smartclass-wrangler-dev dev` after that bundle has been provisioned with `COHERE_API_KEY`. The bundle is pending; do not reuse `smartclass-deepseek` or store a plaintext key.
 - Find the wrapper source at `/Users/lelouvincx/Developer/agent-skills/bin/smartclass-wrangler-dev`; do not edit the projected `~/.local/bin` symlink.
 - Use the wrapper's `probe` operation to verify credential presence without printing its value.
 - Keep the wrapper limited to its fixed local `wrangler dev --local` command and presence probe. Do not add argument forwarding.

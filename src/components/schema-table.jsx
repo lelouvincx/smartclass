@@ -47,6 +47,13 @@ function displayQuestionNumber(row) {
     : row.local_number ?? row.q_id
 }
 
+function ConfidenceValue({ confidence }) {
+  const { t } = useTranslation()
+  return confidence === null
+    ? t('teacher.schema.unscored')
+    : `${Math.round(confidence * 100)}%`
+}
+
 // ── SortableStandardRow ─────────────────────────────────────────────────────────
 
 function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) {
@@ -120,7 +127,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
 
       {showConfidence && (
         <td className="px-3 py-2 text-muted-foreground">
-          {Math.round((row.confidence ?? 1) * 100)}%
+          <ConfidenceValue confidence={row.confidence} />
         </td>
       )}
 
@@ -262,7 +269,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
 
           {showConfidence && (
             <td className="px-3 py-2 text-muted-foreground">
-              {i === 0 ? `${Math.round((row.confidence ?? 1) * 100)}%` : ''}
+              {i === 0 ? <ConfidenceValue confidence={row.confidence} /> : ''}
             </td>
           )}
 
