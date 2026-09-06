@@ -10,6 +10,7 @@ import TeacherViewExercisePage from './TeacherViewExercisePage'
 const getExerciseMock = vi.fn()
 const getQuestionAssetSetMock = vi.fn()
 const getExerciseFileBlobMock = vi.fn()
+const listTeacherExerciseSubmissionsMock = vi.fn()
 const updateExerciseMock = vi.fn()
 const deleteExerciseMock = vi.fn()
 
@@ -20,6 +21,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     getExercise: (...args) => getExerciseMock(...args),
     getQuestionAssetSet: (...args) => getQuestionAssetSetMock(...args),
     getExerciseFileBlob: (...args) => getExerciseFileBlobMock(...args),
+    listTeacherExerciseSubmissions: (...args) => listTeacherExerciseSubmissionsMock(...args),
     updateExercise: (...args) => updateExerciseMock(...args),
     deleteExercise: (...args) => deleteExerciseMock(...args),
   }
@@ -77,6 +79,7 @@ function renderPage(exerciseId = '5') {
     <MemoryRouter initialEntries={[`/teacher/exercises/${exerciseId}`]}>
       <Routes>
         <Route path="/teacher/exercises/:id" element={<TeacherViewExercisePage />} />
+        <Route path="/teacher/submissions/:id/review" element={<div>Submission review</div>} />
         <Route path="/teacher/exercises" element={<div>Exercises list</div>} />
       </Routes>
     </MemoryRouter>,
@@ -90,6 +93,8 @@ describe('TeacherViewExercisePage', () => {
     getExerciseMock.mockReset()
     getQuestionAssetSetMock.mockReset()
     getExerciseFileBlobMock.mockReset()
+    listTeacherExerciseSubmissionsMock.mockReset()
+    listTeacherExerciseSubmissionsMock.mockResolvedValue({ data: { submissions: [], total: 0 } })
     updateExerciseMock.mockReset()
     deleteExerciseMock.mockReset()
   })
@@ -208,6 +213,52 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Physics Quiz')
     expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
+  })
+
+  it('lists submitted students and links to each submission detail', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    listTeacherExerciseSubmissionsMock.mockResolvedValue({
+      data: {
+        total: 1,
+        submissions: [{
+          id: 81,
+          student_name: 'Nguyễn Văn Minh',
+          student_phone: '+84901234567',
+          score: 8.5,
+          submitted_at: '2026-09-05 08:30:00',
+        }],
+      },
+    })
+    renderPage()
+
+    const submissionsHeading = await screen.findByRole('heading', { name: 'Submissions' })
+    expect(await screen.findByText('Nguyễn Văn Minh')).toBeInTheDocument()
+    expect(screen.getByText('+84901234567')).toBeInTheDocument()
+    expect(screen.getByText('8.5 / 10')).toBeInTheDocument()
+    expect(submissionsHeading.closest('[data-slot="card"]')?.querySelector('table'))
+      .toHaveClass('table-fixed', 'sm:table-auto')
+    expect(screen.getByRole('columnheader', { name: 'Student' }))
+      .toHaveClass('w-[52%]', 'px-3', 'sm:w-auto', 'sm:px-5')
+    expect(screen.getByRole('link', { name: 'View Nguyễn Văn Minh’s submission' }))
+      .toHaveAttribute('href', '/teacher/submissions/81/review')
+    expect(listTeacherExerciseSubmissionsMock).toHaveBeenCalledWith('teacher-token', 5)
+  })
+
+  it('shows a clear empty state when no students have submitted', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'No submissions yet' }, { timeout: 5000 })).toBeInTheDocument()
+    expect(screen.getByText(/submitted work will appear here/i)).toBeInTheDocument()
+  })
+
+  it('shows a retry action when submissions cannot be loaded', async () => {
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    listTeacherExerciseSubmissionsMock.mockRejectedValue(new Error('Submissions unavailable'))
+    renderPage()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Submissions unavailable')
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
   })
 
   // --- Edit mode toggle ---

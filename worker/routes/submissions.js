@@ -32,12 +32,20 @@ submissionsRoutes.get('/', requireAuth, async (c) => {
   let offset = offsetParam ? parseInt(offsetParam, 10) : 0
 
   // Validate params
+  if (authUser.role === 'teacher' && !exerciseId) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'exercise_id is required for teacher submission lists')
+  }
   if (limit < 0 || limit > 100) limit = 50
   if (offset < 0) offset = 0
 
   // Build WHERE clause
-  const whereClauses = ['s.user_id = ?', 's.submitted_at IS NOT NULL']
-  const bindings = [authUser.id]
+  const whereClauses = ['s.submitted_at IS NOT NULL']
+  const bindings = []
+
+  if (authUser.role !== 'teacher') {
+    whereClauses.push('s.user_id = ?')
+    bindings.push(authUser.id)
+  }
 
   if (exerciseId) {
     whereClauses.push('s.exercise_id = ?')
@@ -57,9 +65,12 @@ submissionsRoutes.get('/', requireAuth, async (c) => {
       s.score,
       s.total_questions,
       s.started_at,
-      s.submitted_at
+      s.submitted_at,
+      u.name AS student_name,
+      u.phone AS student_phone
     FROM submissions s
     JOIN exercises e ON e.id = s.exercise_id
+    JOIN users u ON u.id = s.user_id
     WHERE ${whereClause}
     ORDER BY s.submitted_at DESC
     LIMIT ? OFFSET ?
@@ -73,7 +84,11 @@ submissionsRoutes.get('/', requireAuth, async (c) => {
   `).bind(...bindings).first()
 
   return jsonSuccess(c, {
-    submissions: submissions.results,
+    submissions: submissions.results.map((submission) => {
+      if (authUser.role === 'teacher') return submission
+      const { student_name: _name, student_phone: _phone, ...studentSubmission } = submission
+      return studentSubmission
+    }),
     total: totalResult.total,
   })
 })
@@ -490,9 +505,11 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       SELECT
         s.id, s.exercise_id, s.user_id, s.attempt_number, s.mode, s.total_questions,
         s.started_at, s.submitted_at, s.score, s.question_asset_set_id,
-        e.title AS exercise_title
+        e.title AS exercise_title,
+        u.name AS student_name, u.phone AS student_phone
       FROM submissions s
       JOIN exercises e ON e.id = s.exercise_id
+      JOIN users u ON u.id = s.user_id
       WHERE s.id = ?
     `).bind(submissionId).first()
 
@@ -500,11 +517,15 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       return jsonError(c, 404, 'NOT_FOUND', 'Submission not found')
     }
 
-    if (submission.user_id !== authUser.id) {
+    const isTeacher = authUser.role === 'teacher'
+    if (!isTeacher && submission.user_id !== authUser.id) {
       return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this submission')
     }
 
     const isSubmitted = submission.submitted_at !== null
+    if (isTeacher && !isSubmitted) {
+      return jsonError(c, 403, 'FORBIDDEN', 'Teachers can review only completed submissions')
+    }
 
     // Schema-first left join: guarantees every schema question appears in the response
     // even if submission_answers is missing rows (legacy data, partial payloads, skipped Qs)
@@ -555,10 +576,16 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
     }
 
     // Remove internal fields before returning
-    const { user_id: _uid, ...submissionData } = submission
+    const {
+      user_id: _uid,
+      student_name,
+      student_phone,
+      ...submissionData
+    } = submission
 
     return jsonSuccess(c, {
       ...submissionData,
+      ...(isTeacher ? { student_name, student_phone } : {}),
       files: [],
       question_assets: questionAssets,
       answers,

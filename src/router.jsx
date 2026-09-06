@@ -109,6 +109,7 @@ export function AppRoutes() {
         <Route path="lectures" element={<TeacherLecturesPage />} />
         <Route path="exercises/new" element={<TeacherCreateExercisePage />} />
         <Route path="exercises/:id" element={<TeacherViewExercisePage />} />
+        <Route path="submissions/:id/review" element={<StudentReviewPage viewer="teacher" />} />
       </Route>
 
       {/* Student routes with shared layout */}

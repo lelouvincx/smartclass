@@ -62,6 +62,16 @@ function renderReviewPage(submissionId = '5') {
   )
 }
 
+function renderTeacherReviewPage(submissionId = '5') {
+  return render(
+    <MemoryRouter initialEntries={[`/teacher/submissions/${submissionId}/review`]}>
+      <Routes>
+        <Route path="/teacher/submissions/:id/review" element={<StudentReviewPage viewer="teacher" />} />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
 describe('StudentReviewPage', () => {
   beforeEach(() => {
     getSubmissionMock.mockReset()
@@ -209,5 +219,21 @@ describe('StudentReviewPage', () => {
       'Review question two start',
       'Review question two continuation',
     ])
+  })
+
+  it('shows student identity and returns teachers to the exercise', async () => {
+    getSubmissionMock.mockResolvedValue({
+      data: {
+        ...SUBMISSION,
+        student_name: 'Nguyễn Văn Minh',
+        student_phone: '+84901234567',
+      },
+    })
+    renderTeacherReviewPage()
+
+    expect(await screen.findByText('Nguyễn Văn Minh')).toBeInTheDocument()
+    expect(screen.getByText('+84901234567')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to Exercise' }))
+      .toHaveAttribute('href', '/teacher/exercises/2')
   })
 })
