@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { listStudents, createStudent, approveStudent, updateStudentGrades, updateStudentName } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
@@ -44,7 +45,9 @@ function formatCreatedDate(isoStr, language) {
 export default function TeacherStudentsPage() {
   const { t, i18n } = useTranslation()
   const { token } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const requestIdRef = useRef(0)
+  const nameInputRef = useRef(null)
   const [students, setStudents] = useState([])
   const [loadedFilter, setLoadedFilter] = useState(undefined)
   const [loading, setLoading] = useState(true)
@@ -86,6 +89,15 @@ export default function TeacherStudentsPage() {
   useEffect(() => {
     loadStudents()
   }, [loadStudents])
+
+  useEffect(() => {
+    if (searchParams.get('create') !== 'student') return
+
+    nameInputRef.current?.focus()
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('create')
+    setSearchParams(nextParams, { replace: true })
+  }, [searchParams, setSearchParams])
 
   function handleFilterChange(filterValue) {
     setStatusFilter(filterValue === statusFilter ? null : filterValue)
@@ -230,6 +242,7 @@ export default function TeacherStudentsPage() {
             <div className="space-y-1.5">
               <Label htmlFor="student-name">{t('teacher.students.name')}</Label>
               <Input
+                ref={nameInputRef}
                 id="student-name"
                 name="name"
                 type="text"

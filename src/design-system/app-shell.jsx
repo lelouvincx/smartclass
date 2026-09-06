@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
+  ChevronDown,
   GraduationCap,
   LogOut,
   Menu,
@@ -11,6 +12,12 @@ import {
 } from 'lucide-react'
 import { ModeToggle } from '@/components/mode-toggle'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
@@ -33,26 +40,106 @@ function Brand({ workspaceLabel }) {
   )
 }
 
+function navigationItemClass(rail, isActive = false) {
+  return cn(
+    'flex min-h-[var(--sc-component-hit-target)] w-full items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors',
+    rail ? 'flex-col justify-center gap-1 px-2 py-2 text-center text-xs' : 'gap-3 px-3 py-2',
+    'hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
+    isActive && 'bg-accent text-accent-foreground',
+  )
+}
+
 function Navigation({ items, label, onNavigate, rail = false }) {
+  const location = useLocation()
+  const [expandedItem, setExpandedItem] = useState(null)
+
   return (
     <nav aria-label={label} className="grid gap-1">
-      {items.map(({ end, icon: Icon, label: itemLabel, to }) => (
-        <NavLink
-          key={to}
-          to={to}
-          end={end}
-          onClick={onNavigate}
-          className={({ isActive }) => cn(
-            'flex min-h-[var(--sc-component-hit-target)] items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors',
-            rail ? 'flex-col justify-center gap-1 px-2 py-2 text-center text-xs' : 'gap-3 px-3 py-2',
-            'hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
-            isActive && 'bg-accent text-accent-foreground',
-          )}
-        >
-          <Icon className={cn('shrink-0', rail ? 'size-5' : 'size-4')} aria-hidden="true" />
-          <span className={cn(rail && 'max-w-full truncate')}>{itemLabel}</span>
-        </NavLink>
-      ))}
+      {items.map(({ activePath, end, icon: Icon, label: itemLabel, options, to }) => {
+        if (options) {
+          const isActive = location.pathname === activePath
+          if (onNavigate) {
+            const isExpanded = expandedItem === itemLabel
+            return (
+              <div key={itemLabel}>
+                <button
+                  type="button"
+                  aria-current={isActive ? 'page' : undefined}
+                  aria-expanded={isExpanded}
+                  className={navigationItemClass(rail, isActive)}
+                  onClick={() => setExpandedItem(isExpanded ? null : itemLabel)}
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  <span>{itemLabel}</span>
+                  <ChevronDown
+                    className={cn('ms-auto size-4 transition-transform', isExpanded && 'rotate-180')}
+                    aria-hidden="true"
+                  />
+                </button>
+                {isExpanded && (
+                  <div className="ms-5 mt-1 grid gap-1 border-s ps-3">
+                    {options.map(({ icon: OptionIcon, label: optionLabel, to: optionTo }) => (
+                      <Link
+                        key={optionTo}
+                        to={optionTo}
+                        onClick={onNavigate}
+                        className="flex min-h-[var(--sc-component-hit-target)] items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                      >
+                        <OptionIcon className="size-4 shrink-0" aria-hidden="true" />
+                        {optionLabel}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          }
+
+          return (
+            <DropdownMenu key={itemLabel}>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-current={isActive ? 'page' : undefined}
+                  className={navigationItemClass(rail, isActive)}
+                >
+                  <Icon className={cn('shrink-0', rail ? 'size-5' : 'size-4')} aria-hidden="true" />
+                  <span className={cn(rail && 'max-w-full truncate')}>{itemLabel}</span>
+                  {!rail && <ChevronDown className="ms-auto size-4" aria-hidden="true" />}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side={rail ? 'right' : 'bottom'}
+                align="start"
+                sideOffset={8}
+                className="min-w-52"
+              >
+                {options.map(({ icon: OptionIcon, label: optionLabel, to: optionTo }) => (
+                  <DropdownMenuItem key={optionTo} asChild className="min-h-[var(--sc-component-hit-target)] px-3 py-2">
+                    <Link to={optionTo} onClick={onNavigate}>
+                      <OptionIcon className="size-4" aria-hidden="true" />
+                      {optionLabel}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )
+        }
+
+        return (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            onClick={onNavigate}
+            className={({ isActive }) => navigationItemClass(rail, isActive)}
+          >
+            <Icon className={cn('shrink-0', rail ? 'size-5' : 'size-4')} aria-hidden="true" />
+            <span className={cn(rail && 'max-w-full truncate')}>{itemLabel}</span>
+          </NavLink>
+        )
+      })}
     </nav>
   )
 }
@@ -145,12 +232,12 @@ export function AppShell({ children, focusedWorkspace = false, items, onLogout, 
   useEffect(() => {
     if (typeof window.matchMedia !== 'function') return undefined
 
-    const mediumViewport = window.matchMedia('(min-width: 768px)')
+    const persistentNavigationViewport = window.matchMedia('(min-width: 768px) and (min-height: 501px)')
     const closeCompactDrawer = (event) => {
       if (event.matches) setNavigationOpen(false)
     }
-    mediumViewport.addEventListener('change', closeCompactDrawer)
-    return () => mediumViewport.removeEventListener('change', closeCompactDrawer)
+    persistentNavigationViewport.addEventListener('change', closeCompactDrawer)
+    return () => persistentNavigationViewport.removeEventListener('change', closeCompactDrawer)
   }, [])
 
   return (

@@ -61,6 +61,16 @@ describe('TeacherStudentsPage', () => {
     toastMock.error.mockReset()
   })
 
+  it('focuses the create form from the sidebar creation path', async () => {
+    render(
+      <MemoryRouter initialEntries={['/teacher/students?create=student']}>
+        <TeacherStudentsPage />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByLabelText('Name')).toHaveFocus()
+  })
+
   it('renders empty state when there are no students', async () => {
     listStudentsMock.mockResolvedValue({ data: [] })
 

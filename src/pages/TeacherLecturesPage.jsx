@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowDown, ArrowRight, ArrowUp, BookOpen, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   createLecture,
   deleteLecture,
@@ -38,6 +38,7 @@ const EMPTY_FORM = {
 export default function TeacherLecturesPage() {
   const { t } = useTranslation()
   const { token } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [lectures, setLectures] = useState([])
   const [form, setForm] = useState(EMPTY_FORM)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -63,6 +64,15 @@ export default function TeacherLecturesPage() {
   useEffect(() => {
     loadLectures()
   }, [loadLectures])
+
+  useEffect(() => {
+    if (searchParams.get('create') !== 'lecture') return
+
+    startCreating()
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('create')
+    setSearchParams(nextParams, { replace: true })
+  }, [searchParams, setSearchParams])
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }))

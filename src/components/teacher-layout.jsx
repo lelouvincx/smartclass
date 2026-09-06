@@ -13,7 +13,16 @@ export function TeacherLayout() {
     { label: t('common.students'), to: '/teacher/students', icon: Users },
     { label: t('common.exercises'), to: '/teacher/exercises', icon: ClipboardList, end: true },
     { label: t('common.lectures'), to: '/teacher/lectures', icon: BookOpen },
-    { label: t('common.create'), to: '/teacher/exercises/new', icon: Plus },
+    {
+      label: t('common.create'),
+      icon: Plus,
+      activePath: '/teacher/exercises/new',
+      options: [
+        { label: t('teacher.exercises.create'), to: '/teacher/exercises/new', icon: ClipboardList },
+        { label: t('teacher.lectures.create'), to: '/teacher/lectures?create=lecture', icon: BookOpen },
+        { label: t('teacher.students.createTitle'), to: '/teacher/students?create=student', icon: Users },
+      ],
+    },
   ]
 
   function handleLogout() {

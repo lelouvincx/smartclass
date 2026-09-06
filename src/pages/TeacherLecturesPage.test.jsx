@@ -45,9 +45,9 @@ const lectures = [
   },
 ]
 
-function renderPage() {
+function renderPage(initialEntry = '/teacher/lectures') {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <TeacherLecturesPage />
     </MemoryRouter>,
   )
@@ -70,6 +70,14 @@ describe('TeacherLecturesPage', () => {
 
     const emptyHeading = await screen.findByRole('heading', { name: 'No lectures yet.' })
     expect(emptyHeading.closest('[data-slot="card"]')).toHaveClass('gap-0', 'py-0')
+  })
+
+  it('opens the create dialog from the sidebar creation path', async () => {
+    renderPage('/teacher/lectures?create=lecture')
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Add lecture' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Section')).toHaveFocus()
   })
 
   it('links each lecture to its teacher detail page', async () => {
