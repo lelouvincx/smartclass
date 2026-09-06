@@ -81,7 +81,7 @@ describe('GET /api/exercises', () => {
     expect(body.data.find(exercise => exercise.id === id).is_student_ready).toBe(1)
   })
 
-  it('lists only ready exercises that overlap a student grade', async () => {
+  it('lists only ready exercises that overlap a student access class, including DGNL', async () => {
     const phone = '+84900000070'
     await seedStudent(phone, 'Grade List Student')
     const student = await env.DB.prepare(
@@ -89,10 +89,10 @@ describe('GET /api/exercises', () => {
     ).bind(phone).first()
     await env.DB.batch([
       env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
+      env.DB.prepare("INSERT INTO student_grades (user_id, grade) VALUES (?, 'dgnl')").bind(student.id),
     ])
     const studentToken = await loginAsStudent(phone)
-    const matching = await createExercise(token, { title: 'Grade 10 and 11 quiz', grades: [10, 11] })
+    const matching = await createExercise(token, { title: 'ĐGNL quiz', grades: ['dgnl'] })
     const excluded = await createExercise(token, { title: 'Grade 12 quiz', grades: [12] })
 
     for (const exerciseId of [matching.id, excluded.id]) {
@@ -120,7 +120,7 @@ describe('GET /api/exercises', () => {
     const exercises = (await response.json()).data
     expect(exercises).toContainEqual(expect.objectContaining({
       id: matching.id,
-      grades: [10, 11],
+      grades: ['dgnl'],
     }))
     expect(exercises.map((exercise) => exercise.id)).not.toContain(excluded.id)
   })
@@ -363,7 +363,7 @@ describe('GET /api/exercises/:id', () => {
     expect(boolRowB).toMatchObject({ q_id: 2, type: 'boolean', sub_id: 'b' })
   })
 
-  it('returns grade memberships and blocks students without an overlapping grade', async () => {
+  it('returns class memberships and blocks students without an overlapping class', async () => {
     await seedStudent('+84900000071', 'Matching Student')
     await seedStudent('+84900000072', 'Excluded Student')
     const matchingStudent = await env.DB.prepare(
@@ -464,7 +464,7 @@ describe('PUT /api/exercises/:id', () => {
     expect(body.data.title).toBe('Updated Title')
   })
 
-  it('replaces and returns grade memberships', async () => {
+  it('replaces and returns class memberships', async () => {
     const { id } = await createExercise(token, { grades: [10] })
     const res = await app.request(`/api/exercises/${id}`, {
       method: 'PUT',

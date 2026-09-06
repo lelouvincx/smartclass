@@ -32,6 +32,7 @@ const lectures = [
     youtube_url: 'https://youtu.be/abcdefghijk',
     order_index: 0,
     is_visible: 1,
+    minimum_access_tier: 'standard',
     grades: [10, 11, 12],
   },
   {
@@ -41,6 +42,7 @@ const lectures = [
     youtube_url: 'https://youtu.be/lmnopqrstuv',
     order_index: 1,
     is_visible: 1,
+    minimum_access_tier: 'vip',
     grades: [10, 11],
   },
 ]
@@ -97,6 +99,8 @@ describe('TeacherLecturesPage', () => {
     expect(await screen.findByText('Introduction')).toBeInTheDocument()
     expect(listLecturesMock).toHaveBeenCalledWith('teacher-token')
     expect(screen.getByRole('heading', { name: 'Chapter 1' })).toBeInTheDocument()
+    expect(screen.getByText('Standard')).toBeInTheDocument()
+    expect(screen.getByText('VIP')).toBeInTheDocument()
     expect(screen.queryByTitle('Introduction')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Watch Introduction' }))
@@ -112,6 +116,7 @@ describe('TeacherLecturesPage', () => {
     fireEvent.change(screen.getByLabelText('Lecture title'), { target: { value: 'Exam review' } })
     fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'Revision' } })
     fireEvent.change(screen.getByLabelText('YouTube URL'), { target: { value: 'https://youtu.be/zyxwvutsrqp' } })
+    await user.click(screen.getByRole('radio', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: 'Create lecture' }))
 
     await waitFor(() => {
@@ -119,7 +124,8 @@ describe('TeacherLecturesPage', () => {
         title: 'Exam review',
         section_name: 'Revision',
         youtube_url: 'https://youtu.be/zyxwvutsrqp',
-        grades: [10, 11, 12],
+        grades: [10, 11, 12, 'dgnl'],
+        minimum_access_tier: 'vip',
       })
     })
     expect(listLecturesMock).toHaveBeenCalledTimes(2)
@@ -138,7 +144,7 @@ describe('TeacherLecturesPage', () => {
     await user.click(screen.getByRole('button', { name: 'Create lecture' }))
 
     expect(createLectureMock).toHaveBeenCalledWith('teacher-token', expect.objectContaining({
-      grades: [10, 11],
+      grades: [10, 11, 'dgnl'],
     }))
   })
 
@@ -158,6 +164,7 @@ describe('TeacherLecturesPage', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     expect(updateLectureMock).toHaveBeenCalledWith('teacher-token', 1, expect.objectContaining({
       title: 'Introduction revised',
+      minimum_access_tier: 'standard',
     }))
 
     await user.click(screen.getByRole('button', { name: 'Move Worked example up' }))

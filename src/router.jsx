@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from '@/lib/auth-context'
 import { canAccessRolePath, getDefaultPathForRole } from '@/lib/navigation'
 import { StudentLayout } from '@/components/student-layout'
 import { TeacherLayout } from '@/components/teacher-layout'
+import { PublicLectureLayout } from '@/components/public-lecture-layout'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
@@ -85,6 +86,10 @@ export function AppRoutes() {
         }
       />
       <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+      <Route element={<PublicLectureLayout />}>
+        <Route path="/lectures" element={<StudentLecturesPage audience="guest" />} />
+        <Route path="/lectures/:lectureSlug" element={<StudentLecturePlayerPage audience="guest" />} />
+      </Route>
       <Route
         path="/settings"
         element={

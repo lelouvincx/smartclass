@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
 import { attachGrades, parseGrades } from '../lib/grades.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
-import { requireAuth, requireRole } from '../middleware/auth.js'
+import { optionalAuth, requireAuth, requireRole } from '../middleware/auth.js'
 
 const lecturesRoutes = new Hono()
+const LECTURE_ACCESS_TIERS = new Set(['guest', 'standard', 'vip'])
 
 function isYouTubeUrl(value) {
   try {
@@ -27,7 +28,7 @@ function isYouTubeUrl(value) {
   }
 }
 
-function validateLecture(body, { defaultGrades = false } = {}) {
+function validateLecture(body, { defaultGrades = false, defaultAccessTier = false } = {}) {
   const parsedGrades = body?.grades === undefined && !defaultGrades
     ? null
     : parseGrades(body?.grades, { defaultToAll: defaultGrades })
@@ -36,6 +37,9 @@ function validateLecture(body, { defaultGrades = false } = {}) {
     section_name: typeof body?.section_name === 'string' ? body.section_name.trim() : '',
     youtube_url: typeof body?.youtube_url === 'string' ? body.youtube_url.trim() : '',
     is_visible: body?.is_visible,
+    minimum_access_tier: body?.minimum_access_tier === undefined && defaultAccessTier
+      ? 'standard'
+      : body?.minimum_access_tier,
     grades: parsedGrades?.grades,
   }
 
@@ -51,6 +55,11 @@ function validateLecture(body, { defaultGrades = false } = {}) {
     return { error: 'Lecture visibility must be true or false.' }
   }
 
+  if (lecture.minimum_access_tier !== undefined
+    && !LECTURE_ACCESS_TIERS.has(lecture.minimum_access_tier)) {
+    return { error: 'minimum_access_tier must be guest, standard, or vip.' }
+  }
+
   if (parsedGrades?.error) {
     return { error: parsedGrades.error }
   }
@@ -60,7 +69,8 @@ function validateLecture(body, { defaultGrades = false } = {}) {
 
 async function getLecture(db, id) {
   const lecture = await db.prepare(`
-    SELECT id, title, section_name, youtube_url, order_index, is_visible, created_by, created_at, updated_at
+    SELECT id, title, section_name, youtube_url, order_index, is_visible,
+           minimum_access_tier, created_by, created_at, updated_at
     FROM lectures
     WHERE id = ?
   `).bind(id).first()
@@ -75,27 +85,66 @@ async function getLecture(db, id) {
   return { ...lecture, grades: gradeResult.results.map((row) => row.grade) }
 }
 
-lecturesRoutes.get('/', requireAuth, async (c) => {
-  const authUser = c.get('authUser')
-  const studentAccessClause = authUser.role === 'teacher'
-    ? ''
-    : `WHERE lecture.is_visible = 1
-        AND EXISTS (
-          SELECT 1
-          FROM student_grades student_grade
-          JOIN lecture_grades lecture_grade ON lecture_grade.grade = student_grade.grade
-          WHERE student_grade.user_id = ?
-            AND lecture_grade.lecture_id = lecture.id
-        )`
+lecturesRoutes.get('/', optionalAuth, async (c) => {
+  c.header('Cache-Control', 'private, no-store')
+
+  const tokenUser = c.get('authUser')
+  let currentUser = null
+  if (tokenUser) {
+    currentUser = await c.env.DB.prepare(`
+      SELECT id, role, status, access_tier
+      FROM users
+      WHERE id = ?
+      LIMIT 1
+    `).bind(tokenUser.id).first()
+
+    if (!currentUser) {
+      return jsonError(c, 401, 'UNAUTHORIZED', 'Authenticated user no longer exists.')
+    }
+    if (currentUser.status === 'pending') {
+      return jsonError(c, 403, 'ACCOUNT_PENDING', 'Your account is pending approval.')
+    }
+    if (currentUser.status === 'disabled') {
+      return jsonError(c, 403, 'ACCOUNT_DISABLED', 'Your account has been disabled.')
+    }
+  }
+
+  let audienceClause = `WHERE lecture.is_visible = 1
+    AND lecture.minimum_access_tier = 'guest'`
+  const bindings = []
+  if (currentUser?.role === 'teacher') {
+    audienceClause = ''
+  } else if (currentUser?.role === 'student') {
+    const allowedTiers = currentUser.access_tier === 'vip'
+      ? "('standard', 'vip')"
+      : "('standard')"
+    audienceClause = `WHERE lecture.is_visible = 1
+      AND (
+        lecture.minimum_access_tier = 'guest'
+        OR (
+          lecture.minimum_access_tier IN ${allowedTiers}
+          AND EXISTS (
+            SELECT 1
+            FROM student_grades student_grade
+            JOIN lecture_grades lecture_grade ON lecture_grade.grade = student_grade.grade
+            WHERE student_grade.user_id = ?
+              AND lecture_grade.lecture_id = lecture.id
+          )
+        )
+      )`
+    bindings.push(currentUser.id)
+  }
+
   const statement = c.env.DB.prepare(`
-    SELECT id, title, section_name, youtube_url, order_index, is_visible, created_by, created_at, updated_at
+    SELECT id, title, section_name, youtube_url, order_index, is_visible,
+           minimum_access_tier, created_by, created_at, updated_at
     FROM lectures lecture
-    ${studentAccessClause}
+    ${audienceClause}
     ORDER BY order_index ASC, id ASC
   `)
-  const result = authUser.role === 'teacher'
-    ? await statement.all()
-    : await statement.bind(authUser.id).all()
+  const result = bindings.length > 0
+    ? await statement.bind(...bindings).all()
+    : await statement.all()
   const gradeResult = await c.env.DB.prepare(`
     SELECT lecture_id, grade
     FROM lecture_grades
@@ -107,7 +156,10 @@ lecturesRoutes.get('/', requireAuth, async (c) => {
 
 lecturesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { lecture, error } = validateLecture(body, { defaultGrades: true })
+  const { lecture, error } = validateLecture(body, {
+    defaultGrades: true,
+    defaultAccessTier: true,
+  })
   if (error) {
     return jsonError(c, 400, 'VALIDATION_ERROR', error)
   }
@@ -117,14 +169,17 @@ lecturesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   ).first('value')
   const authUser = c.get('authUser')
   const result = await c.env.DB.prepare(`
-    INSERT INTO lectures (title, section_name, youtube_url, order_index, is_visible, created_by)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO lectures (
+      title, section_name, youtube_url, order_index, is_visible, minimum_access_tier, created_by
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `).bind(
     lecture.title,
     lecture.section_name,
     lecture.youtube_url,
     nextOrder,
     lecture.is_visible === undefined ? 1 : Number(lecture.is_visible),
+    lecture.minimum_access_tier,
     authUser.id,
   ).run()
 
@@ -190,13 +245,16 @@ lecturesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     c.env.DB.prepare(`
       UPDATE lectures
       SET title = ?, section_name = ?, youtube_url = ?,
-          is_visible = COALESCE(?, is_visible), updated_at = CURRENT_TIMESTAMP
+          is_visible = COALESCE(?, is_visible),
+          minimum_access_tier = COALESCE(?, minimum_access_tier),
+          updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).bind(
       lecture.title,
       lecture.section_name,
       lecture.youtube_url,
       lecture.is_visible === undefined ? null : Number(lecture.is_visible),
+      lecture.minimum_access_tier ?? null,
       id,
     ),
   ]

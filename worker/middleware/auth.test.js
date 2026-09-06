@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { requireAuth, requireRole } from './auth.js'
+import { optionalAuth, requireAuth, requireRole } from './auth.js'
 
 function createMockContext(overrides = {}) {
   const jsonResponse = { json: true }
@@ -74,6 +74,48 @@ describe('requireAuth', () => {
         success: false,
         error: expect.objectContaining({ code: 'UNAUTHORIZED' }),
       }),
+      401,
+    )
+    expect(next).not.toHaveBeenCalled()
+  })
+})
+
+describe('optionalAuth', () => {
+  it('continues as a guest when the Authorization header is missing', async () => {
+    const c = createMockContext()
+    const next = vi.fn()
+
+    await optionalAuth(c, next)
+
+    expect(next).toHaveBeenCalled()
+    expect(c.set).not.toHaveBeenCalled()
+    expect(c.json).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 instead of continuing as a guest for an invalid credential', async () => {
+    const c = createMockContext({ authorization: 'Bearer invalid-token' })
+    const next = vi.fn()
+
+    await optionalAuth(c, next)
+
+    expect(c.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: false,
+        error: expect.objectContaining({ code: 'UNAUTHORIZED' }),
+      }),
+      401,
+    )
+    expect(next).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 for a malformed non-Bearer credential', async () => {
+    const c = createMockContext({ authorization: 'Basic abc123' })
+    const next = vi.fn()
+
+    await optionalAuth(c, next)
+
+    expect(c.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: 'UNAUTHORIZED' }) }),
       401,
     )
     expect(next).not.toHaveBeenCalled()

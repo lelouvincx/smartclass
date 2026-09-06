@@ -113,4 +113,15 @@ describe('LoginPage', () => {
     expect(screen.getByTestId('google-signin-btn')).toBeInTheDocument()
     expect(screen.getByTestId('google-signin-btn')).toHaveAttribute('data-mode', 'login')
   })
+
+  it('links anonymous visitors to public lectures without signing in', () => {
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('link', { name: 'Continue as guest' })).toHaveAttribute('href', '/lectures')
+    expect(loginMock).not.toHaveBeenCalled()
+  })
 })

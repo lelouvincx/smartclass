@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0017_add_exercise_attempt_limits
+// Last updated: migration 0019_add_access_tiers
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -19,13 +19,14 @@ Table users {
   google_email text  [note: 'Snapshot of Google email at link/login (RFC-7)']
   role       text    [not null, note: 'teacher | student']
   status     text    [not null, default: 'pending', note: 'pending | active | disabled']
+  access_tier text   [not null, default: 'standard', note: 'standard | vip; only student lecture authorization reads this value']
   created_at text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at text    [not null, default: 'CURRENT_TIMESTAMP']
 }
 
 Table student_grades {
   user_id integer [not null, ref: > users.id, note: 'Student account; ON DELETE CASCADE']
-  grade   integer [not null, note: '10 | 11 | 12']
+  grade   integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
 
   indexes {
     (user_id, grade) [pk]
@@ -50,7 +51,7 @@ Table exercises {
 
 Table exercise_grades {
   exercise_id integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
-  grade       integer [not null, note: '10 | 11 | 12']
+  grade       integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
 
   indexes {
     (exercise_id, grade) [pk]
@@ -261,6 +262,7 @@ Table lectures {
   youtube_url  text    [not null]
   order_index  integer [not null, default: 0]
   is_visible   integer [not null, default: 1, note: '1 when students can browse and watch the lecture; otherwise 0']
+  minimum_access_tier text [not null, default: 'standard', note: 'guest | standard | vip']
   created_by   integer [not null, ref: > users.id]
   created_at   text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at   text    [not null, default: 'CURRENT_TIMESTAMP']
@@ -268,7 +270,7 @@ Table lectures {
 
 Table lecture_grades {
   lecture_id integer [not null, ref: > lectures.id, note: 'ON DELETE CASCADE']
-  grade      integer [not null, note: '10 | 11 | 12']
+  grade      integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
 
   indexes {
     (lecture_id, grade) [pk]

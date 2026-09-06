@@ -294,7 +294,7 @@ export function listExercises(token) {
 
 export function listLectures(token) {
   return request('/api/lectures', {
-    headers: authHeaders(token),
+    headers: token ? authHeaders(token) : {},
   })
 }
 
@@ -553,6 +553,16 @@ export function updateStudentName(token, userId, payload) {
 
 export function updateStudentGrades(token, payload) {
   return request('/api/users/grades', {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateStudentAccessTier(token, payload) {
+  return request('/api/users/access-tier', {
     method: 'PUT',
     headers: authHeaders(token, {
       'Content-Type': 'application/json',

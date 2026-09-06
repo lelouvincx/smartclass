@@ -5,6 +5,7 @@ import { jsonError, jsonSuccess } from '../lib/response.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const usersRoutes = new Hono()
+const STUDENT_ACCESS_TIERS = new Set(['standard', 'vip'])
 
 usersRoutes.use('*', requireAuth, requireRole('teacher'))
 
@@ -12,7 +13,7 @@ usersRoutes.get('/', async (c) => {
   const status = c.req.query('status')
   const allowedStatus = new Set(['pending', 'active', 'disabled'])
 
-  let sql = 'SELECT id, name, phone, role, status, created_at, updated_at FROM users WHERE role = ?'
+  let sql = 'SELECT id, name, phone, role, status, access_tier, created_at, updated_at FROM users WHERE role = ?'
   const params = ['student']
 
   if (status) {
@@ -43,6 +44,7 @@ usersRoutes.post('/', async (c) => {
   const name = normalizeName(body?.name)
   const phone = normalizePhone(body?.phone)
   const parsedGrades = parseGrades(body?.grades, { defaultToAll: true })
+  const accessTier = body?.access_tier === undefined ? 'standard' : body.access_tier
 
   if (!name || !phone) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Name and phone are required.')
@@ -50,6 +52,10 @@ usersRoutes.post('/', async (c) => {
 
   if (parsedGrades.error) {
     return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
+  }
+
+  if (!STUDENT_ACCESS_TIERS.has(accessTier)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'access_tier must be standard or vip.')
   }
 
   if (!isValidVietnamPhone(phone)) {
@@ -66,8 +72,8 @@ usersRoutes.post('/', async (c) => {
 
   const [result] = await c.env.DB.batch([
     c.env.DB.prepare(
-      'INSERT INTO users (name, phone, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
-    ).bind(name, phone, passwordHash, 'student', 'active'),
+      'INSERT INTO users (name, phone, password_hash, role, status, access_tier) VALUES (?, ?, ?, ?, ?, ?)',
+    ).bind(name, phone, passwordHash, 'student', 'active', accessTier),
     ...parsedGrades.grades.map((grade) => c.env.DB.prepare(`
       INSERT INTO student_grades (user_id, grade)
       SELECT id, ? FROM users WHERE phone = ?
@@ -83,6 +89,7 @@ usersRoutes.post('/', async (c) => {
         phone,
         role: 'student',
         status: 'active',
+        access_tier: accessTier,
         grades: parsedGrades.grades,
         defaultPassword,
       },
@@ -136,6 +143,47 @@ usersRoutes.put('/grades', async (c) => {
   return jsonSuccess(c, {
     student_ids: studentIds,
     grades: parsedGrades.grades,
+  })
+})
+
+usersRoutes.put('/access-tier', async (c) => {
+  const body = await c.req.json().catch(() => null)
+  const studentIds = body?.student_ids
+  const accessTier = body?.access_tier
+
+  if (
+    !Array.isArray(studentIds)
+    || studentIds.length === 0
+    || studentIds.some((id) => !Number.isInteger(id) || id <= 0)
+    || new Set(studentIds).size !== studentIds.length
+  ) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'student_ids must be a non-empty array of unique positive integers.')
+  }
+
+  if (!STUDENT_ACCESS_TIERS.has(accessTier)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'access_tier must be standard or vip.')
+  }
+
+  const placeholders = studentIds.map(() => '?').join(', ')
+  const students = await c.env.DB.prepare(`
+    SELECT id
+    FROM users
+    WHERE role = 'student' AND id IN (${placeholders})
+  `).bind(...studentIds).all()
+
+  if (students.results.length !== studentIds.length) {
+    return jsonError(c, 400, 'INVALID_STUDENTS', 'Every target must be an existing student account.')
+  }
+
+  await c.env.DB.prepare(`
+    UPDATE users
+    SET access_tier = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id IN (${placeholders})
+  `).bind(accessTier, ...studentIds).run()
+
+  return jsonSuccess(c, {
+    student_ids: studentIds,
+    access_tier: accessTier,
   })
 })
 

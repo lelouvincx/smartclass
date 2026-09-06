@@ -22,7 +22,8 @@ function slugify(value) {
 
 export function getLecturePath(lecture, audience = 'student') {
   const titleSlug = slugify(lecture.title) || 'lecture'
-  return `/${audience}/lectures/${lecture.id}-${titleSlug}`
+  const prefix = audience === 'guest' ? '' : `/${audience}`
+  return `${prefix}/lectures/${lecture.id}-${titleSlug}`
 }
 
 export function getLectureIdFromSlug(value) {

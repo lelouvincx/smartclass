@@ -19,8 +19,8 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
   const { t } = useTranslation()
   const { token, user } = useAuth()
   const { lectureSlug } = useParams()
-  const isTeacher = audience === 'teacher'
-  const lectureListPath = `/${audience}/lectures`
+  const tracksPlayback = audience === 'student'
+  const lectureListPath = audience === 'guest' ? '/lectures' : `/${audience}/lectures`
   const headingRef = useRef(null)
   const [lectures, setLectures] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -109,7 +109,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
       >
         <div className="bg-black">
           {videoId ? (
-            isTeacher ? (
+            !tracksPlayback ? (
               <iframe
                 className="aspect-video w-full"
                 src={getYouTubeEmbedUrl(lecture.youtube_url)}
@@ -133,8 +133,8 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
             </div>
           )}
         </div>
-        <div className={`flex flex-col gap-3 border-t border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:px-5 ${isTeacher ? 'sm:justify-end' : 'sm:justify-between'}`}>
-          {!isTeacher && (
+        <div className={`flex flex-col gap-3 border-t border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:px-5 ${tracksPlayback ? 'sm:justify-between' : 'sm:justify-end'}`}>
+          {tracksPlayback && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <History className="size-4 shrink-0 text-primary" aria-hidden="true" />
               {t('student.lectures.playbackResume')}

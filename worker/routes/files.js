@@ -44,7 +44,7 @@ filesRoutes.get('/:fileId', requireAuth, async (c) => {
       LIMIT 1
     `).bind(authUser.id, file.exercise_id).first()
     if (!access) {
-      return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise file is not available for your grades')
+      return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise file is not available for your classes')
     }
   }
 
