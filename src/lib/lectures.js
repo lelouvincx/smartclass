@@ -20,9 +20,9 @@ function slugify(value) {
     .replace(/^-|-$/g, '')
 }
 
-export function getLecturePath(lecture) {
+export function getLecturePath(lecture, audience = 'student') {
   const titleSlug = slugify(lecture.title) || 'lecture'
-  return `/student/lectures/${lecture.id}-${titleSlug}`
+  return `/${audience}/lectures/${lecture.id}-${titleSlug}`
 }
 
 export function getLectureIdFromSlug(value) {

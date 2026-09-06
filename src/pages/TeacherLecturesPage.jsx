@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowUp, BookOpen, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, BookOpen, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import {
   createLecture,
   deleteLecture,
@@ -9,7 +10,7 @@ import {
   updateLectureOrder,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import { getYouTubeEmbedUrl, groupLectureRuns } from '@/lib/lectures'
+import { getLecturePath, getYouTubeEmbedUrl, groupLectureRuns } from '@/lib/lectures'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -322,19 +323,29 @@ export default function TeacherLecturesPage() {
                           <div className="min-w-0">
                             <p className="font-medium leading-6 break-words">{lecture.title}</p>
                             <GradeBadges className="mt-2" grades={lecture.grades} />
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="-ml-2 text-primary"
-                              aria-expanded={isExpanded}
-                              aria-controls={playerId}
-                              aria-label={t(isExpanded ? 'teacher.lectures.hideNamed' : 'teacher.lectures.watchNamed', { title: lecture.title })}
-                              onClick={() => setExpandedLectureId(isExpanded ? null : lecture.id)}
-                            >
-                              <Play className="fill-current" aria-hidden="true" />
-                              {t(isExpanded ? 'teacher.lectures.hide' : 'teacher.lectures.watch')}
-                            </Button>
+                            <div className="-ml-2 flex flex-wrap items-center gap-1">
+                              <Button asChild variant="ghost" size="sm" className="text-primary">
+                                <Link
+                                  to={getLecturePath(lecture, 'teacher')}
+                                  aria-label={t('teacher.lectures.viewDetailsNamed', { title: lecture.title })}
+                                >
+                                  {t('teacher.lectures.viewDetails')}
+                                  <ArrowRight aria-hidden="true" />
+                                </Link>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                aria-expanded={isExpanded}
+                                aria-controls={playerId}
+                                aria-label={t(isExpanded ? 'teacher.lectures.hideNamed' : 'teacher.lectures.watchNamed', { title: lecture.title })}
+                                onClick={() => setExpandedLectureId(isExpanded ? null : lecture.id)}
+                              >
+                                <Play className="fill-current" aria-hidden="true" />
+                                {t(isExpanded ? 'teacher.lectures.hide' : 'teacher.lectures.watch')}
+                              </Button>
+                            </div>
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 sm:justify-end">

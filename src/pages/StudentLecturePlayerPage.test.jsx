@@ -31,6 +31,19 @@ function renderPage(slug = '2-worked-example') {
   )
 }
 
+function renderTeacherPage(slug = '2-worked-example') {
+  return render(
+    <MemoryRouter initialEntries={[`/teacher/lectures/${slug}`]}>
+      <Routes>
+        <Route
+          path="/teacher/lectures/:lectureSlug"
+          element={<StudentLecturePlayerPage audience="teacher" />}
+        />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
 describe('StudentLecturePlayerPage', () => {
   beforeEach(() => {
     listLecturesMock.mockReset()
@@ -58,5 +71,19 @@ describe('StudentLecturePlayerPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Lecture not found' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Back to Lectures' })).toHaveAttribute('href', '/student/lectures')
+  })
+
+  it('gives teachers the detailed player without student playback tracking', async () => {
+    renderTeacherPage()
+
+    expect(await screen.findByRole('heading', { name: 'Worked example' })).toBeInTheDocument()
+    expect(screen.getByTitle('Worked example video')).toHaveAttribute(
+      'src',
+      'https://www.youtube-nocookie.com/embed/lmnopqrstuv',
+    )
+    expect(screen.queryByText('Playback resumes on this device')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back to Lectures' })).toHaveAttribute('href', '/teacher/lectures')
+    expect(screen.getByRole('link', { name: 'Previous: Introduction' })).toHaveAttribute('href', '/teacher/lectures/1-introduction')
+    expect(screen.getByRole('link', { name: 'Next: Functions' })).toHaveAttribute('href', '/teacher/lectures/3-functions')
   })
 })

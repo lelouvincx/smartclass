@@ -107,6 +107,7 @@ export function AppRoutes() {
         <Route path="students" element={<TeacherStudentsPage />} />
         <Route path="exercises" element={<TeacherExercisesPage />} />
         <Route path="lectures" element={<TeacherLecturesPage />} />
+        <Route path="lectures/:lectureSlug" element={<StudentLecturePlayerPage audience="teacher" />} />
         <Route path="exercises/new" element={<TeacherCreateExercisePage />} />
         <Route path="exercises/:id" element={<TeacherViewExercisePage />} />
       </Route>
