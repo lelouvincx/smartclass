@@ -108,12 +108,11 @@ export default function StudentSummaryPage() {
               aria-valuemax={10}
               aria-valuenow={score}
               aria-valuetext={t('student.results.scoreOutOf', { score })}
-              className="mx-auto flex min-h-52 max-w-sm flex-col items-center justify-center rounded-[var(--sc-component-focal-shape)] bg-sc-primary-container px-6 py-8 text-center text-sc-on-primary-container transition-[border-radius,transform] duration-[var(--sc-motion-duration-long)] ease-[var(--sc-motion-expressive)] motion-safe:hover:scale-[1.01]"
+              className="mx-auto flex min-h-36 w-full max-w-md items-center justify-center rounded-[var(--sc-component-focal-shape)] bg-sc-primary-container px-6 py-6 text-center"
             >
-              <p className={`text-[length:var(--sc-type-display-size)] leading-[var(--sc-type-display-line-height)] font-[var(--sc-type-display-weight)] tracking-[-0.04em] tabular-nums ${scoreColor}`}>
-                {score}
+              <p className={`text-[length:var(--sc-type-display-size)] leading-none font-[var(--sc-type-display-weight)] tracking-[-0.04em] tabular-nums ${scoreColor}`}>
+                {score}<span className="text-2xl font-semibold tracking-normal"> / 10</span>
               </p>
-              <p className="mt-2 text-sm font-medium text-sc-on-primary-container/75">{t('student.results.outOf10')}</p>
             </div>
           )}
 
@@ -137,9 +136,6 @@ export default function StudentSummaryPage() {
               <span className="text-xs text-muted-foreground">{t('student.results.skippedParts')}</span>
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">
-            {t('student.results.partsNote')}
-          </p>
 
           <p className="text-sm text-muted-foreground">
             {t('student.results.timeTaken')}{' '}

@@ -66,15 +66,18 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
   const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
   const status = computeStatus(answer, question.is_correct)
   const questionNumber = question.local_number ?? question.q_id
+  const showCorrectAnswer = correctAnswer !== undefined
 
   return (
     <tr className="border-t">
-      <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: questionNumber })}</td>
-      <td className="px-4 py-3 text-sm font-medium">{display}</td>
-      {correctAnswer !== undefined && (
-        <td className="px-4 py-3 text-sm text-muted-foreground">{correctAnswer ?? '—'}</td>
+      <td className="px-3 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: questionNumber })}</td>
+      <td className={`px-3 py-3 text-sm font-medium ${showCorrectAnswer ? 'bg-muted text-foreground' : ''}`}>
+        {display}
+      </td>
+      {showCorrectAnswer && (
+        <td className="bg-success-muted px-3 py-3 text-sm font-semibold text-success">{correctAnswer ?? '—'}</td>
       )}
-      <td className="px-4 py-3 text-center">
+      <td className="px-3 py-3 text-center">
         <CorrectnessIcon status={status} />
       </td>
     </tr>
@@ -92,6 +95,7 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
 export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
   const { t } = useTranslation()
   const questionNumber = group.local_number ?? group.q_id
+  const showCorrectAnswer = schemaAnswers !== undefined
   return (
     <>
       {group.subRows.map(({ sub_id }) => {
@@ -101,16 +105,16 @@ export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
 
         return (
           <tr key={sub_id} className="border-t">
-            <td className="px-4 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: `${questionNumber}${sub_id}` })}</td>
-            <td className="px-4 py-3 text-sm font-medium">
+            <td className="px-3 py-3 text-sm text-muted-foreground">{t('student.results.questionLabel', { id: `${questionNumber}${sub_id}` })}</td>
+            <td className={`px-3 py-3 text-sm font-medium ${showCorrectAnswer ? 'bg-muted text-foreground' : ''}`}>
               <BooleanAnswerBadge value={raw} />
             </td>
-            {schemaAnswers !== undefined && (
-              <td className="px-4 py-3 text-sm text-muted-foreground">
+            {showCorrectAnswer && (
+              <td className="bg-success-muted px-3 py-3 text-sm font-semibold text-success">
                 <BooleanAnswerBadge value={correctRow?.correct_answer} />
               </td>
             )}
-            <td className="px-4 py-3 text-center">
+            <td className="px-3 py-3 text-center">
               <CorrectnessIcon status={computeStatus(ans?.submitted_answer, ans?.is_correct)} />
             </td>
           </tr>

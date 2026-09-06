@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Present submission scores in a compact “score / 10” format, highlight submitted and correct answers with semantic design-system colors, and use a compact navigation rail for detailed reviews. [#117](https://github.com/lelouvincx/smartclass/pull/117)
 - Turn the teacher sidebar’s Create action into a menu for starting an exercise, lecture, or student creation flow. [#115](https://github.com/lelouvincx/smartclass/pull/115)
 - Run GitHub Actions on the Node 24 runtime by upgrading `actions/checkout` and `actions/setup-node` to v5, removing the deprecated Node 20 actions. [#106](https://github.com/lelouvincx/smartclass/pull/106)
 - Default the authenticated teacher and student application to Vietnamese while preserving saved language preferences. [#107](https://github.com/lelouvincx/smartclass/pull/107)
