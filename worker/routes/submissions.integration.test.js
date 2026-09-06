@@ -638,6 +638,51 @@ describe('GET /api/submissions/:id', () => {
     expect(res.status).toBe(403)
   })
 
+  it('lets a teacher review a submitted student submission with student identity', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+    await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ answers: [{ q_id: 1, submitted_answer: 'B' }] }),
+    }, env)
+
+    const res = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${teacherToken}` },
+    }, env)
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      data: {
+        id: submissionId,
+        exercise_id: exerciseId,
+        student_name: 'Test Student',
+        student_phone: '+84123456789',
+      },
+    })
+  })
+
+  it('does not let a teacher inspect an in-progress submission', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    const res = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${teacherToken}` },
+    }, env)
+
+    expect(res.status).toBe(403)
+  })
+
   it('includes exercise_title without exposing source-file metadata', async () => {
     const { id: exerciseId } = await createExercise(teacherToken, { title: 'My Test Exercise' })
     const createRes = await app.request('/api/submissions', {
@@ -1109,5 +1154,38 @@ describe('GET /api/submissions (list)', () => {
     const body = await res.json()
     expect(body.data.submissions).toEqual([])
     expect(body.data.total).toBe(0)
+  })
+
+  it('lets a teacher list submitted students for one exercise', async () => {
+    const { submissionId, exerciseId } = await createAndSubmitExercise('Teacher Review Exercise')
+
+    const res = await app.request(`/api/submissions?exercise_id=${exerciseId}`, {
+      headers: { 'Authorization': `Bearer ${teacherToken}` },
+    }, env)
+
+    expect(res.status).toBe(200)
+    await expect(res.json()).resolves.toMatchObject({
+      data: {
+        total: 1,
+        submissions: [{
+          id: submissionId,
+          exercise_id: exerciseId,
+          student_name: 'Test Student',
+          student_phone: '+84123456789',
+          score: 10,
+        }],
+      },
+    })
+  })
+
+  it('requires teachers to scope submission lists to one exercise', async () => {
+    const res = await app.request('/api/submissions', {
+      headers: { 'Authorization': `Bearer ${teacherToken}` },
+    }, env)
+
+    expect(res.status).toBe(400)
+    await expect(res.json()).resolves.toMatchObject({
+      error: { code: 'VALIDATION_ERROR' },
+    })
   })
 })

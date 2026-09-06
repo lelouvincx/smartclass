@@ -23,6 +23,7 @@ import {
 import { SchemaTable } from '@/components/schema-table'
 import FileDropzone from '@/components/file-dropzone'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
+import { TeacherExerciseSubmissions } from '@/components/teacher-exercise-submissions'
 import { formatDuration } from '@/lib/format'
 import { GRADES } from '@/lib/grades'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
@@ -639,6 +640,10 @@ export default function TeacherViewExercisePage() {
           {saveError && <p className="mt-3 text-sm text-destructive">{saveError}</p>}
         </CardContent>
       </Card>
+
+      {!isEditing && (
+        <TeacherExerciseSubmissions exerciseId={exercise.id} token={token} />
+      )}
 
       {/* Files card */}
       <Card>

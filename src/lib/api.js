@@ -594,3 +594,7 @@ export function listMySubmissions(token, { exerciseId, limit, offset } = {}) {
     headers: authHeaders(token),
   })
 }
+
+export function listTeacherExerciseSubmissions(token, exerciseId) {
+  return listMySubmissions(token, { exerciseId })
+}
