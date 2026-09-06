@@ -15,7 +15,7 @@ Guest access remains planned work in [`TODO.md`](TODO.md). Do not describe it as
 
 - Teachers create, edit, show or hide, reorder, and delete lectures. Each lecture has a section, title, supported public YouTube video URL, student visibility state, and one or more grade levels (10, 11, or 12). New lectures are visible by default and default to all three grades.
 - The lecture order is global. Consecutive lectures with the same section are presented together without changing that order.
-- Teachers can expand one embedded video at a time while managing the curriculum or open any lecture on a dedicated detail page with previous and next navigation. Teacher playback does not change student progress.
+- Teachers can expand one embedded video at a time while managing the curriculum.
 - Students browse visible lectures that overlap at least one of their grade memberships and watch each one on a dedicated, readable URL with embedded playback and previous/next navigation. Hidden or non-overlapping lectures and their player pages are unavailable to students.
 - SmartClass remembers each authenticated student's playback position for each lecture and YouTube video in the current browser. Refreshing or revisiting resumes from that position without autoplay. Reaching the end clears the saved position. Progress does not synchronize across browsers or devices.
 - Lecture browsing is available only to authenticated teachers and students.

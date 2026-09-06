@@ -27,8 +27,6 @@ describe('lecture helpers', () => {
       .toBe('/student/lectures/5-understanding-linear-equations')
     expect(getLecturePath({ id: 6, title: 'Đồ thị và hàm số' }))
       .toBe('/student/lectures/6-do-thi-va-ham-so')
-    expect(getLecturePath({ id: 7, title: 'Teacher preview' }, 'teacher'))
-      .toBe('/teacher/lectures/7-teacher-preview')
   })
 
   it('reads the stable id from a lecture slug', () => {

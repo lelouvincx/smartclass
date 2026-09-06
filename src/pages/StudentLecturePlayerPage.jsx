@@ -4,23 +4,16 @@ import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, History, VideoOff } from
 import { Link, useParams } from 'react-router-dom'
 import { listLectures } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import {
-  getLectureIdFromSlug,
-  getLecturePath,
-  getYouTubeEmbedUrl,
-  getYouTubeVideoId,
-} from '@/lib/lectures'
+import { getLectureIdFromSlug, getLecturePath, getYouTubeVideoId } from '@/lib/lectures'
 import YouTubeLecturePlayer from '@/components/youtube-lecture-player'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
 
-export default function StudentLecturePlayerPage({ audience = 'student' }) {
+export default function StudentLecturePlayerPage() {
   const { t } = useTranslation()
   const { token, user } = useAuth()
   const { lectureSlug } = useParams()
-  const isTeacher = audience === 'teacher'
-  const lectureListPath = `/${audience}/lectures`
   const headingRef = useRef(null)
   const [lectures, setLectures] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -65,7 +58,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
       <Card>
         <div className="space-y-4 p-5">
           <p role="alert" className="text-sm text-destructive">{error}</p>
-          <Button asChild variant="outline"><Link to={lectureListPath}>{t('student.lectures.back')}</Link></Button>
+          <Button asChild variant="outline"><Link to="/student/lectures">{t('student.lectures.back')}</Link></Button>
         </div>
       </Card>
     )
@@ -78,7 +71,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
           icon={VideoOff}
           title={t('student.lectures.notFound')}
           description={t('student.lectures.notFoundDescription')}
-          action={<Button asChild><Link to={lectureListPath}>{t('student.lectures.back')}</Link></Button>}
+          action={<Button asChild><Link to="/student/lectures">{t('student.lectures.back')}</Link></Button>}
         />
       </Card>
     )
@@ -88,7 +81,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
     <article className="mx-auto max-w-5xl space-y-7">
       <header className="space-y-5 border-b border-border pb-6">
         <Button asChild variant="ghost" className="-ms-2">
-          <Link to={lectureListPath}><ArrowLeft aria-hidden="true" />{t('student.lectures.back')}</Link>
+          <Link to="/student/lectures"><ArrowLeft aria-hidden="true" />{t('student.lectures.back')}</Link>
         </Button>
         <h1
           ref={headingRef}
@@ -109,37 +102,24 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
       >
         <div className="bg-black">
           {videoId ? (
-            isTeacher ? (
-              <iframe
-                className="aspect-video w-full"
-                src={getYouTubeEmbedUrl(lecture.youtube_url)}
-                title={t('student.lectures.videoTitle', { title: lecture.title })}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                referrerPolicy="strict-origin-when-cross-origin"
-                allowFullScreen
-              />
-            ) : (
-              <YouTubeLecturePlayer
-                key={`${user.id}:${lecture.id}:${videoId}`}
-                accountId={user.id}
-                lectureId={lecture.id}
-                videoId={videoId}
-                title={t('student.lectures.videoTitle', { title: lecture.title })}
-              />
-            )
+            <YouTubeLecturePlayer
+              key={`${user.id}:${lecture.id}:${videoId}`}
+              accountId={user.id}
+              lectureId={lecture.id}
+              videoId={videoId}
+              title={t('student.lectures.videoTitle', { title: lecture.title })}
+            />
           ) : (
             <div className="flex aspect-video items-center justify-center p-6 text-center text-sm text-white">
               {t('student.lectures.embedUnavailable')}
             </div>
           )}
         </div>
-        <div className={`flex flex-col gap-3 border-t border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:px-5 ${isTeacher ? 'sm:justify-end' : 'sm:justify-between'}`}>
-          {!isTeacher && (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <History className="size-4 shrink-0 text-primary" aria-hidden="true" />
-              {t('student.lectures.playbackResume')}
-            </p>
-          )}
+        <div className="flex flex-col gap-3 border-t border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <History className="size-4 shrink-0 text-primary" aria-hidden="true" />
+            {t('student.lectures.playbackResume')}
+          </p>
           <Button asChild variant="ghost" className="self-start sm:self-auto">
             <a href={lecture.youtube_url} target="_blank" rel="noreferrer">
               {t('student.lectures.openYoutube')}<ExternalLink aria-hidden="true" />
@@ -151,7 +131,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
       <nav aria-label={t('student.lectures.sequenceNavigation')} className="grid gap-3 sm:grid-cols-2">
         {previous ? (
           <Link
-            to={getLecturePath(previous, audience)}
+            to={getLecturePath(previous)}
             aria-label={t('student.lectures.previousNamed', { title: previous.title })}
             className="group flex min-h-24 items-center gap-4 rounded-[var(--sc-component-card-shape)] border bg-card p-4 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
@@ -163,7 +143,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
         ) : <span />}
         {next && (
           <Link
-            to={getLecturePath(next, audience)}
+            to={getLecturePath(next)}
             aria-label={t('student.lectures.nextNamed', { title: next.title })}
             className="group flex min-h-24 items-center justify-end gap-4 rounded-[var(--sc-component-card-shape)] border border-primary/15 bg-sc-primary-container p-4 text-end text-sc-on-primary-container shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/35 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >

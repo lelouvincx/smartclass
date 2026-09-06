@@ -72,15 +72,6 @@ describe('TeacherLecturesPage', () => {
     expect(emptyHeading.closest('[data-slot="card"]')).toHaveClass('gap-0', 'py-0')
   })
 
-  it('links each lecture to its teacher detail page', async () => {
-    renderPage()
-
-    expect(await screen.findByRole('link', { name: 'View Introduction details' })).toHaveAttribute(
-      'href',
-      '/teacher/lectures/1-introduction',
-    )
-  })
-
   it('lists lectures and creates a new lecture through the form', async () => {
     const user = userEvent.setup()
     createLectureMock.mockResolvedValue({ data: { id: 3 } })
