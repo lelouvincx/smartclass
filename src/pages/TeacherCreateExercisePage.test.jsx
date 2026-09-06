@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -35,15 +35,17 @@ vi.mock('../lib/auth-context', () => ({
   }),
 }))
 
-async function uploadRequiredPdfs(user) {
-  await user.upload(
-    screen.getByLabelText(/Exercise PDF/i),
-    new File(['exercise-pdf'], 'questions.pdf', { type: 'application/pdf' }),
-  )
-  await user.upload(
-    screen.getByLabelText(/Answer PDF/i),
-    new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }),
-  )
+async function uploadRequiredPdfs() {
+  fireEvent.change(screen.getByLabelText(/Exercise PDF/i), {
+    target: {
+      files: [new File(['exercise-pdf'], 'questions.pdf', { type: 'application/pdf' })],
+    },
+  })
+  fireEvent.change(screen.getByLabelText(/Answer PDF/i), {
+    target: {
+      files: [new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' })],
+    },
+  })
 }
 
 describe('TeacherCreateExercisePage', () => {
@@ -135,12 +137,39 @@ describe('TeacherCreateExercisePage', () => {
           local_number: 1,
           type: 'mcq',
           correct_answer: 'B',
+          max_score_hundredths: null,
         },
       ],
       grades: [12],
       max_attempts: 1,
     })
   })
+
+  it('saves custom score hundredths and blocks an invalid custom total', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 103 } })
+    createExerciseFileUploadMock.mockResolvedValue({ data: { r2_key: 'test', file_type: 'exercise_pdf' } })
+    uploadExerciseFileMock.mockResolvedValue({ data: {} })
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    fireEvent.change(screen.getByLabelText(/exercise title/i), { target: { value: 'Scored quiz' } })
+    fireEvent.change(screen.getByLabelText(/correct answer for question 1/i), { target: { value: 'A' } })
+    fireEvent.change(screen.getByLabelText(/Exercise PDF/i), { target: { files: [new File(['pdf'], 'questions.pdf', { type: 'application/pdf' })] } })
+    fireEvent.change(screen.getByLabelText(/Answer PDF/i), { target: { files: [new File(['pdf'], 'answers.pdf', { type: 'application/pdf' })] } })
+    await user.click(screen.getByRole('radio', { name: 'Custom allocation' }))
+    const score = screen.getByLabelText(/Points for question 1/i)
+    fireEvent.change(score, { target: { value: '9.99' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    await waitFor(() => expect(screen.getByRole('alert', { name: 'Fix score allocation' })).toHaveFocus())
+    expect(createExerciseMock).not.toHaveBeenCalled()
+
+    fireEvent.change(score, { target: { value: '10.00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Exercise' }))
+    await waitFor(() => expect(createExerciseMock).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      schema: [expect.objectContaining({ q_id: 1, max_score_hundredths: 1000 })],
+    })))
+  }, 15000)
 
   it('saves an unlimited attempt limit', async () => {
     const user = userEvent.setup()
@@ -201,6 +230,7 @@ describe('TeacherCreateExercisePage', () => {
           local_number: 1,
           type: 'mcq',
           correct_answer: 'C',
+          max_score_hundredths: null,
         },
       ],
       grades: [12],
@@ -316,8 +346,8 @@ describe('TeacherCreateExercisePage', () => {
     )
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByText('Phần I')).toBeInTheDocument()
-    expect(screen.getByText('Phần II')).toBeInTheDocument()
+    expect((await screen.findAllByText('Phần I')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Phần II').length).toBeGreaterThan(0)
     expect(screen.getByLabelText('Source number for Phần I, 1')).toHaveValue(1)
     expect(screen.getByLabelText('Source number for Phần II, 1')).toHaveValue(1)
   })
@@ -377,10 +407,10 @@ describe('TeacherCreateExercisePage', () => {
       duration_minutes: 60,
       max_attempts: 1,
       schema: [
-        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1' },
-        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0' },
-        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'c', correct_answer: '1' },
-        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0' },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1', max_score_hundredths: null },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0', max_score_hundredths: null },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'c', correct_answer: '1', max_score_hundredths: null },
+        { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0', max_score_hundredths: null },
       ],
       grades: [12],
     })

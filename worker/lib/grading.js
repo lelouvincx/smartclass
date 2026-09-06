@@ -106,6 +106,12 @@ function gradeBooleanSub(submitted, correct) {
  *      where max_possible_points = sum of max pts per distinct q_id by type
  */
 export function gradeSubmission(schema, answers) {
+  const allocationValues = schema.map(row => row.max_score_hundredths ?? null)
+  const hasCustomAllocation = allocationValues.some(value => value !== null)
+  if (hasCustomAllocation && allocationValues.some(value => value === null)) {
+    throw new Error('Invalid score allocation: automatic and custom values are mixed')
+  }
+
   // Step 1: Build schema lookup keyed by "q_id:sub_id" (sub_id='' for non-boolean)
   const schemaLookup = new Map()
   const distinctQids = new Set()
@@ -151,26 +157,45 @@ export function gradeSubmission(schema, answers) {
   for (const qid of distinctQids) {
     const schemaRows = schema.filter((r) => r.q_id === qid)
     const type = schemaRows[0]?.type
+    const customMaximum = schemaRows[0]?.max_score_hundredths
+    if (hasCustomAllocation && schemaRows.some(row => (
+      !Number.isInteger(row.max_score_hundredths)
+      || row.max_score_hundredths < 1
+      || row.max_score_hundredths > 1000
+      || row.max_score_hundredths !== customMaximum
+    ))) {
+      throw new Error(`Invalid score allocation for question ${qid}`)
+    }
 
     if (type === 'boolean') {
-      maxPossiblePoints += 1.0
+      maxPossiblePoints += hasCustomAllocation ? customMaximum : 1.0
       const subAnswers = gradedAnswers.filter((a) => a.q_id === qid)
       const correctCount = subAnswers.filter((a) => a.is_correct === 1).length
-      earnedPoints += BOOLEAN_SCORE_TABLE[correctCount] ?? 0
+      earnedPoints += hasCustomAllocation
+        ? customMaximum * (BOOLEAN_SCORE_TABLE[correctCount] ?? 0)
+        : BOOLEAN_SCORE_TABLE[correctCount] ?? 0
     } else if (type === 'numeric') {
-      maxPossiblePoints += NUMERIC_POINTS
+      const maximum = hasCustomAllocation ? customMaximum : NUMERIC_POINTS
+      maxPossiblePoints += maximum
       const ans = gradedAnswers.find((a) => a.q_id === qid)
-      earnedPoints += ans?.is_correct === 1 ? NUMERIC_POINTS : 0
+      earnedPoints += ans?.is_correct === 1 ? maximum : 0
     } else {
       // mcq
-      maxPossiblePoints += MCQ_POINTS
+      const maximum = hasCustomAllocation ? customMaximum : MCQ_POINTS
+      maxPossiblePoints += maximum
       const ans = gradedAnswers.find((a) => a.q_id === qid)
-      earnedPoints += ans?.is_correct === 1 ? MCQ_POINTS : 0
+      earnedPoints += ans?.is_correct === 1 ? maximum : 0
     }
   }
 
+  if (hasCustomAllocation && maxPossiblePoints !== 1000) {
+    throw new Error('Invalid score allocation: question maxima must total 1000')
+  }
+
   // Step 4: Compute final score on 0–10 scale
-  const score = Math.round((earnedPoints / maxPossiblePoints) * 10 * 100) / 100
+  const score = hasCustomAllocation
+    ? Math.round(earnedPoints) / 100
+    : Math.round((earnedPoints / maxPossiblePoints) * 10 * 100) / 100
 
   return { gradedAnswers, score }
 }

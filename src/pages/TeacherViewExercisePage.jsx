@@ -121,9 +121,9 @@ function toSchemaPayload(rows) {
       local_number: Number(row.local_number ?? row.q_id),
     }
     if (row.type === 'boolean') {
-      return { q_id: Number(row.q_id), ...identity, type: 'boolean', sub_id: row.sub_id, correct_answer: row.correct_answer }
+      return { q_id: Number(row.q_id), ...identity, type: 'boolean', sub_id: row.sub_id, correct_answer: row.correct_answer, max_score_hundredths: row.max_score_hundredths ?? null }
     }
-    return { q_id: Number(row.q_id), ...identity, type: row.type, correct_answer: normalizeAnswer(row.type, row.correct_answer) }
+    return { q_id: Number(row.q_id), ...identity, type: row.type, correct_answer: normalizeAnswer(row.type, row.correct_answer), max_score_hundredths: row.max_score_hundredths ?? null }
   })
 }
 
@@ -139,12 +139,14 @@ function newRows(type, qid, descriptor = {}) {
       id: makeId(), q_id: qid, section_key: descriptor.section_key ?? 'main',
       section_title: descriptor.section_title ?? null,
       local_number: descriptor.local_number ?? qid, sub_id, type: 'boolean', correct_answer: '',
+      max_score_hundredths: descriptor.max_score_hundredths ?? null,
     }))
   }
   return [{
     id: makeId(), q_id: qid, section_key: descriptor.section_key ?? 'main',
     section_title: descriptor.section_title ?? null,
     local_number: descriptor.local_number ?? qid, sub_id: null, type, correct_answer: '',
+    max_score_hundredths: descriptor.max_score_hundredths ?? null,
   }]
 }
 
@@ -158,6 +160,7 @@ function schemaToRows(schema) {
     sub_id: row.sub_id ?? null,
     type: row.type,
     correct_answer: row.correct_answer ?? '',
+    max_score_hundredths: row.max_score_hundredths ?? null,
   }))
 }
 

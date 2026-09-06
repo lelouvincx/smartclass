@@ -98,7 +98,30 @@ function validateSchemaItems(schema) {
   }))
 
   const errors = validateSchemaRows(rows)
-  return errors.length > 0 ? errors[0] : null
+  if (errors.length > 0) return errors[0]
+
+  const values = schema.map(item => item.max_score_hundredths ?? null)
+  const custom = values.some(value => value !== null)
+  if (!custom) return null
+  if (values.some(value => value === null)) {
+    return 'Score allocation must be automatic for every row or custom for every row'
+  }
+
+  const maximumByQuestion = new Map()
+  for (const item of schema) {
+    const value = item.max_score_hundredths
+    if (!Number.isInteger(value) || value < 1 || value > 1000) {
+      return 'max_score_hundredths must be an integer from 1 to 1000'
+    }
+    const existing = maximumByQuestion.get(item.q_id)
+    if (existing !== undefined && existing !== value) {
+      return `Question ${item.q_id} must use one max_score_hundredths value across all rows`
+    }
+    maximumByQuestion.set(item.q_id, value)
+  }
+
+  const total = [...maximumByQuestion.values()].reduce((sum, value) => sum + value, 0)
+  return total === 1000 ? null : 'Distinct question max_score_hundredths values must total 1000'
 }
 
 function schemasMatch(left, right) {
@@ -113,12 +136,28 @@ function schemasMatch(left, right) {
       sub_id: row.sub_id ?? null,
       type: row.type,
       correct_answer: String(row.correct_answer),
+      max_score_hundredths: row.max_score_hundredths ?? null,
     }))
     .sort((a, b) => (
       a.q_id - b.q_id
       || String(a.sub_id ?? '').localeCompare(String(b.sub_id ?? ''))
     ))
 
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
+}
+
+function allocationsMatch(left, right) {
+  if (left.length !== right.length) return false
+  const normalize = rows => rows
+    .map(row => ({
+      q_id: Number(row.q_id),
+      sub_id: row.sub_id ?? null,
+      max_score_hundredths: row.max_score_hundredths ?? null,
+    }))
+    .sort((a, b) => (
+      a.q_id - b.q_id
+      || String(a.sub_id ?? '').localeCompare(String(b.sub_id ?? ''))
+    ))
   return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right))
 }
 
@@ -467,14 +506,16 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
 
   const schema = isTeacher || !exercise.active_question_asset_set_id
     ? await c.env.DB.prepare(`
-        select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+        select q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+          max_score_hundredths
         from answer_schemas
         where exercise_id = ?
         order by q_id asc, sub_id asc
       `).bind(id).all()
     : await c.env.DB.prepare(`
         select snapshot.q_id, snapshot.section_key, snapshot.section_title,
-          snapshot.local_number, snapshot.sub_id, snapshot.type, snapshot.correct_answer
+          snapshot.local_number, snapshot.sub_id, snapshot.type, snapshot.correct_answer,
+          snapshot.max_score_hundredths
         from exercise_question_answer_schemas snapshot
         join exercise_question_asset_sets asset_set on asset_set.id = snapshot.asset_set_id
         where snapshot.asset_set_id = ?
@@ -514,7 +555,14 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
         local_number,
         sub_id,
         type,
-      }) => ({ q_id, section_key, section_title, local_number, sub_id, type }))
+      }) => ({
+        q_id,
+        section_key,
+        section_title,
+        local_number,
+        sub_id,
+        type,
+      }))
 
   const pendingQuestionAssetSet = isTeacher
     ? await c.env.DB.prepare(`
@@ -619,8 +667,9 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
       return c.env.DB.prepare(`
         INSERT INTO answer_schemas (
           exercise_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+              , max_score_hundredths
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         exerciseId,
         item.q_id,
@@ -630,6 +679,7 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
         item.sub_id ?? null,
         item.type,
         item.correct_answer,
+        item.max_score_hundredths ?? null,
       )
     })
     const gradeStmts = parsedGrades.grades.map((grade) => c.env.DB.prepare(`
@@ -650,7 +700,8 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
     ).bind(exerciseId).first()
 
     const schemaResult = await c.env.DB.prepare(
-      `SELECT q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+      `SELECT q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+         max_score_hundredths
        FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC`
     ).bind(exerciseId).all()
 
@@ -765,7 +816,8 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     if (schema) {
       if (Array.isArray(schema)) {
         const currentSchema = await c.env.DB.prepare(`
-          select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+          select q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+            max_score_hundredths
           from answer_schemas
           where exercise_id = ?
         `).bind(id).all()
@@ -781,6 +833,9 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
             section_key: Object.hasOwn(item, 'section_key') ? item.section_key : current.section_key,
             section_title: Object.hasOwn(item, 'section_title') ? item.section_title : current.section_title,
             local_number: Object.hasOwn(item, 'local_number') ? item.local_number : current.local_number,
+            max_score_hundredths: Object.hasOwn(item, 'max_score_hundredths')
+              ? item.max_score_hundredths
+              : current.max_score_hundredths,
           }
         })
       }
@@ -793,7 +848,8 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     let shouldReplaceSchema = Boolean(schema)
     if (schema && question_asset_set_id === undefined && currentExercise.active_question_asset_set_id) {
       const currentSchema = await c.env.DB.prepare(`
-        select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+        select q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+          max_score_hundredths
         from answer_schemas
         where exercise_id = ?
       `).bind(id).all()
@@ -806,6 +862,31 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
           'ACTIVE_ASSET_SET_REQUIRES_REPLACEMENT',
           'Activate a replacement question asset set to change this exercise schema',
         )
+      }
+    }
+
+    let allocationChanged = false
+    if (schema) {
+      const currentAllocation = await c.env.DB.prepare(`
+        select q_id, sub_id, max_score_hundredths
+        from answer_schemas
+        where exercise_id = ?
+      `).bind(id).all()
+      allocationChanged = !allocationsMatch(schema, currentAllocation.results)
+      if (allocationChanged) {
+        const legacySubmission = await c.env.DB.prepare(`
+          select 1 from submissions
+          where exercise_id = ? and question_asset_set_id is null
+          limit 1
+        `).bind(id).first()
+        if (legacySubmission) {
+          return jsonError(
+            c,
+            409,
+            'LEGACY_SUBMISSIONS_REQUIRE_PINNING',
+            'Pin legacy submissions before changing score allocation',
+          )
+        }
       }
     }
 
@@ -858,7 +939,8 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
           c.env.DB.prepare(`
             INSERT INTO answer_schemas (
               exercise_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              , max_score_hundredths
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `).bind(
             id,
             item.q_id,
@@ -868,6 +950,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
             item.sub_id ?? null,
             item.type,
             item.correct_answer,
+            item.max_score_hundredths ?? null,
           )
         )
       }
@@ -898,6 +981,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
           sub_id: item.sub_id ?? null,
           type: item.type,
           correct_answer: item.correct_answer,
+          max_score_hundredths: item.max_score_hundredths ?? null,
         }
       }))
       const resolvedKeys = resolved_answer_candidate_keys || []
@@ -911,6 +995,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
         with
           proposed_schema (
             q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+            , max_score_hundredths
           ) as (
             select
               cast(json_extract(value, '$.q_id') as integer),
@@ -920,6 +1005,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
               json_extract(value, '$.sub_id'),
               json_extract(value, '$.type'),
               json_extract(value, '$.correct_answer')
+              , cast(json_extract(value, '$.max_score_hundredths') as integer)
             from json_each(?)
           )
           , resolved (q_id, sub_id) as (
@@ -948,6 +1034,14 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
             limit 1
           )
           and s.detection_method <> 'vision'
+          and (
+            ? = 0
+            or not exists (
+              select 1 from submissions legacy_submission
+              where legacy_submission.exercise_id = s.exercise_id
+                and legacy_submission.question_asset_set_id is null
+            )
+          )
           and not exists (
             select 1
             from proposed_schema proposed
@@ -1035,6 +1129,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
         id,
         id,
         id,
+        allocationChanged ? 1 : 0,
         MIN_QUESTION_ASSET_CONFIDENCE,
       ))
 
@@ -1048,10 +1143,11 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       for (const item of schema) {
         batchStmts.push(c.env.DB.prepare(`
           update exercise_question_answer_schemas
-          set correct_answer = ?
+          set correct_answer = ?, max_score_hundredths = ?
           where asset_set_id = ? and q_id = ? and coalesce(sub_id, '') = coalesce(?, '')
         `).bind(
           item.correct_answer,
+          item.max_score_hundredths ?? null,
           question_asset_set_id,
           item.q_id,
           item.sub_id ?? null,
@@ -1063,7 +1159,8 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
         batchStmts.push(c.env.DB.prepare(`
           insert into answer_schemas (
             exercise_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
-          ) values (?, ?, ?, ?, ?, ?, ?, ?)
+            , max_score_hundredths
+          ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).bind(
           id,
           item.q_id,
@@ -1073,6 +1170,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
           item.sub_id ?? null,
           item.type,
           item.correct_answer,
+          item.max_score_hundredths ?? null,
         ))
       }
 
@@ -1109,7 +1207,8 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     ).bind(id).all()
 
     const schemaResult = await c.env.DB.prepare(
-      `SELECT q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+      `SELECT q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+         max_score_hundredths
        FROM answer_schemas WHERE exercise_id = ? ORDER BY q_id ASC, sub_id ASC`
     ).bind(id).all()
     const gradeResult = await c.env.DB.prepare(`

@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -321,6 +321,30 @@ describe('TeacherViewExercisePage', () => {
       expect.objectContaining({ title: 'Updated Quiz' }),
     )
   })
+
+  it('preserves loaded score allocation in the edit payload', async () => {
+    const scoredExercise = {
+      ...EXERCISE_MCQ,
+      schema: [
+        { ...EXERCISE_MCQ.schema[0], max_score_hundredths: 400 },
+        { ...EXERCISE_MCQ.schema[1], max_score_hundredths: 600 },
+      ],
+    }
+    getExerciseMock.mockResolvedValue({ data: scoredExercise })
+    updateExerciseMock.mockResolvedValue({ data: scoredExercise })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    fireEvent.click(screen.getByRole('button', { name: /^edit$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(updateExerciseMock).toHaveBeenCalledWith('teacher-token', 5, expect.objectContaining({
+      schema: [
+        expect.objectContaining({ q_id: 1, max_score_hundredths: 400 }),
+        expect.objectContaining({ q_id: 2, max_score_hundredths: 600 }),
+      ],
+    })))
+  }, 15000)
 
   it('updates the exercise grade memberships', async () => {
     const user = userEvent.setup()

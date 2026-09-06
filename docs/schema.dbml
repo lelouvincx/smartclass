@@ -1,6 +1,6 @@
 // SmartClass — Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0019_add_access_tiers
+// Last updated: migration 0020_add_score_allocation
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -129,6 +129,7 @@ Table answer_schemas {
   sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
   type           text    [not null, note: 'mcq | boolean | numeric']
   correct_answer text    [not null, note: 'mcq: A/B/C/D  boolean: 0/1  numeric: number string']
+  max_score_hundredths integer [note: 'NULL uses automatic type weights; custom values are 1 to 1000 and distinct question maxima total 1000']
   created_at     text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at     text    [not null, default: 'CURRENT_TIMESTAMP']
 
@@ -156,6 +157,7 @@ Table exercise_question_answer_schemas {
   sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
   type           text    [not null, note: 'mcq | boolean | numeric']
   correct_answer text    [not null]
+  max_score_hundredths integer [note: 'Pinned score allocation; NULL uses automatic type weights']
   created_at     text    [not null, default: 'CURRENT_TIMESTAMP']
 
   indexes {

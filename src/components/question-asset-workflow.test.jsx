@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import QuestionAssetWorkflow from './question-asset-workflow'
@@ -101,6 +101,7 @@ function preview(
     answerSourceFileId = 92,
     answerParserStatus = 'parsed',
     answerCandidates = [],
+    schema,
   } = {},
 ) {
   return {
@@ -115,6 +116,7 @@ function preview(
       },
       assets,
       answer_candidates: answerCandidates,
+      schema,
     },
   }
 }
@@ -586,10 +588,52 @@ describe('QuestionAssetWorkflow', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm and activate' }))
 
     expect(api.updateExercise).toHaveBeenCalledWith('teacher-token', 9, {
-      schema: EXERCISE.schema,
+      schema: EXERCISE.schema.map(row => ({ ...row, max_score_hundredths: null })),
       question_asset_set_id: 22,
     })
     expect(onActivated).toHaveBeenCalledWith(expect.objectContaining({ question_asset_set_id: 22 }))
+  }, 15000)
+
+  it('reviews loaded custom scores and submits edited allocation during activation', async () => {
+    const customSchema = EXERCISE.schema.map((row, index) => ({
+      ...row,
+      max_score_hundredths: index === 0 ? 400 : 600,
+    }))
+    api.getQuestionAssetSet.mockResolvedValue(preview())
+    api.updateExercise.mockResolvedValue({ data: { ...EXERCISE, question_asset_set_id: 22 } })
+    renderWorkflow({
+      ...EXERCISE,
+      schema: customSchema,
+      pending_question_asset_set_id: 22,
+    })
+
+    expect(await screen.findByRole('radio', { name: 'Custom allocation' })).toBeChecked()
+    const firstScore = screen.getByLabelText(/Points for question 1/i)
+    fireEvent.change(firstScore, { target: { value: '3.50' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm answers and activate' }))
+    await waitFor(() => expect(screen.getByRole('alert', { name: 'Fix score allocation' })).toHaveFocus())
+    expect(api.updateExercise).not.toHaveBeenCalled()
+
+    fireEvent.change(firstScore, { target: { value: '4.00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm answers and activate' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm and activate' }))
+    await waitFor(() => expect(api.updateExercise).toHaveBeenCalledWith('teacher-token', 9, {
+      schema: customSchema,
+      question_asset_set_id: 22,
+    }))
+  }, 15000)
+
+  it('loads allocation from the pending snapshot rather than the mutable exercise schema', async () => {
+    const pendingSchema = EXERCISE.schema.map((row, index) => ({
+      ...row,
+      max_score_hundredths: index === 0 ? 250 : 750,
+    }))
+    api.getQuestionAssetSet.mockResolvedValue(preview(undefined, { schema: pendingSchema }))
+    renderWorkflow({ ...EXERCISE, pending_question_asset_set_id: 22 })
+
+    expect(await screen.findByRole('radio', { name: 'Custom allocation' })).toBeChecked()
+    expect(screen.getByLabelText(/Points for question 1/i)).toHaveValue('2.50')
+    expect(screen.getByLabelText(/Points for question 2/i)).toHaveValue('7.50')
   })
 
   it('shows conflicting answer sources and requires an explicit teacher resolution', async () => {
@@ -625,7 +669,7 @@ describe('QuestionAssetWorkflow', () => {
     await user.click(screen.getByRole('button', { name: 'Confirm and activate' }))
 
     expect(api.updateExercise).toHaveBeenCalledWith('teacher-token', 9, {
-      schema: EXERCISE.schema,
+      schema: EXERCISE.schema.map(row => ({ ...row, max_score_hundredths: null })),
       question_asset_set_id: 22,
       resolved_answer_candidate_keys: [{ q_id: 1, sub_id: null }],
     })

@@ -127,7 +127,8 @@ export async function createStudentReadyExercise(token, overrides = {}) {
     ) values (?, ?, 'test-v1', 'text', ?, current_timestamp)
   `).bind(created.id, sourceFile.meta.last_row_id, teacher.id).run()
   const schema = await env.DB.prepare(`
-    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+      max_score_hundredths
     from answer_schemas
     where exercise_id = ?
   `).bind(created.id).all()
@@ -136,7 +137,8 @@ export async function createStudentReadyExercise(token, overrides = {}) {
     ...schema.results.map(row => env.DB.prepare(`
       insert into exercise_question_answer_schemas (
         asset_set_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
-      ) values (?, ?, ?, ?, ?, ?, ?, ?)
+        , max_score_hundredths
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       assetSet.meta.last_row_id,
       row.q_id,
@@ -146,6 +148,7 @@ export async function createStudentReadyExercise(token, overrides = {}) {
       row.sub_id,
       row.type,
       row.correct_answer,
+      row.max_score_hundredths,
     )),
     env.DB.prepare(
       'update exercises set active_question_asset_set_id = ? where id = ?'

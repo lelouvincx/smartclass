@@ -47,6 +47,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import FileDropzone from '@/components/file-dropzone'
+import ScoreAllocationCard from '@/components/score-allocation-card'
+import { allocationStateFromSchema, applyScoreAllocation } from '@/lib/score-allocation'
 
 const MIN_CONFIDENCE = 0.75
 
@@ -466,9 +468,17 @@ export default function QuestionAssetWorkflow({
   const [error, setError] = useState('')
   const [busyQuestionId, setBusyQuestionId] = useState(null)
   const [answerSchema, setAnswerSchema] = useState(() => exercise.schema || [])
+  const [allocationMode, setAllocationMode] = useState(
+    () => allocationStateFromSchema(exercise.schema).mode,
+  )
+  const [customScores, setCustomScores] = useState(
+    () => allocationStateFromSchema(exercise.schema).values,
+  )
   const [resolvedAnswerKeys, setResolvedAnswerKeys] = useState(() => new Set())
   const [showActivationConfirm, setShowActivationConfirm] = useState(false)
   const autoStartedFor = useRef(null)
+  const loadedSchemaSetId = useRef(null)
+  const allocationRef = useRef(null)
 
   const questionIds = useMemo(() => uniqueQuestionIds(exercise.schema), [exercise.schema])
   const questionDescriptors = useMemo(
@@ -491,13 +501,21 @@ export default function QuestionAssetWorkflow({
     setError('')
     try {
       const response = await getQuestionAssetSet(token, exercise.id, setId)
+      if (loadedSchemaSetId.current !== setId) {
+        const pendingSchema = response.data.schema || exercise.schema || []
+        const allocation = allocationStateFromSchema(pendingSchema)
+        setAnswerSchema(pendingSchema)
+        setAllocationMode(allocation.mode)
+        setCustomScores(allocation.values)
+        loadedSchemaSetId.current = setId
+      }
       setDraft(response.data)
       setPhase('review')
     } catch (loadError) {
       setError(loadError.message)
       setPhase('error')
     }
-  }, [exercise.id, token])
+  }, [exercise.id, exercise.schema, token])
 
   useEffect(() => {
     if (exercise.pending_question_asset_set_id && !autoStartKey) {
@@ -715,7 +733,7 @@ export default function QuestionAssetWorkflow({
         ...answerReview.unexpected,
       ].filter(row => resolvedAnswerKeys.has(row.key))
       const payload = {
-        schema: answerSchema,
+        schema: applyScoreAllocation(answerSchema, allocationMode, customScores),
         question_asset_set_id: draft.asset_set.id,
       }
       if (resolvedRows.length > 0) {
@@ -1120,6 +1138,15 @@ export default function QuestionAssetWorkflow({
         })}
       </div>
 
+      <ScoreAllocationCard
+        ref={allocationRef}
+        rows={answerSchema}
+        mode={allocationMode}
+        onModeChange={setAllocationMode}
+        values={customScores}
+        onValuesChange={setCustomScores}
+      />
+
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
       <Card className="border-primary/30 shadow-[var(--shadow-raised)]">
@@ -1133,7 +1160,13 @@ export default function QuestionAssetWorkflow({
               </p>
             </div>
           </div>
-          <Button type="button" onClick={() => setShowActivationConfirm(true)} disabled={!canActivate}>
+          <Button
+            type="button"
+            onClick={() => {
+              if (allocationRef.current?.validate()) setShowActivationConfirm(true)
+            }}
+            disabled={!canActivate}
+          >
             {phase === 'activating'
               ? t('teacher.questionViews.activating')
               : t('teacher.questionViews.confirmAnswers')}

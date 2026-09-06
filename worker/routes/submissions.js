@@ -333,13 +333,13 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     // ── Fetch schema first — needed for both validation and grading ──────────
     const schemaRows = submission.question_asset_set_id
       ? await c.env.DB.prepare(`
-          select q_id, sub_id, type, correct_answer
+          select q_id, sub_id, type, correct_answer, max_score_hundredths
           from exercise_question_answer_schemas
           where asset_set_id = ?
           order by q_id asc, sub_id asc
         `).bind(submission.question_asset_set_id).all()
       : await c.env.DB.prepare(`
-          select q_id, sub_id, type, correct_answer
+          select q_id, sub_id, type, correct_answer, max_score_hundredths
           from answer_schemas
           where exercise_id = ?
           order by q_id asc, sub_id asc
@@ -379,10 +379,16 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
     // is_correct pre-populated, set score + submitted_at in a single
     // atomic DB.batch().
 
-    const { gradedAnswers, score } = gradeSubmission(
-      schemaRows.results,
-      answers.map((a) => ({ q_id: a.q_id, sub_id: a.sub_id ?? null, submitted_answer: a.submitted_answer })),
-    )
+    let grading
+    try {
+      grading = gradeSubmission(
+        schemaRows.results,
+        answers.map((a) => ({ q_id: a.q_id, sub_id: a.sub_id ?? null, submitted_answer: a.submitted_answer })),
+      )
+    } catch (error) {
+      return jsonError(c, 409, 'INVALID_SCORE_ALLOCATION', error.message)
+    }
+    const { gradedAnswers, score } = grading
 
     // Build lookup: (q_id, sub_id) → is_correct
     const gradedMap = new Map()

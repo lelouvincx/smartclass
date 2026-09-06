@@ -54,7 +54,8 @@ export async function validateQuestionAssetSetForActivation(
   }
 
   const pinnedSchema = await env.DB.prepare(`
-    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+      max_score_hundredths
     from exercise_question_answer_schemas
     where asset_set_id = ?
     order by q_id asc, sub_id asc
