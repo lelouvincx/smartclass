@@ -101,7 +101,11 @@ describe('TeacherExercisesPage', () => {
       file_count: 0, is_student_ready: 0, updated_at: '2026-03-11 19:00:00',
     }] })
     renderPage()
-    expect(await screen.findAllByText('Preparation required')).toHaveLength(2)
+    const preparationBadges = await screen.findAllByText('Preparation required')
+    expect(preparationBadges).toHaveLength(2)
+    preparationBadges.forEach((badge) => {
+      expect(badge).toHaveClass('bg-warning-muted', 'text-warning')
+    })
   })
 
   it('shows zero duration as Untimed', async () => {
