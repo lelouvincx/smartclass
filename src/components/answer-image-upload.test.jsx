@@ -100,8 +100,8 @@ describe('AnswerImageUpload', () => {
     const onExtracted = vi.fn()
     extractMock.mockResolvedValue({
       file_id: 7,
-      model_used: 'deepseek-v4-flash-vision-exp',
-      extracted: [{ q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 }],
+      model_used: 'parse-v5.0',
+      extracted: [{ q_id: 1, sub_id: null, answer: 'B', confidence: null }],
       warnings: [],
     })
 
@@ -111,20 +111,18 @@ describe('AnswerImageUpload', () => {
     await user.click(screen.getByRole('button', { name: /Extract answers/i }))
 
     await waitFor(() => expect(extractMock).toHaveBeenCalledTimes(1))
-    // Model is intentionally undefined — teacher will configure it server-side later.
     expect(extractMock).toHaveBeenCalledWith(
       'test-token',
       42,
       expect.objectContaining({ name: 'answer.jpg' }),
-      undefined,
       expect.objectContaining({ onProgress: expect.any(Function), signal: expect.any(AbortSignal) }),
     )
     await waitFor(() => expect(onExtracted).toHaveBeenCalledTimes(1))
     expect(onExtracted).toHaveBeenCalledWith(
       expect.objectContaining({
-        extracted: [{ q_id: 1, sub_id: null, answer: 'B', confidence: 0.9 }],
+        extracted: [{ q_id: 1, sub_id: null, answer: 'B', confidence: null }],
         warnings: [],
-        model_used: 'deepseek-v4-flash-vision-exp',
+        model_used: 'parse-v5.0',
       }),
     )
     expect(screen.getByText(/Re-extract/i)).toBeInTheDocument()
@@ -134,8 +132,8 @@ describe('AnswerImageUpload', () => {
     extractMock.mockRejectedValueOnce(new Error('boom'))
     extractMock.mockResolvedValueOnce({
       file_id: 1,
-      model_used: 'deepseek-v4-flash-vision-exp',
-      extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: 0.9 }],
+      model_used: 'parse-v5.0',
+      extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: null }],
       warnings: [],
     })
 
@@ -157,8 +155,8 @@ describe('AnswerImageUpload', () => {
   it('shows warnings when the model returns any', async () => {
     extractMock.mockResolvedValue({
       file_id: 1,
-      model_used: 'deepseek-v4-flash-vision-exp',
-      extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: 0.9 }],
+      model_used: 'parse-v5.0',
+      extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: null }],
       warnings: ['Q5 unreadable'],
     })
 
@@ -175,8 +173,8 @@ describe('AnswerImageUpload', () => {
   it('lets the user replace the image after a successful extraction', async () => {
     extractMock.mockResolvedValue({
       file_id: 1,
-      model_used: 'deepseek-v4-flash-vision-exp',
-      extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: 0.9 }],
+      model_used: 'parse-v5.0',
+      extracted: [{ q_id: 1, sub_id: null, answer: 'A', confidence: null }],
       warnings: [],
     })
 

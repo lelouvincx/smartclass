@@ -8,21 +8,19 @@ insert into exercises (
   , duration_minutes
   , pdf_key
   , created_by
-  , extract_model
   , created_at
   , updated_at
 )
 values
-  (6, 'Test 1', 120, null, (select id from users where phone = '+84865481769'), null, '2026-03-15 17:43:32', '2026-03-15 17:43:32')
-  , (7, 'Test 2', 60, null, (select id from users where phone = '+84865481769'), null, '2026-03-15 17:44:45', '2026-03-15 17:44:45')
-  , (8, 'Test 3', 0, null, (select id from users where phone = '+84865481769'), null, '2026-03-16 07:14:14', '2026-03-16 07:14:14')
-  , (9, 'Test 4', 60, null, (select id from users where phone = '+84865481769'), null, '2026-03-16 07:25:18', '2026-03-16 11:59:39')
+  (6, 'Test 1', 120, null, (select id from users where phone = '+84865481769'), '2026-03-15 17:43:32', '2026-03-15 17:43:32')
+  , (7, 'Test 2', 60, null, (select id from users where phone = '+84865481769'), '2026-03-15 17:44:45', '2026-03-15 17:44:45')
+  , (8, 'Test 3', 0, null, (select id from users where phone = '+84865481769'), '2026-03-16 07:14:14', '2026-03-16 07:14:14')
+  , (9, 'Test 4', 60, null, (select id from users where phone = '+84865481769'), '2026-03-16 07:25:18', '2026-03-16 11:59:39')
 on conflict(id) do update set
   title = excluded.title
   , duration_minutes = excluded.duration_minutes
   , pdf_key = excluded.pdf_key
   , created_by = excluded.created_by
-  , extract_model = excluded.extract_model
   , created_at = excluded.created_at
   , updated_at = excluded.updated_at;
 

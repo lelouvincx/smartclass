@@ -381,7 +381,7 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/answer-cand
         source_kind: 'answer_pdf_text',
         source_file_id: answerFileId,
         extractor_version: 'schema-parser-v1',
-        confidence: 0.91,
+        confidence: null,
       },
       {
         q_id: 1,
@@ -448,7 +448,7 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/answer-cand
       proposed_answer: 'A',
       source_kind: 'answer_pdf_text',
       source_file_id: otherAnswerFileId,
-      confidence: 0.9,
+      confidence: null,
     }])
     expect(wrongSource.status).toBe(400)
 
@@ -461,6 +461,37 @@ describe('POST /api/exercises/:exerciseId/question-asset-sets/:setId/answer-cand
       confidence: 1,
     }])
     expect(missingGreenGeometry.status).toBe(400)
+  })
+
+  it.each([
+    ['negative text confidence', 'answer_pdf_text', -0.1],
+    ['null green confidence', 'answer_pdf_green_highlight', null],
+    ['negative green confidence', 'answer_pdf_green_highlight', -0.1],
+    ['oversized green confidence', 'answer_pdf_green_highlight', 1.1],
+  ])('rejects %s', async (_name, sourceKind, confidence) => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const sourceFileId = await createSourceFile(exerciseId)
+    const answerFileId = await createAnswerFile(exerciseId)
+    const assetSet = await createPendingSetData(exerciseId, sourceFileId, {
+      answer_source_file_id: answerFileId,
+      answer_parser_status: 'parsed',
+    })
+    const res = await uploadAnswerCandidates(exerciseId, assetSet.id, [{
+      q_id: 1,
+      type: 'mcq',
+      proposed_answer: 'A',
+      source_kind: sourceKind,
+      source_file_id: answerFileId,
+      source_page: 1,
+      source_x: 0.1,
+      source_y: 0.1,
+      source_width: 0.2,
+      source_height: 0.2,
+      confidence,
+    }])
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error.code).toBe('INVALID_ANSWER_CANDIDATE')
   })
 })
 
@@ -1003,7 +1034,7 @@ describe('PUT /api/exercises/:id question asset activation', () => {
         proposed_answer: 'B',
         source_kind: 'answer_pdf_text',
         source_file_id: answerFileId,
-        confidence: 0.9,
+        confidence: null,
       },
       {
         q_id: 1,

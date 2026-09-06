@@ -18,9 +18,6 @@ const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'])
 //   done       — extraction succeeded; preview + warnings shown, can replace
 //   error      — last attempt failed; retry / replace allowed
 
-// Model selection is a teacher-side concern; the worker resolves the model
-// from its allowlist (currently the default). Students are not given a choice.
-
 function formatMb(bytes) {
   return (bytes / 1024 / 1024).toFixed(1)
 }
@@ -113,9 +110,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
     abortRef.current = controller
 
     try {
-      // Model is intentionally not passed — the worker resolves it from its
-      // allowlist (teacher-configured in a future PR). Students cannot pick.
-      const data = await extractAnswersFromImage(token, submissionId, file, undefined, {
+      const data = await extractAnswersFromImage(token, submissionId, file, {
         onProgress: (frac) => {
           setProgress(frac)
           if (frac >= 1) setPhase('extracting')

@@ -2,14 +2,10 @@ import { Hono } from 'hono'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import {
-  buildConfidence,
-  buildWarnings,
-  normalizeSchemaRows,
-  parseModelSchemaContent,
   validateSchemaRows,
 } from '../lib/schema-parser.js'
-import { requestSchemaFromDeepSeek } from '../lib/deepseek.js'
-import { isValidExtractModel } from '../lib/extract-models.js'
+import { COHERE_MODEL, parseImageWithCohere } from '../lib/cohere.js'
+import { parseAnswerPdfPages } from '../lib/cohere-table-parser.js'
 import { attachGrades, parseGrades } from '../lib/grades.js'
 import {
   MIN_QUESTION_ASSET_CONFIDENCE,
@@ -18,7 +14,27 @@ import {
 } from '../lib/question-assets.js'
 
 const exercisesRoutes = new Hono()
-const MIN_ANSWER_CONFIDENCE = 0.75
+const MAX_PARSE_PAGES = 10
+const MAX_PARSE_PAGE_BYTES = 3 * 1024 * 1024
+const MAX_PARSE_PAYLOAD_BYTES = 25 * 1024 * 1024
+const MAX_MANIFEST_TEXT_BYTES = 120_000
+const MAX_SCHEMA_SHAPE_BYTES = 120_000
+const PARSE_CONCURRENCY = 3
+const UNSCORED_WARNING = 'Cohere does not provide confidence scores. Review every extracted answer.'
+
+async function mapWithConcurrency(items, concurrency, operation) {
+  const results = new Array(items.length)
+  let nextIndex = 0
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex
+      nextIndex += 1
+      results[index] = await operation(items[index], index)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
 
 function isValidMaxAttempts(value) {
   return value === null || (Number.isInteger(value) && value > 0)
@@ -28,9 +44,10 @@ function toExerciseWithTiming(exercise) {
   if (!exercise) {
     return exercise
   }
+  const { extract_model: _deprecatedExtractModel, ...currentExercise } = exercise
 
   return {
-    ...exercise,
+    ...currentExercise,
     is_timed: exercise.duration_minutes > 0 ? 1 : 0,
   }
 }
@@ -114,54 +131,162 @@ function questionIdentity(item) {
 }
 
 exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async (c) => {
-  const body = await c.req.json().catch(() => null)
-  const { source_text, expected_question_count } = body || {}
-
-  if (!source_text || typeof source_text !== 'string') {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'source_text is required')
+  const started = performance.now()
+  const contentType = c.req.header('content-type') || ''
+  if (!contentType.toLowerCase().startsWith('multipart/form-data;')) {
+    return jsonError(c, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Request must be multipart/form-data')
+  }
+  const contentLength = Number(c.req.header('content-length') || 0)
+  if (contentLength > MAX_PARSE_PAYLOAD_BYTES) {
+    return jsonError(c, 413, 'PAYLOAD_TOO_LARGE', 'Multipart request must be at most 25 MiB')
   }
 
-  if (source_text.trim().length < 10) {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'source_text is too short to parse')
-  }
-
+  let form
   try {
-    const modelContent = await requestSchemaFromDeepSeek(
-      c.env,
-      source_text.slice(0, 120000),
-      expected_question_count,
-    )
-
-    const rawRows = parseModelSchemaContent(modelContent)
-    const parsedRows = normalizeSchemaRows(rawRows)
-    const normalizedRows = parsedRows.map((row) => {
-      const invalidNumericAnswer = row.type === 'numeric'
-        && row.correct_answer !== ''
-        && Number.isNaN(Number(row.correct_answer))
-
-      if (invalidNumericAnswer) {
-        return { ...row, correct_answer: '', confidence: 0.3 }
-      }
-
-      return row.confidence < MIN_ANSWER_CONFIDENCE
-        ? { ...row, correct_answer: '' }
-        : row
-    })
-    const errors = validateSchemaRows(normalizedRows, { allowBlankAnswers: true })
-
-    if (errors.length > 0) {
-      return jsonError(c, 422, 'INVALID_SCHEMA', errors.join('; '))
-    }
-
-    return jsonSuccess(c, {
-      schema: normalizedRows,
-      warnings: buildWarnings(normalizedRows, MIN_ANSWER_CONFIDENCE),
-      confidence: buildConfidence(normalizedRows, MIN_ANSWER_CONFIDENCE),
-    })
-  } catch (error) {
-    console.error('Schema parse error:', error)
-    return jsonError(c, 500, 'PARSE_ERROR', error.message || 'Failed to parse schema')
+    form = await c.req.raw.formData()
+  } catch {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Multipart request is malformed')
   }
+  const pages = form.getAll('page')
+  if (pages.length < 1 || pages.length > MAX_PARSE_PAGES || pages.some(page => !(page instanceof File))) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Provide 1 to 10 page files')
+  }
+  if (pages.some(page => page.type !== 'image/png')) {
+    return jsonError(c, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Every page must be an image/png file')
+  }
+  if (pages.some(page => page.size > MAX_PARSE_PAGE_BYTES)) {
+    return jsonError(c, 413, 'PAYLOAD_TOO_LARGE', 'Each page must be at most 3 MiB')
+  }
+  if ([...form].some(([name, value]) => value instanceof File && name !== 'page')) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Unexpected file field')
+  }
+
+  const manifestValue = form.get('page_manifest')
+  const schemaShapeValue = form.get('schema_shape')
+  if (form.getAll('page_manifest').length !== 1
+    || form.getAll('expected_question_count').length > 1
+    || form.getAll('schema_shape').length > 1) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Multipart metadata fields must not be repeated')
+  }
+  let manifest
+  try {
+    if (typeof manifestValue !== 'string') throw new TypeError('page_manifest must be text')
+    manifest = JSON.parse(manifestValue)
+  } catch {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'page_manifest must be valid JSON')
+  }
+  if (!Array.isArray(manifest) || manifest.length !== pages.length) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'page_manifest must match every page file')
+  }
+  const validManifest = manifest.every((entry, index) => (
+    entry && typeof entry === 'object'
+    && typeof entry.file_name === 'string'
+    && entry.file_name === pages[index].name
+    && Number.isInteger(entry.page_number)
+    && entry.page_number >= 1
+    && (index === 0 || entry.page_number > manifest[index - 1].page_number)
+    && typeof entry.text === 'string'
+  ))
+  const uniqueNames = new Set(manifest.map(entry => entry?.file_name)).size === manifest.length
+  const textBytes = manifest.reduce((total, entry) => (
+    total + (typeof entry?.text === 'string' ? new TextEncoder().encode(entry.text).byteLength : 0)
+  ), 0)
+  if (!validManifest || !uniqueNames || textBytes > MAX_MANIFEST_TEXT_BYTES) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'page_manifest entries are invalid or too large')
+  }
+
+  let schemaShape
+  if (schemaShapeValue !== null) {
+    try {
+      if (typeof schemaShapeValue !== 'string'
+        || new TextEncoder().encode(schemaShapeValue).byteLength > MAX_SCHEMA_SHAPE_BYTES) {
+        throw new TypeError('schema_shape must be bounded text')
+      }
+      const rawShape = JSON.parse(schemaShapeValue)
+      if (!Array.isArray(rawShape) || rawShape.length === 0) {
+        throw new TypeError('schema_shape must be a non-empty array')
+      }
+      schemaShape = rawShape.map(row => ({
+        q_id: row?.q_id,
+        section_key: row?.section_key,
+        section_title: row?.section_title ?? null,
+        local_number: row?.local_number,
+        type: row?.type,
+        sub_id: row?.sub_id ?? null,
+        correct_answer: '',
+      }))
+      if (validateSchemaRows(schemaShape, { allowBlankAnswers: true }).length) {
+        throw new TypeError('schema_shape is invalid')
+      }
+    } catch {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'schema_shape must be a valid schema descriptor array')
+    }
+  }
+
+  const expectedRaw = form.get('expected_question_count')
+  const expectedQuestionCount = expectedRaw === null ? undefined : Number(expectedRaw)
+  if (expectedRaw !== null && (typeof expectedRaw !== 'string'
+    || !/^[1-9]\d*$/.test(expectedRaw) || !Number.isSafeInteger(expectedQuestionCount))) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'expected_question_count must be a positive integer')
+  }
+  const measuredPayloadBytes = pages.reduce((total, page) => total + page.size, 0)
+    + new TextEncoder().encode(manifestValue).byteLength
+    + (typeof expectedRaw === 'string' ? new TextEncoder().encode(expectedRaw).byteLength : 0)
+    + (typeof schemaShapeValue === 'string' ? new TextEncoder().encode(schemaShapeValue).byteLength : 0)
+  if (measuredPayloadBytes > MAX_PARSE_PAYLOAD_BYTES) {
+    return jsonError(c, 413, 'PAYLOAD_TOO_LARGE', 'Multipart payload must be at most 25 MiB')
+  }
+
+  const providerStarted = performance.now()
+  const providerResults = await mapWithConcurrency(pages, PARSE_CONCURRENCY, async (page, index) => {
+    try {
+      const parsed = await parseImageWithCohere(c.env, {
+        imageBytes: await page.arrayBuffer(),
+        contentType: page.type,
+      })
+      return { ok: true, ...parsed, manifest: manifest[index] }
+    } catch (error) {
+      console.error('Cohere page parse failed', {
+        category: error?.message?.includes('timed out') ? 'timeout' : 'provider',
+        page_number: manifest[index].page_number,
+        page_count: pages.length,
+      })
+      return { ok: false, manifest: manifest[index] }
+    }
+  })
+  const providerMs = Math.round(performance.now() - providerStarted)
+  const successful = providerResults.filter(result => result.ok)
+  if (!successful.length) {
+    return jsonError(c, 502, 'PARSE_FAILED', 'Answer pages could not be read. Retry or enter answers manually.')
+  }
+
+  const parseStarted = performance.now()
+  const parsed = parseAnswerPdfPages(successful.map(result => ({
+    page_number: result.manifest.page_number,
+    text: result.manifest.text,
+    markdown: result.markdown,
+  })), { expectedQuestionCount, schemaShape })
+  const errors = validateSchemaRows(parsed.schema, { allowBlankAnswers: true })
+  if (errors.length) {
+    return jsonError(c, 422, 'INVALID_SCHEMA', errors.join('; '))
+  }
+  const parseMs = Math.round(performance.now() - parseStarted)
+  const failureWarnings = providerResults
+    .filter(result => !result.ok)
+    .map(result => `Page ${result.manifest.page_number} could not be read and was skipped.`)
+
+  return jsonSuccess(c, {
+    schema: parsed.schema,
+    warnings: [UNSCORED_WARNING, ...failureWarnings, ...parsed.warnings],
+    confidence: null,
+    model_id: COHERE_MODEL,
+    timings_ms: {
+      provider: providerMs,
+      parse: parseMs,
+      total: Math.round(performance.now() - started),
+    },
+    pages_processed: successful.length,
+  })
 })
 
 // List exercises available to the authenticated user.
@@ -442,7 +567,7 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
 // Create exercise with answer schema (teacher only)
 exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { title, duration_minutes, schema, is_timed = true, extract_model, max_attempts } = body || {}
+  const { title, duration_minutes, schema, is_timed = true, max_attempts } = body || {}
   const parsedGrades = parseGrades(body?.grades, { defaultToAll: true })
 
   if (!title || schema === undefined || !Object.hasOwn(body || {}, 'max_attempts')) {
@@ -460,13 +585,6 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   if (typeof is_timed !== 'boolean') {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'is_timed must be boolean')
   }
-
-  // extract_model is optional. null/undefined means "use server default".
-  // A non-null value must be in the EXTRACT_MODELS allowlist.
-  if (extract_model != null && !isValidExtractModel(extract_model)) {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'extract_model must be one of the allowed model ids')
-  }
-  const normalizedExtractModel = extract_model == null ? null : extract_model
 
   let normalizedDuration = duration_minutes
   if (is_timed) {
@@ -489,9 +607,9 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
   try {
     const exerciseResult = await c.env.DB.prepare(`
-      INSERT INTO exercises (title, duration_minutes, max_attempts, created_by, extract_model)
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(title, normalizedDuration, max_attempts, authUser.id, normalizedExtractModel).run()
+      INSERT INTO exercises (title, duration_minutes, max_attempts, created_by)
+      VALUES (?, ?, ?, ?)
+    `).bind(title, normalizedDuration, max_attempts, authUser.id).run()
 
     const exerciseId = exerciseResult.meta.last_row_id
 
@@ -556,7 +674,6 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     title,
     duration_minutes,
     is_timed,
-    extract_model,
     question_asset_set_id,
     resolved_answer_candidate_keys,
     grades,
@@ -569,7 +686,6 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     && duration_minutes === undefined
     && !schema
     && is_timed === undefined
-    && extract_model === undefined
     && question_asset_set_id === undefined
     && resolved_answer_candidate_keys === undefined
     && grades === undefined
@@ -589,11 +705,6 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
   const parsedGrades = grades === undefined ? null : parseGrades(grades)
   if (parsedGrades?.error) {
     return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
-  }
-
-  // extract_model: undefined → leave alone; null → reset to default; string → must be in allowlist.
-  if (extract_model !== undefined && extract_model !== null && !isValidExtractModel(extract_model)) {
-    return jsonError(c, 400, 'VALIDATION_ERROR', 'extract_model must be one of the allowed model ids')
   }
 
   if (
@@ -726,15 +837,10 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
       updates.push('duration_minutes = ?')
       params.push(nextDuration)
     }
-    if (extract_model !== undefined) {
-      updates.push('extract_model = ?')
-      params.push(extract_model) // null clears it back to "use default"
-    }
     if (max_attempts !== undefined) {
       updates.push('max_attempts = ?')
       params.push(max_attempts)
     }
-
     if (updates.length > 0) {
       params.push(id)
       batchStmts.push(

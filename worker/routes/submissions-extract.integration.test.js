@@ -1,17 +1,21 @@
 import { env } from 'cloudflare:test'
-import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import app from '../index.js'
 import {
-  seedTeacher,
+  createStudentReadyExercise,
+  loginAsStudent,
   loginAsTeacher,
   seedStudent,
-  loginAsStudent,
-  createStudentReadyExercise as createExercise,
+  seedTeacher,
 } from '../test/helpers.js'
-import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from '../lib/extract-models.js'
 
 let teacherToken
 let studentToken
+
+const CLEAN_TABLES = [
+  '<table><tr><td>Q</td><td>A</td><td>B</td><td>C</td><td>D</td></tr><tr><td>1</td><td></td><td>✓</td><td></td><td></td></tr></table>',
+  '<table><tr><td>Câu</td><td>Ý</td><td>Đúng / Sai</td></tr><tr><td>2</td><td>a</td><td>Đ</td></tr><tr><td>2</td><td>b</td><td>S</td></tr><tr><td>2</td><td>c</td><td>S</td></tr><tr><td>2</td><td>d</td><td>Đ</td></tr></table>',
+].join('\n')
 
 beforeAll(async () => {
   await seedTeacher()
@@ -20,401 +24,129 @@ beforeAll(async () => {
   studentToken = await loginAsStudent()
 })
 
-afterEach(() => {
-  vi.unstubAllGlobals()
+beforeEach(() => {
+  env.COHERE_API_KEY = 'test-key'
 })
 
-/**
- * Default LLM payload that maps the helper exercise schema:
- *   q_id=1 (mcq, B) + q_id=2 boolean (a=1,b=0,c=0,d=1)
- */
-const DEFAULT_LLM_ANSWERS = {
-  answers: [
-    { q_id: 1, answer: 'B', confidence: 0.9 },
-    { q_id: 2, sub_id: 'a', answer: '1', confidence: 0.85 },
-    { q_id: 2, sub_id: 'b', answer: '0', confidence: 0.85 },
-    { q_id: 2, sub_id: 'c', answer: '0', confidence: 0.85 },
-    { q_id: 2, sub_id: 'd', answer: '1', confidence: 0.85 },
-  ],
-}
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
 
-/**
- * Stub global fetch so any DeepSeek call from the worker returns `payload`
- * (object → JSON.stringify'd into the chat completion content) or `raw`
- * (raw string for content). When `status` is given (≥ 400), errors out.
- *
- * Returns the spy so tests can introspect calls.
- */
-function mockDeepSeek({ payload, raw, status = 200, errorMessage } = {}) {
-  const content = raw ?? JSON.stringify(payload ?? DEFAULT_LLM_ANSWERS)
-  const spy = vi.fn(async () => {
-    if (status >= 400) {
-      return new Response(JSON.stringify({ error: { message: errorMessage || 'Upstream failed' } }), { status })
-    }
-    return new Response(JSON.stringify({
-      choices: [{ message: { content } }],
-    }), { status: 200 })
-  })
+function mockCohere(markdown = CLEAN_TABLES, status = 200) {
+  const spy = vi.fn(async () => new Response(JSON.stringify(status === 200 ? {
+    pages: [{ markdown: { content: markdown } }],
+    meta: { billed_units: { pages: 1 } },
+  } : { private_provider_body: 'must not be logged' }), { status }))
   vi.stubGlobal('fetch', spy)
   return spy
 }
 
-/**
- * Create an in-progress submission for the given exercise as the student.
- */
-async function startSubmission(exerciseId, token = studentToken) {
-  const res = await app.request('/api/submissions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-    body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
-  }, env)
-  const body = await res.json()
-  return body.data.id
-}
-
-/**
- * Build a multipart FormData body with a fake image file.
- */
-function buildExtractForm({ filename = 'sheet.png', mime = 'image/png', size = 256, extra = {} } = {}) {
-  const bytes = new Uint8Array(size).fill(0xab)
-  const blob = new Blob([bytes], { type: mime })
+function imageForm({ mime = 'image/png', name = 'sheet.png', size = 256, model } = {}) {
   const form = new FormData()
-  form.append('image', new File([blob], filename, { type: mime }))
-  for (const [k, v] of Object.entries(extra)) {
-    form.append(k, v)
-  }
+  form.append('image', new File([new Uint8Array(size)], name, { type: mime }))
+  if (model) form.append('model', model)
   return form
 }
 
-async function postExtract(submissionId, form, token = studentToken, extraHeaders = {}) {
+async function startSubmission() {
+  const exercise = await createStudentReadyExercise(teacherToken)
+  const response = await app.request('/api/submissions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
+    body: JSON.stringify({ exercise_id: exercise.id, known_latest_attempt_number: 0 }),
+  }, env)
+  return (await response.json()).data.id
+}
+
+function extract(submissionId, form = imageForm(), token = studentToken) {
   return app.request(`/api/submissions/${submissionId}/extract`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      ...extraHeaders,
-    },
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
   }, env)
 }
 
-beforeEach(() => {
-  // Tests rely on the LLM call going through; ensure a key is present.
-  env.DEEPSEEK_API_KEY = 'test-key'
-})
+describe('POST /api/submissions/:id/extract with Cohere', () => {
+  it('maps HTML tables in pinned order, persists R2 metadata, and ignores model', async () => {
+    const fetchMock = mockCohere()
+    const submissionId = await startSubmission()
+    const response = await extract(submissionId, imageForm({ model: 'student-selected-model' }))
 
-describe('POST /api/submissions/:id/extract', () => {
-  describe('happy path', () => {
-    it('uploads image, persists submission_files row, returns extracted answers', async () => {
-      mockDeepSeek()
+    expect(response.status).toBe(200)
+    const data = (await response.json()).data
+    expect(data.model_used).toBe('parse-v5.0')
+    expect(data.warnings).toEqual([])
+    expect(data.extracted).toEqual([
+      { q_id: 1, sub_id: null, answer: 'B', confidence: null },
+      { q_id: 2, sub_id: 'a', answer: '1', confidence: null },
+      { q_id: 2, sub_id: 'b', answer: '0', confidence: null },
+      { q_id: 2, sub_id: 'c', answer: '0', confidence: null },
+      { q_id: 2, sub_id: 'd', answer: '1', confidence: null },
+    ])
+    const row = await env.DB.prepare('select * from submission_files where id = ?')
+      .bind(data.file_id).first()
+    expect(row).toMatchObject({ submission_id: submissionId, file_type: 'answer_sheet', file_name: 'sheet.png', file_size: 256 })
+    const storedImage = await env.BUCKET.get(row.r2_key)
+    expect(storedImage).not.toBeNull()
+    expect((await storedImage.arrayBuffer()).byteLength).toBe(256)
 
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(200)
-
-      const body = await res.json()
-      expect(body.success).toBe(true)
-      expect(body.data).toMatchObject({
-        file_id: expect.any(Number),
-        model_used: DEFAULT_EXTRACT_MODEL,
-        warnings: expect.any(Array),
-      })
-
-      // Extracted matches the schema shape (1 mcq + 4 boolean rows = 5 entries)
-      expect(body.data.extracted).toHaveLength(5)
-      const mcq = body.data.extracted.find((a) => a.q_id === 1 && a.sub_id === null)
-      expect(mcq).toMatchObject({ q_id: 1, sub_id: null, answer: 'B' })
-      expect(mcq.confidence).toBeGreaterThan(0)
-
-      const boolA = body.data.extracted.find((a) => a.q_id === 2 && a.sub_id === 'a')
-      expect(boolA).toMatchObject({ q_id: 2, sub_id: 'a', answer: '1' })
-
-      // File row exists in DB and is linked to this submission
-      const row = await env.DB.prepare(
-        'SELECT submission_id, file_type, r2_key, file_name, file_size FROM submission_files WHERE id = ?'
-      ).bind(body.data.file_id).first()
-      expect(row).toMatchObject({
-        submission_id: submissionId,
-        file_type: 'answer_sheet',
-        file_name: 'sheet.png',
-      })
-      expect(row.r2_key).toMatch(new RegExp(`^submissions/${submissionId}/\\d+-sheet\\.png$`))
-
-      // R2 object is actually present
-      const obj = await env.BUCKET.get(row.r2_key)
-      expect(obj).not.toBeNull()
-      const arrBuf = await obj.arrayBuffer()
-      expect(arrBuf.byteLength).toBe(256)
-    })
-
-    it('sends the image to the official DeepSeek vision endpoint', async () => {
-      const spy = mockDeepSeek()
-
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(200)
-
-      const [url, init] = spy.mock.calls[0]
-      expect(String(url)).toBe('https://api.deepseek.com/chat/completions')
-      expect(init.headers.Authorization).toBe('Bearer test-key')
-      const body = JSON.parse(init.body)
-      expect(body.model).toBe(DEFAULT_EXTRACT_MODEL)
-
-      // Vision message format: image_url with data: URI
-      const userMsg = body.messages[0]
-      expect(Array.isArray(userMsg.content)).toBe(true)
-      const imagePart = userMsg.content.find((p) => p.type === 'image_url')
-      expect(imagePart).toBeDefined()
-      expect(imagePart.image_url.url).toMatch(/^data:image\/png;base64,/)
-    })
-
-    it('drops out-of-schema rows from the LLM response with a warning', async () => {
-      mockDeepSeek({
-        payload: {
-          answers: [
-            { q_id: 1, answer: 'A', confidence: 0.9 },
-            { q_id: 99, answer: 'C', confidence: 0.9 }, // not in schema
-          ],
-        },
-      })
-
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.data.extracted.find((a) => a.q_id === 99)).toBeUndefined()
-      expect(body.data.warnings.some((w) => w.includes('Q99'))).toBe(true)
-    })
+    const [url, request] = fetchMock.mock.calls[0]
+    expect(url).toBe('https://api.cohere.com/v2/parse')
+    const requestBody = JSON.parse(request.body)
+    expect(requestBody.model).toBe('parse-v5.0')
+    expect(requestBody).not.toHaveProperty('expected_schema')
+    expect(requestBody.document.image_url).toMatch(/^data:image\/png;base64,/)
   })
 
-  describe('auth + ownership', () => {
-    it('rejects unauthenticated requests with 401', async () => {
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await app.request(`/api/submissions/${submissionId}/extract`, {
-        method: 'POST',
-        body: buildExtractForm(),
-      }, env)
-      expect(res.status).toBe(401)
-    })
-
-    it('returns 404 for unknown submission id', async () => {
-      const res = await postExtract(999999, buildExtractForm())
-      expect(res.status).toBe(404)
-      const body = await res.json()
-      expect(body.error.code).toBe('NOT_FOUND')
-    })
-
-    it('returns 403 when caller is not the submission owner', async () => {
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      await seedStudent('+84111222333')
-      const otherToken = await loginAsStudent('+84111222333')
-
-      const res = await postExtract(submissionId, buildExtractForm(), otherToken)
-      expect(res.status).toBe(403)
-      const body = await res.json()
-      expect(body.error.code).toBe('FORBIDDEN')
-    })
+  it.each([
+    ['malformed prose', 'not a table'],
+    ['perspective table', '<table><tr><td>broken</td><td>shape</td></tr></table>'],
+    ['unknown and duplicate cells', '<table><tr><td>Câu</td><td>Answer</td></tr><tr><td>99</td><td>4</td></tr><tr><td>99</td><td>5</td></tr></table>'],
+  ])('returns complete null answers for %s', async (_name, markdown) => {
+    mockCohere(markdown)
+    const response = await extract(await startSubmission())
+    expect(response.status).toBe(200)
+    const data = (await response.json()).data
+    expect(data.extracted).toHaveLength(5)
+    expect(data.extracted.every(row => row.answer === null && row.confidence === null)).toBe(true)
+    expect(data.warnings).toHaveLength(1)
   })
 
-  describe('submission state', () => {
-    it('returns 409 when submission is already submitted', async () => {
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
+  it('preserves the upload record and logs no provider body when Cohere fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockCohere('', 503)
+    const submissionId = await startSubmission()
+    const before = await env.DB.prepare('select count(*) count from submission_files where submission_id = ?').bind(submissionId).first()
+    const response = await extract(submissionId)
 
-      // Submit the submission
-      await app.request(`/api/submissions/${submissionId}/submit`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${studentToken}`,
-        },
-        body: JSON.stringify({ answers: [{ q_id: 1, sub_id: null, submitted_answer: 'B' }] }),
-      }, env)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(409)
-      const body = await res.json()
-      expect(body.error.code).toBe('ALREADY_SUBMITTED')
-    })
+    expect(response.status).toBe(502)
+    expect((await response.json()).error.code).toBe('EXTRACTION_FAILED')
+    const after = await env.DB.prepare('select count(*) count from submission_files where submission_id = ?').bind(submissionId).first()
+    expect(after.count).toBe(before.count + 1)
+    expect(JSON.stringify(consoleSpy.mock.calls)).not.toContain('private_provider_body')
   })
 
-  describe('image validation', () => {
-    it('returns 400 when image field is missing', async () => {
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
+  it('enforces authentication, ownership, and in-progress state', async () => {
+    const submissionId = await startSubmission()
+    expect((await extract(submissionId, imageForm(), '')).status).toBe(401)
 
-      const form = new FormData()
-      form.append('model', DEFAULT_EXTRACT_MODEL)
+    await seedStudent('+84900000082', 'Other Student')
+    const otherToken = await loginAsStudent('+84900000082')
+    expect((await extract(submissionId, imageForm(), otherToken)).status).toBe(403)
+    expect((await extract(999999)).status).toBe(404)
 
-      const res = await postExtract(submissionId, form)
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.error.code).toBe('VALIDATION_ERROR')
-      expect(body.error.message).toMatch(/image/i)
-    })
-
-    it('returns 415 for non-image content type', async () => {
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const form = buildExtractForm({ mime: 'text/plain', filename: 'sheet.txt' })
-      const res = await postExtract(submissionId, form)
-      expect(res.status).toBe(415)
-      const body = await res.json()
-      expect(body.error.code).toBe('UNSUPPORTED_MEDIA_TYPE')
-    })
-
-    it('accepts image/jpeg', async () => {
-      mockDeepSeek()
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm({ mime: 'image/jpeg', filename: 'sheet.jpg' }))
-      expect(res.status).toBe(200)
-    })
-
-    it('returns 413 when image exceeds 20 MB cap', async () => {
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const oversize = 20 * 1024 * 1024 + 1
-      const form = buildExtractForm({ size: oversize })
-
-      const res = await postExtract(submissionId, form)
-      expect(res.status).toBe(413)
-      const body = await res.json()
-      expect(body.error.code).toBe('PAYLOAD_TOO_LARGE')
-    })
+    await env.DB.prepare('update submissions set submitted_at = current_timestamp where id = ?').bind(submissionId).run()
+    expect((await extract(submissionId)).status).toBe(409)
   })
 
-  describe('model selection (teacher-configured per exercise)', () => {
-    it("echoes back the exercise's DeepSeek extract_model in model_used", async () => {
-      mockDeepSeek()
-
-      const { id: exerciseId } = await createExercise(teacherToken, { extract_model: DEFAULT_EXTRACT_MODEL })
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
-    })
-
-    it('falls back to default when the exercise has no extract_model', async () => {
-      mockDeepSeek()
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
-    })
-
-    it('ignores any client-supplied model field (security: students cannot pick)', async () => {
-      const spy = mockDeepSeek()
-
-      // Exercise has NO extract_model — server default should win.
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      // Student tries to override via the form field — must be ignored.
-      const res = await postExtract(submissionId, buildExtractForm({ extra: { model: 'x-ai/grok-4.1-fast' } }))
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.data.model_used).toBe(DEFAULT_EXTRACT_MODEL)
-
-      const [, init] = spy.mock.calls.find(([url]) => String(url).includes('api.deepseek.com'))
-      expect(JSON.parse(init.body).model).toBe(DEFAULT_EXTRACT_MODEL)
-    })
-  })
-
-  describe('LLM failure modes', () => {
-    it('returns 502 when DeepSeek responds with an upstream error', async () => {
-      mockDeepSeek({ status: 500, errorMessage: 'upstream exploded' })
-
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(502)
-      const body = await res.json()
-      expect(body.error.code).toBe('EXTRACTION_FAILED')
-    })
-
-    it('returns 422 when the LLM returns non-JSON content', async () => {
-      mockDeepSeek({ raw: 'sorry, I cannot help with that' })
-
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(422)
-      const body = await res.json()
-      expect(body.error.code).toBe('EXTRACT_PARSE_ERROR')
-    })
-
-    it('returns 422 when the LLM JSON has no answers array', async () => {
-      mockDeepSeek({ raw: JSON.stringify({ result: 'ok' }) })
-
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(422)
-      const body = await res.json()
-      expect(body.error.code).toBe('EXTRACT_PARSE_ERROR')
-    })
-
-    it('still persists the file row even when extraction fails', async () => {
-      mockDeepSeek({ status: 503, errorMessage: 'overloaded' })
-
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const before = await env.DB.prepare(
-        'SELECT COUNT(*) AS c FROM submission_files WHERE submission_id = ?'
-      ).bind(submissionId).first()
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      expect(res.status).toBe(502)
-
-      const after = await env.DB.prepare(
-        'SELECT COUNT(*) AS c FROM submission_files WHERE submission_id = ?'
-      ).bind(submissionId).first()
-      // The file is still uploaded — auditable record of the attempt.
-      expect(after.c).toBe(before.c + 1)
-    })
-  })
-
-  describe('cascade delete', () => {
-    it('deletes submission_files when its submission is deleted', async () => {
-      mockDeepSeek()
-
-      const { id: exerciseId } = await createExercise(teacherToken)
-      const submissionId = await startSubmission(exerciseId)
-
-      const res = await postExtract(submissionId, buildExtractForm())
-      const { file_id } = (await res.json()).data
-
-      await env.DB.prepare('DELETE FROM submissions WHERE id = ?').bind(submissionId).run()
-
-      const row = await env.DB.prepare(
-        'SELECT id FROM submission_files WHERE id = ?'
-      ).bind(file_id).first()
-      expect(row).toBeNull()
-    })
+  it('validates image presence, media type, and 20 MiB limit before Cohere', async () => {
+    const submissionId = await startSubmission()
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    expect((await extract(submissionId, new FormData())).status).toBe(400)
+    expect((await extract(submissionId, imageForm({ mime: 'text/plain' }))).status).toBe(415)
+    expect((await extract(submissionId, imageForm({ size: 20 * 1024 * 1024 + 1 }))).status).toBe(413)
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })

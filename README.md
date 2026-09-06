@@ -7,7 +7,7 @@ An assessment platform for teaching and learning, built on Cloudflare.
 ## Features
 
 - **Teacher (admin)**: upload exercises (PDF) with answer schemas, manage lectures, create/approve student accounts
-- **Student**: take timed or untimed exercises, submit answers (manual form, scanner/OCR, image upload), get auto-graded, review past results, watch lecture videos
+- **Student**: take timed or untimed exercises, enter answers directly, get auto-graded, review past results, watch lecture videos
 - **Guest (roadmap)**: browse exercises and lectures, submit exercises with results saved locally — no login required
 
 ## Project status
@@ -24,7 +24,7 @@ An assessment platform for teaching and learning, built on Cloudflare.
 | Backend  | Cloudflare Workers + Hono                                   |
 | Database | Cloudflare D1 (SQLite)                                      |
 | Storage  | Cloudflare R2 (PDFs, images)                                |
-| Vision   | DeepSeek V4 Flash Vision via the official DeepSeek API      |
+| Answer extraction | Cohere Parse v5 via the official Cohere API       |
 | Auth     | Phone (+84xxx) + password, JWT                              |
 
 ## Project Structure
@@ -73,7 +73,7 @@ export CLOUDFLARE_D1_DATABASE_NAME=smartclass
 export CLOUDFLARE_R2_BUCKET_NAME=smartclass-assets
 export APP_CORS_ORIGIN=http://localhost:5173
 export VITE_API_BASE_URL=http://localhost:8787
-export DEEPSEEK_API_KEY=op://<vault>/<item>/<field>
+export COHERE_API_KEY=op://<vault>/<item>/<field>
 ```
 
 For local Worker secrets during `wrangler dev`, create `.dev.vars`:
@@ -81,7 +81,7 @@ For local Worker secrets during `wrangler dev`, create `.dev.vars`:
 ```bash
 JWT_SECRET=replace-with-a-long-random-string
 JWT_EXPIRES_IN=7d
-DEEPSEEK_API_KEY=op://<vault>/<item>/<field>
+COHERE_API_KEY=op://<vault>/<item>/<field>
 ```
 
 Cloudflare resources can be created from CLI:
@@ -91,10 +91,11 @@ npx wrangler login
 npx wrangler d1 create smartclass
 npx wrangler r2 bucket create smartclass-assets
 npx wrangler secret put JWT_SECRET
-npx wrangler secret put DEEPSEEK_API_KEY
+npx wrangler secret put COHERE_API_KEY
 ```
 
 After creating resources, update `wrangler.toml` with your real D1 `database_id`.
+These commands describe required setup. They do not confirm that the production Cohere secret or deployment exists.
 
 </details>
 
