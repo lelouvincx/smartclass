@@ -19,14 +19,14 @@ const api = vi.hoisted(() => ({
   uploadGeneratedQuestionAsset: vi.fn(),
 }))
 const generateQuestionAssetsMock = vi.hoisted(() => vi.fn())
-const extractTextFromPdfMock = vi.hoisted(() => vi.fn())
+const prepareAnswerPdfForParsingMock = vi.hoisted(() => vi.fn())
 
 vi.mock('../lib/api', () => api)
 vi.mock('../lib/question-generation', () => ({
   generateQuestionAssets: (...args) => generateQuestionAssetsMock(...args),
 }))
 vi.mock('../lib/pdf', () => ({
-  extractTextFromPdf: (...args) => extractTextFromPdfMock(...args),
+  prepareAnswerPdfForParsing: (...args) => prepareAnswerPdfForParsingMock(...args),
 }))
 
 const EXERCISE = {
@@ -135,7 +135,12 @@ describe('QuestionAssetWorkflow', () => {
   beforeEach(() => {
     Object.values(api).forEach(mock => mock.mockReset())
     generateQuestionAssetsMock.mockReset()
-    extractTextFromPdfMock.mockReset()
+    prepareAnswerPdfForParsingMock.mockReset()
+    prepareAnswerPdfForParsingMock.mockResolvedValue({
+      page_files: [new File(['page'], 'page-1.png', { type: 'image/png' })],
+      page_manifest: [{ file_name: 'page-1.png', page_number: 1, text: 'ĐÁP ÁN' }],
+      total_pages: 2,
+    })
     api.getQuestionAssetBlob.mockResolvedValue(new Blob(['image'], { type: 'image/webp' }))
     api.uploadAnswerCandidates.mockResolvedValue({ data: [] })
     global.URL.createObjectURL = vi.fn(() => 'blob:question-preview')
@@ -231,13 +236,13 @@ describe('QuestionAssetWorkflow', () => {
     api.getExerciseFileBlob.mockImplementation(fileId => Promise.resolve(
       new Blob([fileId === 92 ? 'answer pdf' : 'exercise pdf'], { type: 'application/pdf' }),
     ))
-    extractTextFromPdfMock.mockResolvedValue('Question 1 B. Question 2 42.')
     api.parseExerciseSchema.mockResolvedValue({
       data: {
         schema: [
-          { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'A', confidence: 0.91 },
-          { q_id: 2, sub_id: null, type: 'numeric', correct_answer: '42', confidence: 0.6 },
+          { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'A', confidence: null },
+          { q_id: 2, sub_id: null, type: 'numeric', correct_answer: '42', confidence: null },
         ],
+        model_id: 'parse-v5.0',
       },
     })
     generateQuestionAssetsMock
@@ -272,7 +277,7 @@ describe('QuestionAssetWorkflow', () => {
       answerSourceFileId: 92,
       answerParserStatus: 'parsed',
       answerCandidates: [
-        storedCandidate(1, 'answer_pdf_text', 'A'),
+        storedCandidate(1, 'answer_pdf_text', 'A', { confidence: null }),
         storedCandidate(1, 'answer_pdf_green_highlight', 'A'),
       ],
     }))
@@ -280,10 +285,12 @@ describe('QuestionAssetWorkflow', () => {
     renderWorkflow(exercise)
     await user.click(screen.getByRole('button', { name: 'Prepare exercise' }))
 
-    expect(api.parseExerciseSchema).toHaveBeenCalledWith('teacher-token', {
-      source_text: 'Question 1 B. Question 2 42.',
+    expect(api.parseExerciseSchema).toHaveBeenCalledWith('teacher-token', expect.objectContaining({
+      page_files: expect.any(Array),
+      page_manifest: expect.any(Array),
+      total_pages: 2,
       expected_question_count: 2,
-    })
+    }))
     expect(generateQuestionAssetsMock).toHaveBeenNthCalledWith(
       1,
       expect.any(Blob),
@@ -316,14 +323,17 @@ describe('QuestionAssetWorkflow', () => {
         }),
       ]),
     )
-    expect(api.uploadAnswerCandidates.mock.calls[0][3]).not.toEqual(expect.arrayContaining([
+    expect(api.uploadAnswerCandidates.mock.calls[0][3]).toEqual(expect.arrayContaining([
       expect.objectContaining({
         q_id: 2,
         source_kind: 'answer_pdf_text',
+        model_id: 'parse-v5.0',
+        confidence: null,
       }),
     ]))
     expect(await screen.findByText('Answer PDF: A')).toBeInTheDocument()
     expect(screen.getByText('Green highlight: A')).toBeInTheDocument()
+    expect(screen.getByText(/Unscored, review required/)).toBeInTheDocument()
     expect(screen.queryByText('Sources agree')).not.toBeInTheDocument()
     expect(screen.queryByText('From green highlight')).not.toBeInTheDocument()
   })
@@ -338,13 +348,13 @@ describe('QuestionAssetWorkflow', () => {
       ],
     }
     api.getExerciseFileBlob.mockResolvedValue(new Blob(['pdf'], { type: 'application/pdf' }))
-    extractTextFromPdfMock.mockResolvedValue('Question 1 B. Question 2 42.')
     api.parseExerciseSchema.mockResolvedValue({
       data: {
         schema: [
-          { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 0.91 },
-          { q_id: 2, sub_id: null, type: 'numeric', correct_answer: '42', confidence: 0.88 },
+          { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: null },
+          { q_id: 2, sub_id: null, type: 'numeric', correct_answer: '42', confidence: null },
         ],
+        model_id: 'parse-v5.0',
       },
     })
     generateQuestionAssetsMock.mockResolvedValue({

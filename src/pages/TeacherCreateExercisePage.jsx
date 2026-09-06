@@ -8,7 +8,7 @@ import {
   uploadExerciseFile,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import { extractTextFromPdf } from '@/lib/pdf'
+import { prepareAnswerPdfForParsing } from '@/lib/pdf'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { FileCheck2, FileText } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
+import AnswerParseProgress from '@/components/answer-parse-progress'
 import { GradeDropdown } from '@/components/grade-checkbox-group'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
@@ -111,7 +112,9 @@ function validateRows(rows, t) {
       }
     }
 
-    if ((row.confidence ?? 1) < LOW_CONFIDENCE_THRESHOLD) {
+    if (row.confidence === null) {
+      warnings.push(t('teacher.schema.unscored'))
+    } else if ((row.confidence ?? 1) < LOW_CONFIDENCE_THRESHOLD) {
       warnings.push(t('teacher.schema.lowConfidence'))
     }
 
@@ -204,6 +207,7 @@ export default function TeacherCreateExercisePage() {
   const [filter, setFilter] = useState('all')
   const [error, setError] = useState('')
   const [isParsing, setIsParsing] = useState(false)
+  const [answerParseProgress, setAnswerParseProgress] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [showWarningConfirm, setShowWarningConfirm] = useState(false)
   const [createdExerciseId, setCreatedExerciseId] = useState(null)
@@ -273,18 +277,22 @@ export default function TeacherCreateExercisePage() {
     if (!answerFile) return
     setIsParsing(true)
     setError('')
+    setAnswerParseProgress({ stage: 'reading', progress: 0 })
     try {
-      const sourceText = await extractTextFromPdf(answerFile)
-      if (!sourceText || sourceText.length < 10) {
-        throw new Error(t('teacher.create.unreadablePdf'))
-      }
-      const response = await parseExerciseSchema(token, { source_text: sourceText })
+      const prepared = await prepareAnswerPdfForParsing(answerFile, {
+        onProgress: ({ stage, current, total }) => setAnswerParseProgress({
+          stage,
+          progress: total ? current / total : 0,
+        }),
+      })
+      setAnswerParseProgress({ stage: 'waiting', progress: 0 })
+      const response = await parseExerciseSchema(token, prepared)
+      setAnswerParseProgress({ stage: 'applying', progress: 0 })
       const makeId = () =>
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
           : Math.random().toString(36).slice(2)
       const parsedRows = response.data.schema.map((row) => {
-        const confidence = Number.isFinite(row.confidence) ? row.confidence : 0
         return {
           id: makeId(),
           q_id: String(row.q_id),
@@ -293,15 +301,17 @@ export default function TeacherCreateExercisePage() {
           local_number: String(row.local_number ?? row.q_id),
           sub_id: row.sub_id ?? null,
           type: row.type,
-          correct_answer: confidence >= LOW_CONFIDENCE_THRESHOLD
-            ? (row.type === 'boolean' ? row.correct_answer : normalizeAnswer(row.type, row.correct_answer))
-            : '',
-          confidence,
+          correct_answer: row.type === 'boolean'
+            ? (row.correct_answer ?? '')
+            : normalizeAnswer(row.type, row.correct_answer),
+          confidence: row.confidence ?? null,
         }
       })
       setRows(parsedRows.length > 0 ? parsedRows : newRows('mcq', '1'))
+      setAnswerParseProgress({ stage: 'complete', progress: 1 })
     } catch (parseError) {
-      setError(parseError.message)
+      setError(parseError.recoverable ? t('teacher.create.unreadablePdf') : parseError.message)
+      setAnswerParseProgress(current => ({ ...(current || {}), stage: 'error' }))
     } finally {
       setIsParsing(false)
     }
@@ -338,7 +348,6 @@ export default function TeacherCreateExercisePage() {
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
         max_attempts: maxAttempts === null ? null : Number(maxAttempts),
         schema: toSchemaPayload(validatedRows),
-        extract_model: null,
       }
       const createResponse = await createExercise(token, payload)
       const exerciseId = createResponse.data.id
@@ -521,7 +530,11 @@ export default function TeacherCreateExercisePage() {
                   accept=".pdf"
                   hint={t('teacher.file.pdfOnly')}
                   file={answerFile}
-                  onChange={setAnswerFile}
+                  onChange={(file) => {
+                    setAnswerFile(file)
+                    setAnswerParseProgress(null)
+                    setError('')
+                  }}
                 />
                 <p className="text-xs text-sc-on-tertiary-container/80">
                   {t('teacher.create.answerPdfHint')}
@@ -543,6 +556,21 @@ export default function TeacherCreateExercisePage() {
                     t('teacher.create.readAnswers')
                   )}
                 </Button>
+                {answerParseProgress && (
+                  <AnswerParseProgress
+                    stage={answerParseProgress.stage}
+                    stageProgress={answerParseProgress.progress}
+                    labels={{
+                      reading: t('teacher.answerParse.reading'),
+                      rendering: t('teacher.answerParse.rendering'),
+                      waiting: t('teacher.answerParse.waiting'),
+                      stillWaiting: t('teacher.answerParse.stillWaiting'),
+                      applying: t('teacher.answerParse.applying'),
+                      complete: t('teacher.answerParse.complete'),
+                      error: t('teacher.answerParse.error'),
+                    }}
+                  />
+                )}
               </div>
             </div>
           </CardContent>

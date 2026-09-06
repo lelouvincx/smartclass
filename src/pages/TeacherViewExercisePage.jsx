@@ -436,7 +436,6 @@ export default function TeacherViewExercisePage() {
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
         max_attempts: editMaxAttempts === null ? null : Number(editMaxAttempts),
         schema: toSchemaPayload(validatedRows),
-        extract_model: null,
       }
       const res = await updateExercise(token, exercise.id, payload)
       let updatedExercise = res.data

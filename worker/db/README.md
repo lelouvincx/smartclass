@@ -17,6 +17,12 @@ npx wrangler d1 execute smartclass --local --file worker/db/migrations/0008_add_
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0009_add_google_link.sql
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0010_add_exercise_question_assets.sql
 npx wrangler d1 execute smartclass --local --file worker/db/migrations/0011_add_question_answer_candidates.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0012_reset_extract_model_to_deepseek.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0013_add_user_name.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0014_add_lecture_visibility.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0015_add_grade_access.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0016_add_question_section_identity.sql
+npx wrangler d1 execute smartclass --local --file worker/db/migrations/0017_cohere_answer_extraction.sql
 
 # Remote
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0001_init.sql
@@ -30,6 +36,12 @@ npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0008_add
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0009_add_google_link.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0010_add_exercise_question_assets.sql
 npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0011_add_question_answer_candidates.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0012_reset_extract_model_to_deepseek.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0013_add_user_name.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0014_add_lecture_visibility.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0015_add_grade_access.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0016_add_question_section_identity.sql
+npx wrangler d1 execute smartclass --remote --file worker/db/migrations/0017_cohere_answer_extraction.sql
 ```
 
 If your database name is different, replace `smartclass` with your D1 database name.

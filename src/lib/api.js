@@ -85,12 +85,22 @@ export function updateMyName(token, payload) {
 }
 
 export function parseExerciseSchema(token, payload) {
+  const form = new FormData()
+  for (const page of payload.page_files) {
+    form.append('page', page)
+  }
+  form.append('page_manifest', JSON.stringify(payload.page_manifest))
+  if (payload.expected_question_count != null) {
+    form.append('expected_question_count', String(payload.expected_question_count))
+  }
+  if (payload.schema_shape != null) {
+    form.append('schema_shape', JSON.stringify(payload.schema_shape))
+  }
+
   return request('/api/exercises/schema/parse', {
     method: 'POST',
-    headers: authHeaders(token, {
-      'Content-Type': 'application/json',
-    }),
-    body: JSON.stringify(payload),
+    headers: authHeaders(token),
+    body: form,
   })
 }
 
@@ -451,22 +461,19 @@ function getImageDimensions(file) {
  * @param {string} token         JWT bearer token
  * @param {number|string} submissionId
  * @param {File}   imageFile     jpeg/png, ≤ 20 MB
- * @param {string} [model]       DeepSeek model id; if omitted/unknown the
- *                               server falls back to DEFAULT_EXTRACT_MODEL.
  * @param {object} [opts]
  * @param {(fraction:number) => void} [opts.onProgress]  upload progress 0..1
  * @param {AbortSignal} [opts.signal]                    abort the upload
  * @returns {Promise<{file_id:number, model_used:string,
  *                    extracted: Array<{q_id:number, sub_id:string|null,
- *                                      answer:string|null, confidence:number}>,
+ *                                      answer:string|null, confidence:number|null}>,
  *                    warnings: string[]}>}
  */
-export function extractAnswersFromImage(token, submissionId, imageFile, model, { onProgress, signal } = {}) {
+export function extractAnswersFromImage(token, submissionId, imageFile, { onProgress, signal } = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     const form = new FormData()
     form.append('image', imageFile)
-    if (model) form.append('model', model)
 
     xhr.open('POST', `${API_BASE_URL}/api/submissions/${submissionId}/extract`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)

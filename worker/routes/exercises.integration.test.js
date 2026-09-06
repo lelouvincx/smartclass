@@ -9,7 +9,6 @@ import {
   seedStudent,
   loginAsStudent,
 } from '../test/helpers.js'
-import { DEFAULT_EXTRACT_MODEL, EXTRACT_MODELS } from '../lib/extract-models.js'
 
 let token
 
@@ -170,192 +169,6 @@ describe('GET /api/exercises', () => {
   })
 })
 
-describe('POST /api/exercises/schema/parse', () => {
-  it('requires auth', async () => {
-    const res = await app.request('/api/exercises/schema/parse', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source_text: 'Q1 A\nQ2 true' }),
-    }, env)
-
-    expect(res.status).toBe(401)
-  })
-
-  it('returns normalized schema from model output including boolean sub-questions', async () => {
-    env.DEEPSEEK_API_KEY = 'test-key'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                schema: [
-                  { q_id: '1', type: 'multiple_choice', correct_answer: 'b', confidence: 0.92 },
-                  { q_id: 2, type: 'bool', sub_id: 'a', correct_answer: 'T', confidence: 0.85 },
-                  { q_id: 2, type: 'bool', sub_id: 'b', correct_answer: 'F', confidence: 0.85 },
-                  { q_id: 2, type: 'bool', sub_id: 'c', correct_answer: 'T', confidence: 0.6 },
-                  { q_id: 2, type: 'bool', sub_id: 'd', correct_answer: 'F', confidence: 0.85 },
-                ],
-              }),
-            },
-          },
-        ],
-      }), { status: 200 })),
-    )
-
-    const res = await app.request('/api/exercises/schema/parse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ source_text: 'Q1. B\nQ2 a.T b.F c.T d.F' }),
-    }, env)
-
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.data.schema).toEqual([
-      { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'mcq', sub_id: null, correct_answer: 'B', confidence: 0.92 },
-      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'a', correct_answer: '1', confidence: 0.85 },
-      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'b', correct_answer: '0', confidence: 0.85 },
-      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'c', correct_answer: '', confidence: 0.6 },
-      { q_id: 2, section_key: 'main', section_title: null, local_number: 2, type: 'boolean', sub_id: 'd', correct_answer: '0', confidence: 0.85 },
-    ])
-    expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
-    const requestBody = JSON.parse(fetch.mock.calls[0][1].body)
-    expect(requestBody.messages[0].content).toContain('do not guess')
-    expect(requestBody.messages[0].content).not.toContain('still provide best guess')
-    expect(fetch.mock.calls[0][0]).toBe('https://api.deepseek.com/chat/completions')
-    expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer test-key')
-    expect(requestBody.model).toBe('deepseek-v4-flash')
-  })
-
-  it('keeps a parsed schema when the model guesses a non-numeric expression', async () => {
-    env.DEEPSEEK_API_KEY = 'test-key'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                schema: [
-                  { q_id: 1, type: 'numeric', correct_answer: '3π/2', confidence: 0.9 },
-                ],
-              }),
-            },
-          },
-        ],
-      }), { status: 200 })),
-    )
-
-    const res = await app.request('/api/exercises/schema/parse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ source_text: 'Question 1 has answer 3π/2.' }),
-    }, env)
-
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.data.schema).toEqual([
-      {
-        q_id: 1,
-        section_key: 'main',
-        section_title: null,
-        local_number: 1,
-        type: 'numeric',
-        sub_id: null,
-        correct_answer: '',
-        confidence: 0.3,
-      },
-    ])
-    expect(body.data.warnings).toEqual(['1 question(s) were parsed with confidence below 0.75'])
-  })
-
-  it('returns PARSE_ERROR when model response is not valid json', async () => {
-    env.DEEPSEEK_API_KEY = 'test-key'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: 'not-json',
-            },
-          },
-        ],
-      }), { status: 200 })),
-    )
-
-    const res = await app.request('/api/exercises/schema/parse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ source_text: 'Q1. B\nQ2. TRUE' }),
-    }, env)
-
-    expect(res.status).toBe(500)
-    const body = await res.json()
-    expect(body.error.code).toBe('PARSE_ERROR')
-  })
-
-  it('returns INVALID_SCHEMA when parsed rows are invalid', async () => {
-    env.DEEPSEEK_API_KEY = 'test-key'
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response(JSON.stringify({
-        choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                schema: [
-                  { q_id: 1, type: 'mcq', correct_answer: 'E', confidence: 0.9 },
-                ],
-              }),
-            },
-          },
-        ],
-      }), { status: 200 })),
-    )
-
-    const res = await app.request('/api/exercises/schema/parse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ source_text: 'Question 1 answer is E' }),
-    }, env)
-
-    expect(res.status).toBe(422)
-    const body = await res.json()
-    expect(body.error.code).toBe('INVALID_SCHEMA')
-  })
-
-  it('returns PARSE_ERROR when DeepSeek key is missing', async () => {
-    env.DEEPSEEK_API_KEY = ''
-
-    const res = await app.request('/api/exercises/schema/parse', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ source_text: 'Q1. B\nQ2. TRUE' }),
-    }, env)
-
-    expect(res.status).toBe(500)
-    const body = await res.json()
-    expect(body.error.code).toBe('PARSE_ERROR')
-  })
-})
-
 describe('POST /api/exercises', () => {
   it('creates exercise with valid schema including boolean sub-questions', async () => {
     const { res, body } = await createExercise(token)
@@ -364,6 +177,7 @@ describe('POST /api/exercises', () => {
     expect(body.data.title).toBe('Test Quiz')
     expect(body.data.is_timed).toBe(1)
     expect(body.data.duration_minutes).toBe(60)
+    expect(body.data).not.toHaveProperty('extract_model')
     // 5 rows: 1 mcq + 4 boolean sub-rows
     expect(body.data.schema).toHaveLength(5)
     expect(body.data.files).toHaveLength(0)
@@ -848,81 +662,23 @@ describe('DELETE /api/exercises/:id', () => {
   })
 })
 
-// ── extract_model on exercises (v0.4 PR C2) ──────────────────────────────────
-
-describe('extract_model on exercises', () => {
-  it('round-trips a valid extract_model on create', async () => {
-    const { res, body } = await createExercise(token, { extract_model: DEFAULT_EXTRACT_MODEL })
-    expect(res.status).toBe(201)
-    expect(body.data.extract_model).toBe(DEFAULT_EXTRACT_MODEL)
-  })
-
-  it('defaults extract_model to null when omitted', async () => {
-    const { res, body } = await createExercise(token)
-    expect(res.status).toBe(201)
-    expect(body.data.extract_model).toBeNull()
-  })
-
-  it('rejects an unknown extract_model on create', async () => {
-    const { res, body } = await createExercise(token, { extract_model: 'made-up/model' })
-    expect(res.status).toBe(400)
-    expect(body.error.code).toBe('VALIDATION_ERROR')
-    expect(body.error.message).toMatch(/extract_model/)
-  })
-
-  it('updates extract_model via PUT', async () => {
-    const { id } = await createExercise(token)
-
-    const updateRes = await app.request(`/api/exercises/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ extract_model: DEFAULT_EXTRACT_MODEL }),
-    }, env)
-    expect(updateRes.status).toBe(200)
-    const updated = await updateRes.json()
-    expect(updated.data.extract_model).toBe(DEFAULT_EXTRACT_MODEL)
-  })
-
-  it('clears extract_model when PUT sends null', async () => {
-    const { id } = await createExercise(token, { extract_model: DEFAULT_EXTRACT_MODEL })
-
-    const updateRes = await app.request(`/api/exercises/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ extract_model: null }),
-    }, env)
-    expect(updateRes.status).toBe(200)
-    const updated = await updateRes.json()
-    expect(updated.data.extract_model).toBeNull()
-  })
-
-  it('rejects an unknown extract_model on PUT', async () => {
-    const { id } = await createExercise(token)
-    const updateRes = await app.request(`/api/exercises/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ extract_model: 'made-up/model' }),
-    }, env)
-    expect(updateRes.status).toBe(400)
-    const body = await updateRes.json()
-    expect(body.error.code).toBe('VALIDATION_ERROR')
+describe('GET /api/extract-models', () => {
+  it('returns 404 after model selection removal', async () => {
+    const res = await app.request('/api/extract-models', {}, env)
+    expect(res.status).toBe(404)
   })
 })
 
-describe('GET /api/extract-models', () => {
-  it('returns the allowlist + default model id (no auth required)', async () => {
-    const res = await app.request('/api/extract-models', {}, env)
-    expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.success).toBe(true)
-    expect(Array.isArray(body.data.models)).toBe(true)
-    expect(body.data.models.length).toBeGreaterThan(0)
-    expect(body.data.default).toBe(DEFAULT_EXTRACT_MODEL)
-    // Each entry has the shape the frontend picker expects
-    for (const m of body.data.models) {
-      expect(m).toHaveProperty('id')
-      expect(m).toHaveProperty('label')
-      expect(m).toHaveProperty('provider')
-    }
+describe('removed exercise extraction model field', () => {
+  it('rejects an update containing no supported field', async () => {
+    const { id } = await createExercise(token)
+    const res = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ extract_model: 'deepseek-v4-flash-vision-exp' }),
+    }, env)
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error.code).toBe('VALIDATION_ERROR')
   })
 })
