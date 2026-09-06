@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi, describe, it, expect, beforeEach } from 'vitest'
@@ -108,6 +108,21 @@ describe('StudentReviewPage', () => {
     expect(screen.getAllByText('B').length).toBeGreaterThan(0)
     // Numeric Q3: both student and correct are 42
     expect(screen.getAllByText('42').length).toBeGreaterThan(0)
+  })
+
+  it('highlights the student and correct answer columns', async () => {
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+    renderReviewPage()
+
+    await screen.findByText('Algebra Quiz')
+    const yourAnswerHeading = screen.getByRole('columnheader', { name: 'Your Answer' })
+    const correctAnswerHeading = screen.getByRole('columnheader', { name: 'Correct Answer' })
+    const answerTable = yourAnswerHeading.closest('table')
+
+    expect(yourAnswerHeading).toHaveClass('bg-secondary', 'text-secondary-foreground')
+    expect(correctAnswerHeading).toHaveClass('bg-success-muted', 'text-success')
+    expect(within(answerTable).getByRole('cell', { name: 'A' })).toHaveClass('bg-muted', 'text-foreground')
+    expect(within(answerTable).getByRole('cell', { name: 'B' })).toHaveClass('bg-success-muted', 'text-success')
   })
 
   it('shows ✓ for correct answers and ✗ for wrong answers', async () => {

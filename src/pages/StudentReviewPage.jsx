@@ -207,10 +207,14 @@ export default function StudentReviewPage() {
                   <table className="min-w-full border-collapse text-sm">
                     <thead className="bg-muted text-left text-muted-foreground">
                       <tr>
-                        <th className="px-4 py-2">{t('student.exercises.questions')}</th>
-                        <th className="px-4 py-2">{t('student.results.yourAnswer')}</th>
-                        <th className="px-4 py-2">{t('student.results.correctAnswer')}</th>
-                        <th className="px-4 py-2 text-center">{t('student.results.result')}</th>
+                        <th className="px-3 py-2">{t('student.exercises.questions')}</th>
+                        <th className="bg-secondary px-3 py-2 font-semibold text-secondary-foreground">
+                          {t('student.results.yourAnswer')}
+                        </th>
+                        <th className="bg-success-muted px-3 py-2 font-semibold text-success">
+                          {t('student.results.correctAnswer')}
+                        </th>
+                        <th className="px-3 py-2 text-center">{t('student.results.result')}</th>
                       </tr>
                     </thead>
                     <tbody>
