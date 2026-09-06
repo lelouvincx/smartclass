@@ -133,7 +133,7 @@ export default function TeacherExercisesPage() {
                       <td className="px-3 py-3 lg:px-4">{item.file_count}</td>
                       <td className="px-3 py-3 lg:px-4"><GradeBadges grades={item.grades} /></td>
                       <td className="px-3 py-3 lg:px-4">
-                        <Badge variant={item.is_student_ready ? 'secondary' : 'outline'}>
+                        <Badge variant={item.is_student_ready ? 'success' : 'outline'}>
                           {t(item.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
                         </Badge>
                       </td>
@@ -168,7 +168,7 @@ export default function TeacherExercisesPage() {
                     <div className="col-span-2">
                       <dt className="text-muted-foreground">{t('teacher.exercises.readiness')}</dt>
                       <dd className="mt-1">
-                        <Badge variant={item.is_student_ready ? 'secondary' : 'outline'}>
+                        <Badge variant={item.is_student_ready ? 'success' : 'outline'}>
                           {t(item.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
                         </Badge>
                       </dd>

@@ -594,7 +594,7 @@ export default function TeacherViewExercisePage() {
                   <h1 className="truncate text-2xl font-semibold">{exercise.title}</h1>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <MetaBadge isTimed={isTimed} durationMinutes={exercise.duration_minutes} />
-                    <Badge variant={exercise.is_student_ready ? 'secondary' : 'outline'}>
+                    <Badge variant={exercise.is_student_ready ? 'success' : 'outline'}>
                       {t(exercise.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
                     </Badge>
                     <GradeBadges grades={exercise.grades} />
