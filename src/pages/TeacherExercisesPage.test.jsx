@@ -84,7 +84,11 @@ describe('TeacherExercisesPage', () => {
     expect(screen.getAllByText('Physics Quiz')).toHaveLength(2)
     expect(screen.getAllByText('45 min')).toHaveLength(2)
     expect(screen.getAllByText('20')).toHaveLength(2)
-    expect(screen.getAllByText('Ready for students')).toHaveLength(2)
+    const readyBadges = screen.getAllByText('Ready for students')
+    expect(readyBadges).toHaveLength(2)
+    readyBadges.forEach((badge) => {
+      expect(badge).toHaveClass('bg-success-muted', 'text-success')
+    })
     expect(screen.getAllByRole('link', { name: /view physics quiz/i })).toHaveLength(2)
     expect(screen.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('scope', 'col')
     expect(screen.queryByText('2026-03-11 19:00:00')).not.toBeInTheDocument()
@@ -97,7 +101,11 @@ describe('TeacherExercisesPage', () => {
       file_count: 0, is_student_ready: 0, updated_at: '2026-03-11 19:00:00',
     }] })
     renderPage()
-    expect(await screen.findAllByText('Preparation required')).toHaveLength(2)
+    const preparationBadges = await screen.findAllByText('Preparation required')
+    expect(preparationBadges).toHaveLength(2)
+    preparationBadges.forEach((badge) => {
+      expect(badge).toHaveClass('bg-warning-muted', 'text-warning')
+    })
   })
 
   it('shows zero duration as Untimed', async () => {
