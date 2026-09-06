@@ -37,10 +37,10 @@ export default function AccessTierRadioGroup({
         className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]"
       >
         {tiers.map((tier) => (
-          <FieldLabel key={tier} htmlFor={`${id}-${tier}`} className="min-h-12 cursor-pointer">
+          <FieldLabel key={tier} htmlFor={`${id}-${tier}`} className="min-h-12 cursor-pointer justify-center">
             <Field orientation="horizontal">
               <RadioGroupItem id={`${id}-${tier}`} value={tier} />
-              <span>{t(`common.accessTier.${tier}`)}</span>
+              <span className="[text-box:trim-both_cap_alphabetic]">{t(`common.accessTier.${tier}`)}</span>
             </Field>
           </FieldLabel>
         ))}

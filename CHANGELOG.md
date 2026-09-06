@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Vertically center Standard and VIP options in teacher access-tier radio cards.
 - Show the authenticated PDF viewing action for both Exercise PDFs and teacher-only Answer PDFs. [#113](https://github.com/lelouvincx/smartclass/pull/113)
 - Let teachers open lectures on dedicated detail pages with previous and next navigation. [#112](https://github.com/lelouvincx/smartclass/pull/112)
 - Show exercise readiness with semantic green success and amber warning treatments. [#111](https://github.com/lelouvincx/smartclass/pull/111)
