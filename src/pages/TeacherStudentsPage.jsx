@@ -14,6 +14,12 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { formatFullDate } from '@/lib/format'
@@ -34,7 +40,7 @@ const STATUS_FILTERS = [
 ]
 
 const STATUS_VARIANT = {
-  active: 'default',
+  active: 'success',
   pending: 'secondary',
   disabled: 'outline',
 }
@@ -43,6 +49,97 @@ function formatCreatedDate(isoStr, language) {
   if (!isoStr) return '—'
   const d = new Date(isoStr)
   return formatFullDate(d, language)
+}
+
+function StudentRowActions({
+  student,
+  approvingId,
+  updatingStatusId,
+  onApprove,
+  onRename,
+  onToggleStatus,
+  onRemove,
+  t,
+}) {
+  const displayName = student.name || student.phone
+  const toggleLabel = student.status === 'disabled'
+    ? t(updatingStatusId === student.id ? 'teacher.students.activating' : 'teacher.students.activate')
+    : t(updatingStatusId === student.id ? 'teacher.students.deactivating' : 'teacher.students.deactivate')
+  const toggleAriaLabel = t(student.status === 'disabled'
+    ? 'teacher.students.activateNamed'
+    : 'teacher.students.deactivateNamed', {
+    name: displayName,
+  })
+
+  return (
+    <div className="flex w-full justify-stretch sm:w-auto sm:justify-end">
+      <div className="inline-flex w-full min-w-0 overflow-hidden rounded-[var(--sc-component-control-shape)] border border-border sm:w-auto">
+        {student.status === 'pending' ? (
+          <Button
+            className="min-w-0 flex-1 rounded-none border-0 sm:flex-none"
+            size="sm"
+            variant="default"
+            onClick={() => onApprove(student.id)}
+            disabled={approvingId === student.id}
+          >
+            {approvingId === student.id ? (
+              <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
+            ) : null}
+            {approvingId === student.id ? t('teacher.students.approving') : t('teacher.students.approve')}
+          </Button>
+        ) : (
+          <Button
+            className="min-w-0 flex-1 rounded-none border-0 sm:flex-none"
+            type="button"
+            size="sm"
+            variant="outline"
+            aria-label={toggleAriaLabel}
+            onClick={() => onToggleStatus(student)}
+            disabled={updatingStatusId === student.id}
+          >
+            {updatingStatusId === student.id ? (
+              <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
+            ) : null}
+            {toggleLabel}
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              className="rounded-none border-y-0 border-r-0 border-l border-border"
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label={t('teacher.students.moreActionsNamed', { name: displayName })}
+            >
+              {t('teacher.students.moreActions')}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onSelect={() => onRename(student)} aria-label={t('teacher.students.renameNamed', { name: displayName })}>
+              {t('teacher.students.rename')}
+            </DropdownMenuItem>
+            {student.status === 'pending' ? (
+              <DropdownMenuItem
+                onSelect={() => onToggleStatus(student)}
+                disabled={updatingStatusId === student.id}
+                aria-label={toggleAriaLabel}
+              >
+                {toggleLabel}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => onRemove(student)}
+              aria-label={t('teacher.students.removeNamed', { name: displayName })}
+            >
+              {t('teacher.students.remove')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  )
 }
 
 export default function TeacherStudentsPage() {
@@ -518,66 +615,16 @@ export default function TeacherStudentsPage() {
                     <Badge className="w-fit" variant={STATUS_VARIANT[student.status] || 'outline'}>
                       {t(`teacher.students.${student.status}`, { defaultValue: student.status })}
                     </Badge>
-                    <div className="flex flex-col gap-2 sm:min-w-24 sm:flex-row sm:justify-end">
-                      <Button
-                        className="w-full sm:w-auto"
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={t('teacher.students.renameNamed', {
-                          name: student.name || student.phone,
-                        })}
-                        onClick={() => openRenameDialog(student)}
-                      >
-                        {t('teacher.students.rename')}
-                      </Button>
-                      <Button
-                        className="w-full sm:w-auto"
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={t(student.status === 'disabled'
-                          ? 'teacher.students.activateNamed'
-                          : 'teacher.students.deactivateNamed', {
-                          name: student.name || student.phone,
-                        })}
-                        onClick={() => handleToggleStatus(student)}
-                        disabled={updatingStatusId === student.id}
-                      >
-                        {updatingStatusId === student.id ? (
-                          <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
-                        ) : null}
-                        {student.status === 'disabled'
-                          ? t(updatingStatusId === student.id ? 'teacher.students.activating' : 'teacher.students.activate')
-                          : t(updatingStatusId === student.id ? 'teacher.students.deactivating' : 'teacher.students.deactivate')}
-                      </Button>
-                      <Button
-                        className="w-full sm:w-auto"
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={t('teacher.students.removeNamed', {
-                          name: student.name || student.phone,
-                        })}
-                        onClick={() => openRemoveDialog(student)}
-                      >
-                        {t('teacher.students.remove')}
-                      </Button>
-                      {student.status === 'pending' ? (
-                        <Button
-                          className="w-full sm:w-auto"
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleApprove(student.id)}
-                          disabled={approvingId === student.id}
-                        >
-                          {approvingId === student.id ? (
-                            <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
-                          ) : null}
-                          {approvingId === student.id ? t('teacher.students.approving') : t('teacher.students.approve')}
-                        </Button>
-                      ) : null}
-                    </div>
+                    <StudentRowActions
+                      student={student}
+                      approvingId={approvingId}
+                      updatingStatusId={updatingStatusId}
+                      onApprove={handleApprove}
+                      onRename={openRenameDialog}
+                      onToggleStatus={handleToggleStatus}
+                      onRemove={openRemoveDialog}
+                      t={t}
+                    />
                   </div>
                 ))}
               </div>

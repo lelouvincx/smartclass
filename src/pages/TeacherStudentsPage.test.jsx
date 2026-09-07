@@ -146,6 +146,7 @@ describe('TeacherStudentsPage', () => {
     expect(screen.getAllByText('Grade 11').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Grade 12').length).toBeGreaterThanOrEqual(1)
     const studentList = screen.getByTestId('responsive-student-list')
+    expect(within(studentList).getByText('Active').closest('[data-slot="badge"]')).toHaveAttribute('data-variant', 'success')
     expect(within(studentList).getByText('VIP')).toBeInTheDocument()
     expect(within(studentList).getByText('Standard')).toBeInTheDocument()
     expect(studentList).toHaveClass('grid')
@@ -334,7 +335,8 @@ describe('TeacherStudentsPage', () => {
 
     render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: 'Rename Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('button', { name: 'More actions for Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename Nguyễn Văn An' }))
     const dialog = screen.getByRole('dialog', { name: 'Rename student' })
     const nameInput = within(dialog).getByRole('textbox', { name: 'Name' })
     await user.clear(nameInput)
@@ -370,7 +372,8 @@ describe('TeacherStudentsPage', () => {
 
     render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: 'Remove Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('button', { name: 'More actions for Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Remove Nguyễn Văn An' }))
     const dialog = screen.getByRole('dialog', { name: 'Remove student' })
     expect(within(dialog).getByRole('button', { name: 'Remove student' })).toBeDisabled()
 
