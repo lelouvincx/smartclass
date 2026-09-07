@@ -612,6 +612,7 @@ describe('TeacherCreateExercisePage', () => {
     await screen.findByLabelText(/source number for 1/i)
     const handles = screen.getAllByRole('button', { name: /move question/i })
     expect(handles.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('table')).toHaveClass('table-fixed')
   })
 
   it('freezes the form and links to the created exercise when an upload fails', async () => {

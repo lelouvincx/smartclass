@@ -66,9 +66,15 @@ function displayQuestionNumber(row) {
 
 function ConfidenceValue({ confidence }) {
   const { t } = useTranslation()
-  return confidence === null
-    ? t('teacher.schema.unscored')
-    : `${Math.round(confidence * 100)}%`
+  if (confidence === null) {
+    return (
+      <span title={t('teacher.schema.unscored')} aria-label={t('teacher.schema.unscored')}>
+        —
+      </span>
+    )
+  }
+
+  return `${Math.round(confidence * 100)}%`
 }
 
 function AnswerTypeSelect({ row, value = row.type, onUpdateRow }) {
@@ -78,7 +84,7 @@ function AnswerTypeSelect({ row, value = row.type, onUpdateRow }) {
     <Select value={value} onValueChange={(nextValue) => onUpdateRow(row.id, 'type', nextValue)}>
       <SelectTrigger
         aria-label={t('teacher.schema.answerTypeAria', { number: displayQuestionNumber(row) })}
-        className="w-36"
+        className="w-full min-w-0"
       >
         <SelectValue />
       </SelectTrigger>
@@ -118,11 +124,11 @@ function StatusBadge({ row }) {
   const { t } = useTranslation()
 
   if (row.errors?.length > 0) {
-    return <Badge variant="destructive" className="h-7 rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap">{row.errors[0]}</Badge>
+    return <Badge variant="destructive" title={row.errors[0]} className="h-7 max-w-full rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap truncate">{row.errors[0]}</Badge>
   }
 
   if (row.warnings?.length > 0) {
-    return <Badge variant="warning" className="h-7 rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap">{row.warnings[0]}</Badge>
+    return <Badge variant="warning" title={row.warnings[0]} className="h-7 max-w-full rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap truncate">{row.warnings[0]}</Badge>
   }
 
   return <Badge variant="success">{t('teacher.schema.valid')}</Badge>
@@ -160,7 +166,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
       </TableCell>
 
       <TableCell className="px-3 py-2">
-        <span className="block min-w-36 py-3 text-sm font-medium">
+        <span className="block truncate py-3 text-sm font-medium" title={row.section_title || t('teacher.schema.mainSection')}>
           {row.section_title || t('teacher.schema.mainSection')}
         </span>
       </TableCell>
@@ -172,7 +178,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
           min="1"
           value={row.local_number ?? row.q_id}
           onChange={(e) => onUpdateRow(row.id, 'local_number', e.target.value)}
-          className="min-h-[48px] w-20"
+          className="min-h-[48px] w-full"
         />
       </TableCell>
 
@@ -186,7 +192,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
           type="text"
           value={row.correct_answer}
           onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
-          className="min-h-[48px] w-32"
+          className="min-h-[48px] w-full"
         />
       </TableCell>
 
@@ -196,7 +202,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
         </TableCell>
       )}
 
-      <TableCell className="min-w-40 px-3 py-2">
+      <TableCell className="overflow-hidden px-3 py-2">
         <StatusBadge row={row} />
       </TableCell>
 
@@ -258,7 +264,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
 
           <TableCell className="px-3 py-2">
             {i === 0 && (
-              <span className="block min-w-36 py-3 text-sm font-medium">
+              <span className="block truncate py-3 text-sm font-medium" title={row.section_title || t('teacher.schema.mainSection')}>
                 {row.section_title || t('teacher.schema.mainSection')}
               </span>
             )}
@@ -272,7 +278,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
                 min="1"
                 value={row.local_number ?? row.q_id}
                 onChange={(e) => onUpdateRow(row.id, 'local_number', e.target.value)}
-                className="min-h-[48px] w-20"
+                className="min-h-[48px] w-full"
               />
             ) : (
               <span className="px-2 text-sm text-muted-foreground">{row.local_number ?? row.q_id}</span>
@@ -302,7 +308,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
             </TableCell>
           )}
 
-          <TableCell className="min-w-40 px-3 py-2">
+          <TableCell className="overflow-hidden px-3 py-2">
             <StatusBadge row={row} />
           </TableCell>
 
@@ -386,7 +392,17 @@ export function SchemaTable({ rows, onUpdateRow, onDeleteRow, onReorder, showCon
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <Table containerClassName="rounded-none border-0 border-t" className="min-w-[48rem]">
+      <Table containerClassName="rounded-none border-0 border-t" className="table-fixed">
+        <colgroup>
+          <col className="w-[4%]" />
+          <col className="w-[18%]" />
+          <col className="w-[11%]" />
+          <col className="w-[15%]" />
+          <col className="w-[16%]" />
+          {showConfidenceCol && <col className="w-[14%]" />}
+          <col className="w-[14%]" />
+          <col className="w-[8%]" />
+        </colgroup>
         <TableHeader>
             <TableRow className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted">
               <TableHead className="w-7 px-1 py-2" />
