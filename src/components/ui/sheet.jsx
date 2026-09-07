@@ -29,8 +29,8 @@ function SheetOverlay({ className, ...props }) {
 
 function SheetContent({ className, children, side = "bottom", closeLabel = "Close", ...props }) {
   const sideClasses = side === "left"
-    ? "inset-y-0 left-0 flex h-dvh w-[min(20rem,85vw)] flex-col overflow-y-auto rounded-e-[var(--sc-component-focal-shape)] border-r bg-background p-0 shadow-lg data-open:slide-in-from-left data-closed:slide-out-to-left"
-    : "inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t bg-background p-6 shadow-lg data-open:slide-in-from-bottom data-closed:slide-out-to-bottom"
+    ? "inset-y-0 left-0 flex h-dvh w-[min(20rem,85vw)] flex-col overflow-y-auto rounded-e-[var(--sc-component-focal-shape)] border-r bg-popover p-0 text-popover-foreground shadow-[var(--shadow-raised)] data-open:slide-in-from-left data-closed:slide-out-to-left"
+    : "inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-[var(--sc-component-card-shape)] border-t bg-popover p-6 text-popover-foreground shadow-[var(--shadow-raised)] data-open:slide-in-from-bottom data-closed:slide-out-to-bottom"
 
   return (
     <SheetPortal>
@@ -38,7 +38,7 @@ function SheetContent({ className, children, side = "bottom", closeLabel = "Clos
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "fixed z-50 data-open:animate-in data-closed:animate-out duration-300",
+          "fixed z-50 duration-[var(--sc-motion-duration-medium)] motion-reduce:transition-none data-open:animate-in data-closed:animate-out",
           sideClasses,
           className,
         )}

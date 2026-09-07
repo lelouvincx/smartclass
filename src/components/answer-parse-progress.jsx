@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { ProgressIndicator } from '@/design-system/progress-indicator'
 
 const WAIT_HORIZON_MS = 15_000
 
@@ -101,19 +102,11 @@ export default function AnswerParseProgress({ stage, stageProgress = 0, labels =
       <p className={`text-sm font-medium ${stage === 'error' ? 'text-destructive' : 'text-foreground'}`}>
         {stageText}
       </p>
-      <div
-        role="progressbar"
-        aria-valuemin="0"
-        aria-valuemax="100"
-        aria-valuenow={roundedProgress}
-        aria-valuetext={stageText}
-        className="h-2 w-full overflow-hidden rounded-full bg-muted"
-      >
-        <div
-          className={`h-full transition-[width] duration-[var(--sc-motion-duration-medium)] ease-[var(--sc-motion-standard)] motion-reduce:transition-none ${stage === 'error' ? 'bg-destructive' : 'bg-primary'}`}
-          style={{ width: `${roundedProgress}%` }}
-        />
-      </div>
+      <ProgressIndicator
+        value={roundedProgress}
+        valueText={stageText}
+        variant={stage === 'error' ? 'danger' : 'default'}
+      />
     </div>
   )
 }
