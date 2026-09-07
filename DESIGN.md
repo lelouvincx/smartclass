@@ -241,7 +241,7 @@ Avoid nested cards when a divider, heading, or grouped row communicates the same
 
 Use 20px corners for cards and selected navigation, and 14px corners for controls and icon wells. Reserve the 32px focal shape for approved expressive moments. Use pills only for short statuses, tags, and compact metadata. Do not make ordinary buttons or content containers fully rounded.
 
-Icons use the Lucide outline family at 16–20px. They support labels rather than replace them unless the control has an explicit accessible name.
+Icons must come from [Google Fonts Icons](https://fonts.google.com/icons), using the Material Symbols family at 16–20px. They support labels rather than replace them unless the control has an explicit accessible name.
 
 Use shape contrast deliberately. Standard controls retain the existing restrained radii. A larger focal shape is allowed only at an approved expressive moment; do not create a page-wide collection of unrelated rounded forms.
 
