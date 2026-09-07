@@ -1,0 +1,571 @@
+import React from 'react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { vi } from 'vitest'
+import StudentExerciseLandingPage from './StudentExerciseLandingPage'
+import { setSubmissionPointer, submissionPointerKey } from '../lib/submission-draft'
+
+// --- Mocks ---
+
+const getExerciseMock = vi.fn()
+const getSubmissionMock = vi.fn()
+const listMySubmissionsMock = vi.fn()
+const createSubmissionMock = vi.fn()
+
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    getExercise: (...args) => getExerciseMock(...args),
+    getSubmission: (...args) => getSubmissionMock(...args),
+    listMySubmissions: (...args) => listMySubmissionsMock(...args),
+    createSubmission: (...args) => createSubmissionMock(...args),
+  }
+})
+
+vi.mock('../lib/auth-context', () => ({
+  useAuth: () => ({ token: 'test-token', user: { id: 7 } }),
+}))
+
+// --- Fixtures ---
+
+const TIMED_EXERCISE = {
+  id: 1,
+  title: 'Algebra Quiz',
+  duration_minutes: 30,
+  is_timed: 1,
+  is_student_ready: 1,
+  max_attempts: 1,
+  latest_attempt_number: 0,
+  next_attempt_number: 1,
+  in_progress_submission_id: null,
+  in_progress_attempt_number: null,
+  attempts_remaining: 1,
+  can_start_attempt: true,
+  schema: [
+    { q_id: 1, type: 'mcq', sub_id: null },
+    { q_id: 2, type: 'mcq', sub_id: null },
+  ],
+}
+
+const UNTIMED_EXERCISE = {
+  ...TIMED_EXERCISE,
+  id: 2,
+  title: 'Practice Quiz',
+  duration_minutes: 0,
+  is_timed: 0,
+}
+
+const LEGACY_TIMED_EXERCISE = {
+  id: TIMED_EXERCISE.id,
+  title: TIMED_EXERCISE.title,
+  duration_minutes: TIMED_EXERCISE.duration_minutes,
+  is_timed: TIMED_EXERCISE.is_timed,
+  is_student_ready: TIMED_EXERCISE.is_student_ready,
+  schema: TIMED_EXERCISE.schema,
+}
+
+// --- Render helper ---
+
+function renderPage(exerciseId = '1') {
+  return render(
+    <MemoryRouter initialEntries={[`/student/exercises/${exerciseId}`]}>
+      <Routes>
+        <Route path="/student/exercises/:id" element={<StudentExerciseLandingPage />} />
+        <Route path="/student/exercises/:id/take" element={<div>Take page</div>} />
+        <Route path="/student/submissions/:id/summary" element={<div>Summary page</div>} />
+        <Route path="/student/exercises" element={<div>Exercises list</div>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+// --- Tests ---
+
+describe('StudentExerciseLandingPage', () => {
+  beforeEach(() => {
+    getExerciseMock.mockReset()
+    getSubmissionMock.mockReset()
+    listMySubmissionsMock.mockReset()
+    createSubmissionMock.mockReset()
+    sessionStorage.clear()
+  })
+
+  // --- Loading + error ---
+
+  it('shows loading state while fetching', () => {
+    getExerciseMock.mockImplementation(() => new Promise(() => {}))
+    renderPage()
+    expect(screen.getByText(/loading exercise/i)).toBeInTheDocument()
+  })
+
+  it('shows error and a Back link when fetch fails', async () => {
+    getExerciseMock.mockRejectedValue(new Error('Exercise not found'))
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+    renderPage()
+    expect(await screen.findByText(/exercise not found/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
+  })
+
+  // --- Metadata rendering ---
+
+  it('shows the timed badge + duration for a timed exercise', async () => {
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    expect(screen.getByText('Timed')).toBeInTheDocument()
+    expect(screen.getByText(/30 min/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 questions/i)).toBeInTheDocument()
+  })
+
+  it('shows the untimed badge for an untimed exercise', async () => {
+    getExerciseMock.mockResolvedValue({ data: UNTIMED_EXERCISE })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage('2')
+    await screen.findByText('Practice Quiz')
+    expect(screen.getByText('Untimed')).toBeInTheDocument()
+    expect(screen.queryByText(/min$/i)).not.toBeInTheDocument()
+  })
+
+  it('counts distinct q_ids (boolean sub-rows count once)', async () => {
+    const ex = {
+      ...UNTIMED_EXERCISE,
+      schema: [
+        { q_id: 1, type: 'mcq', sub_id: null },
+        { q_id: 2, type: 'boolean', sub_id: 'a' },
+        { q_id: 2, type: 'boolean', sub_id: 'b' },
+        { q_id: 2, type: 'boolean', sub_id: 'c' },
+        { q_id: 2, type: 'boolean', sub_id: 'd' },
+      ],
+    }
+    getExerciseMock.mockResolvedValue({ data: ex })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage('2')
+    await screen.findByText('Practice Quiz')
+    expect(screen.getByText(/2 questions/i)).toBeInTheDocument()
+  })
+
+  // --- Start (no resumable, no prior submission) ---
+
+  it('shows a single Start button when there is no resumable session and no prior submission', async () => {
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByRole('button', { name: /^Start$/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /resume/i })).not.toBeInTheDocument()
+  })
+
+  it('creates a submission and navigates to /take when Start is clicked', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+    createSubmissionMock.mockResolvedValue({ data: { id: 99 } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Start$/i }))
+
+    expect(createSubmissionMock).toHaveBeenCalledWith('test-token', {
+      exercise_id: 1,
+      known_latest_attempt_number: 0,
+    })
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('99')
+    expect(await screen.findByText('Take page')).toBeInTheDocument()
+  })
+
+  it('surfaces a start error and re-enables the Start button', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+    createSubmissionMock.mockRejectedValue(new Error('Network down'))
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: /^Start$/i }))
+
+    expect(await screen.findByText(/network down/i)).toBeInTheDocument()
+  })
+
+  it('does not allow a direct start when the exercise is not ready for students', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: { ...TIMED_EXERCISE, is_student_ready: 0 },
+    })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage()
+
+    expect(await screen.findByText(/isn’t available yet/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Start$/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /back to exercises/i })).toBeInTheDocument()
+  })
+
+  // --- Resumable submission ---
+
+  it('shows Resume + Start over buttons when an in-progress submission exists', async () => {
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      max_attempts: null,
+      latest_attempt_number: 1,
+      next_attempt_number: 2,
+      in_progress_submission_id: 50,
+      in_progress_attempt_number: 1,
+      attempts_remaining: null,
+      can_start_attempt: true,
+    } })
+    listMySubmissionsMock.mockResolvedValue({ data: {
+      submissions: [{ id: 49, attempt_number: 1, score: 7, submitted_at: '2026-03-15 10:05:00' }],
+      total: 1,
+    } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /start over/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Attempt 1 result' })).toBeInTheDocument()
+  })
+
+  it('restores an in-progress submission reported by the server', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: {
+        ...TIMED_EXERCISE,
+        is_student_ready: 0,
+        in_progress_submission_id: 50,
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('50')
+  })
+
+  it('preserves a saved attempt when its status check fails temporarily', async () => {
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: LEGACY_TIMED_EXERCISE })
+    getSubmissionMock.mockRejectedValue(Object.assign(new Error('Service unavailable'), { status: 503 }))
+
+    renderPage()
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/couldn’t check your saved attempt/i)
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('50')
+  })
+
+  it('navigates to /take when Resume is clicked (without creating a new submission)', async () => {
+    const user = userEvent.setup()
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      in_progress_submission_id: 50,
+      in_progress_attempt_number: 1,
+      latest_attempt_number: 1,
+      can_start_attempt: 0,
+      attempts_remaining: 0,
+    } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+    expect(screen.queryByRole('button', { name: /start over/i })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /resume/i }))
+
+    expect(createSubmissionMock).not.toHaveBeenCalled()
+    expect(await screen.findByText('Take page')).toBeInTheDocument()
+  })
+
+  it('confirms Start over before creating and replaces state only after success', async () => {
+    const user = userEvent.setup()
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      max_attempts: null,
+      latest_attempt_number: 1,
+      next_attempt_number: 2,
+      in_progress_submission_id: 50,
+      in_progress_attempt_number: 1,
+      attempts_remaining: null,
+      can_start_attempt: true,
+    } })
+    createSubmissionMock.mockResolvedValue({ data: { id: 51, attempt_number: 2 } })
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+    expect(createSubmissionMock).not.toHaveBeenCalled()
+    expect(screen.getByText((_, element) => (
+      element?.textContent === 'Your current answers will be cleared. The timer will restart.'
+    ))).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /^start over$/i }))
+
+    expect(createSubmissionMock).toHaveBeenCalledTimes(1)
+    expect(createSubmissionMock).toHaveBeenCalledWith('test-token', {
+      exercise_id: 1,
+      known_latest_attempt_number: 1,
+      replace_submission_id: 50,
+    })
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('51')
+  })
+
+  it('uses newer server state instead of a stale session pointer', async () => {
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      latest_attempt_number: 2,
+      next_attempt_number: 3,
+      in_progress_submission_id: 60,
+      in_progress_attempt_number: 2,
+      attempts_remaining: 0,
+      can_start_attempt: false,
+    } })
+
+    renderPage()
+
+    await screen.findByText('Algebra Quiz')
+    expect(getSubmissionMock).not.toHaveBeenCalled()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('60')
+  })
+
+  it('offers the next numbered attempt while capacity remains', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      max_attempts: 3,
+      latest_attempt_number: 1,
+      next_attempt_number: 2,
+      attempts_remaining: 2,
+      can_start_attempt: 1,
+    } })
+    listMySubmissionsMock.mockResolvedValue({ data: {
+      submissions: [{ id: 77, attempt_number: 1, submitted_at: '2026-03-15 10:05:00' }],
+    } })
+    createSubmissionMock.mockResolvedValue({ data: { id: 78, attempt_number: 2 } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByText('Attempt 2')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /try again/i }))
+    expect(createSubmissionMock).toHaveBeenCalledWith('test-token', {
+      exercise_id: 1,
+      known_latest_attempt_number: 1,
+    })
+  })
+
+  it('shows every submitted result for this exercise', async () => {
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      max_attempts: 3,
+      latest_attempt_number: 2,
+      next_attempt_number: 3,
+      attempts_remaining: 1,
+      can_start_attempt: 1,
+    } })
+    listMySubmissionsMock.mockResolvedValue({ data: {
+      submissions: [
+        { id: 78, attempt_number: 2, score: 8.5, submitted_at: '2026-03-16 10:05:00' },
+        { id: 77, attempt_number: 1, score: 6, submitted_at: '2026-03-15 10:05:00' },
+      ],
+      total: 2,
+    } })
+
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Your results' })).toBeInTheDocument()
+    expect(screen.getByText('Attempt 2')).toBeInTheDocument()
+    expect(screen.getByText('8.5 / 10')).toBeInTheDocument()
+    expect(screen.getByText('Attempt 1')).toBeInTheDocument()
+    expect(screen.getByText('6 / 10')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Attempt 2 result' })).toHaveAttribute(
+      'href',
+      '/student/submissions/78/summary',
+    )
+    expect(screen.getByRole('link', { name: 'View Attempt 1 result' })).toHaveAttribute(
+      'href',
+      '/student/submissions/77/summary',
+    )
+  })
+
+  it('loads every result when the exercise has more than one page of attempts', async () => {
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      max_attempts: null,
+      latest_attempt_number: 101,
+      next_attempt_number: 102,
+      attempts_remaining: null,
+      can_start_attempt: 1,
+    } })
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      id: 200 - index,
+      attempt_number: 101 - index,
+      score: 8,
+      submitted_at: '2026-03-16 10:05:00',
+    }))
+    listMySubmissionsMock
+      .mockResolvedValueOnce({ data: { submissions: firstPage, total: 101 } })
+      .mockResolvedValueOnce({ data: {
+        submissions: [{ id: 100, attempt_number: 1, score: 6, submitted_at: '2026-03-15 10:05:00' }],
+        total: 101,
+      } })
+
+    renderPage()
+
+    expect(await screen.findByRole('link', { name: 'View Attempt 1 result' })).toBeInTheDocument()
+    expect(listMySubmissionsMock).toHaveBeenNthCalledWith(1, 'test-token', {
+      exerciseId: '1',
+      limit: 100,
+      offset: 0,
+    })
+    expect(listMySubmissionsMock).toHaveBeenNthCalledWith(2, 'test-token', {
+      exerciseId: '1',
+      limit: 100,
+      offset: 100,
+    })
+  })
+
+  it('shows the latest result without retry when the limit is exhausted', async () => {
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      latest_attempt_number: 1,
+      next_attempt_number: 2,
+      attempts_remaining: 0,
+      can_start_attempt: 0,
+    } })
+    listMySubmissionsMock.mockResolvedValue({ data: {
+      submissions: [{ id: 77, attempt_number: 1, submitted_at: '2026-03-15 10:05:00' }],
+    } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByText('No attempts remaining')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /try again/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'View Attempt 1 result' })).toHaveAttribute(
+      'href',
+      '/student/submissions/77/summary',
+    )
+  })
+
+  it('does not mention restarting a timer for an untimed attempt', async () => {
+    const user = userEvent.setup()
+    setSubmissionPointer(7, 2, '50')
+    getExerciseMock.mockResolvedValue({ data: {
+      ...UNTIMED_EXERCISE,
+      max_attempts: null,
+      latest_attempt_number: 1,
+      next_attempt_number: 2,
+      in_progress_submission_id: 50,
+      in_progress_attempt_number: 1,
+      attempts_remaining: null,
+      can_start_attempt: true,
+    } })
+    renderPage('2')
+    await screen.findByText('Practice Quiz')
+
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+
+    expect(screen.getByText('Your current answers will be cleared.')).toBeInTheDocument()
+    expect(screen.queryByText(/timer will restart/i)).not.toBeInTheDocument()
+  })
+
+  it('preserves Resume and the old pointer when Start over fails', async () => {
+    const user = userEvent.setup()
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      max_attempts: null,
+      latest_attempt_number: 1,
+      next_attempt_number: 2,
+      in_progress_submission_id: 50,
+      in_progress_attempt_number: 1,
+      attempts_remaining: null,
+      can_start_attempt: true,
+    } })
+    createSubmissionMock.mockRejectedValue(new Error('Network down'))
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    await user.click(screen.getByRole('button', { name: /start over/i }))
+    await user.click(screen.getByRole('button', { name: /^start over$/i }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network down')
+    expect(screen.getByRole('button', { name: /resume/i })).toBeInTheDocument()
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBe('50')
+  })
+
+  it('clears stale sessionStorage when the saved submission is already submitted', async () => {
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    getSubmissionMock.mockResolvedValue({
+      data: { id: 50, submitted_at: '2026-03-15 10:05:00' },
+    })
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBeNull()
+    // Falls through to "no resumable" branch
+    expect(screen.queryByRole('button', { name: /resume/i })).not.toBeInTheDocument()
+  })
+
+  it('clears stale sessionStorage when getSubmission confirms it is missing', async () => {
+    setSubmissionPointer(7, 1, '50')
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    getSubmissionMock.mockRejectedValue(Object.assign(new Error('not found'), { status: 404 }))
+    listMySubmissionsMock.mockResolvedValue({ data: { submissions: [] } })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(sessionStorage.getItem(submissionPointerKey(7, 1))).toBeNull()
+  })
+
+  // --- Already-submitted banner ---
+
+  it('shows the submitted banner and the attempt result when a submission exists', async () => {
+    getExerciseMock.mockResolvedValue({ data: {
+      ...TIMED_EXERCISE,
+      latest_attempt_number: 1,
+      next_attempt_number: 2,
+      attempts_remaining: 0,
+      can_start_attempt: 0,
+    } })
+    listMySubmissionsMock.mockResolvedValue({
+      data: {
+        submissions: [{ id: 77, attempt_number: 1, score: 8, submitted_at: '2026-03-15 10:05:00' }],
+        total: 1,
+      },
+    })
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    expect(screen.getByText(/submitted this exercise/i)).toBeInTheDocument()
+    const viewLink = screen.getByRole('link', { name: 'View Attempt 1 result' })
+    expect(viewLink).toHaveAttribute('href', '/student/submissions/77/summary')
+    // Start button should not be shown
+    expect(screen.queryByRole('button', { name: /^Start$/i })).not.toBeInTheDocument()
+  })
+
+  it('ignores listMySubmissions errors silently (best-effort lookup)', async () => {
+    getExerciseMock.mockResolvedValue({ data: TIMED_EXERCISE })
+    listMySubmissionsMock.mockRejectedValue(new Error('boom'))
+
+    renderPage()
+    await screen.findByText('Algebra Quiz')
+
+    // No banner, Start button still shown
+    expect(screen.queryByText(/already submitted/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Start$/i })).toBeInTheDocument()
+  })
+})

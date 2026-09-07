@@ -1,0 +1,177 @@
+import React from 'react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { vi } from 'vitest'
+import TeacherExercisesPage from './TeacherExercisesPage'
+import { changeLanguage } from '@/i18n'
+
+const listExercisesMock = vi.fn()
+const logoutMock = vi.fn()
+
+vi.mock('../lib/api', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    listExercises: (...args) => listExercisesMock(...args),
+  }
+})
+
+vi.mock('../lib/auth-context', () => ({
+  useAuth: () => ({
+    token: 'teacher-token',
+    logout: logoutMock,
+  }),
+}))
+
+function renderPage() {
+  return render(
+    <MemoryRouter initialEntries={['/teacher/exercises']}>
+      <Routes>
+        <Route path="/teacher/exercises" element={<TeacherExercisesPage />} />
+        <Route path="/teacher/exercises/:id" element={<div>Exercise detail</div>} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+describe('TeacherExercisesPage', () => {
+  beforeEach(async () => {
+    await changeLanguage('en')
+    listExercisesMock.mockReset()
+    logoutMock.mockReset()
+  })
+
+  it('renders teacher exercise copy in Vietnamese', async () => {
+    await changeLanguage('vi')
+    listExercisesMock.mockResolvedValue({ data: [] })
+
+    renderPage()
+
+    expect(await screen.findByRole('heading', { name: 'Chưa có bài tập.' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Tạo bài tập đầu tiên' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Làm mới danh sách bài tập' })).toBeInTheDocument()
+  })
+
+  it('renders empty state when there are no exercises', async () => {
+    listExercisesMock.mockResolvedValue({ data: [] })
+    renderPage()
+    expect(await screen.findByRole('heading', { name: 'No exercises yet.' })).toBeInTheDocument()
+  })
+
+  it('renders accessible desktop table and compact mobile list', async () => {
+    listExercisesMock.mockResolvedValue({
+      data: [
+        {
+          id: 1,
+          title: 'Physics Quiz',
+          duration_minutes: 45,
+          question_count: 20,
+          file_count: 2,
+          is_student_ready: 1,
+          updated_at: '2026-03-11 19:00:00',
+        },
+      ],
+    })
+
+    renderPage()
+
+    const table = await screen.findByRole('table', { name: 'Teacher exercise library' })
+    expect(table).toBeInTheDocument()
+    expect(table.parentElement).toHaveClass('overflow-x-auto')
+    expect(table.closest('[data-slot="card"]')).toHaveClass('py-0')
+    expect(table.closest('[data-slot="card"]')).not.toHaveClass('py-4')
+    expect(screen.getAllByText('Physics Quiz')).toHaveLength(2)
+    expect(screen.getAllByText('45 min')).toHaveLength(2)
+    expect(screen.getAllByText('20')).toHaveLength(2)
+    const readyBadges = screen.getAllByText('Ready for students')
+    expect(readyBadges).toHaveLength(2)
+    readyBadges.forEach((badge) => {
+      expect(badge).toHaveClass('bg-success-muted', 'text-success')
+    })
+    expect(screen.getAllByRole('link', { name: /view physics quiz/i })).toHaveLength(2)
+    expect(screen.getByRole('columnheader', { name: 'Title' })).toHaveAttribute('scope', 'col')
+    expect(screen.queryByText('2026-03-11 19:00:00')).not.toBeInTheDocument()
+    expect(listExercisesMock).toHaveBeenCalledWith('teacher-token')
+  })
+
+  it('labels exercises that still require preparation in both list layouts', async () => {
+    listExercisesMock.mockResolvedValue({ data: [{
+      id: 2, title: 'Draft Quiz', duration_minutes: 0, question_count: 1,
+      file_count: 0, is_student_ready: 0, updated_at: '2026-03-11 19:00:00',
+    }] })
+    renderPage()
+    const preparationBadges = await screen.findAllByText('Preparation required')
+    expect(preparationBadges).toHaveLength(2)
+    preparationBadges.forEach((badge) => {
+      expect(badge).toHaveClass('bg-warning-muted', 'text-warning')
+    })
+  })
+
+  it('shows zero duration as Untimed', async () => {
+    listExercisesMock.mockResolvedValue({ data: [{
+      id: 2, title: 'Untimed Quiz', duration_minutes: 0, question_count: 1,
+      file_count: 0, updated_at: '2026-03-11 19:00:00',
+    }] })
+    renderPage()
+    expect(await screen.findAllByText('Untimed')).toHaveLength(2)
+  })
+
+  it('reloads list when refresh icon button is clicked', async () => {
+    const user = userEvent.setup()
+    listExercisesMock.mockResolvedValue({ data: [] })
+
+    renderPage()
+
+    await screen.findByText('No exercises yet.')
+    await user.click(screen.getByRole('button', { name: 'Refresh exercises' }))
+
+    expect(listExercisesMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('shows last refreshed timestamp after successful load', async () => {
+    listExercisesMock.mockResolvedValue({ data: [] })
+    renderPage()
+    expect(await screen.findByLabelText('Last refreshed time')).toBeInTheDocument()
+    expect(screen.getByLabelText('Last refreshed time').textContent).toMatch(/Updated \d{1,2}:\d{2}:\d{2}/)
+  })
+
+  it('shows updated timestamp after manual refresh', async () => {
+    const user = userEvent.setup()
+    listExercisesMock.mockResolvedValue({ data: [] })
+    renderPage()
+
+    await screen.findByLabelText('Last refreshed time')
+    const first = screen.getByLabelText('Last refreshed time').textContent
+
+    listExercisesMock.mockResolvedValue({ data: [] })
+    await user.click(screen.getByRole('button', { name: 'Refresh exercises' }))
+
+    expect(await screen.findByLabelText('Last refreshed time')).toBeInTheDocument()
+    // timestamp element is still present (may be same second, just verify it renders)
+    expect(screen.getByLabelText('Last refreshed time').textContent).toMatch(/Updated \d{1,2}:\d{2}:\d{2}/)
+  })
+
+  it('navigates to exercise detail through a semantic link', async () => {
+    const user = userEvent.setup()
+    listExercisesMock.mockResolvedValue({
+      data: [
+        {
+          id: 7,
+          title: 'Chemistry Quiz',
+          duration_minutes: 30,
+          question_count: 10,
+          file_count: 1,
+          updated_at: '2026-03-12 10:00:00',
+        },
+      ],
+    })
+
+    renderPage()
+
+    const links = await screen.findAllByRole('link', { name: /view chemistry quiz/i })
+    await user.click(links[0])
+
+    expect(await screen.findByText('Exercise detail')).toBeInTheDocument()
+  })
+})
