@@ -23,9 +23,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Show teacher-only Answer PDF crop previews below generated Exercise PDF crops during question-view review. [#128](https://github.com/lelouvincx/smartclass/pull/128)
+- Show teacher-only Answer PDF previews below generated Exercise PDF crops during create-stage question-view review. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Insert manual-review answer rows when parsed Answer PDFs skip source question numbers, so teachers can fill gaps before question-view generation. [#128](https://github.com/lelouvincx/smartclass/pull/128)
-- Keep teachers on exercise creation to prepare and activate question views immediately after both PDFs upload, while keeping safe partial question views for teacher replacement when some markers are missing. [#128](https://github.com/lelouvincx/smartclass/pull/128)
+- Keep teachers on exercise creation to prepare and activate question views immediately after reading answers from PDF, before saving, while keeping safe partial question views for teacher replacement when some markers are missing. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Replace DeepSeek with Cohere Parse v5 for Answer PDF and student answer-photo extraction, with deterministic parsing and safe abstention for ambiguous results. [#119](https://github.com/lelouvincx/smartclass/pull/119)
 - Use the shared checkbox dropdown for every teacher programme selection, including the lecture form. [#124](https://github.com/lelouvincx/smartclass/pull/124)
 - Present submission scores in a compact “score / 10” format, highlight submitted and correct answers with semantic design-system colors, and use a compact navigation rail for detailed reviews. [#117](https://github.com/lelouvincx/smartclass/pull/117)
