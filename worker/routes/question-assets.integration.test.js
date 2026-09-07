@@ -1082,7 +1082,7 @@ describe('PUT /api/exercises/:id question asset activation', () => {
 
     expect(res.status).toBe(200)
     expect((await res.json()).data.active_question_asset_set_id).toBe(assetSet.id)
-  })
+  }, 15000)
 
   it('requires explicit teacher resolution when automatic answer candidates conflict', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)

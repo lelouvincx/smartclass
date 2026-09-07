@@ -28,6 +28,15 @@ function htmlTables(markdown) {
   return String(markdown ?? '').match(/<table\b[^>]*>[\s\S]*?<\/table>/gi) ?? []
 }
 
+function tableBlockHtml(blocks) {
+  if (!Array.isArray(blocks)) return []
+  return blocks
+    .filter(block => block?.type === 'table'
+      && (!block.table?.type || block.table.type === 'html')
+      && typeof block.table?.html === 'string')
+    .map(block => block.table.html)
+}
+
 function tableRows(table) {
   const rows = []
   for (const rowMatch of table.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
@@ -290,6 +299,15 @@ export function parseAnswerPdfPages(pages, { expectedQuestionCount, schemaShape 
     warnings.push(`Expected ${expectedQuestionCount} questions but extracted ${questionCount}.`)
   }
   return { schema, warnings }
+}
+
+export function parseAnswerPdfBlockPages(pages, options = {}) {
+  if (!Array.isArray(pages)) throw new TypeError('pages must be an array')
+  return parseAnswerPdfPages(pages.map(page => ({
+    page_number: page?.page_number,
+    text: page?.text,
+    markdown: tableBlockHtml(page?.blocks).join('\n'),
+  })), options)
 }
 
 function markState(value) {

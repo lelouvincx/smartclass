@@ -24,10 +24,9 @@ export function detectQuestionRegions(pages, expectedQuestions) {
   const normalizedPages = validatePages(pages)
   const events = collectEvents(normalizedPages, expected)
   const markers = events.filter(event => event.type === 'question')
-  validateMarkers(markers, expected)
+  const warnings = validateMarkers(markers, expected)
 
   const byId = new Map(markers.map(marker => [marker.qId, marker]))
-  const warnings = []
   const questions = expected.descriptors.map(descriptor => buildQuestion(
     descriptor.q_id,
     byId.get(descriptor.q_id),
@@ -187,16 +186,23 @@ function validateMarkers(markers, expected) {
   const expectedIds = expected.descriptors.map(descriptor => descriptor.q_id)
   const expectedSet = new Set(expectedIds)
   const counts = new Map()
+  const warnings = []
   for (const marker of markers) counts.set(marker.qId, (counts.get(marker.qId) || 0) + 1)
   const duplicate = [...counts].find(([, count]) => count > 1)?.[0]
   if (duplicate !== undefined) fail('DUPLICATE_QUESTION_MARKER', `Question ${duplicate} has more than one marker`, { qId: duplicate })
-  const unexpected = markers.find(marker => !expectedSet.has(marker.qId))
-  if (unexpected) fail('UNEXPECTED_QUESTION_MARKER', `Unexpected question marker ${unexpected.qId}`, { qId: unexpected.qId })
-  const missing = expectedIds.find(qId => !counts.has(qId))
-  if (missing !== undefined) fail('MISSING_QUESTION_MARKER', `Missing marker for question ${missing}`, { qId: missing })
+  for (const marker of markers) {
+    if (!expectedSet.has(marker.qId)) {
+      warnings.push({ code: 'UNEXPECTED_QUESTION_MARKER', qId: marker.qId })
+    }
+  }
+  for (const qId of expectedIds) {
+    if (!counts.has(qId)) warnings.push({ code: 'MISSING_QUESTION_MARKER', qId })
+  }
+  return warnings
 }
 
 function buildQuestion(qId, start, allQuestions, events, pages, warnings) {
+  if (!start) return { qId, segments: [] }
   const questionPosition = allQuestions.indexOf(start)
   const previous = allQuestions[questionPosition - 1]
   const next = allQuestions[questionPosition + 1]

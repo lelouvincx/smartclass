@@ -49,6 +49,22 @@ describe('textContentToPageGeometry', () => {
       }],
     })
   })
+
+  it('clips and drops PDF.js text items whose raw geometry is not usable for detection', () => {
+    const result = textContentToPageGeometry(1, { width: 100, height: 100 }, {
+      items: [
+        { str: 'Câu 1', transform: [1, 0, 0, 12, 10, 90], width: 40, height: 12 },
+        { str: 'slightly outside', transform: [1, 0, 0, 10, 90, 70], width: 20, height: 10 },
+        { str: 'zero width', transform: [1, 0, 0, 10, 20, 50], width: 0, height: 10 },
+        { str: 'outside page', transform: [1, 0, 0, 10, 130, 50], width: 20, height: 10 },
+      ],
+    })
+
+    expect(result.items).toEqual([
+      expect.objectContaining({ text: 'Câu 1', x: 10, top: 0, width: 40, height: 10 }),
+      expect.objectContaining({ text: 'slightly outside', x: 90, top: 20, width: 10, height: 10 }),
+    ])
+  })
 })
 
 describe('getCropPixels', () => {

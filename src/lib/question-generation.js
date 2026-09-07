@@ -38,12 +38,33 @@ export function textContentToPageGeometry(pageNumber, viewport, content) {
       if (!text) return []
 
       const height = Math.abs(item.height || item.transform?.[3] || 0)
+      const rawX = item.transform[4]
+      const rawTop = viewport.height - item.transform[5] - height
+      const rawRight = rawX + item.width
+      const rawBottom = rawTop + height
+      const x = Math.max(0, rawX)
+      const top = Math.max(0, rawTop)
+      const right = Math.min(viewport.width, rawRight)
+      const bottom = Math.min(viewport.height, rawBottom)
+      const width = right - x
+      const clippedHeight = bottom - top
+      if (![
+        rawX,
+        rawTop,
+        item.width,
+        height,
+        width,
+        clippedHeight,
+      ].every(Number.isFinite) || width <= 0 || clippedHeight <= 0) {
+        return []
+      }
+
       return [{
         text,
-        x: item.transform[4],
-        top: viewport.height - item.transform[5] - height,
-        width: item.width,
-        height,
+        x,
+        top,
+        width,
+        height: clippedHeight,
         itemIndex,
       }]
     }),
@@ -150,7 +171,13 @@ export function findQuestionSeparator(rowInk, anchorRow, {
 export async function generateQuestionAssets(
   source,
   expectedQuestionIds,
-  { onProgress, questionIdsToRender, schemaRows = [], createAssets = true } = {},
+  {
+    onProgress,
+    questionIdsToRender,
+    schemaRows = [],
+    createAssets = true,
+    createPreviewAssets = false,
+  } = {},
 ) {
   const pdfjs = await getPdfjs()
   const data = source instanceof Uint8Array
@@ -179,6 +206,7 @@ export async function generateQuestionAssets(
     const segments = getQuestionSegmentsToRender(detection, questionIdsToRender)
     const byPage = Map.groupBy(segments, segment => segment.sourcePage)
     const assets = []
+    const previewAssets = []
     const answerCandidates = []
     const warnings = [...detection.warnings]
     let renderedCount = 0
@@ -233,7 +261,7 @@ export async function generateQuestionAssets(
           answerCandidates.push(...greenResult.answerCandidates)
         }
 
-        if (createAssets) {
+        if (createAssets || createPreviewAssets) {
           const blob = await canvasToWebp(cropCanvas)
           const {
             _topAnchorY,
@@ -243,7 +271,7 @@ export async function generateQuestionAssets(
             _bottomAnchorType,
             ...assetSegment
           } = refinedSegment
-          assets.push({
+          const renderedAsset = {
             ...assetSegment,
             accessibleText: getAccessibleText(assetSegment, pages[pageNumber - 1]),
             confidence: refinedSegment.confidence,
@@ -251,7 +279,9 @@ export async function generateQuestionAssets(
             pixelWidth: crop.width,
             pixelHeight: crop.height,
             fileName: `question-${refinedSegment.qId}-${refinedSegment.segmentIndex + 1}.webp`,
-          })
+          }
+          if (createAssets) assets.push(renderedAsset)
+          if (createPreviewAssets) previewAssets.push(renderedAsset)
         }
         renderedCount += 1
         onProgress?.({ stage: 'rendering', current: renderedCount, total: segments.length })
@@ -267,6 +297,7 @@ export async function generateQuestionAssets(
       warnings,
       answerCandidates: deduplicateGreenCandidates(answerCandidates, assets, warnings),
       assets,
+      previewAssets,
     }
   } finally {
     await pdf.destroy()

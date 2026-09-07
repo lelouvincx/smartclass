@@ -147,6 +147,13 @@ function groupAssets(questionDescriptors, assets) {
   }))
 }
 
+function groupPreviewAssets(questionDescriptors, assets) {
+  return new Map(questionDescriptors.map(descriptor => [
+    descriptor.q_id,
+    (assets || []).filter(asset => asset.qId === descriptor.q_id),
+  ]))
+}
+
 function AuthenticatedQuestionImage({ asset, token }) {
   const { t } = useTranslation()
   const [source, setSource] = useState('')
@@ -189,11 +196,38 @@ function AuthenticatedQuestionImage({ asset, token }) {
   }
 
   return (
-    <img
-      src={source}
-      alt=""
-      className="h-auto w-full rounded-lg border bg-white object-contain"
-    />
+    <div className="max-h-80 overflow-auto rounded-lg border bg-white">
+      <img
+        src={source}
+        alt=""
+        className="h-auto w-full object-contain"
+      />
+    </div>
+  )
+}
+
+function BlobQuestionImage({ asset, label }) {
+  const [source, setSource] = useState('')
+
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(asset.blob)
+    setSource(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [asset.blob])
+
+  if (!source) {
+    return <div className="min-h-32 animate-pulse rounded-lg border bg-muted" aria-label={label} />
+  }
+
+  return (
+    <div className="max-h-80 overflow-auto rounded-lg border bg-white">
+      <img
+        src={source}
+        alt=""
+        aria-label={label}
+        className="h-auto w-full object-contain"
+      />
+    </div>
   )
 }
 
@@ -475,6 +509,7 @@ export default function QuestionAssetWorkflow({
     () => allocationStateFromSchema(exercise.schema).values,
   )
   const [resolvedAnswerKeys, setResolvedAnswerKeys] = useState(() => new Set())
+  const [answerPreviewAssets, setAnswerPreviewAssets] = useState([])
   const [showActivationConfirm, setShowActivationConfirm] = useState(false)
   const autoStartedFor = useRef(null)
   const loadedSchemaSetId = useRef(null)
@@ -490,6 +525,10 @@ export default function QuestionAssetWorkflow({
   const groups = useMemo(
     () => groupAssets(questionDescriptors, draft?.assets),
     [draft?.assets, questionDescriptors],
+  )
+  const answerPreviewGroups = useMemo(
+    () => groupPreviewAssets(questionDescriptors, answerPreviewAssets),
+    [answerPreviewAssets, questionDescriptors],
   )
   const answerReview = useMemo(
     () => mergeAnswerCandidates(answerSchema, draft?.answer_candidates || []),
@@ -529,6 +568,7 @@ export default function QuestionAssetWorkflow({
     setPhase('generating')
     setError('')
     setResolvedAnswerKeys(new Set())
+    setAnswerPreviewAssets([])
     let createdSetId = null
     let readyForReview = false
     try {
@@ -586,12 +626,15 @@ export default function QuestionAssetWorkflow({
           const answerGeneration = await generateQuestionAssets(answerPdf, questionDescriptors, {
             schemaRows: exercise.schema,
             createAssets: false,
+            createPreviewAssets: true,
           })
+          setAnswerPreviewAssets(answerGeneration.previewAssets || [])
           greenAnswerCandidates = answerPdfGreenHighlightCandidates(
             answerGeneration.answerCandidates,
             answerSourceFile.id,
           )
         } catch {
+          setAnswerPreviewAssets([])
           greenAnswerCandidates = []
         }
       }
@@ -648,9 +691,8 @@ export default function QuestionAssetWorkflow({
       if (createdSetId && !readyForReview) {
         await deleteQuestionAssetSet(token, exercise.id, createdSetId).catch(() => {})
       }
-      setError(generationError.code === 'SCANNED_OR_IMAGE_ONLY_PAGE'
-        ? t('teacher.questionViews.scannedUnsupported')
-        : generationError.message)
+      setAnswerPreviewAssets([])
+      setError(questionDetectionErrorMessage(generationError, t))
       setPhase('error')
     }
   }, [
@@ -715,9 +757,7 @@ export default function QuestionAssetWorkflow({
       )
       await loadDraft(draft.asset_set.id)
     } catch (retryError) {
-      setError(retryError.code === 'SCANNED_OR_IMAGE_ONLY_PAGE'
-        ? t('teacher.questionViews.scannedUnsupported')
-        : retryError.message)
+      setError(questionDetectionErrorMessage(retryError, t))
     } finally {
       setBusyQuestionId(null)
     }
@@ -744,12 +784,26 @@ export default function QuestionAssetWorkflow({
       }
       const response = await updateExercise(token, exercise.id, payload)
       setDraft(null)
+      setAnswerPreviewAssets([])
       setPhase('idle')
       onActivated(response.data)
     } catch (activationError) {
       setError(activationError.message)
       setPhase('review')
     }
+  }
+
+  function questionDetectionErrorMessage(error, t) {
+    if (error?.code === 'SCANNED_OR_IMAGE_ONLY_PAGE') {
+      return t('teacher.questionViews.scannedUnsupported')
+    }
+    if (error?.code === 'UNEXPECTED_QUESTION_MARKER') {
+      return t('teacher.questionViews.unexpectedQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    if (error?.code === 'MISSING_QUESTION_MARKER') {
+      return t('teacher.questionViews.missingQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    return error?.message || t('teacher.questionViews.generationFailed')
   }
 
   function handleAnswerChange(row, value) {
@@ -1022,6 +1076,7 @@ export default function QuestionAssetWorkflow({
           hasInvalidAnswer,
           needsAttention,
         }) => {
+          const answerPreviews = answerPreviewGroups.get(qId) || []
           return (
             <Card
               key={qId}
@@ -1038,9 +1093,9 @@ export default function QuestionAssetWorkflow({
                       })
                       : t('teacher.questionViews.question', { number: localNumber })}
                   </h3>
-                  {isRejected ? (
+                  {isRejected || isMissing ? (
                     <Badge variant="destructive">{t('teacher.questionViews.replacementRequired')}</Badge>
-                  ) : isLowConfidence || isMissing || hasUnresolvedAnswer || hasInvalidAnswer ? (
+                  ) : isLowConfidence || hasUnresolvedAnswer || hasInvalidAnswer ? (
                     <Badge variant="outline" className="border-warning text-warning">
                       {t('teacher.questionViews.needsAttention')}
                     </Badge>
@@ -1052,33 +1107,40 @@ export default function QuestionAssetWorkflow({
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(18rem,2fr)]">
+                <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
                   <div className="min-w-0 space-y-4 p-5">
                     {assets.map((asset, index) => (
                       <figure key={asset.id} className="space-y-3">
-                        {assets.length > 1 && (
-                          <figcaption className="text-xs font-medium text-muted-foreground">
-                            {t('teacher.questionViews.segment', { current: index + 1, total: assets.length })}
-                          </figcaption>
-                        )}
+                        <figcaption className="text-xs font-medium text-muted-foreground">
+                          {assets.length > 1
+                            ? t('teacher.questionViews.exerciseSegment', { current: index + 1, total: assets.length })
+                            : t('teacher.questionViews.exerciseCrop')}
+                        </figcaption>
                         <AuthenticatedQuestionImage asset={asset} token={token} />
                       </figure>
                     ))}
 
-                    {!isRejected && !isMissing && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        onClick={() => handleReject(qId)}
-                        disabled={busyQuestionId === qId}
-                      >
-                        {busyQuestionId === qId
-                          ? t('teacher.questionViews.rejecting')
-                          : t('teacher.questionViews.rejectQuestion')}
-                      </Button>
+                    {answerPreviews.map((asset, index) => (
+                      <figure key={`${asset.fileName}:${asset.segmentIndex}`} className="space-y-3">
+                        <figcaption className="text-xs font-medium text-muted-foreground">
+                          {answerPreviews.length > 1
+                            ? t('teacher.questionViews.answerSegment', { current: index + 1, total: answerPreviews.length })
+                            : t('teacher.questionViews.answerCrop')}
+                        </figcaption>
+                        <BlobQuestionImage
+                          asset={asset}
+                          label={t('teacher.questionViews.answerCrop')}
+                        />
+                      </figure>
+                    ))}
+
+                    {answerSourceFile && answerPreviews.length === 0 && phase === 'review' && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('teacher.questionViews.answerCropUnavailable')}
+                      </p>
                     )}
 
-                    {isRejected && (
+                    {(isRejected || isMissing) && (
                       <div className="space-y-4 rounded-lg bg-warning-muted p-4">
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -1124,12 +1186,27 @@ export default function QuestionAssetWorkflow({
                     )}
                   </div>
                   <div className="min-w-0 border-t p-5 lg:border-l lg:border-t-0">
-                    <QuestionAnswerReview
-                      rows={answerRows}
-                      resolvedKeys={resolvedAnswerKeys}
-                      onAnswerChange={handleAnswerChange}
-                      onResolve={handleResolveAnswer}
-                    />
+                    <div className="space-y-4">
+                      <QuestionAnswerReview
+                        rows={answerRows}
+                        resolvedKeys={resolvedAnswerKeys}
+                        onAnswerChange={handleAnswerChange}
+                        onResolve={handleResolveAnswer}
+                      />
+                      {!isRejected && !isMissing && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="w-full justify-center"
+                          onClick={() => handleReject(qId)}
+                          disabled={busyQuestionId === qId}
+                        >
+                          {busyQuestionId === qId
+                            ? t('teacher.questionViews.rejecting')
+                            : t('teacher.questionViews.rejectQuestion')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1149,8 +1226,8 @@ export default function QuestionAssetWorkflow({
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
-      <Card className="border-primary/30 shadow-[var(--shadow-raised)]">
-        <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="border-primary/30 py-0 shadow-[var(--shadow-raised)]">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
             <div>

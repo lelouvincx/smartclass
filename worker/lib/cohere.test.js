@@ -1,11 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { COHERE_MODEL, parseImageWithCohere } from './cohere.js'
+import { COHERE_MODEL, parseImageBlocksWithCohere, parseImageWithCohere } from './cohere.js'
 
 const IMAGE_BYTES = new Uint8Array([0, 1, 2, 255])
 
 function successfulResponse(overrides = {}) {
   return new Response(JSON.stringify({
     pages: [{ markdown: { content: '<table><tr><td>1.B</td></tr></table>' } }],
+    meta: { billed_units: { pages: 1 } },
+    ...overrides,
+  }), { status: 200 })
+}
+
+function successfulBlocksResponse(overrides = {}) {
+  return new Response(JSON.stringify({
+    pages: [{
+      type: 'blocks',
+      blocks: [{
+        type: 'table',
+        table: { type: 'html', html: '<table><tr><td>1.B</td></tr></table>' },
+      }],
+    }],
     meta: { billed_units: { pages: 1 } },
     ...overrides,
   }), { status: 200 })
@@ -156,5 +170,39 @@ describe('Cohere Parse client', () => {
       billed_pages: 1,
     })
     expect(Object.keys(result)).toEqual(['markdown', 'provider_ms', 'billed_pages'])
+  })
+
+  it('can request experimental typed blocks for one image', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(successfulBlocksResponse())
+
+    const result = await parseImageBlocksWithCohere({
+      COHERE_API_KEY: 'secret-key',
+      COHERE_BASE_URL: 'https://cohere.test',
+    }, { imageBytes: IMAGE_BYTES, contentType: 'image/png' })
+
+    const [, request] = fetchMock.mock.calls[0]
+    expect(JSON.parse(request.body)).toMatchObject({
+      model: 'parse-v5.0',
+      output_format: 'blocks',
+    })
+    expect(result).toEqual({
+      blocks: [{
+        type: 'table',
+        table: { type: 'html', html: '<table><tr><td>1.B</td></tr></table>' },
+      }],
+      provider_ms: expect.any(Number),
+      billed_pages: 1,
+    })
+  })
+
+  it('rejects typed blocks without a table block by default', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(successfulBlocksResponse({
+      pages: [{ type: 'blocks', blocks: [{ type: 'text', text: { content: 'Answer PDF prose only' } }] }],
+    }))
+
+    await expect(parseImageBlocksWithCohere({ COHERE_API_KEY: 'secret-key' }, {
+      imageBytes: IMAGE_BYTES,
+      contentType: 'image/png',
+    })).rejects.toThrow('Cohere Parse returned no table block')
   })
 })

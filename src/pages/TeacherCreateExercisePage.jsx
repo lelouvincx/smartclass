@@ -4,7 +4,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   createExercise,
   createExerciseFileUpload,
+  createQuestionAssetSet,
+  getExercise,
   parseExerciseSchema,
+  updateExercise,
+  uploadGeneratedQuestionAsset,
   uploadExerciseFile,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -37,11 +41,19 @@ import { formatDuration } from '@/lib/format'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
 import ScoreAllocationCard from '@/components/score-allocation-card'
 import { applyScoreAllocation } from '@/lib/score-allocation'
+import QuestionAssetWorkflow from '@/components/question-asset-workflow'
+import { generateQuestionAssets } from '@/lib/question-generation'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
 
 // --- Normalization helpers ---
+
+function makeRowId() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+}
 
 function normalizeAnswer(type, value) {
   const trimmed = String(value ?? '').trim()
@@ -80,6 +92,7 @@ function validateRows(rows, t) {
       sourceQuestions.set(key, row.q_id)
     }
   }
+  const missingPreviousBySource = missingPreviousSourceNumbers(rows)
 
   return rows.map((row) => {
     const errors = []
@@ -95,6 +108,9 @@ function validateRows(rows, t) {
     }
     if (sourceQuestions.get(`${row.section_key ?? 'main'}:${row.local_number ?? row.q_id}`) === null) {
       errors.push(t('teacher.schema.uniqueLocalNumber'))
+    }
+    if (missingPreviousBySource.has(`${row.section_key ?? 'main'}:${localNumber}`)) {
+      warnings.push(t('teacher.schema.contiguousLocalNumber'))
     }
 
     if (row.type === 'boolean') {
@@ -133,6 +149,27 @@ function validateRows(rows, t) {
   })
 }
 
+function missingPreviousSourceNumbers(rows) {
+  const numbersBySection = new Map()
+  for (const row of rows) {
+    const localNumber = Number.parseInt(String(row.local_number ?? row.q_id), 10)
+    if (Number.isNaN(localNumber) || localNumber <= 0) continue
+    const sectionKey = row.section_key ?? 'main'
+    if (!numbersBySection.has(sectionKey)) numbersBySection.set(sectionKey, new Set())
+    numbersBySection.get(sectionKey).add(localNumber)
+  }
+
+  const invalidRows = new Set()
+  for (const [sectionKey, numbers] of numbersBySection) {
+    const ordered = [...numbers].sort((a, b) => a - b)
+    for (const number of ordered) {
+      if (number === 1 || numbers.has(number - 1)) continue
+      invalidRows.add(`${sectionKey}:${number}`)
+    }
+  }
+  return invalidRows
+}
+
 // --- Schema payload builder ---
 
 function toSchemaPayload(rows) {
@@ -162,17 +199,157 @@ function toSchemaPayload(rows) {
   })
 }
 
+function uniqueQuestionDescriptors(rows) {
+  const byId = new Map()
+  for (const row of rows || []) {
+    const qId = Number.parseInt(String(row.q_id), 10)
+    if (!Number.isSafeInteger(qId) || qId <= 0 || byId.has(qId)) continue
+    byId.set(qId, {
+      q_id: qId,
+      section_key: row.section_key ?? 'main',
+      section_title: row.section_title ?? null,
+      local_number: Number.parseInt(String(row.local_number ?? row.q_id), 10),
+    })
+  }
+  return [...byId.values()]
+}
+
+function groupPreviewAssets(questionDescriptors, assets) {
+  return questionDescriptors.map(descriptor => ({
+    ...descriptor,
+    assets: (assets || []).filter(asset => asset.qId === descriptor.q_id),
+  }))
+}
+
+function answerPagePreviewAssets(questionDescriptors, preparedAnswerPdf) {
+  const pageFile = preparedAnswerPdf?.page_files?.[0]
+  const pageNumber = preparedAnswerPdf?.page_manifest?.[0]?.page_number ?? 1
+  if (!pageFile) return []
+  return questionDescriptors.map(descriptor => ({
+    qId: descriptor.q_id,
+    segmentIndex: 0,
+    sourcePage: pageNumber,
+    blob: pageFile,
+    fileName: `answer-page-${pageNumber}-question-${descriptor.q_id}.png`,
+  }))
+}
+
+function BlobPreviewImage({ asset, label }) {
+  const [source, setSource] = useState('')
+
+  React.useEffect(() => {
+    const objectUrl = URL.createObjectURL(asset.blob)
+    setSource(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [asset.blob])
+
+  if (!source) {
+    return <div className="min-h-32 animate-pulse rounded-lg border bg-muted" aria-label={label} />
+  }
+
+  return (
+    <div className="max-h-80 overflow-auto rounded-lg border bg-white">
+      <img src={source} alt="" aria-label={label} className="h-auto w-full object-contain" />
+    </div>
+  )
+}
+
+function PreviewAnswerReview({ rows, onUpdateRow }) {
+  const { t } = useTranslation()
+
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground">{t('teacher.questionViews.noAutomaticAnswer')}</p>
+  }
+
+  return (
+    <div className="space-y-4">
+      <h4 className="font-semibold">{t('teacher.questionViews.answerReviewTitle')}</h4>
+      <div className="divide-y">
+        {rows.map((row) => {
+          const labelNumber = row.sub_id ? `${row.q_id}${row.sub_id}` : row.q_id
+          const fieldId = `preview-answer-${row.id}`
+          const errorId = `${fieldId}-error`
+          const invalid = row.errors?.length > 0
+          return (
+            <div key={row.id} className="space-y-3 py-3 first:pt-0 last:pb-0">
+              <div>
+                <p className="text-sm font-medium">
+                  {row.sub_id
+                    ? t('teacher.questionViews.answerPart', { number: row.local_number ?? row.q_id, part: row.sub_id })
+                    : t('teacher.questionViews.question', { number: row.local_number ?? row.q_id })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {row.confidence === null
+                    ? t('teacher.schema.unscored')
+                    : `${Math.round((row.confidence ?? 1) * 100)}%`}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
+                  {t('teacher.questionViews.currentAnswer')}
+                </Label>
+                {row.type === 'mcq' ? (
+                  <select
+                    id={fieldId}
+                    value={row.correct_answer}
+                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
+                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? errorId : undefined}
+                    className="min-h-12 w-32 rounded-md border bg-background px-3 text-sm"
+                  >
+                    {['', 'A', 'B', 'C', 'D'].map(value => (
+                      <option key={value} value={value}>{value || '—'}</option>
+                    ))}
+                  </select>
+                ) : row.type === 'boolean' ? (
+                  <select
+                    id={fieldId}
+                    value={row.correct_answer}
+                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
+                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? errorId : undefined}
+                    className="min-h-12 w-32 rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="">—</option>
+                    <option value="1">{t('teacher.schema.true')}</option>
+                    <option value="0">{t('teacher.schema.false')}</option>
+                  </select>
+                ) : (
+                  <Input
+                    id={fieldId}
+                    value={row.correct_answer}
+                    inputMode="decimal"
+                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
+                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? errorId : undefined}
+                    className="min-h-12 w-32"
+                  />
+                )}
+                {invalid ? (
+                  <p id={errorId} className="text-xs text-destructive">{row.errors[0]}</p>
+                ) : row.warnings?.length > 0 ? (
+                  <p className="text-xs text-amber-600">{row.warnings[0]}</p>
+                ) : (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">{t('teacher.schema.valid')}</p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // --- Row factory ---
 
 function newRows(type, nextQid = '', descriptor = {}) {
-  const makeId = () =>
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2)
-
   if (type === 'boolean') {
     return BOOLEAN_SUB_IDS.map((sub_id) => ({
-      id: makeId(),
+      id: makeRowId(),
       q_id: nextQid,
       section_key: descriptor.section_key ?? 'main',
       section_title: descriptor.section_title ?? null,
@@ -185,7 +362,7 @@ function newRows(type, nextQid = '', descriptor = {}) {
   }
 
   return [{
-    id: makeId(),
+    id: makeRowId(),
     q_id: nextQid,
     section_key: descriptor.section_key ?? 'main',
     section_title: descriptor.section_title ?? null,
@@ -195,6 +372,67 @@ function newRows(type, nextQid = '', descriptor = {}) {
     correct_answer: '',
     confidence: 1,
   }]
+}
+
+function fillMissingSourceNumberRows(rows) {
+  const sections = []
+  const bySection = new Map()
+  for (const row of rows) {
+    const sectionKey = row.section_key ?? 'main'
+    if (!bySection.has(sectionKey)) {
+      const section = {
+        key: sectionKey,
+        title: row.section_title ?? null,
+        rows: [],
+      }
+      bySection.set(sectionKey, section)
+      sections.push(section)
+    }
+    bySection.get(sectionKey).rows.push(row)
+  }
+
+  const expandedRows = sections.flatMap((section) => {
+    const rowsByLocal = new Map()
+    for (const row of section.rows) {
+      const localNumber = Number.parseInt(String(row.local_number ?? row.q_id), 10)
+      if (!Number.isSafeInteger(localNumber) || localNumber <= 0) return section.rows
+      if (!rowsByLocal.has(localNumber)) rowsByLocal.set(localNumber, [])
+      rowsByLocal.get(localNumber).push(row)
+    }
+    if (rowsByLocal.size === 0) return section.rows
+
+    const orderedLocalNumbers = [...rowsByLocal.keys()].sort((left, right) => left - right)
+    const expanded = []
+    for (let localNumber = orderedLocalNumbers[0]; localNumber <= orderedLocalNumbers.at(-1); localNumber += 1) {
+      const matchingRows = rowsByLocal.get(localNumber)
+      if (matchingRows) {
+        expanded.push(...matchingRows)
+      } else {
+        expanded.push({
+          id: makeRowId(),
+          q_id: `missing:${section.key}:${localNumber}`,
+          section_key: section.key,
+          section_title: section.title,
+          local_number: String(localNumber),
+          sub_id: null,
+          type: 'mcq',
+          correct_answer: '',
+          confidence: null,
+        })
+      }
+    }
+    return expanded
+  })
+
+  const renumberedQids = new Map()
+  let nextQid = 1
+  return expandedRows.map((row) => {
+    if (!renumberedQids.has(row.q_id)) {
+      renumberedQids.set(row.q_id, String(nextQid))
+      nextQid += 1
+    }
+    return { ...row, q_id: renumberedQids.get(row.q_id) }
+  })
 }
 
 // --- Main page ---
@@ -220,7 +458,10 @@ export default function TeacherCreateExercisePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [showWarningConfirm, setShowWarningConfirm] = useState(false)
   const [createdExerciseId, setCreatedExerciseId] = useState(null)
+  const [createdExercise, setCreatedExercise] = useState(null)
+  const [questionViewGenerationKey, setQuestionViewGenerationKey] = useState(0)
   const [failedUploadName, setFailedUploadName] = useState('')
+  const [questionPreview, setQuestionPreview] = useState({ phase: 'idle', error: '', progress: null, draft: null })
   const [allocationMode, setAllocationMode] = useState('automatic')
   const [customScores, setCustomScores] = useState({})
   const allocationRef = useRef(null)
@@ -238,8 +479,31 @@ export default function TeacherCreateExercisePage() {
     if (filter === 'warnings') return validatedRows.filter((row) => row.warnings.length > 0)
     return validatedRows
   }, [filter, validatedRows])
+  const questionPreviewGroups = useMemo(() => {
+    if (!questionPreview.draft) return []
+    return groupPreviewAssets(questionPreview.draft.descriptors, questionPreview.draft.previewAssets)
+  }, [questionPreview.draft])
+  const answerPreviewGroups = useMemo(() => {
+    if (!questionPreview.draft) return new Map()
+    return new Map(groupPreviewAssets(questionPreview.draft.descriptors, questionPreview.draft.answerPreviewAssets)
+      .map(group => [group.q_id, group.assets]))
+  }, [questionPreview.draft])
+  const previewAnswerRowsByQuestion = useMemo(() => {
+    const grouped = new Map()
+    for (const row of validatedRows) {
+      const qId = Number.parseInt(String(row.q_id), 10)
+      if (!Number.isSafeInteger(qId)) continue
+      grouped.set(qId, [...(grouped.get(qId) || []), row])
+    }
+    return grouped
+  }, [validatedRows])
+
+  function clearQuestionPreview() {
+    setQuestionPreview({ phase: 'idle', error: '', progress: null, draft: null })
+  }
 
   function handleUpdateRow(id, field, value) {
+    if (field !== 'correct_answer') clearQuestionPreview()
     setRows((prev) => {
       const targetRow = prev.find((r) => r.id === id)
       if (field === 'type') {
@@ -264,6 +528,7 @@ export default function TeacherCreateExercisePage() {
   }
 
   function handleAddRow() {
+    clearQuestionPreview()
     const maxQid = rows.reduce((acc, row) => {
       const parsed = Number.parseInt(String(row.q_id), 10)
       return Number.isNaN(parsed) ? acc : Math.max(acc, parsed)
@@ -272,10 +537,12 @@ export default function TeacherCreateExercisePage() {
   }
 
   function handleReorder(newRows) {
+    clearQuestionPreview()
     setRows(newRows)
   }
 
   function handleDeleteRow(id) {
+    clearQuestionPreview()
     const targetRow = rows.find((r) => r.id === id)
     if (!targetRow) return
     if (targetRow.type === 'boolean') {
@@ -289,6 +556,7 @@ export default function TeacherCreateExercisePage() {
     if (!answerFile) return
     setIsParsing(true)
     setError('')
+    clearQuestionPreview()
     setAnswerParseProgress({ stage: 'reading', progress: 0 })
     try {
       const greenSchema = await extractGreenHighlightedAnswerSchema(answerFile, {
@@ -299,8 +567,10 @@ export default function TeacherCreateExercisePage() {
       })
       if (greenSchema.length > 0) {
         setAnswerParseProgress({ stage: 'applying', progress: 0 })
-        setRows(schemaRowsToEditableRows(greenSchema))
+        const editableRows = schemaRowsToEditableRows(greenSchema)
+        setRows(editableRows)
         setAnswerParseProgress({ stage: 'complete', progress: 1 })
+        await prepareQuestionPreview(editableRows)
         return
       }
 
@@ -312,8 +582,10 @@ export default function TeacherCreateExercisePage() {
       })
       if (detailedAnswerSchema.length > 0) {
         setAnswerParseProgress({ stage: 'applying', progress: 0 })
-        setRows(schemaRowsToEditableRows(detailedAnswerSchema))
+        const editableRows = schemaRowsToEditableRows(detailedAnswerSchema)
+        setRows(editableRows)
         setAnswerParseProgress({ stage: 'complete', progress: 1 })
+        await prepareQuestionPreview(editableRows)
         return
       }
 
@@ -332,8 +604,10 @@ export default function TeacherCreateExercisePage() {
         emptySchemaError.code = 'UNSUPPORTED_DOCUMENT'
         throw emptySchemaError
       }
-      setRows(schemaRowsToEditableRows(schema))
+      const editableRows = schemaRowsToEditableRows(schema)
+      setRows(editableRows)
       setAnswerParseProgress({ stage: 'complete', progress: 1 })
+      await prepareQuestionPreview(editableRows, prepared)
     } catch (parseError) {
       setError(parseError.recoverable || parseError.code === 'UNSUPPORTED_DOCUMENT'
         ? t('teacher.create.unreadablePdf')
@@ -344,13 +618,78 @@ export default function TeacherCreateExercisePage() {
     }
   }
 
+  async function prepareQuestionPreview(nextRows, preparedAnswerPdf = null) {
+    if (!exerciseFile) {
+      setQuestionPreview({
+        phase: 'error',
+        error: t('teacher.create.questionPreviewExerciseRequired'),
+        progress: null,
+        draft: null,
+      })
+      return
+    }
+
+    const descriptors = uniqueQuestionDescriptors(nextRows)
+    if (descriptors.length === 0) return
+
+    setQuestionPreview({ phase: 'generating', error: '', progress: { stage: 'reading', current: 0, total: 1 }, draft: null })
+    try {
+      const generated = await generateQuestionAssets(exerciseFile, descriptors, {
+        schemaRows: toSchemaPayload(nextRows),
+        createPreviewAssets: true,
+        onProgress: progress => setQuestionPreview(current => ({ ...current, progress })),
+      })
+      let answerPreviewAssets = []
+      try {
+        const answerGeneration = await generateQuestionAssets(answerFile, descriptors, {
+          schemaRows: toSchemaPayload(nextRows),
+          createAssets: false,
+          createPreviewAssets: true,
+        })
+        answerPreviewAssets = answerGeneration.previewAssets || []
+      } catch {
+        answerPreviewAssets = []
+      }
+      if (answerPreviewAssets.length === 0) {
+        answerPreviewAssets = answerPagePreviewAssets(descriptors, preparedAnswerPdf)
+      }
+      setQuestionPreview({
+        phase: 'ready',
+        error: '',
+        progress: null,
+        draft: {
+          descriptors,
+          detectorVersion: generated.detectorVersion,
+          detectionMethod: generated.detectionMethod,
+          assets: generated.assets,
+          previewAssets: generated.previewAssets || generated.assets,
+          answerPreviewAssets,
+        },
+      })
+    } catch (generationError) {
+      setQuestionPreview({
+        phase: 'error',
+        error: questionDetectionErrorMessage(generationError),
+        progress: null,
+        draft: null,
+      })
+    }
+  }
+
+  function questionDetectionErrorMessage(error) {
+    if (error?.code === 'SCANNED_OR_IMAGE_ONLY_PAGE') return t('teacher.questionViews.scannedUnsupported')
+    if (error?.code === 'UNEXPECTED_QUESTION_MARKER') {
+      return t('teacher.questionViews.unexpectedQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    if (error?.code === 'MISSING_QUESTION_MARKER') {
+      return t('teacher.questionViews.missingQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    return error?.message || t('teacher.questionViews.generationFailed')
+  }
+
   function schemaRowsToEditableRows(schema) {
-    const makeId = () =>
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2)
-    return schema.map((row) => ({
-      id: makeId(),
+    return fillMissingSourceNumberRows(schema.map((row) => ({
+      id: makeRowId(),
       q_id: String(row.q_id),
       section_key: row.section_key ?? 'main',
       section_title: row.section_title ?? null,
@@ -361,10 +700,11 @@ export default function TeacherCreateExercisePage() {
         ? (row.correct_answer ?? '')
         : normalizeAnswer(row.type, row.correct_answer),
       confidence: row.confidence ?? null,
-    }))
+    })))
   }
 
   async function uploadFiles(exerciseId) {
+    const uploaded = {}
     const files = [
       { file: exerciseFile, file_type: 'exercise_pdf' },
       { file: answerFile, file_type: 'solution_pdf' },
@@ -375,13 +715,41 @@ export default function TeacherCreateExercisePage() {
           file_type: entry.file_type,
           file_name: entry.file.name,
         })
-        await uploadExerciseFile(token, exerciseId, createResponse.data, entry.file)
+        const uploadResponse = await uploadExerciseFile(token, exerciseId, createResponse.data, entry.file)
+        uploaded[entry.file_type] = uploadResponse.data
       } catch (uploadError) {
         const failure = new Error(uploadError?.message || t('teacher.create.uploadFailed'), { cause: uploadError })
         failure.failedFileName = entry.file.name
         throw failure
       }
     }
+    return uploaded
+  }
+
+  async function uploadPreparedQuestionViews(exerciseId, uploadedFiles, schemaPayload) {
+    const draft = questionPreview.draft
+    if (!draft) return null
+
+    const sourceFileId = uploadedFiles.exercise_pdf?.file_id
+    const answerSourceFileId = uploadedFiles.solution_pdf?.file_id
+    if (!sourceFileId || !answerSourceFileId) return null
+
+    const created = await createQuestionAssetSet(token, exerciseId, {
+      source_file_id: sourceFileId,
+      answer_source_file_id: answerSourceFileId,
+      answer_parser_status: 'parsed',
+      detector_version: draft.detectorVersion,
+      detection_method: draft.detectionMethod,
+    })
+    const setId = created.data.id
+    for (const asset of draft.assets) {
+      await uploadGeneratedQuestionAsset(token, exerciseId, setId, asset)
+    }
+    await updateExercise(token, exerciseId, {
+      schema: schemaPayload,
+      question_asset_set_id: setId,
+    })
+    return setId
   }
 
   async function saveExercise() {
@@ -399,21 +767,24 @@ export default function TeacherCreateExercisePage() {
       }
       const createResponse = await createExercise(token, payload)
       const exerciseId = createResponse.data.id
+      let uploadedFiles
       try {
-        await uploadFiles(exerciseId)
+        uploadedFiles = await uploadFiles(exerciseId)
       } catch (uploadError) {
         setCreatedExerciseId(exerciseId)
         setFailedUploadName(uploadError.failedFileName || '')
         setIsSaving(false)
         return
       }
-      navigate(
-        exerciseFile ? `/teacher/exercises/${exerciseId}` : '/teacher/exercises',
-        {
-          replace: true,
-          state: exerciseFile ? { generateQuestionViews: true } : undefined,
-        },
-      )
+      if (questionPreview.draft) {
+        await uploadPreparedQuestionViews(exerciseId, uploadedFiles, payload.schema)
+        navigate(`/teacher/exercises/${exerciseId}`, { replace: true })
+        return
+      }
+      const exerciseResponse = await getExercise(exerciseId, token)
+      setCreatedExercise(exerciseResponse.data)
+      setQuestionViewGenerationKey(key => key + 1)
+      setIsSaving(false)
     } catch (saveError) {
       setError(saveError.message)
       setIsSaving(false)
@@ -457,6 +828,20 @@ export default function TeacherCreateExercisePage() {
           </div>
         </CardContent>
       </Card>
+    )
+  }
+
+  if (createdExercise) {
+    return (
+      <div className="max-w-5xl">
+        <QuestionAssetWorkflow
+          exercise={createdExercise}
+          token={token}
+          autoStartKey={questionViewGenerationKey}
+          onActivated={() => navigate(`/teacher/exercises/${createdExercise.id}`, { replace: true })}
+          onReplacePdf={() => navigate(`/teacher/exercises/${createdExercise.id}`)}
+        />
+      </div>
     )
   }
 
@@ -577,7 +962,10 @@ export default function TeacherCreateExercisePage() {
                   accept=".pdf"
                   hint={t('teacher.file.pdfOnly')}
                   file={exerciseFile}
-                  onChange={setExerciseFile}
+                  onChange={(file) => {
+                    setExerciseFile(file)
+                    clearQuestionPreview()
+                  }}
                 />
                 <p className="text-xs text-sc-on-primary-container/80">
                   {t('teacher.create.exercisePdfHint')}
@@ -599,6 +987,7 @@ export default function TeacherCreateExercisePage() {
                     setAnswerFile(file)
                     setAnswerParseProgress(null)
                     setError('')
+                    clearQuestionPreview()
                   }}
                 />
                 <p className="text-xs text-sc-on-tertiary-container/80">
@@ -641,41 +1030,133 @@ export default function TeacherCreateExercisePage() {
           </CardContent>
         </Card>
 
-        {/* Schema table card */}
-        <Card>
-          <CardHeader className="border-b px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span className="text-muted-foreground">{t('teacher.create.questions', { count: stats.total })}</span>
-                <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
-                <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
+        {(questionPreview.phase !== 'idle') && (
+          <Card>
+            <CardHeader className="border-b px-5 py-4">
+              <div>
+                <h2 className="font-semibold">{t('teacher.questionViews.title')}</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {t('teacher.create.questionPreviewDescription')}
+                </p>
               </div>
-              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-                {['all', 'errors', 'warnings'].map((f) => (
-                  <Button
-                    key={f}
-                    type="button"
-                    size="sm"
-                    variant={filter === f ? 'default' : 'outline'}
-                    onClick={() => setFilter(f)}
-                  >
-                    {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
+            </CardHeader>
+            <CardContent className="space-y-4 pt-5">
+              {questionPreview.phase === 'generating' && (
+                <div className="space-y-2" aria-live="polite">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">
+                      {t(`teacher.questionViews.progress.${questionPreview.progress?.stage || 'reading'}`)}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {Math.round(((questionPreview.progress?.current || 0) / (questionPreview.progress?.total || 1)) * 100)}%
+                    </span>
+                  </div>
+                  <progress
+                    className="h-2 w-full accent-primary"
+                    value={(questionPreview.progress?.current || 0) / (questionPreview.progress?.total || 1)}
+                    max="1"
+                  />
+                </div>
+              )}
+              {questionPreview.phase === 'error' && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive" role="alert">
+                  {questionPreview.error}
+                </div>
+              )}
+              {questionPreview.phase === 'ready' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      {t('teacher.create.questionPreviewReady', { count: questionPreviewGroups.length })}
+                    </p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => prepareQuestionPreview(rows)}>
+                      {t('teacher.questionViews.generateNewPreview')}
+                    </Button>
+                  </div>
+                  {questionPreviewGroups.map((group) => {
+                    const answerAssets = answerPreviewGroups.get(group.q_id) || []
+                    const answerRows = previewAnswerRowsByQuestion.get(group.q_id) || []
+                    return (
+                      <div key={group.q_id} className="rounded-lg border">
+                        <div className="border-b px-4 py-3">
+                          <h3 className="font-medium">
+                            {group.section_title
+                              ? t('teacher.questionViews.questionInSection', { section: group.section_title, number: group.local_number })
+                              : t('teacher.questionViews.question', { number: group.local_number })}
+                          </h3>
+                        </div>
+                        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
+                          <div className="min-w-0 space-y-4">
+                            {group.assets.map((asset, index) => (
+                              <figure key={`${asset.fileName}:${index}`} className="space-y-3">
+                                <figcaption className="text-xs font-medium text-muted-foreground">
+                                  {group.assets.length > 1
+                                    ? t('teacher.questionViews.exerciseSegment', { current: index + 1, total: group.assets.length })
+                                    : t('teacher.questionViews.exerciseCrop')}
+                                </figcaption>
+                                <BlobPreviewImage asset={asset} label={t('teacher.questionViews.exerciseCrop')} />
+                              </figure>
+                            ))}
+                            {answerAssets.map((asset, index) => (
+                              <figure key={`${asset.fileName}:answer:${index}`} className="space-y-3">
+                                <figcaption className="text-xs font-medium text-muted-foreground">
+                                  {answerAssets.length > 1
+                                    ? t('teacher.questionViews.answerSegment', { current: index + 1, total: answerAssets.length })
+                                    : t('teacher.questionViews.answerCrop')}
+                                </figcaption>
+                                <BlobPreviewImage asset={asset} label={t('teacher.questionViews.answerCrop')} />
+                              </figure>
+                            ))}
+                          </div>
+                          <div className="min-w-0 border-t p-4 lg:border-l lg:border-t-0">
+                            <PreviewAnswerReview rows={answerRows} onUpdateRow={handleUpdateRow} />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {questionPreview.phase !== 'ready' && (
+          <Card>
+            <CardHeader className="border-b px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <span className="text-muted-foreground">{t('teacher.create.questions', { count: stats.total })}</span>
+                  <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
+                  <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
+                </div>
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+                  {['all', 'errors', 'warnings'].map((f) => (
+                    <Button
+                      key={f}
+                      type="button"
+                      size="sm"
+                      variant={filter === f ? 'default' : 'outline'}
+                      onClick={() => setFilter(f)}
+                    >
+                      {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
+                    </Button>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
+                    {t('teacher.create.addQuestion')}
                   </Button>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-                  {t('teacher.create.addQuestion')}
-                </Button>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <SchemaTable
-            rows={visibleRows}
-            onUpdateRow={handleUpdateRow}
-            onDeleteRow={handleDeleteRow}
-            onReorder={filter === 'all' ? handleReorder : undefined}
-            showConfidence
-          />
-        </Card>
+            </CardHeader>
+            <SchemaTable
+              rows={visibleRows}
+              onUpdateRow={handleUpdateRow}
+              onDeleteRow={handleDeleteRow}
+              onReorder={filter === 'all' ? handleReorder : undefined}
+              showConfidence
+            />
+          </Card>
+        )}
 
         <ScoreAllocationCard
           ref={allocationRef}
