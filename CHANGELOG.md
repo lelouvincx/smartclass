@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add a non-product Pillow-based vision question-locator POC script with ruler overlays, structured box validation, and crop previews. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Add an isolated experimental Cohere Parse blocks adapter for Answer PDF table extraction. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Let teachers choose whether students can download an exercise's Answer PDF after submitting and reviewing their work. [#125](https://github.com/lelouvincx/smartclass/pull/125)
 - Add ĐGNL as an access class for students, exercises, and lectures alongside grades 10 to 12. [#116](https://github.com/lelouvincx/smartclass/pull/116)
