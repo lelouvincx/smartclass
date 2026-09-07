@@ -679,6 +679,9 @@ describe('TeacherCreateExercisePage', () => {
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(await screen.findByRole('region', { name: 'Question views' })).toHaveTextContent('Question views for Created quiz')
+    expect(screen.queryByRole('heading', { name: 'Create Exercise' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Open created exercise' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Back to exercises' })).not.toBeInTheDocument()
     expect(getExerciseMock).toHaveBeenCalledWith(606, 'test-token')
     expect(questionAssetWorkflowMock).toHaveBeenCalledWith(expect.objectContaining({
       token: 'test-token',

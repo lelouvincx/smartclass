@@ -546,11 +546,7 @@ export default function TeacherCreateExercisePage() {
 
   if (createdExercise) {
     return (
-      <div className="max-w-5xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-semibold">{t('teacher.create.title')}</h1>
-          <p className="text-sm text-muted-foreground">{t('teacher.create.questionViewsDescription')}</p>
-        </div>
+      <div className="max-w-5xl">
         <QuestionAssetWorkflow
           exercise={createdExercise}
           token={token}
@@ -558,14 +554,6 @@ export default function TeacherCreateExercisePage() {
           onActivated={() => navigate(`/teacher/exercises/${createdExercise.id}`, { replace: true })}
           onReplacePdf={() => navigate(`/teacher/exercises/${createdExercise.id}`)}
         />
-        <div className="flex flex-wrap gap-2">
-          <Button asChild variant="outline">
-            <Link to={`/teacher/exercises/${createdExercise.id}`}>{t('teacher.create.openCreated')}</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link to="/teacher/exercises">{t('teacher.create.back')}</Link>
-          </Button>
-        </div>
       </div>
     )
   }
