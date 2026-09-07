@@ -13,6 +13,7 @@ const QUESTION_MARKER = /^\s*(?:câu|question)\s+(\d+)(?=\s|[:.)-]|$)/iu
 const QUESTION_WORD = /^\s*(?:câu|question)\s*$/iu
 const QUESTION_NUMBER = /^\s*(\d+)\s*[:.)-]?\s*$/u
 const OPTION_MARKER = /^\s*([A-D])\s*[.)]/i
+const DETAILED_ANSWER_TOKEN = /(?:\b(?:c\s*a\s*u|q\s*u\s*e\s*s\s*t\s*i\s*o\s*n)\s+(\d+)\s*[:.)-]?)|(?:c\s*h\s*o\s*n\s+d\s*a\s*p\s+a\s*n\s*([a-d])\b)|(?:\bchoose\s+(?:answer\s+)?(?:option\s+)?([a-d])\b)/giu
 
 async function getPdfjs() {
   if (!pdfjsPromise) {
@@ -151,6 +152,46 @@ export function extractGreenMcqAnswerRowsFromPageEvidence(pageEvidence) {
     })
 }
 
+export function extractDetailedAnswerKeyRowsFromText(text) {
+  const answers = new Map()
+  const conflicts = new Set()
+  let currentQuestionId = null
+  const normalized = normalizeForDetection(String(text || ''))
+  const tokens = normalized.matchAll(DETAILED_ANSWER_TOKEN)
+
+  for (const token of tokens) {
+    if (token[1]) {
+      currentQuestionId = Number(token[1])
+      continue
+    }
+
+    const answer = (token[2] || token[3])?.toUpperCase()
+    if (!answer || !currentQuestionId) continue
+
+    const existing = answers.get(currentQuestionId)
+    if (existing && existing !== answer) {
+      conflicts.add(currentQuestionId)
+      continue
+    }
+    answers.set(currentQuestionId, answer)
+  }
+
+  if (answers.size === 0) return []
+
+  return [...answers]
+    .sort(([left], [right]) => left - right)
+    .map(([qId, answer]) => {
+      const correctAnswer = conflicts.has(qId) ? '' : answer
+      return {
+        q_id: qId,
+        sub_id: null,
+        type: 'mcq',
+        correct_answer: correctAnswer,
+        confidence: correctAnswer ? 1 : null,
+      }
+    })
+}
+
 function questionMarkersFromTextItems(textItems) {
   return textItems.flatMap((item, index) => {
     const inlineMatch = item.text.match(QUESTION_MARKER)
@@ -211,6 +252,26 @@ export async function extractGreenHighlightedAnswerSchema(file, { onProgress, pd
   }
 
   return extractGreenMcqAnswerRowsFromPageEvidence(evidence)
+}
+
+export async function extractDetailedAnswerKeySchema(file, { onProgress, pdfjs } = {}) {
+  const pdf = await loadPdf(file, pdfjs)
+  const pages = []
+
+  try {
+    onProgress?.({ stage: 'reading', current: 0, total: pdf.numPages })
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber)
+      const content = await page.getTextContent()
+      pages.push(normalizePageText(content.items))
+      onProgress?.({ stage: 'reading', current: pageNumber, total: pdf.numPages })
+      page.cleanup?.()
+    }
+  } finally {
+    await pdf.destroy?.()
+  }
+
+  return extractDetailedAnswerKeyRowsFromText(pages.join('\n'))
 }
 
 export async function prepareAnswerPdfForParsing(file, { onProgress, pdfjs } = {}) {

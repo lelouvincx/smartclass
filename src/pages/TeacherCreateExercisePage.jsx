@@ -8,7 +8,11 @@ import {
   uploadExerciseFile,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import { extractGreenHighlightedAnswerSchema, prepareAnswerPdfForParsing } from '@/lib/pdf'
+import {
+  extractDetailedAnswerKeySchema,
+  extractGreenHighlightedAnswerSchema,
+  prepareAnswerPdfForParsing,
+} from '@/lib/pdf'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -295,6 +299,19 @@ export default function TeacherCreateExercisePage() {
       if (greenSchema.length > 0) {
         setAnswerParseProgress({ stage: 'applying', progress: 0 })
         setRows(schemaRowsToEditableRows(greenSchema))
+        setAnswerParseProgress({ stage: 'complete', progress: 1 })
+        return
+      }
+
+      const detailedAnswerSchema = await extractDetailedAnswerKeySchema(answerFile, {
+        onProgress: ({ stage, current, total }) => setAnswerParseProgress({
+          stage,
+          progress: total ? current / total : 0,
+        }),
+      })
+      if (detailedAnswerSchema.length > 0) {
+        setAnswerParseProgress({ stage: 'applying', progress: 0 })
+        setRows(schemaRowsToEditableRows(detailedAnswerSchema))
         setAnswerParseProgress({ stage: 'complete', progress: 1 })
         return
       }

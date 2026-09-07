@@ -1,6 +1,8 @@
 import { vi } from 'vitest'
 import {
   AnswerPdfPreparationError,
+  extractDetailedAnswerKeyRowsFromText,
+  extractDetailedAnswerKeySchema,
   extractGreenMcqAnswerRowsFromPageEvidence,
   extractTextFromPdf,
   prepareAnswerPdfForParsing,
@@ -60,6 +62,68 @@ describe('extractTextFromPdf', () => {
     await expect(extractTextFromPdf(makeSourceFile(), { pdfjs })).resolves.toBe(
       'First answer line\nSecond page',
     )
+  })
+})
+
+describe('extractDetailedAnswerKeyRowsFromText', () => {
+  it('maps detailed solution answer lines to schema rows', () => {
+    const text = `
+ĐÁP ÁN CHI TIẾT
+Question 1:
+Kiến thức: Từ vựng theo ngữ cảnh
+→ Chọn đáp án D
+Question 2:
+Giải thích chi tiết
+→ Chọn đáp án B
+Question 3:
+→ Chọn đáp án C
+`
+
+    expect(extractDetailedAnswerKeyRowsFromText(text)).toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 1 },
+      { q_id: 3, sub_id: null, type: 'mcq', correct_answer: 'C', confidence: 1 },
+    ])
+  })
+
+  it('tolerates PDF text extraction splitting Vietnamese and English glyphs', () => {
+    const text = `
+Question 26 : explanation → Ch ọ n đáp án A
+Questio n 27 : explanation → Ch ọ n đáp án C
+`
+
+    expect(extractDetailedAnswerKeyRowsFromText(text)).toEqual([
+      { q_id: 26, sub_id: null, type: 'mcq', correct_answer: 'A', confidence: 1 },
+      { q_id: 27, sub_id: null, type: 'mcq', correct_answer: 'C', confidence: 1 },
+    ])
+  })
+
+  it('keeps conflicting detailed answers blank for review', () => {
+    const text = `
+Question 1:
+→ Chọn đáp án B
+Question 1:
+→ Chọn đáp án D
+`
+
+    expect(extractDetailedAnswerKeyRowsFromText(text)).toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: '', confidence: null },
+    ])
+  })
+
+  it('extracts detailed answer rows from every PDF page', async () => {
+    const { pdfjs, pdf } = makePdfjs([
+      ['Question 1:', '→ Chọn đáp án D'],
+      ['Question 2:', '→ Chọn đáp án B'],
+    ])
+    const onProgress = vi.fn()
+
+    await expect(extractDetailedAnswerKeySchema(makeSourceFile(), { pdfjs, onProgress })).resolves.toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 1 },
+    ])
+    expect(pdf.getPage.mock.calls.map(([pageNumber]) => pageNumber)).toEqual([1, 2])
+    expect(onProgress).toHaveBeenLastCalledWith({ stage: 'reading', current: 2, total: 2 })
   })
 })
 

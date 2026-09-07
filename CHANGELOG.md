@@ -17,7 +17,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Use Inter as the application typeface, with Noto Sans and system sans serif fallbacks. [#123](https://github.com/lelouvincx/smartclass/pull/123)
 - Replace DeepSeek with Cohere Parse v5 for Answer PDF and student answer-photo extraction, with deterministic parsing and safe abstention for ambiguous results. [#119](https://github.com/lelouvincx/smartclass/pull/119)
 - Present submission scores in a compact “score / 10” format, highlight submitted and correct answers with semantic design-system colors, and use a compact navigation rail for detailed reviews. [#117](https://github.com/lelouvincx/smartclass/pull/117)
 - Turn the teacher sidebar’s Create action into a menu for starting an exercise, lecture, or student creation flow. [#115](https://github.com/lelouvincx/smartclass/pull/115)
@@ -35,7 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Vertically center Standard and VIP options in teacher access-tier radio cards. [#120](https://github.com/lelouvincx/smartclass/pull/120)
-- Treat Answer PDF parses with no extracted answer rows as recoverable manual-entry failures instead of showing a false ready state, and read green-highlighted MCQ choices from worked-solution PDFs. [#122](https://github.com/lelouvincx/smartclass/pull/122)
+- Treat Answer PDF parses with no extracted answer rows as recoverable manual-entry failures instead of showing a false ready state, and read green-highlighted or detailed-solution MCQ choices from worked-solution PDFs. [#122](https://github.com/lelouvincx/smartclass/pull/122)
 - Show the authenticated PDF viewing action for both Exercise PDFs and teacher-only Answer PDFs. [#113](https://github.com/lelouvincx/smartclass/pull/113)
 - Let teachers open lectures on dedicated detail pages with previous and next navigation. [#112](https://github.com/lelouvincx/smartclass/pull/112)
 - Show exercise readiness with semantic green success and amber warning treatments. [#111](https://github.com/lelouvincx/smartclass/pull/111)
