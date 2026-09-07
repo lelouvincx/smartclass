@@ -1107,7 +1107,7 @@ export default function QuestionAssetWorkflow({
                 </div>
               </CardHeader>
               <CardContent className="p-0">
-                <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(18rem,2fr)]">
+                <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
                   <div className="min-w-0 space-y-4 p-5">
                     {assets.map((asset, index) => (
                       <figure key={asset.id} className="space-y-3">
