@@ -1,0 +1,282 @@
+// SmartClass — Cloudflare D1 (SQLite) schema
+// Kept in sync with worker/db/migrations/*.sql
+// Last updated: migration 0021_add_answer_pdf_download_setting
+
+Project SmartClass {
+  database_type: 'SQLite'
+  Note: 'Assessment platform built on Cloudflare Workers + D1'
+}
+
+// ── Auth ───────────────────────────────────────────────────────────────────────
+
+Table users {
+  id         integer [pk, increment]
+  phone      text    [not null, unique, note: 'E.164 format, e.g. +84865481769']
+  name       text    [note: 'Required for new accounts; nullable for legacy accounts until renamed']
+  password_hash text [not null]
+  email      text    [note: 'Reserved for future profile (Roadmap)']
+  google_sub text    [unique, note: 'Google OIDC stable user id (RFC-7); link-only']
+  google_email text  [note: 'Snapshot of Google email at link/login (RFC-7)']
+  role       text    [not null, note: 'teacher | student']
+  status     text    [not null, default: 'pending', note: 'pending | active | disabled']
+  access_tier text   [not null, default: 'standard', note: 'standard | vip; only student lecture authorization reads this value']
+  created_at text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at text    [not null, default: 'CURRENT_TIMESTAMP']
+}
+
+Table student_grades {
+  user_id integer [not null, ref: > users.id, note: 'Student account; ON DELETE CASCADE']
+  grade   integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
+
+  indexes {
+    (user_id, grade) [pk]
+    (grade, user_id) [name: 'idx_student_grades_grade_user']
+  }
+}
+
+// ── Exercises ──────────────────────────────────────────────────────────────────
+
+Table exercises {
+  id               integer [pk, increment]
+  title            text    [not null]
+  duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
+  max_attempts     integer [default: 1, note: 'NULL = unlimited; otherwise a positive per-student attempt limit']
+  allow_answer_pdf_download integer [not null, default: 0, note: '0 = students cannot download the Answer PDF after review; 1 = students can download the pinned Answer PDF after submitting']
+  pdf_key          text    [note: 'Legacy R2 key — superseded by exercise_files']
+  extract_model    text    [note: 'Deprecated rollout-compatibility column; ignored by current code']
+  active_question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Teacher-confirmed set currently shown to new submissions']
+  created_by       integer [not null, ref: > users.id]
+  created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+}
+
+Table exercise_grades {
+  exercise_id integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
+  grade       integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
+
+  indexes {
+    (exercise_id, grade) [pk]
+    (grade, exercise_id) [name: 'idx_exercise_grades_grade_exercise']
+  }
+}
+
+Table exercise_files {
+  id          integer [pk, increment]
+  exercise_id integer [not null, ref: > exercises.id]
+  file_type   text    [not null, note: 'exercise_pdf | solution_pdf | reference_image']
+  r2_key      text    [not null, note: 'R2 object key for the file']
+  file_name   text    [not null]
+  file_size   integer [note: 'bytes; nullable']
+  uploaded_at text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    exercise_id [name: 'idx_exercise_files_exercise']
+  }
+}
+
+Table exercise_question_asset_sets {
+  id               integer [pk, increment]
+  exercise_id      integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
+  source_file_id   integer [not null, ref: > exercise_files.id, note: 'Source exercise_pdf; ON DELETE CASCADE']
+  answer_source_file_id integer [ref: > exercise_files.id, note: 'Answer PDF used for extraction; NULL when none was provided']
+  answer_parser_status text [not null, default: 'not_provided', note: 'not_provided | parsed | failed']
+  detector_version text    [not null]
+  detection_method text    [not null, note: 'text | vision | manual | mixed']
+  confirmed_by     integer [ref: > users.id]
+  confirmed_at     text    [note: 'NULL while the complete set is pending teacher review']
+  created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    exercise_id [name: 'idx_exercise_question_asset_sets_exercise']
+  }
+}
+
+Table exercise_question_assets {
+  id              integer [pk, increment]
+  asset_set_id    integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
+  q_id            integer [not null]
+  segment_index   integer [not null, note: 'Contiguous and zero-based within one question']
+  source_kind     text    [not null, note: 'pdf_crop | teacher_screenshot']
+  source_page     integer [note: 'Required for pdf_crop; NULL for teacher_screenshot']
+  x               real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  y               real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  width           real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  height          real    [note: 'Normalized PDF coordinate; NULL for teacher_screenshot']
+  r2_key          text    [not null, unique]
+  mime_type       text    [not null, note: 'image/webp | image/png | image/jpeg']
+  file_size       integer [not null, note: 'bytes']
+  pixel_width     integer [not null]
+  pixel_height    integer [not null]
+  accessible_text text    [note: 'Optional best-effort text extracted from the source PDF']
+  confidence      real    [note: '0..1 for pdf_crop; NULL for reviewed teacher_screenshot']
+  rejected_by     integer [ref: > users.id]
+  rejected_at     text
+  created_at      text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (asset_set_id, q_id, segment_index) [unique, name: 'idx_exercise_question_assets_set_question']
+  }
+}
+
+// ── Answer schemas ─────────────────────────────────────────────────────────────
+
+Table answer_schemas {
+  id             integer [pk, increment]
+  exercise_id    integer [not null, ref: > exercises.id]
+  q_id           integer [not null, note: 'Globally ordered grading and navigation slot (1-based)']
+  section_key    text    [not null, default: 'main', note: 'Opaque stable source section identity']
+  section_title  text    [note: 'Source-facing Unicode section heading; NULL for unsectioned exercises']
+  local_number   integer [not null, default: 1, note: 'Question number shown within the source section']
+  sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
+  type           text    [not null, note: 'mcq | boolean | numeric']
+  correct_answer text    [not null, note: 'mcq: A/B/C/D  boolean: 0/1  numeric: number string']
+  max_score_hundredths integer [note: 'NULL uses automatic type weights; custom values are 1 to 1000 and distinct question maxima total 1000']
+  created_at     text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at     text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (exercise_id, q_id, sub_id) [unique, name: 'idx_answer_schemas_unique',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+    (exercise_id, section_key, local_number, sub_id) [unique, name: 'idx_answer_schemas_source_identity',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+  }
+
+  Note: '''
+    Boolean questions produce 4 rows per q_id (sub_id = a, b, c, d).
+    MCQ and numeric questions have sub_id = NULL (one row per q_id).
+    total_questions is COUNT(DISTINCT q_id), not row count.
+  '''
+}
+
+Table exercise_question_answer_schemas {
+  id             integer [pk, increment]
+  asset_set_id   integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
+  q_id           integer [not null, note: 'Globally ordered grading and navigation slot (1-based)']
+  section_key    text    [not null, default: 'main', note: 'Opaque stable source section identity']
+  section_title  text    [note: 'Source-facing Unicode section heading; NULL for unsectioned exercises']
+  local_number   integer [not null, default: 1, note: 'Question number shown within the source section']
+  sub_id         text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-questions']
+  type           text    [not null, note: 'mcq | boolean | numeric']
+  correct_answer text    [not null]
+  max_score_hundredths integer [note: 'Pinned score allocation; NULL uses automatic type weights']
+  created_at     text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (asset_set_id, q_id, sub_id) [unique, name: 'idx_exercise_question_answer_schemas_set_key',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+    (asset_set_id, section_key, local_number, sub_id) [unique, name: 'idx_exercise_question_answer_schemas_source_identity',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+  }
+
+  Note: 'Descriptor and type shape is pinned when the pending asset set is created; answers are finalized at activation and the confirmed snapshot is immutable.'
+}
+
+Table exercise_question_answer_candidates {
+  id                integer [pk, increment]
+  asset_set_id      integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
+  q_id              integer [not null]
+  sub_id            text    [note: 'NULL for mcq/numeric; sub-question key for boolean']
+  type              text    [not null, note: 'mcq | boolean | numeric']
+  proposed_answer   text    [not null]
+  source_kind       text    [not null, note: 'answer_pdf_text | answer_pdf_green_highlight']
+  source_file_id    integer [not null, ref: > exercise_files.id]
+  extractor_version text
+  model_id          text
+  source_page       integer [note: 'Required for green-highlight evidence']
+  source_x          real    [note: 'Normalized source coordinate for green-highlight evidence']
+  source_y          real    [note: 'Normalized source coordinate for green-highlight evidence']
+  source_width      real    [note: 'Normalized source coordinate for green-highlight evidence']
+  source_height     real    [note: 'Normalized source coordinate for green-highlight evidence']
+  confidence        real    [note: 'NULL permitted only for answer_pdf_text; otherwise 0..1']
+  created_at        text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (asset_set_id, q_id, sub_id, source_kind) [unique, name: 'idx_exercise_question_answer_candidates_set_key_source',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+    (asset_set_id, q_id, sub_id) [name: 'idx_exercise_question_answer_candidates_set']
+  }
+
+  Note: 'Suggestions only. Text candidates are unscored. Green-highlight candidates require a 0..1 confidence and bounded geometry. The teacher-confirmed schema remains the grading source of truth.'
+}
+
+// ── Submissions ────────────────────────────────────────────────────────────────
+
+Table submissions {
+  id              integer [pk, increment]
+  exercise_id     integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
+  user_id         integer [ref: > users.id, note: 'NULL for guest submissions']
+  attempt_number  integer [note: 'Positive authenticated attempt identity; temporarily nullable during expand deployment']
+  mode            text    [not null, note: 'timed | untimed | guest']
+  score           real    [note: 'Populated after grading (v0.3+)']
+  total_questions integer [note: 'COUNT(DISTINCT q_id) at submission creation time']
+  started_at      text    [note: 'UTC timestamp; used for timer accuracy']
+  submitted_at    text    [note: 'NULL until submitted; used for double-submit guard']
+  question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Pinned question and answer-schema version; NULL only for legacy Stage A fallback']
+  created_at      text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at      text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (user_id, exercise_id, attempt_number) [unique, name: 'idx_submissions_user_exercise_attempt', note: 'Partial index for authenticated submissions']
+  }
+
+  Note: 'During the expand deployment, a compatibility trigger assigns attempt_number when the previous Worker omits it.'
+}
+
+Table submission_answers {
+  id               integer [pk, increment]
+  submission_id    integer [not null, ref: > submissions.id, note: 'ON DELETE CASCADE']
+  q_id             integer [not null]
+  sub_id           text    [note: 'NULL for mcq/numeric; a|b|c|d for boolean sub-answers']
+  submitted_answer text    [note: 'NULL = skipped; mcq: A/B/C/D  boolean: 0/1  numeric: string']
+  is_correct       integer [note: 'NULL until graded; 0/1 boolean']
+  created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (submission_id, q_id, sub_id) [unique, name: 'idx_submission_answers_unique',
+      note: 'COALESCE(sub_id,"") used in actual index to handle NULL uniqueness']
+  }
+}
+
+Table submission_files {
+  id            integer [pk, increment]
+  submission_id integer [not null, ref: > submissions.id, note: 'ON DELETE CASCADE']
+  file_type     text    [not null, note: 'answer_sheet (only kind in v0.4); future: scratch_work, etc.']
+  r2_key        text    [not null, note: 'R2 object key — submissions/{submission_id}/{timestamp}-{filename}']
+  file_name     text    [not null]
+  file_size     integer [note: 'bytes; nullable']
+  uploaded_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    submission_id [name: 'idx_submission_files_submission']
+  }
+
+  Note: '''
+    Student-uploaded answer-sheet images for the v0.4 LLM extraction flow.
+    Stored indefinitely for audit (teacher dispute review).
+  '''
+}
+
+// ── Lectures ───────────────────────────────────────────────────────────────────
+
+Table lectures {
+  id           integer [pk, increment]
+  title        text    [not null]
+  section_name text    [not null, note: 'e.g. Chapter 1, Solution for Exercise 3']
+  youtube_url  text    [not null]
+  order_index  integer [not null, default: 0]
+  is_visible   integer [not null, default: 1, note: '1 when students can browse and watch the lecture; otherwise 0']
+  minimum_access_tier text [not null, default: 'standard', note: 'guest | standard | vip']
+  created_by   integer [not null, ref: > users.id]
+  created_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+}
+
+Table lecture_grades {
+  lecture_id integer [not null, ref: > lectures.id, note: 'ON DELETE CASCADE']
+  grade      integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
+
+  indexes {
+    (lecture_id, grade) [pk]
+    (grade, lecture_id) [name: 'idx_lecture_grades_grade_lecture']
+  }
+}

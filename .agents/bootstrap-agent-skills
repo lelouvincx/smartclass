@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+stage="${1:-}"
+case "$stage" in
+  setup|resume) ;;
+  *)
+    printf 'Usage: %s <setup|resume>\n' "$0" >&2
+    exit 2
+    ;;
+esac
+
+agent_skills_repo="${AGENT_SKILLS_REPO:-https://github.com/lelouvincx/agent-skills.git}"
+agent_skills_dir="${AGENT_SKILLS_DIR:-/home/user/workspace/agent-skills}"
+
+if [[ ! -d "$agent_skills_dir/.git" ]]; then
+  if [[ -e "$agent_skills_dir" ]]; then
+    printf '%s exists but is not an agent-skills Git checkout; refusing to replace it.\n' "$agent_skills_dir" >&2
+    exit 1
+  fi
+
+  git clone "$agent_skills_repo" "$agent_skills_dir"
+fi
+
+hook="$agent_skills_dir/.agents/$stage"
+if [[ ! -x "$hook" ]]; then
+  printf 'Canonical agent-skills hook is missing or not executable: %s\n' "$hook" >&2
+  exit 1
+fi
+
+AGENT_SKILLS_REPO="$agent_skills_repo" AGENT_SKILLS_DIR="$agent_skills_dir" "$hook"

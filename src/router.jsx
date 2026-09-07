@@ -1,0 +1,154 @@
+import React from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom'
+import { AuthProvider, useAuth } from '@/lib/auth-context'
+import { canAccessRolePath, getDefaultPathForRole } from '@/lib/navigation'
+import { StudentLayout } from '@/components/student-layout'
+import { TeacherLayout } from '@/components/teacher-layout'
+import { PublicLectureLayout } from '@/components/public-lecture-layout'
+import LoginPage from '@/pages/LoginPage'
+import RegisterPage from '@/pages/RegisterPage'
+import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
+import StudentDashboardPage from '@/pages/StudentDashboardPage'
+import StudentExercisesPage from '@/pages/StudentExercisesPage'
+import StudentExerciseLandingPage from '@/pages/StudentExerciseLandingPage'
+import StudentLecturesPage from '@/pages/StudentLecturesPage'
+import StudentLecturePlayerPage from '@/pages/StudentLecturePlayerPage'
+import StudentTakeExercisePage from '@/pages/StudentTakeExercisePage'
+import StudentSubmissionsPage from '@/pages/StudentSubmissionsPage'
+import StudentReviewPage from '@/pages/StudentReviewPage'
+import StudentSummaryPage from '@/pages/StudentSummaryPage'
+import TeacherCreateExercisePage from '@/pages/TeacherCreateExercisePage'
+import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
+import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
+import TeacherLecturesPage from '@/pages/TeacherLecturesPage'
+import TeacherStudentsPage from '@/pages/TeacherStudentsPage'
+import TeacherViewExercisePage from '@/pages/TeacherViewExercisePage'
+import SettingsPage from '@/pages/SettingsPage'
+
+function PublicOnlyRoute({ children }) {
+  const { isLoading, user } = useAuth()
+
+  if (isLoading) {
+    return <p className="p-6">Loading...</p>
+  }
+
+  if (user) {
+    return <Navigate to={getDefaultPathForRole(user.role)} replace />
+  }
+
+  return children
+}
+
+function ProtectedRoleRoute({ children }) {
+  const location = useLocation()
+  const { isLoading, user } = useAuth()
+  const { t } = useTranslation()
+
+  if (isLoading) {
+    return <p className="p-6">{t('common.loading')}</p>
+  }
+
+  if (!user) {
+    return <Navigate to="/" replace />
+  }
+
+  if (!canAccessRolePath(user.role, location.pathname)) {
+    return <Navigate to={getDefaultPathForRole(user.role)} replace />
+  }
+
+  return children
+}
+
+export function AppRoutes() {
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <PublicOnlyRoute>
+            <LoginPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          <PublicOnlyRoute>
+            <RegisterPage />
+          </PublicOnlyRoute>
+        }
+      />
+      <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+      <Route element={<PublicLectureLayout />}>
+        <Route path="/lectures" element={<StudentLecturesPage audience="guest" />} />
+        <Route path="/lectures/:lectureSlug" element={<StudentLecturePlayerPage audience="guest" />} />
+      </Route>
+      <Route
+        path="/settings"
+        element={
+          <ProtectedRoleRoute>
+            <SettingsPage />
+          </ProtectedRoleRoute>
+        }
+      />
+
+      {/* Teacher routes with shared layout */}
+      <Route
+        path="/teacher"
+        element={
+          <ProtectedRoleRoute>
+            <TeacherLayout />
+          </ProtectedRoleRoute>
+        }
+      >
+        <Route index element={<TeacherDashboardPage />} />
+        <Route path="students" element={<TeacherStudentsPage />} />
+        <Route path="exercises" element={<TeacherExercisesPage />} />
+        <Route path="lectures" element={<TeacherLecturesPage />} />
+        <Route path="lectures/:lectureSlug" element={<StudentLecturePlayerPage audience="teacher" />} />
+        <Route path="exercises/new" element={<TeacherCreateExercisePage />} />
+        <Route path="exercises/:id" element={<TeacherViewExercisePage />} />
+        <Route path="submissions/:id/review" element={<StudentReviewPage viewer="teacher" />} />
+      </Route>
+
+      {/* Student routes with shared layout */}
+      <Route
+        path="/student"
+        element={
+          <ProtectedRoleRoute>
+            <StudentLayout />
+          </ProtectedRoleRoute>
+        }
+      >
+        <Route index element={<StudentDashboardPage />} />
+        <Route path="exercises" element={<StudentExercisesPage />} />
+        <Route path="exercises/:id" element={<StudentExerciseLandingPage />} />
+        <Route path="exercises/:id/take" element={<StudentTakeExercisePage />} />
+        <Route path="lectures" element={<StudentLecturesPage />} />
+        <Route path="lectures/:lectureSlug" element={<StudentLecturePlayerPage />} />
+        <Route path="submissions" element={<StudentSubmissionsPage />} />
+        <Route path="submissions/:id/summary" element={<StudentSummaryPage />} />
+        <Route path="submissions/:id/review" element={<StudentReviewPage />} />
+      </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  )
+}
+
+export default function AppRouter() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AuthProvider>
+  )
+}
