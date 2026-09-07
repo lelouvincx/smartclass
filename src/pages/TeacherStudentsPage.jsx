@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { EmptyState } from '@/design-system/empty-state'
@@ -442,11 +443,9 @@ export default function TeacherStudentsPage() {
               )}
               <div className="mb-4 grid gap-4 rounded-lg border bg-muted/30 p-4 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-end">
                 <label className="flex min-h-[var(--sc-component-hit-target)] cursor-pointer items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-primary"
+                  <Checkbox
                     checked={visibleStudents.length > 0 && selectedStudentIds.length === visibleStudents.length}
-                    onChange={toggleAllStudents}
+                    onCheckedChange={toggleAllStudents}
                   />
                   {t('teacher.students.selectAll')}
                 </label>
@@ -494,11 +493,9 @@ export default function TeacherStudentsPage() {
                       <span className="sr-only">
                         {t('teacher.students.selectNamed', { name: student.name || student.phone })}
                       </span>
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
+                      <Checkbox
                         checked={selectedStudentIds.includes(student.id)}
-                        onChange={() => toggleStudentSelection(student.id)}
+                        onCheckedChange={() => toggleStudentSelection(student.id)}
                       />
                     </label>
                     <div className="min-w-0">
