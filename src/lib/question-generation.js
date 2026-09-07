@@ -171,7 +171,13 @@ export function findQuestionSeparator(rowInk, anchorRow, {
 export async function generateQuestionAssets(
   source,
   expectedQuestionIds,
-  { onProgress, questionIdsToRender, schemaRows = [], createAssets = true } = {},
+  {
+    onProgress,
+    questionIdsToRender,
+    schemaRows = [],
+    createAssets = true,
+    createPreviewAssets = false,
+  } = {},
 ) {
   const pdfjs = await getPdfjs()
   const data = source instanceof Uint8Array
@@ -200,6 +206,7 @@ export async function generateQuestionAssets(
     const segments = getQuestionSegmentsToRender(detection, questionIdsToRender)
     const byPage = Map.groupBy(segments, segment => segment.sourcePage)
     const assets = []
+    const previewAssets = []
     const answerCandidates = []
     const warnings = [...detection.warnings]
     let renderedCount = 0
@@ -254,7 +261,7 @@ export async function generateQuestionAssets(
           answerCandidates.push(...greenResult.answerCandidates)
         }
 
-        if (createAssets) {
+        if (createAssets || createPreviewAssets) {
           const blob = await canvasToWebp(cropCanvas)
           const {
             _topAnchorY,
@@ -264,7 +271,7 @@ export async function generateQuestionAssets(
             _bottomAnchorType,
             ...assetSegment
           } = refinedSegment
-          assets.push({
+          const renderedAsset = {
             ...assetSegment,
             accessibleText: getAccessibleText(assetSegment, pages[pageNumber - 1]),
             confidence: refinedSegment.confidence,
@@ -272,7 +279,9 @@ export async function generateQuestionAssets(
             pixelWidth: crop.width,
             pixelHeight: crop.height,
             fileName: `question-${refinedSegment.qId}-${refinedSegment.segmentIndex + 1}.webp`,
-          })
+          }
+          if (createAssets) assets.push(renderedAsset)
+          if (createPreviewAssets) previewAssets.push(renderedAsset)
         }
         renderedCount += 1
         onProgress?.({ stage: 'rendering', current: renderedCount, total: segments.length })
@@ -288,6 +297,7 @@ export async function generateQuestionAssets(
       warnings,
       answerCandidates: deduplicateGreenCandidates(answerCandidates, assets, warnings),
       assets,
+      previewAssets,
     }
   } finally {
     await pdf.destroy()

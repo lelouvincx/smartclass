@@ -272,6 +272,7 @@ describe('QuestionAssetWorkflow', () => {
           confidence: 1,
         }],
         assets: [],
+        previewAssets: [generatedAsset(1), generatedAsset(2)],
       })
     api.createQuestionAssetSet.mockResolvedValue({ data: { id: 22 } })
     api.uploadGeneratedQuestionAsset.mockResolvedValue({ data: {} })
@@ -305,6 +306,7 @@ describe('QuestionAssetWorkflow', () => {
       QUESTION_DESCRIPTORS,
       expect.objectContaining({
         createAssets: false,
+        createPreviewAssets: true,
         schemaRows: EXERCISE.schema,
       }),
     )
@@ -335,6 +337,9 @@ describe('QuestionAssetWorkflow', () => {
     ]))
     expect(await screen.findByText('Answer PDF: A')).toBeInTheDocument()
     expect(screen.getByText('Green highlight: A')).toBeInTheDocument()
+    expect(screen.getAllByText('Answer PDF crop (teacher-only)')).toHaveLength(2)
+    expect(screen.getAllByLabelText('Answer PDF crop (teacher-only)')).toHaveLength(2)
+    expect(api.uploadGeneratedQuestionAsset).toHaveBeenCalledTimes(2)
     expect(screen.getByText(/Unscored, review required/)).toBeInTheDocument()
     expect(screen.queryByText('Sources agree')).not.toBeInTheDocument()
     expect(screen.queryByText('From green highlight')).not.toBeInTheDocument()
