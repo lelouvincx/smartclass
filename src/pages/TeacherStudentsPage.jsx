@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Users } from 'lucide-react'
+import { ChevronDown, Users } from '@/components/material-symbol'
 import { useSearchParams } from 'react-router-dom'
 import { listStudents, createStudent, approveStudent, removeStudent, updateStudentAccessTier, updateStudentGrades, updateStudentName, updateStudentStatus } from '@/lib/api'
 import { toast } from 'sonner'
@@ -62,6 +62,11 @@ function StudentRowActions({
   t,
 }) {
   const displayName = student.name || student.phone
+  const isPending = student.status === 'pending'
+  const actionVariant = isPending ? 'default' : 'outline'
+  const menuButtonClassName = isPending
+    ? 'w-9 rounded-l-none border-l border-primary-foreground/25 px-0'
+    : '-ml-px w-9 rounded-l-none px-0'
   const toggleLabel = student.status === 'disabled'
     ? t(updatingStatusId === student.id ? 'teacher.students.activating' : 'teacher.students.activate')
     : t(updatingStatusId === student.id ? 'teacher.students.deactivating' : 'teacher.students.deactivate')
@@ -73,12 +78,12 @@ function StudentRowActions({
 
   return (
     <div className="flex w-full justify-stretch sm:w-auto sm:justify-end">
-      <div className="inline-flex w-full min-w-0 overflow-hidden rounded-[var(--sc-component-control-shape)] border border-border sm:w-auto">
-        {student.status === 'pending' ? (
+      <div className="inline-flex w-full min-w-0 rounded-[var(--sc-component-control-shape)] shadow-sm sm:w-auto">
+        {isPending ? (
           <Button
-            className="min-w-0 flex-1 rounded-none border-0 sm:flex-none"
+            className="min-w-0 flex-1 rounded-r-none sm:flex-none"
             size="sm"
-            variant="default"
+            variant={actionVariant}
             onClick={() => onApprove(student.id)}
             disabled={approvingId === student.id}
           >
@@ -89,10 +94,10 @@ function StudentRowActions({
           </Button>
         ) : (
           <Button
-            className="min-w-0 flex-1 rounded-none border-0 sm:flex-none"
+            className="min-w-0 flex-1 rounded-r-none sm:flex-none"
             type="button"
             size="sm"
-            variant="outline"
+            variant={actionVariant}
             aria-label={toggleAriaLabel}
             onClick={() => onToggleStatus(student)}
             disabled={updatingStatusId === student.id}
@@ -106,13 +111,13 @@ function StudentRowActions({
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              className="rounded-none border-y-0 border-r-0 border-l border-border"
+              className={menuButtonClassName}
               type="button"
-              size="sm"
-              variant="outline"
+              size="icon-sm"
+              variant={actionVariant}
               aria-label={t('teacher.students.moreActionsNamed', { name: displayName })}
             >
-              {t('teacher.students.moreActions')}
+              <ChevronDown className="size-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">

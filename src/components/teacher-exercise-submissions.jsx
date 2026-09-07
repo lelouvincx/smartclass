@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck } from '@/components/material-symbol'
 import { Link } from 'react-router-dom'
 import { listTeacherExerciseSubmissions } from '@/lib/api'
 import { Button } from '@/components/ui/button'

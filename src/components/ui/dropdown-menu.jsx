@@ -2,7 +2,7 @@ import * as React from "react"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
-import { CheckIcon, ChevronRightIcon } from "lucide-react"
+import { CheckIcon, ChevronRightIcon } from "@/components/material-symbol"
 
 function DropdownMenu({
   ...props
@@ -89,7 +89,7 @@ function DropdownMenuCheckboxItem({
         className="pointer-events-none absolute right-2 flex size-4 items-center justify-center rounded-sm border border-input bg-background"
         data-slot="dropdown-menu-checkbox-item-indicator">
         <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon className="size-3" />
+          <CheckIcon className="size-4" />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
       {children}

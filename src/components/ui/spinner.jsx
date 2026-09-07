@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils"
-import { Loader2Icon } from "lucide-react"
+import { Loader2Icon } from "@/components/material-symbol"
 
 function Spinner({
   className,

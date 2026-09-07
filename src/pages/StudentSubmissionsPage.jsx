@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { History } from 'lucide-react'
+import { History } from '@/components/material-symbol'
 import { Link } from 'react-router-dom'
 import { listMySubmissions } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'

@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
 import { Outlet } from 'react-router-dom'
-import { BookOpen, ClipboardList } from 'lucide-react'
+import { BookOpen, ClipboardList } from '@/components/material-symbol'
 import { useAuth } from '@/lib/auth-context'
 import { getDefaultPathForRole } from '@/lib/navigation'
 import { AppShell } from '@/design-system/app-shell'

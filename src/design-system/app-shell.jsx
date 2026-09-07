@@ -10,7 +10,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-} from 'lucide-react'
+} from '@/components/material-symbol'
 import { ModeToggle } from '@/components/mode-toggle'
 import { Button } from '@/components/ui/button'
 import {

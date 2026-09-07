@@ -40,6 +40,31 @@
     background: var(--sc-primary-container);
     color: var(--sc-on-primary-container);
   }
+
+  .material-symbols-rounded {
+    font-family: 'Material Symbols Rounded';
+    font-size: 1rem;
+    font-style: normal;
+    font-weight: normal;
+    letter-spacing: normal;
+    line-height: 1;
+    text-transform: none;
+    white-space: nowrap;
+    width: 1em;
+    height: 1em;
+    direction: ltr;
+    -webkit-font-feature-settings: 'liga';
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .material-symbols-rounded.size-5,
+  .material-symbols-rounded.h-5.w-5 {
+    font-size: 1.25rem;
+  }
+
+  .material-symbols-rounded::before {
+    content: attr(data-symbol);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

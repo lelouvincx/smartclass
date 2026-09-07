@@ -2,7 +2,7 @@ import { Outlet, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
 import { AppShell } from '@/design-system/app-shell'
-import { BookOpen, ClipboardList, LayoutDashboard, Plus, Users } from 'lucide-react'
+import { BookOpen, ClipboardList, LayoutDashboard, Plus, Users } from '@/components/material-symbol'
 
 export function TeacherLayout() {
   const navigate = useNavigate()

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, History, VideoOff } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, History, VideoOff } from '@/components/material-symbol'
 import { Link, useParams } from 'react-router-dom'
 import { listLectures } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'

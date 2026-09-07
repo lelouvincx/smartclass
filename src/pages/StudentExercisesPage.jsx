@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardList, RefreshCw } from 'lucide-react'
+import { ClipboardList, RefreshCw } from '@/components/material-symbol'
 import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
@@ -91,7 +91,7 @@ export default function StudentExercisesPage() {
               disabled={isLoading}
               aria-label={t('student.exercises.refresh')}
             >
-              <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+              <RefreshCw className={cn('size-4', isLoading && 'animate-spin')} />
             </Button>
           </>
         }

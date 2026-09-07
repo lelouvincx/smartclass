@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowRight, ArrowUp, BookOpen, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowRight, ArrowUp, BookOpen, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from '@/components/material-symbol'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   createLecture,

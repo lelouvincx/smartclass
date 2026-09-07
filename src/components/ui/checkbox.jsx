@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Checkbox as CheckboxPrimitive } from "radix-ui"
-import { CheckIcon } from "lucide-react"
+import { CheckIcon } from "@/components/material-symbol"
 
 import { cn } from "@/lib/utils"
 
@@ -18,7 +18,7 @@ function Checkbox({ className, ...props }) {
         data-slot="checkbox-indicator"
         className="flex items-center justify-center text-current"
       >
-        <CheckIcon className="size-3.5" aria-hidden="true" />
+        <CheckIcon className="size-4" aria-hidden="true" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight } from '@/components/material-symbol'
 import { Link } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 

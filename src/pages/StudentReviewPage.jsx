@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Download } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Download } from '@/components/material-symbol'
 import { toast } from 'sonner'
 import { getSubmission, getSubmissionAnswerPdf } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'

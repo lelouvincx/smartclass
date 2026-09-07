@@ -7,7 +7,7 @@ import {
   ImageUp,
   RefreshCw,
   ShieldCheck,
-} from 'lucide-react'
+} from '@/components/material-symbol'
 import {
   createQuestionAssetSet,
   deleteQuestionAssetSet,

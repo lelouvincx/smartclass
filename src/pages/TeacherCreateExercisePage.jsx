@@ -28,7 +28,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { FileCheck2, FileText } from 'lucide-react'
+import { FileCheck2, FileText } from '@/components/material-symbol'
 import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
 import AnswerParseProgress from '@/components/answer-parse-progress'
