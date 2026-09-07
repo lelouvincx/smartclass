@@ -1140,19 +1140,6 @@ export default function QuestionAssetWorkflow({
                       </p>
                     )}
 
-                    {!isRejected && !isMissing && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        onClick={() => handleReject(qId)}
-                        disabled={busyQuestionId === qId}
-                      >
-                        {busyQuestionId === qId
-                          ? t('teacher.questionViews.rejecting')
-                          : t('teacher.questionViews.rejectQuestion')}
-                      </Button>
-                    )}
-
                     {(isRejected || isMissing) && (
                       <div className="space-y-4 rounded-lg bg-warning-muted p-4">
                         <div className="flex flex-wrap gap-2">
@@ -1199,12 +1186,27 @@ export default function QuestionAssetWorkflow({
                     )}
                   </div>
                   <div className="min-w-0 border-t p-5 lg:border-l lg:border-t-0">
-                    <QuestionAnswerReview
-                      rows={answerRows}
-                      resolvedKeys={resolvedAnswerKeys}
-                      onAnswerChange={handleAnswerChange}
-                      onResolve={handleResolveAnswer}
-                    />
+                    <div className="space-y-4">
+                      <QuestionAnswerReview
+                        rows={answerRows}
+                        resolvedKeys={resolvedAnswerKeys}
+                        onAnswerChange={handleAnswerChange}
+                        onResolve={handleResolveAnswer}
+                      />
+                      {!isRejected && !isMissing && (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="w-full justify-center"
+                          onClick={() => handleReject(qId)}
+                          disabled={busyQuestionId === qId}
+                        >
+                          {busyQuestionId === qId
+                            ? t('teacher.questionViews.rejecting')
+                            : t('teacher.questionViews.rejectQuestion')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </CardContent>

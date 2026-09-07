@@ -222,6 +222,10 @@ describe('QuestionAssetWorkflow', () => {
     expect(within(questionOneCard).queryByText(/confidence/i)).not.toBeInTheDocument()
     expect(within(questionOneCard).queryByText('From Answer PDF')).not.toBeInTheDocument()
     expect(within(questionOneCard).queryByLabelText('Correct answer for question 2')).not.toBeInTheDocument()
+    expect(within(questionOneCard).getByRole('heading', { name: 'Answer review' })
+      .closest('.border-t')).toContainElement(
+        within(questionOneCard).getByRole('button', { name: 'Reject question preview' }),
+      )
     expect(within(questionTwoCard).getByLabelText('Correct answer for question 2')).toHaveValue('42')
     expect(screen.queryByRole('heading', { name: 'Review the answer key' })).not.toBeInTheDocument()
   })
