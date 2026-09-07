@@ -378,7 +378,7 @@ describe('TeacherViewExercisePage', () => {
 
     await screen.findByText('Physics Quiz')
     await user.click(screen.getByRole('button', { name: /^edit$/i }))
-    await user.click(screen.getByRole('radio', { name: 'Unlimited' }))
+    await user.click(screen.getByRole('switch', { name: 'Limited' }))
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     expect(updateExerciseMock).toHaveBeenCalledWith(

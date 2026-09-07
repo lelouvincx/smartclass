@@ -89,7 +89,7 @@ describe('TeacherCreateExercisePage', () => {
   it('defaults new exercises to one attempt', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
-    expect(screen.getByRole('radio', { name: 'Limited' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Limited' })).toBeChecked()
     expect(screen.getByLabelText('Maximum attempts')).toHaveValue(1)
   })
 
@@ -187,7 +187,8 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Practice set')
-    await user.click(screen.getByRole('radio', { name: 'Unlimited' }))
+    await user.click(screen.getByRole('switch', { name: 'Limited' }))
+    expect(screen.getByRole('switch', { name: 'Unlimited' })).not.toBeChecked()
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
