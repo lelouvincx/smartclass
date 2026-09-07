@@ -1055,10 +1055,10 @@ export default function TeacherCreateExercisePage() {
         </Card>
 
         {(questionPreview.phase !== 'idle') && (
-          <Card>
+          <Card role="region" aria-labelledby="create-question-views-title">
             <CardHeader className="border-b px-5 py-4">
               <div>
-                <h2 className="font-semibold">{t('teacher.questionViews.title')}</h2>
+                <h2 id="create-question-views-title" className="font-semibold">{t('teacher.questionViews.title')}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {t('teacher.create.questionPreviewDescription')}
                 </p>
@@ -1139,6 +1139,15 @@ export default function TeacherCreateExercisePage() {
                   })}
                 </div>
               )}
+              <ScoreAllocationCard
+                ref={allocationRef}
+                rows={validatedRows}
+                mode={allocationMode}
+                onModeChange={setAllocationMode}
+                values={customScores}
+                onValuesChange={setCustomScores}
+                embedded
+              />
             </CardContent>
           </Card>
         )}
@@ -1180,14 +1189,16 @@ export default function TeacherCreateExercisePage() {
           </Card>
         )}
 
-        <ScoreAllocationCard
-          ref={allocationRef}
-          rows={validatedRows}
-          mode={allocationMode}
-          onModeChange={setAllocationMode}
-          values={customScores}
-          onValuesChange={setCustomScores}
-        />
+        {questionPreview.phase === 'idle' && (
+          <ScoreAllocationCard
+            ref={allocationRef}
+            rows={validatedRows}
+            mode={allocationMode}
+            onModeChange={setAllocationMode}
+            values={customScores}
+            onValuesChange={setCustomScores}
+          />
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 

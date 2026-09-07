@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -495,7 +495,9 @@ describe('TeacherCreateExercisePage', () => {
     await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer'], 'answers.pdf', { type: 'application/pdf' }))
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByRole('heading', { name: 'Question views' })).toBeInTheDocument()
+    const questionViews = await screen.findByRole('region', { name: 'Question views' })
+    expect(within(questionViews).getByRole('heading', { name: 'Question views' })).toBeInTheDocument()
+    expect(within(questionViews).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
     expect(screen.getByText('1 question views are ready to save.')).toBeInTheDocument()
     expect(screen.getByLabelText('Exercise PDF crop')).toBeInTheDocument()
     expect(screen.getByLabelText('Answer PDF crop (teacher-only)')).toBeInTheDocument()

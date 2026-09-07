@@ -728,6 +728,8 @@ describe('QuestionAssetWorkflow', () => {
       pending_question_asset_set_id: 22,
     })
 
+    const questionViews = await screen.findByRole('region', { name: 'Review every question' })
+    expect(within(questionViews).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
     expect(await screen.findByRole('radio', { name: 'Custom allocation' })).toBeChecked()
     const firstScore = screen.getByLabelText(/Points for question 1/i)
     fireEvent.change(firstScore, { target: { value: '3.50' } })

@@ -1285,6 +1285,7 @@ export default function QuestionAssetWorkflow({
         onModeChange={setAllocationMode}
         values={customScores}
         onValuesChange={setCustomScores}
+        embedded
       />
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
