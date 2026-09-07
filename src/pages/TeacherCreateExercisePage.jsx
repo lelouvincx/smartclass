@@ -604,7 +604,7 @@ export default function TeacherCreateExercisePage() {
                 </p>
               </div>
 
-              <div data-testid="answer-parse-action" className="space-y-3 rounded-[var(--sc-component-control-shape)] border border-border bg-muted/30 p-3 md:col-span-2">
+              <div data-testid="answer-parse-action" className="space-y-3 md:col-span-2">
                 <Button
                   type="button"
                   variant="outline"

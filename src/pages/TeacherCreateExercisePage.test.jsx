@@ -101,6 +101,7 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
     expect(screen.getByTestId('answer-pdf-upload')).not.toContainElement(screen.getByRole('button', { name: /read answers from pdf/i }))
     expect(screen.getByTestId('answer-parse-action')).toContainElement(screen.getByRole('button', { name: /read answers from pdf/i }))
+    expect(screen.getByTestId('answer-parse-action')).not.toHaveClass('border', 'bg-muted/30', 'p-3')
   })
 
   it('defaults new exercises to one attempt', () => {
