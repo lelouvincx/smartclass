@@ -188,6 +188,54 @@ describe('POST /api/exercises', () => {
     expect(booleanRows.map((r) => r.sub_id).sort()).toEqual(['a', 'b', 'c', 'd'])
   })
 
+  it('creates and returns an exact custom score allocation', async () => {
+    const schema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'B', max_score_hundredths: 250 },
+      ...['a', 'b', 'c', 'd'].map((sub_id, index) => ({
+        q_id: 2,
+        type: 'boolean',
+        sub_id,
+        correct_answer: index === 0 || index === 3 ? '1' : '0',
+        max_score_hundredths: 750,
+      })),
+    ]
+    const { res, body } = await createExercise(token, { schema })
+
+    expect(res.status).toBe(201)
+    expect(body.data.schema.map(row => row.max_score_hundredths)).toEqual([250, 750, 750, 750, 750])
+  })
+
+  it.each([
+    {
+      name: 'mixed automatic and custom values',
+      schema: [
+        { q_id: 1, type: 'mcq', correct_answer: 'A', max_score_hundredths: null },
+        { q_id: 2, type: 'numeric', correct_answer: '2', max_score_hundredths: 1000 },
+      ],
+    },
+    {
+      name: 'an inconsistent boolean maximum',
+      schema: ['a', 'b', 'c', 'd'].map((sub_id, index) => ({
+        q_id: 1,
+        type: 'boolean',
+        sub_id,
+        correct_answer: '1',
+        max_score_hundredths: index === 3 ? 999 : 1000,
+      })),
+    },
+    {
+      name: 'a distinct-question total other than 1000',
+      schema: [
+        { q_id: 1, type: 'mcq', correct_answer: 'A', max_score_hundredths: 499 },
+        { q_id: 2, type: 'numeric', correct_answer: '2', max_score_hundredths: 500 },
+      ],
+    },
+  ])('rejects $name', async ({ schema }) => {
+    const { res, body } = await createExercise(token, { schema })
+    expect(res.status).toBe(400)
+    expect(body.error.code).toBe('INVALID_SCHEMA')
+  })
+
   it('creates untimed exercise with zero duration', async () => {
     const { res, body } = await createExercise(token, {
       is_timed: false,
@@ -354,6 +402,7 @@ describe('GET /api/exercises/:id', () => {
     expect(body.data.files).toEqual([])
     body.data.schema.forEach((row) => {
       expect(row).not.toHaveProperty('correct_answer')
+      expect(row).not.toHaveProperty('max_score_hundredths')
     })
 
     const mcqRow = body.data.schema.find((r) => r.type === 'mcq')
@@ -505,6 +554,33 @@ describe('PUT /api/exercises/:id', () => {
     expect(body.data.schema[0].correct_answer).toBe('42')
   })
 
+  it('rejects an allocation change when a legacy submission exists but permits a no-op', async () => {
+    const automaticSchema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'A' },
+      { q_id: 2, type: 'numeric', correct_answer: '2' },
+    ]
+    const { id } = await createExercise(token, { schema: automaticSchema })
+    await env.DB.prepare(`
+      insert into submissions (exercise_id, mode, total_questions, started_at)
+      values (?, 'untimed', 2, current_timestamp)
+    `).bind(id).run()
+
+    const noOp = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ schema: automaticSchema }),
+    }, env)
+    expect(noOp.status).toBe(200)
+
+    const changed = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ schema: automaticSchema.map(row => ({ ...row, max_score_hundredths: 500 })) }),
+    }, env)
+    expect(changed.status).toBe(409)
+    expect((await changed.json()).error.code).toBe('LEGACY_SUBMISSIONS_REQUIRE_PINNING')
+  })
+
   it('preserves section descriptors omitted by an older client', async () => {
     const sectionedSchema = [
       { q_id: 1, section_key: 'multiple-choice', section_title: 'Phần I', local_number: 1, type: 'mcq', correct_answer: 'A' },
@@ -525,7 +601,31 @@ describe('PUT /api/exercises/:id', () => {
 
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.schema).toEqual(sectionedSchema.map((row) => ({ ...row, sub_id: null })))
+    expect(body.data.schema).toEqual(sectionedSchema.map((row) => ({
+      ...row,
+      sub_id: null,
+      max_score_hundredths: null,
+    })))
+  })
+
+  it('preserves custom allocation values omitted by an older client', async () => {
+    const customSchema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'A', max_score_hundredths: 300 },
+      { q_id: 2, type: 'numeric', correct_answer: '42', max_score_hundredths: 700 },
+    ]
+    const { id } = await createExercise(token, { schema: customSchema })
+
+    const res = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        schema: customSchema.map(({ max_score_hundredths: _omitted, ...row }) => row),
+      }),
+    }, env)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.schema.map(row => row.max_score_hundredths)).toEqual([300, 700])
   })
 
   it('rejects string duration_minutes on update', async () => {

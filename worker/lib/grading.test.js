@@ -231,3 +231,63 @@ describe('gradeSubmission — mixed exercise', () => {
     })
   })
 })
+
+describe('gradeSubmission — score allocation', () => {
+  it('preserves automatic allocation without rounding per-question shares', () => {
+    const schema = [1, 2, 3].map(q_id => ({
+      q_id,
+      sub_id: null,
+      type: 'mcq',
+      correct_answer: 'A',
+      max_score_hundredths: null,
+    }))
+
+    expect(gradeSubmission(schema, [
+      { q_id: 1, sub_id: null, submitted_answer: 'A' },
+      { q_id: 2, sub_id: null, submitted_answer: 'B' },
+      { q_id: 3, sub_id: null, submitted_answer: 'B' },
+    ]).score).toBe(3.33)
+  })
+
+  it('uses exact custom maxima for MCQ, numeric, and boolean partial credit', () => {
+    const schema = [
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'B', max_score_hundredths: 125 },
+      { q_id: 2, sub_id: null, type: 'numeric', correct_answer: '42', max_score_hundredths: 275 },
+      ...BOOLEAN_SCHEMA.map(row => ({ ...row, q_id: 3, max_score_hundredths: 600 })),
+    ]
+
+    const { score } = gradeSubmission(schema, [
+      { q_id: 1, sub_id: null, submitted_answer: 'B' },
+      { q_id: 2, sub_id: null, submitted_answer: '0' },
+      { q_id: 3, sub_id: 'a', submitted_answer: '1' },
+      { q_id: 3, sub_id: 'b', submitted_answer: '0' },
+      { q_id: 3, sub_id: 'c', submitted_answer: '0' },
+      { q_id: 3, sub_id: 'd', submitted_answer: '0' },
+    ])
+
+    expect(score).toBe(4.25)
+  })
+
+  it('counts omitted boolean parts as wrong with custom allocation', () => {
+    const schema = BOOLEAN_SCHEMA.map(row => ({ ...row, max_score_hundredths: 1000 }))
+
+    expect(gradeSubmission(schema, [
+      { q_id: 1, sub_id: 'a', submitted_answer: '1' },
+      { q_id: 1, sub_id: 'b', submitted_answer: '0' },
+      { q_id: 1, sub_id: 'c', submitted_answer: '0' },
+    ]).score).toBe(5)
+  })
+
+  it.each([
+    [[
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'A', max_score_hundredths: null },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'A', max_score_hundredths: 1000 },
+    ]],
+    [BOOLEAN_SCHEMA.map((row, index) => ({
+      ...row,
+      max_score_hundredths: index === 3 ? 999 : 1000,
+    }))],
+  ])('rejects invalid mixed persisted allocation state', (schema) => {
+    expect(() => gradeSubmission(schema, [])).toThrow(/score allocation/i)
+  })
+})

@@ -35,7 +35,8 @@ async function createExercise(token, overrides = {}) {
     ) values (?, ?, 'test-v1', 'text', ?, current_timestamp)
   `).bind(created.id, sourceFile.meta.last_row_id, teacher.id).run()
   const schema = await env.DB.prepare(`
-    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer
+    select q_id, section_key, section_title, local_number, sub_id, type, correct_answer,
+      max_score_hundredths
     from answer_schemas where exercise_id = ?
   `).bind(created.id).all()
 
@@ -43,7 +44,8 @@ async function createExercise(token, overrides = {}) {
     ...schema.results.map(row => env.DB.prepare(`
       insert into exercise_question_answer_schemas (
         asset_set_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
-      ) values (?, ?, ?, ?, ?, ?, ?, ?)
+        , max_score_hundredths
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       assetSet.meta.last_row_id,
       row.q_id,
@@ -53,6 +55,7 @@ async function createExercise(token, overrides = {}) {
       row.sub_id,
       row.type,
       row.correct_answer,
+      row.max_score_hundredths,
     )),
     env.DB.prepare(
       'update exercises set active_question_asset_set_id = ? where id = ?'
@@ -1001,6 +1004,107 @@ describe('Grading — auto-grade on submit', () => {
 
     expect(body.data.score).toBe(10)
     body.data.answers.forEach((a) => expect(a.is_correct).toBe(1))
+  })
+
+  it('uses the custom allocation pinned when the submission starts', async () => {
+    const customSchema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'B', max_score_hundredths: 300 },
+      ...['a', 'b', 'c', 'd'].map((sub_id, index) => ({
+        q_id: 2,
+        type: 'boolean',
+        sub_id,
+        correct_answer: index === 0 || index === 3 ? '1' : '0',
+        max_score_hundredths: 700,
+      })),
+    ]
+    const { id: exerciseId } = await createExercise(teacherToken, { schema: customSchema })
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    await env.DB.batch([
+      env.DB.prepare(`
+        update answer_schemas set max_score_hundredths = 800
+        where exercise_id = ? and q_id = 1
+      `).bind(exerciseId),
+      env.DB.prepare(`
+        update answer_schemas set max_score_hundredths = 200
+        where exercise_id = ? and q_id = 2
+      `).bind(exerciseId),
+    ])
+
+    const body = await submitAnswers(submissionId, [
+      { q_id: 1, submitted_answer: 'B' },
+      { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+      { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'd', submitted_answer: '0' },
+    ])
+    expect(body.data.score).toBe(6.5)
+    body.data.answers.forEach(answer => {
+      expect(answer).not.toHaveProperty('max_score_hundredths')
+    })
+  })
+
+  it('uses the current custom allocation for a legacy unpinned submission', async () => {
+    const customSchema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'B', max_score_hundredths: 300 },
+      ...['a', 'b', 'c', 'd'].map((sub_id, index) => ({
+        q_id: 2,
+        type: 'boolean',
+        sub_id,
+        correct_answer: index === 0 || index === 3 ? '1' : '0',
+        max_score_hundredths: 700,
+      })),
+    ]
+    const { id: exerciseId } = await createUnreadyExercise(teacherToken, { schema: customSchema })
+    const student = await env.DB.prepare(
+      "select id from users where phone = '+84123456789'",
+    ).first()
+    const inserted = await env.DB.prepare(`
+      insert into submissions (
+        exercise_id, user_id, mode, total_questions, attempt_number, started_at
+      ) values (?, ?, 'untimed', 2, 1, current_timestamp)
+    `).bind(exerciseId, student.id).run()
+
+    const body = await submitAnswers(inserted.meta.last_row_id, [
+      { q_id: 1, submitted_answer: 'B' },
+      { q_id: 2, sub_id: 'a', submitted_answer: '0' },
+      { q_id: 2, sub_id: 'b', submitted_answer: '1' },
+      { q_id: 2, sub_id: 'c', submitted_answer: '1' },
+      { q_id: 2, sub_id: 'd', submitted_answer: '0' },
+    ])
+
+    expect(body.data.score).toBe(3)
+  })
+
+  it('does not submit when persisted allocation is mixed', async () => {
+    const { id: exerciseId, assetSetId } = await createExercise(teacherToken)
+    await env.DB.prepare(`
+      update exercise_question_answer_schemas
+      set max_score_hundredths = 1000
+      where asset_set_id = ? and q_id = 1
+    `).bind(assetSetId).run()
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+
+    const response = await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${studentToken}` },
+      body: JSON.stringify({ answers: [{ q_id: 1, submitted_answer: 'B' }] }),
+    }, env)
+    expect(response.status).toBe(409)
+    const persisted = await env.DB.prepare(
+      'select submitted_at, score from submissions where id = ?',
+    ).bind(submissionId).first()
+    expect(persisted).toEqual({ submitted_at: null, score: null })
   })
 })
 

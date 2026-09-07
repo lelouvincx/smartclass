@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -31,6 +31,8 @@ import { GradeDropdown } from '@/components/grade-checkbox-group'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
+import ScoreAllocationCard from '@/components/score-allocation-card'
+import { applyScoreAllocation } from '@/lib/score-allocation'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -143,6 +145,7 @@ function toSchemaPayload(rows) {
         type: 'boolean',
         sub_id: row.sub_id,
         correct_answer: row.correct_answer,
+        max_score_hundredths: row.max_score_hundredths ?? null,
       }
     }
     return {
@@ -150,6 +153,7 @@ function toSchemaPayload(rows) {
       ...identity,
       type: row.type,
       correct_answer: normalizeAnswer(row.type, row.correct_answer),
+      max_score_hundredths: row.max_score_hundredths ?? null,
     }
   })
 }
@@ -212,6 +216,9 @@ export default function TeacherCreateExercisePage() {
   const [showWarningConfirm, setShowWarningConfirm] = useState(false)
   const [createdExerciseId, setCreatedExerciseId] = useState(null)
   const [failedUploadName, setFailedUploadName] = useState('')
+  const [allocationMode, setAllocationMode] = useState('automatic')
+  const [customScores, setCustomScores] = useState({})
+  const allocationRef = useRef(null)
 
   const validatedRows = useMemo(() => validateRows(rows, t), [rows, t])
   const stats = useMemo(() => {
@@ -347,7 +354,7 @@ export default function TeacherCreateExercisePage() {
         is_timed: isTimed,
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
         max_attempts: maxAttempts === null ? null : Number(maxAttempts),
-        schema: toSchemaPayload(validatedRows),
+        schema: toSchemaPayload(applyScoreAllocation(validatedRows, allocationMode, customScores)),
       }
       const createResponse = await createExercise(token, payload)
       const exerciseId = createResponse.data.id
@@ -386,6 +393,7 @@ export default function TeacherCreateExercisePage() {
     }
     if (validatedRows.length === 0) { setError(t('teacher.create.questionRequired')); return }
     if (stats.errorsCount > 0) { setError(t('teacher.create.fixErrors')); return }
+    if (!allocationRef.current?.validate()) return
     if (!exerciseFile || !answerFile) { setError(t('teacher.create.filesRequired')); return }
     if (stats.warningsCount > 0) { setShowWarningConfirm(true); return }
 
@@ -611,6 +619,15 @@ export default function TeacherCreateExercisePage() {
             showConfidence
           />
         </Card>
+
+        <ScoreAllocationCard
+          ref={allocationRef}
+          rows={validatedRows}
+          mode={allocationMode}
+          onModeChange={setAllocationMode}
+          values={customScores}
+          onValuesChange={setCustomScores}
+        />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 

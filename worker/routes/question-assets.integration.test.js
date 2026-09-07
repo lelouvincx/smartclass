@@ -623,6 +623,7 @@ describe('GET /api/exercises/:exerciseId/question-asset-sets/:setId', () => {
       expect(asset.r2_key).toBeUndefined()
       expect(asset.file_url).toBe(`/api/question-assets/${asset.id}`)
     })
+    expect(body.data.schema.every(row => row.max_score_hundredths === null)).toBe(true)
   })
 
   it('rejects a student preview request', async () => {
@@ -893,6 +894,72 @@ describe('PUT /api/exercises/:exerciseId/question-asset-sets/:setId/questions/:q
 })
 
 describe('PUT /api/exercises/:id question asset activation', () => {
+  it('copies allocation into a pending set and allows changing it during activation', async () => {
+    const initialSchema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'B', max_score_hundredths: 300 },
+      { q_id: 2, type: 'numeric', correct_answer: '42', max_score_hundredths: 700 },
+    ]
+    const changedSchema = initialSchema.map((row, index) => ({
+      ...row,
+      max_score_hundredths: index === 0 ? 400 : 600,
+    }))
+    const { id: exerciseId } = await createExercise(teacherToken, { schema: initialSchema })
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createPendingSetData(exerciseId, sourceFileId)
+    await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 1 })
+    await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 2 })
+
+    const pendingResponse = await app.request(
+      `/api/exercises/${exerciseId}/question-asset-sets/${assetSet.id}`,
+      { headers: { Authorization: `Bearer ${teacherToken}` } },
+      env,
+    )
+    expect(pendingResponse.status).toBe(200)
+    expect((await pendingResponse.json()).data.schema.map(row => row.max_score_hundredths))
+      .toEqual([300, 700])
+
+    const activated = await activateSet(exerciseId, assetSet.id, changedSchema)
+    expect(activated.status).toBe(200)
+
+    const pinned = await env.DB.prepare(`
+      select q_id, max_score_hundredths
+      from exercise_question_answer_schemas
+      where asset_set_id = ?
+      order by q_id
+    `).bind(assetSet.id).all()
+    expect(pinned.results).toEqual([
+      { q_id: 1, max_score_hundredths: 400 },
+      { q_id: 2, max_score_hundredths: 600 },
+    ])
+  })
+
+  it('rejects allocation-changing activation when a legacy submission exists', async () => {
+    const schema = [
+      { q_id: 1, type: 'mcq', correct_answer: 'B' },
+      { q_id: 2, type: 'numeric', correct_answer: '42' },
+    ]
+    const { id: exerciseId } = await createExercise(teacherToken, { schema })
+    const student = await env.DB.prepare("select id from users where role = 'student' limit 1").first()
+    await env.DB.prepare(`
+      insert into submissions (exercise_id, user_id, mode, total_questions, started_at)
+      values (?, ?, 'untimed', 2, current_timestamp)
+    `).bind(exerciseId, student.id).run()
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createPendingSetData(exerciseId, sourceFileId)
+    await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 1 })
+    await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 2 })
+
+    const response = await activateSet(exerciseId, assetSet.id, schema.map(row => ({
+      ...row,
+      max_score_hundredths: 500,
+    })))
+
+    expect(response.status).toBe(409)
+    expect((await response.json()).error.code).toBe('LEGACY_SUBMISSIONS_REQUIRE_PINNING')
+
+    const automatic = await activateSet(exerciseId, assetSet.id, schema)
+    expect(automatic.status).toBe(200)
+  })
   it('keeps pinned section identity immutable while allowing answer corrections', async () => {
     const sectionedSchema = [
       {

@@ -139,9 +139,10 @@ questionAssetsRoutes.post(
             , sub_id
             , type
             , correct_answer
+            , max_score_hundredths
           )
           select ?, q_id, section_key, section_title,
-            local_number, sub_id, type, correct_answer
+            local_number, sub_id, type, correct_answer, max_score_hundredths
           from answer_schemas
           where exercise_id = ?
         `).bind(setId, exerciseId),
@@ -205,7 +206,7 @@ questionAssetsRoutes.post(
     const normalized = []
     const seen = new Set()
     const pinnedRows = await c.env.DB.prepare(`
-      select q_id, sub_id, type
+      select q_id, sub_id, type, max_score_hundredths
       from exercise_question_answer_schemas
       where asset_set_id = ?
     `).bind(setId).all()
@@ -520,11 +521,19 @@ questionAssetsRoutes.get(
       where asset_set_id = ?
       order by q_id asc, sub_id asc, source_kind asc
     `).bind(setId).all()
+    const schema = await c.env.DB.prepare(`
+      select q_id, section_key, section_title, local_number, sub_id, type,
+        correct_answer, max_score_hundredths
+      from exercise_question_answer_schemas
+      where asset_set_id = ?
+      order by q_id asc, sub_id asc
+    `).bind(setId).all()
 
     return jsonSuccess(c, {
       asset_set: assetSet,
       assets: assets.results.map(toQuestionAssetResponse),
       answer_candidates: answerCandidates.results,
+      schema: schema.results,
     })
   },
 )
