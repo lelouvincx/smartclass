@@ -14,18 +14,23 @@ import { BUILD_COMMIT } from './version.js'
 
 const app = new Hono()
 
+const PRODUCTION_CORS_ORIGINS = new Set([
+  'https://toanthaythanh.com',
+  'https://tienganhcothuy.com',
+])
+
 app.use('/api/*', async (c, next) => {
-  const allowedOrigin = c.env.APP_ENV === 'production'
-    ? 'https://toanthaythanh.com'
-    : c.env.APP_CORS_ORIGIN || 'http://localhost:5173'
+  const allowedOrigins = c.env.APP_ENV === 'production'
+    ? PRODUCTION_CORS_ORIGINS
+    : new Set([c.env.APP_CORS_ORIGIN || 'http://localhost:5173'])
 
   return cors({
     origin: (origin) => {
       if (!origin) {
-        return allowedOrigin
+        return [...allowedOrigins][0]
       }
 
-      return origin === allowedOrigin ? origin : null
+      return allowedOrigins.has(origin) ? origin : null
     },
     allowHeaders: ['Content-Type', 'Authorization', 'x-r2-key', 'x-file-type', 'x-file-name'],
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],

@@ -126,14 +126,15 @@ The teacher seed is idempotent and can be re-run safely.
 Production domains:
 
 - Backend: https://api.toanthaythanh.com
-- Frontend: https://toanthaythanh.com
+- Frontend: https://toanthaythanh.com and https://tienganhcothuy.com
 - Dbdocs: https://dbdocs.io/lelouvincx/smartclass
 
 Setup summary:
 
 1. Cloudflare Pages project `smartclass` via GitHub App:
 2. Worker custom domain: `api.toanthaythanh.com`
-3. GitHub repository secrets:
+3. Cloudflare Pages custom domains: `toanthaythanh.com`, `tienganhcothuy.com`
+4. GitHub repository secrets:
    - `CLOUDFLARE_API_TOKEN`
    - `CLOUDFLARE_ACCOUNT_ID`
    - `JWT_SECRET`
@@ -153,6 +154,7 @@ curl -s https://api.toanthaythanh.com/api/health
 ```
 
 Then verify browser login flow at `https://toanthaythanh.com`.
+Also verify the alternate frontend at `https://tienganhcothuy.com`.
 
 </details>
 
