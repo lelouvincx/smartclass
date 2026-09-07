@@ -21,8 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Standardize shared UI primitives against the Material 3 component adoption plan.
-- Document the Material 3 component adoption plan for shared UI primitives, missing components, deferred components, rollout order, and review gates.
+- Standardize shared UI primitives against the Material 3 component adoption plan. [#129](https://github.com/lelouvincx/smartclass/pull/129)
+- Document the Material 3 component adoption plan for shared UI primitives, missing components, deferred components, rollout order, and review gates. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Default student programme selectors to Grade 12 instead of all programmes. [#127](https://github.com/lelouvincx/smartclass/pull/127)
 - Allow the production API to accept the alternate frontend domain `tienganhcothuy.com` alongside `toanthaythanh.com`. [#126](https://github.com/lelouvincx/smartclass/pull/126)
 - Replace DeepSeek with Cohere Parse v5 for Answer PDF and student answer-photo extraction, with deterministic parsing and safe abstention for ambiguous results. [#119](https://github.com/lelouvincx/smartclass/pull/119)
