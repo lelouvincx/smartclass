@@ -52,6 +52,7 @@ import { applyScoreAllocation } from '@/lib/score-allocation'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { ProgressIndicator } from '@/design-system/progress-indicator'
 import { generateQuestionAssets } from '@/lib/question-generation'
+import ScrollToTopButton from '@/components/scroll-to-top-button'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -865,6 +866,7 @@ export default function TeacherCreateExercisePage() {
           onActivated={() => navigate(`/teacher/exercises/${createdExercise.id}`, { replace: true })}
           onReplacePdf={() => navigate(`/teacher/exercises/${createdExercise.id}`)}
         />
+        <ScrollToTopButton />
       </div>
     )
   }
@@ -1208,6 +1210,7 @@ export default function TeacherCreateExercisePage() {
           </Button>
         </div>
       </form>
+      <ScrollToTopButton />
 
       {/* Warning confirm dialog */}
       <Dialog open={showWarningConfirm} onOpenChange={setShowWarningConfirm}>

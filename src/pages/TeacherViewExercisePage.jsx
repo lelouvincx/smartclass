@@ -28,6 +28,7 @@ import { TeacherExerciseSubmissions } from '@/components/teacher-exercise-submis
 import { formatDuration } from '@/lib/format'
 import { GRADES } from '@/lib/grades'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
+import ScrollToTopButton from '@/components/scroll-to-top-button'
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -844,6 +845,7 @@ export default function TeacherViewExercisePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ScrollToTopButton />
     </div>
   )
 }

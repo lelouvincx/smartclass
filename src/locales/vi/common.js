@@ -10,6 +10,7 @@ export default {
   signIn: 'Đăng nhập',
   openWorkspace: 'Mở trang học',
   comingSoon: 'Sắp ra mắt',
+  backToTop: 'Lên đầu trang',
   skipToMain: 'Chuyển đến nội dung chính',
   openNavigation: 'Mở điều hướng',
   collapseSidebar: 'Thu gọn thanh bên',
