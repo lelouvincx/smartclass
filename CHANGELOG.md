@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - Default student programme selectors to Grade 12 instead of all programmes. [#127](https://github.com/lelouvincx/smartclass/pull/127)
+- Allow the production API to accept the alternate frontend domain `tienganhcothuy.com` alongside `toanthaythanh.com`. [#126](https://github.com/lelouvincx/smartclass/pull/126)
 - Replace DeepSeek with Cohere Parse v5 for Answer PDF and student answer-photo extraction, with deterministic parsing and safe abstention for ambiguous results. [#119](https://github.com/lelouvincx/smartclass/pull/119)
 - Use the shared checkbox dropdown for every teacher programme selection, including the lecture form. [#124](https://github.com/lelouvincx/smartclass/pull/124)
 - Present submission scores in a compact “score / 10” format, highlight submitted and correct answers with semantic design-system colors, and use a compact navigation rail for detailed reviews. [#117](https://github.com/lelouvincx/smartclass/pull/117)

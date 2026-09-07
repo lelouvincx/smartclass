@@ -38,4 +38,20 @@ describe('production CORS', () => {
     expect(response.status).toBe(204)
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://toanthaythanh.com')
   })
+
+  it('allows the alternate production frontend domain', async () => {
+    const env = createMockEnv({ APP_ENV: 'production' })
+
+    const response = await app.request('/api/auth/google/login', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://tienganhcothuy.com',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+      },
+    }, env)
+
+    expect(response.status).toBe(204)
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('https://tienganhcothuy.com')
+  })
 })
