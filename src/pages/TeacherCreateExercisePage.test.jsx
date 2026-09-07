@@ -459,6 +459,8 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByText('1 question views are ready to save.')).toBeInTheDocument()
     expect(screen.getByLabelText('Exercise PDF crop')).toBeInTheDocument()
     expect(screen.getByLabelText('Answer PDF crop (teacher-only)')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Correct answer for question 1')).toHaveValue('D')
     expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
       expect.any(File),
       [expect.objectContaining({ q_id: 1, local_number: 1 })],
@@ -531,7 +533,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
     expect(screen.getByText('Please fix all answer key errors before saving')).toBeInTheDocument()
 
-    await user.type(screen.getByLabelText(/correct answer for question 2/i), 'B')
+    await user.selectOptions(screen.getByLabelText(/correct answer for question 2/i), 'B')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
     expect(screen.getByText('Save with warnings?')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue' }))

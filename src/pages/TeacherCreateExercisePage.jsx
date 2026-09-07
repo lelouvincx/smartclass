@@ -254,6 +254,96 @@ function BlobPreviewImage({ asset, label }) {
   )
 }
 
+function PreviewAnswerReview({ rows, onUpdateRow }) {
+  const { t } = useTranslation()
+
+  if (rows.length === 0) {
+    return <p className="text-sm text-muted-foreground">{t('teacher.questionViews.noAutomaticAnswer')}</p>
+  }
+
+  return (
+    <div className="space-y-4">
+      <h4 className="font-semibold">{t('teacher.questionViews.answerReviewTitle')}</h4>
+      <div className="divide-y">
+        {rows.map((row) => {
+          const labelNumber = row.sub_id ? `${row.q_id}${row.sub_id}` : row.q_id
+          const fieldId = `preview-answer-${row.id}`
+          const errorId = `${fieldId}-error`
+          const invalid = row.errors?.length > 0
+          return (
+            <div key={row.id} className="space-y-3 py-3 first:pt-0 last:pb-0">
+              <div>
+                <p className="text-sm font-medium">
+                  {row.sub_id
+                    ? t('teacher.questionViews.answerPart', { number: row.local_number ?? row.q_id, part: row.sub_id })
+                    : t('teacher.questionViews.question', { number: row.local_number ?? row.q_id })}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {row.confidence === null
+                    ? t('teacher.schema.unscored')
+                    : `${Math.round((row.confidence ?? 1) * 100)}%`}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={fieldId} className="text-xs font-medium text-muted-foreground">
+                  {t('teacher.questionViews.currentAnswer')}
+                </Label>
+                {row.type === 'mcq' ? (
+                  <select
+                    id={fieldId}
+                    value={row.correct_answer}
+                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
+                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? errorId : undefined}
+                    className="min-h-12 w-32 rounded-md border bg-background px-3 text-sm"
+                  >
+                    {['', 'A', 'B', 'C', 'D'].map(value => (
+                      <option key={value} value={value}>{value || '—'}</option>
+                    ))}
+                  </select>
+                ) : row.type === 'boolean' ? (
+                  <select
+                    id={fieldId}
+                    value={row.correct_answer}
+                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
+                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? errorId : undefined}
+                    className="min-h-12 w-32 rounded-md border bg-background px-3 text-sm"
+                  >
+                    <option value="">—</option>
+                    <option value="1">{t('teacher.schema.true')}</option>
+                    <option value="0">{t('teacher.schema.false')}</option>
+                  </select>
+                ) : (
+                  <Input
+                    id={fieldId}
+                    value={row.correct_answer}
+                    inputMode="decimal"
+                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
+                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                    aria-invalid={invalid}
+                    aria-describedby={invalid ? errorId : undefined}
+                    className="min-h-12 w-32"
+                  />
+                )}
+                {invalid ? (
+                  <p id={errorId} className="text-xs text-destructive">{row.errors[0]}</p>
+                ) : row.warnings?.length > 0 ? (
+                  <p className="text-xs text-amber-600">{row.warnings[0]}</p>
+                ) : (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400">{t('teacher.schema.valid')}</p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // --- Row factory ---
 
 function newRows(type, nextQid = '', descriptor = {}) {
@@ -398,13 +488,22 @@ export default function TeacherCreateExercisePage() {
     return new Map(groupPreviewAssets(questionPreview.draft.descriptors, questionPreview.draft.answerPreviewAssets)
       .map(group => [group.q_id, group.assets]))
   }, [questionPreview.draft])
+  const previewAnswerRowsByQuestion = useMemo(() => {
+    const grouped = new Map()
+    for (const row of validatedRows) {
+      const qId = Number.parseInt(String(row.q_id), 10)
+      if (!Number.isSafeInteger(qId)) continue
+      grouped.set(qId, [...(grouped.get(qId) || []), row])
+    }
+    return grouped
+  }, [validatedRows])
 
   function clearQuestionPreview() {
     setQuestionPreview({ phase: 'idle', error: '', progress: null, draft: null })
   }
 
   function handleUpdateRow(id, field, value) {
-    clearQuestionPreview()
+    if (field !== 'correct_answer') clearQuestionPreview()
     setRows((prev) => {
       const targetRow = prev.find((r) => r.id === id)
       if (field === 'type') {
@@ -976,6 +1075,7 @@ export default function TeacherCreateExercisePage() {
                   </div>
                   {questionPreviewGroups.map((group) => {
                     const answerAssets = answerPreviewGroups.get(group.q_id) || []
+                    const answerRows = previewAnswerRowsByQuestion.get(group.q_id) || []
                     return (
                       <div key={group.q_id} className="rounded-lg border">
                         <div className="border-b px-4 py-3">
@@ -1008,8 +1108,8 @@ export default function TeacherCreateExercisePage() {
                               </figure>
                             ))}
                           </div>
-                          <div className="min-w-0 rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground">
-                            {t('teacher.create.questionPreviewAnswerHint')}
+                          <div className="min-w-0 border-t p-4 lg:border-l lg:border-t-0">
+                            <PreviewAnswerReview rows={answerRows} onUpdateRow={handleUpdateRow} />
                           </div>
                         </div>
                       </div>
@@ -1021,41 +1121,42 @@ export default function TeacherCreateExercisePage() {
           </Card>
         )}
 
-        {/* Schema table card */}
-        <Card>
-          <CardHeader className="border-b px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span className="text-muted-foreground">{t('teacher.create.questions', { count: stats.total })}</span>
-                <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
-                <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
-              </div>
-              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-                {['all', 'errors', 'warnings'].map((f) => (
-                  <Button
-                    key={f}
-                    type="button"
-                    size="sm"
-                    variant={filter === f ? 'default' : 'outline'}
-                    onClick={() => setFilter(f)}
-                  >
-                    {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
+        {questionPreview.phase !== 'ready' && (
+          <Card>
+            <CardHeader className="border-b px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                  <span className="text-muted-foreground">{t('teacher.create.questions', { count: stats.total })}</span>
+                  <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
+                  <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
+                </div>
+                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
+                  {['all', 'errors', 'warnings'].map((f) => (
+                    <Button
+                      key={f}
+                      type="button"
+                      size="sm"
+                      variant={filter === f ? 'default' : 'outline'}
+                      onClick={() => setFilter(f)}
+                    >
+                      {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
+                    </Button>
+                  ))}
+                  <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
+                    {t('teacher.create.addQuestion')}
                   </Button>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
-                  {t('teacher.create.addQuestion')}
-                </Button>
+                </div>
               </div>
-            </div>
-          </CardHeader>
-          <SchemaTable
-            rows={visibleRows}
-            onUpdateRow={handleUpdateRow}
-            onDeleteRow={handleDeleteRow}
-            onReorder={filter === 'all' ? handleReorder : undefined}
-            showConfidence
-          />
-        </Card>
+            </CardHeader>
+            <SchemaTable
+              rows={visibleRows}
+              onUpdateRow={handleUpdateRow}
+              onDeleteRow={handleDeleteRow}
+              onReorder={filter === 'all' ? handleReorder : undefined}
+              showConfidence
+            />
+          </Card>
+        )}
 
         <ScoreAllocationCard
           ref={allocationRef}
