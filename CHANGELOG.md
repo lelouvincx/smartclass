@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Let teachers upload or drag and drop replacement question screenshots and teacher-only answer-detail screenshots during exercise question review.
+- Let teachers upload or drag and drop replacement question screenshots and teacher-only answer-detail screenshots during exercise question review. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Add a non-product Pillow-based vision question-locator POC script with ruler overlays, structured box validation, and crop previews. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Add an isolated experimental Cohere Parse blocks adapter for Answer PDF table extraction. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Let teachers choose whether students can download an exercise's Answer PDF after submitting and reviewing their work. [#125](https://github.com/lelouvincx/smartclass/pull/125)
