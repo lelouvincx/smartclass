@@ -50,6 +50,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Replace the student submission history table with responsive attempt cards so scores, metadata, and review actions stay readable on desktop and mobile.
 - Ignore or clip unusable PDF text geometry before question-view detection so selectable PDFs with stray text items can still generate previews. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Vertically center Standard and VIP options in teacher access-tier radio cards. [#120](https://github.com/lelouvincx/smartclass/pull/120)
 - Treat Answer PDF parses with no extracted answer rows as recoverable manual-entry failures instead of showing a false ready state, and read green-highlighted or detailed-solution MCQ choices from worked-solution PDFs. [#122](https://github.com/lelouvincx/smartclass/pull/122)
