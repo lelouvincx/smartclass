@@ -140,7 +140,9 @@ describe('TeacherLecturesPage', () => {
     fireEvent.change(screen.getByLabelText('Lecture title'), { target: { value: 'Grade lesson' } })
     fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'Revision' } })
     fireEvent.change(screen.getByLabelText('YouTube URL'), { target: { value: 'https://youtu.be/zyxwvutsrqp' } })
-    await user.click(screen.getByLabelText('Grade 12'))
+    await user.click(screen.getByRole('button', { name: 'Programme access' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Create lecture' }))
 
     expect(createLectureMock).toHaveBeenCalledWith('teacher-token', expect.objectContaining({

@@ -17,78 +17,6 @@ function gradeLabel(t, grade) {
   return grade === 'dgnl' ? t('common.dgnl') : t('common.grade', { grade })
 }
 
-function GradeOption({ id, label, checked, disabled, onChange }) {
-  return (
-    <label
-      htmlFor={id}
-      className="flex min-h-[var(--sc-component-hit-target)] cursor-pointer items-center gap-2 rounded-[var(--sc-component-control-shape)] border border-border bg-background px-3 text-sm transition-colors hover:bg-muted has-[:checked]:border-primary/50 has-[:checked]:bg-primary/5 has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
-    >
-      <input
-        id={id}
-        type="checkbox"
-        className="size-4 shrink-0 accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-      />
-      <span>{label}</span>
-    </label>
-  )
-}
-
-export default function GradeCheckboxGroup({
-  id,
-  legend,
-  description,
-  value,
-  onChange,
-  disabled = false,
-  className,
-}) {
-  const { t } = useTranslation()
-  const allSelected = hasAllGrades(value)
-  const descriptionId = description ? `${id}-description` : undefined
-
-  function toggleGrade(grade) {
-    const nextGrades = value.includes(grade)
-      ? value.filter((item) => item !== grade)
-      : sortGrades([...value, grade])
-    onChange(nextGrades)
-  }
-
-  return (
-    <fieldset
-      className={cn('space-y-2', className)}
-      aria-describedby={descriptionId}
-      disabled={disabled}
-    >
-      <legend className="text-sm font-medium">{legend}</legend>
-      {description && (
-        <p id={descriptionId} className="text-xs leading-5 text-muted-foreground">{description}</p>
-      )}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(7rem,1fr))] gap-2">
-        <GradeOption
-          id={`${id}-all`}
-          label={t('common.allGrades')}
-          checked={allSelected}
-          disabled={disabled}
-          onChange={() => onChange(allSelected ? [] : [...GRADES])}
-        />
-        {GRADES.map((grade) => (
-          <GradeOption
-            key={grade}
-            id={`${id}-${grade}`}
-            label={gradeLabel(t, grade)}
-            checked={value.includes(grade)}
-            disabled={disabled}
-            onChange={() => toggleGrade(grade)}
-          />
-        ))}
-      </div>
-    </fieldset>
-  )
-}
-
 export function GradeDropdown({
   id,
   legend,
@@ -177,3 +105,5 @@ export function GradeBadges({ grades = [], emptyText, className }) {
     </span>
   )
 }
+
+export default GradeDropdown
