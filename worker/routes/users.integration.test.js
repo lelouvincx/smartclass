@@ -8,7 +8,7 @@ beforeEach(async () => {
 })
 
 describe('student names', () => {
-  it('requires and trims a name when a student self-registers', async () => {
+  it('requires a name and programme, then trims a name when a student self-registers', async () => {
     const missingNameResponse = await app.request('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -20,19 +20,40 @@ describe('student names', () => {
       error: { code: 'VALIDATION_ERROR', message: 'Name, phone, and password are required.' },
     })
 
+    const missingGradesResponse = await app.request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Nguyễn Văn An', phone: '+84900000051', password: '123', grades: [] }),
+    }, env)
+
+    expect(missingGradesResponse.status).toBe(400)
+    await expect(missingGradesResponse.json()).resolves.toMatchObject({
+      error: { code: 'VALIDATION_ERROR' },
+    })
+
     const response = await app.request('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: '  Nguyễn Văn An  ', phone: '+84900000051', password: '123' }),
+      body: JSON.stringify({ name: '  Nguyễn Văn An  ', phone: '+84900000051', password: '123', grades: [10, 'dgnl'] }),
     }, env)
 
     expect(response.status).toBe(201)
     await expect(response.json()).resolves.toMatchObject({
-      data: { name: 'Nguyễn Văn An', phone: '+84900000051', role: 'student', status: 'pending' },
+      data: { name: 'Nguyễn Văn An', phone: '+84900000051', role: 'student', status: 'pending', grades: [10, 'dgnl'] },
     })
     await expect(env.DB.prepare(
       "SELECT name FROM users WHERE phone = '+84900000051'",
     ).first()).resolves.toEqual({ name: 'Nguyễn Văn An' })
+
+    const teacherToken = await loginAsTeacher()
+    const listResponse = await app.request('/api/users?status=pending', {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    await expect(listResponse.json()).resolves.toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({ phone: '+84900000051', grades: [10, 'dgnl'] }),
+      ]),
+    })
   })
 
   it('lets a teacher create, list, and rename a named student', async () => {
@@ -160,6 +181,124 @@ describe('student names', () => {
     expect(blankSelfRenameResponse.status).toBe(400)
     await expect(blankSelfRenameResponse.json()).resolves.toMatchObject({
       error: { code: 'VALIDATION_ERROR' },
+    })
+  })
+})
+
+describe('student removal', () => {
+  it('lets a teacher deactivate and activate a student', async () => {
+    await seedStudent('+84900000054', 'Status Student')
+    const teacherToken = await loginAsTeacher()
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84900000054'",
+    ).first()
+
+    const deactivateResponse = await app.request(`/api/users/${student.id}/status`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'disabled' }),
+    }, env)
+
+    expect(deactivateResponse.status).toBe(200)
+    await expect(deactivateResponse.json()).resolves.toMatchObject({
+      data: { id: student.id, status: 'disabled' },
+    })
+    await expect(env.DB.prepare('SELECT status FROM users WHERE id = ?').bind(student.id).first('status'))
+      .resolves.toBe('disabled')
+
+    const disabledLoginResponse = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+84900000054', password: '123' }),
+    }, env)
+    expect(disabledLoginResponse.status).toBe(403)
+
+    const activateResponse = await app.request(`/api/users/${student.id}/status`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'active' }),
+    }, env)
+
+    expect(activateResponse.status).toBe(200)
+    await expect(activateResponse.json()).resolves.toMatchObject({
+      data: { id: student.id, status: 'active' },
+    })
+
+    const activeLoginResponse = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+84900000054', password: '123' }),
+    }, env)
+    expect(activeLoginResponse.status).toBe(200)
+  })
+
+  it('lets a teacher remove a student without deleting their account record', async () => {
+    await seedStudent('+84900000055', 'Removed Student')
+    const teacherToken = await loginAsTeacher()
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84900000055'",
+    ).first()
+
+    const response = await app.request(`/api/users/${student.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+
+    expect(response.status).toBe(200)
+    await expect(response.json()).resolves.toMatchObject({
+      data: { id: student.id, removed: true },
+    })
+    await expect(env.DB.prepare('SELECT status FROM users WHERE id = ?').bind(student.id).first('status'))
+      .resolves.toBe('disabled')
+  })
+
+  it('rejects student removal by students and teacher-account targets', async () => {
+    await seedStudent('+84900000056', 'Student Target')
+    const studentToken = await loginAsStudent('+84900000056')
+    const teacherToken = await loginAsTeacher()
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84900000056'",
+    ).first()
+    const teacher = await env.DB.prepare(
+      "SELECT id FROM users WHERE role = 'teacher' LIMIT 1",
+    ).first()
+
+    const studentResponse = await app.request(`/api/users/${student.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${studentToken}` },
+    }, env)
+    expect(studentResponse.status).toBe(403)
+
+    const teacherTargetResponse = await app.request(`/api/users/${teacher.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    expect(teacherTargetResponse.status).toBe(400)
+    await expect(teacherTargetResponse.json()).resolves.toMatchObject({
+      error: { code: 'INVALID_ROLE' },
+    })
+  })
+
+  it('blocks an already-issued token after a teacher removes the student', async () => {
+    await seedStudent('+84900000057', 'Token Student')
+    const studentToken = await loginAsStudent('+84900000057')
+    const teacherToken = await loginAsTeacher()
+    const student = await env.DB.prepare(
+      "SELECT id FROM users WHERE phone = '+84900000057'",
+    ).first()
+
+    await app.request(`/api/users/${student.id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+
+    const response = await app.request('/api/auth/me', {
+      headers: { Authorization: `Bearer ${studentToken}` },
+    }, env)
+
+    expect(response.status).toBe(403)
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: 'ACCOUNT_DISABLED' },
     })
   })
 })

@@ -391,6 +391,13 @@ export function getSubmissionExercisePdf(token, submissionId) {
   })
 }
 
+export function getSubmissionAnswerPdf(token, submissionId) {
+  return request(`/api/submissions/${submissionId}/answer-pdf`, {
+    headers: authHeaders(token),
+    responseType: 'blob',
+  })
+}
+
 function uploadMultipart(path, token, method, form, { onProgress, signal } = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
@@ -538,6 +545,23 @@ export function approveStudent(token, userId) {
   return request(`/api/users/${userId}/approve`, {
     method: 'PUT',
     headers: authHeaders(token),
+  })
+}
+
+export function removeStudent(token, userId) {
+  return request(`/api/users/${userId}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+}
+
+export function updateStudentStatus(token, userId, payload) {
+  return request(`/api/users/${userId}/status`, {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
   })
 }
 

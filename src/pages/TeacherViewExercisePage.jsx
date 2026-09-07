@@ -290,6 +290,7 @@ export default function TeacherViewExercisePage() {
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
   const [editMaxAttempts, setEditMaxAttempts] = useState(1)
+  const [editAllowAnswerPdfDownload, setEditAllowAnswerPdfDownload] = useState(false)
   const [editRows, setEditRows] = useState([])
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
@@ -329,6 +330,7 @@ export default function TeacherViewExercisePage() {
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
     setEditDuration(exercise.duration_minutes)
     setEditMaxAttempts(exercise.max_attempts)
+    setEditAllowAnswerPdfDownload(exercise.allow_answer_pdf_download === 1 || exercise.allow_answer_pdf_download === true)
     setEditRows(schemaToRows(exercise.schema))
     setEditExerciseFile(null)
     setEditSolutionFile(null)
@@ -438,6 +440,7 @@ export default function TeacherViewExercisePage() {
         is_timed: editIsTimed,
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
         max_attempts: editMaxAttempts === null ? null : Number(editMaxAttempts),
+        allow_answer_pdf_download: editAllowAnswerPdfDownload,
         schema: toSchemaPayload(validatedRows),
       }
       const res = await updateExercise(token, exercise.id, payload)
@@ -565,6 +568,21 @@ export default function TeacherViewExercisePage() {
                     disabled={isSaving}
                     className="max-w-md"
                   />
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-answer-pdf-download-toggle">{t('teacher.answerPdfDownload.label')}</Label>
+                    <div className="flex max-w-md items-center justify-between gap-4 rounded-md border bg-background px-3 py-2">
+                      <p id="edit-answer-pdf-download-help" className="text-sm text-muted-foreground">
+                        {t('teacher.answerPdfDownload.description')}
+                      </p>
+                      <Switch
+                        id="edit-answer-pdf-download-toggle"
+                        checked={editAllowAnswerPdfDownload}
+                        onCheckedChange={setEditAllowAnswerPdfDownload}
+                        aria-describedby="edit-answer-pdf-download-help"
+                        disabled={isSaving}
+                      />
+                    </div>
+                  </div>
                   <div className="grid gap-6 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="edit-timed">{t('teacher.create.mode')}</Label>
@@ -608,6 +626,9 @@ export default function TeacherViewExercisePage() {
                       {exercise.max_attempts === null
                         ? t('teacher.attemptLimit.unlimitedAttempts')
                         : t('teacher.attemptLimit.attemptCount', { count: exercise.max_attempts })}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {t(exercise.allow_answer_pdf_download ? 'teacher.answerPdfDownload.allowed' : 'teacher.answerPdfDownload.blocked')}
                     </span>
                   </div>
                 </>

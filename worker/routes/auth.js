@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { hashPassword, isValidVietnamPhone, issueAccessToken, normalizeName, normalizePhone, verifyPassword } from '../lib/auth.js'
+import { parseGrades } from '../lib/grades.js'
 import { exchangeCode, verifyGoogleIdToken } from '../lib/google-oauth.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -56,9 +57,14 @@ authRoutes.post('/register', async (c) => {
   const name = normalizeName(body?.name)
   const phone = normalizePhone(body?.phone)
   const password = body?.password
+  const parsedGrades = parseGrades(body?.grades)
 
   if (!name || !phone || !password) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Name, phone, and password are required.')
+  }
+
+  if (parsedGrades.error) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
   }
 
   if (!isValidVietnamPhone(phone)) {
@@ -76,11 +82,15 @@ authRoutes.post('/register', async (c) => {
 
   const passwordHash = await hashPassword(password)
 
-  const result = await c.env.DB.prepare(
-    'INSERT INTO users (name, phone, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
-  )
-    .bind(name, phone, passwordHash, 'student', 'pending')
-    .run()
+  const [result] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      'INSERT INTO users (name, phone, password_hash, role, status) VALUES (?, ?, ?, ?, ?)',
+    ).bind(name, phone, passwordHash, 'student', 'pending'),
+    ...parsedGrades.grades.map((grade) => c.env.DB.prepare(`
+      INSERT INTO student_grades (user_id, grade)
+      SELECT id, ? FROM users WHERE phone = ?
+    `).bind(grade, phone)),
+  ])
 
   return c.json(
     {
@@ -91,6 +101,7 @@ authRoutes.post('/register', async (c) => {
         phone,
         role: 'student',
         status: 'pending',
+        grades: parsedGrades.grades,
       },
       message: 'Registration submitted. Please wait for teacher approval.',
     },
@@ -126,8 +137,11 @@ authRoutes.post('/login', async (c) => {
     return jsonError(c, 401, 'INVALID_CREDENTIALS', 'Invalid phone or password.')
   }
 
-  if (user.status !== 'active') {
+  if (user.status === 'pending') {
     return jsonError(c, 403, 'ACCOUNT_PENDING', 'Your account is pending approval.')
+  }
+  if (user.status === 'disabled') {
+    return jsonError(c, 403, 'ACCOUNT_DISABLED', 'Your account has been disabled.')
   }
 
   const token = await issueAccessToken(c.env, user)

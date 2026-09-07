@@ -15,10 +15,27 @@ export async function requireAuth(c, next) {
 
   try {
     const payload = await verifyAccessToken(token, c.env)
+    const user = await c.env.DB.prepare(
+      'SELECT id, phone, role, status FROM users WHERE id = ? LIMIT 1',
+    )
+      .bind(Number(payload.sub))
+      .first()
+
+    if (!user) {
+      return jsonError(c, 401, 'UNAUTHORIZED', 'Authenticated user no longer exists.')
+    }
+    if (user.status === 'pending') {
+      return jsonError(c, 403, 'ACCOUNT_PENDING', 'Your account is pending approval.')
+    }
+    if (user.status === 'disabled') {
+      return jsonError(c, 403, 'ACCOUNT_DISABLED', 'Your account has been disabled.')
+    }
+
     c.set('authUser', {
-      id: Number(payload.sub),
-      role: payload.role,
-      phone: payload.phone,
+      id: user.id,
+      role: user.role,
+      phone: user.phone,
+      status: user.status,
     })
     await next()
   } catch {

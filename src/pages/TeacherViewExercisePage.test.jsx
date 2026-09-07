@@ -39,6 +39,7 @@ const EXERCISE_MCQ = {
   duration_minutes: 45,
   is_timed: 1,
   max_attempts: 1,
+  allow_answer_pdf_download: 0,
   highest_attempt_number: 0,
   question_count: 2,
   updated_at: '2026-03-10 12:00:00',
@@ -56,6 +57,7 @@ const EXERCISE_WITH_BOOLEAN = {
   title: 'Biology Quiz',
   duration_minutes: 0,
   is_timed: 0,
+  allow_answer_pdf_download: 0,
   question_count: 2,
   updated_at: '2026-03-11 08:00:00',
   is_student_ready: 0,
@@ -126,6 +128,7 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByText('Grade 10')).toBeInTheDocument()
     expect(screen.getByText('Grade 11')).toBeInTheDocument()
     expect(screen.getByText('1 attempt')).toBeInTheDocument()
+    expect(screen.getByText('Answer PDF download off')).toBeInTheDocument()
   })
 
   it('renders untimed badge when duration_minutes is 0', async () => {
@@ -279,6 +282,7 @@ describe('TeacherViewExercisePage', () => {
     // Title should become an input
     expect(screen.getByLabelText('Exercise title')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Programme access' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Student answer download')).not.toBeChecked()
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     // Save and Cancel buttons should appear
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
@@ -383,6 +387,25 @@ describe('TeacherViewExercisePage', () => {
       expect.objectContaining({ max_attempts: null }),
     )
     expect(await screen.findByText('Unlimited attempts')).toBeInTheDocument()
+  })
+
+  it('updates the Answer PDF download setting', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    updateExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, allow_answer_pdf_download: 1 } })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.click(screen.getByLabelText('Student answer download'))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(updateExerciseMock).toHaveBeenCalledWith(
+      'teacher-token',
+      5,
+      expect.objectContaining({ allow_answer_pdf_download: true }),
+    )
+    expect(await screen.findByText('Students can download Answer PDF')).toBeInTheDocument()
   })
 
   it('warns before lowering a limit below attempts students already started', async () => {

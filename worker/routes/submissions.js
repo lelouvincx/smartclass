@@ -499,6 +499,63 @@ submissionsRoutes.get('/:id/exercise-pdf', requireAuth, async (c) => {
   })
 })
 
+// Download the pinned Answer PDF for an owned submitted attempt when the teacher allows it.
+submissionsRoutes.get('/:id/answer-pdf', requireAuth, async (c) => {
+  const submissionId = Number.parseInt(c.req.param('id'), 10)
+  if (!Number.isInteger(submissionId) || submissionId < 1) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'Submission ID must be a positive integer')
+  }
+
+  const authUser = c.get('authUser')
+  const submission = await c.env.DB.prepare(`
+    select
+      submission.user_id
+      , submission.submitted_at
+      , exercise.allow_answer_pdf_download
+      , answer_file.r2_key
+      , answer_file.file_name
+    from submissions submission
+    join exercises exercise on exercise.id = submission.exercise_id
+    left join exercise_question_asset_sets asset_set
+      on asset_set.id = submission.question_asset_set_id
+    left join exercise_files answer_file
+      on answer_file.id = asset_set.answer_source_file_id
+      and answer_file.exercise_id = submission.exercise_id
+      and answer_file.file_type = 'solution_pdf'
+    where submission.id = ?
+  `).bind(submissionId).first()
+
+  if (!submission) {
+    return jsonError(c, 404, 'NOT_FOUND', 'Submission not found')
+  }
+  if (submission.user_id !== authUser.id) {
+    return jsonError(c, 403, 'FORBIDDEN', 'You do not have access to this submission')
+  }
+  if (!submission.submitted_at) {
+    return jsonError(c, 403, 'FORBIDDEN', 'Answer PDF is available only after submission')
+  }
+  if (submission.allow_answer_pdf_download !== 1) {
+    return jsonError(c, 403, 'FORBIDDEN', 'Answer PDF download is disabled for this exercise')
+  }
+  if (!submission.r2_key) {
+    return jsonError(c, 404, 'NOT_FOUND', 'Answer PDF not found')
+  }
+
+  const object = await c.env.BUCKET.get(submission.r2_key)
+  if (!object) {
+    return jsonError(c, 404, 'NOT_FOUND', 'Answer PDF content not found')
+  }
+
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType || 'application/pdf',
+      'Content-Disposition': `attachment; filename="answer.pdf"; filename*=UTF-8''${encodeAttachmentFileName(submission.file_name)}`,
+      'Cache-Control': 'private, no-store',
+    },
+  })
+})
+
 // Get submission with enriched answers (includes type, correct_answer when submitted)
 submissionsRoutes.get('/:id', requireAuth, async (c) => {
   try {
@@ -510,6 +567,7 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       SELECT
         s.id, s.exercise_id, s.user_id, s.attempt_number, s.mode, s.total_questions,
         s.started_at, s.submitted_at, s.score, s.question_asset_set_id,
+        e.allow_answer_pdf_download,
         e.title AS exercise_title,
         u.name AS student_name, u.phone AS student_phone
       FROM submissions s
@@ -580,9 +638,22 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       questionAssets = assetsResult.results.map(toQuestionAssetResponse)
     }
 
+    const answerPdf = isSubmitted && submission.allow_answer_pdf_download === 1
+      ? await c.env.DB.prepare(`
+          select 1
+          from exercise_question_asset_sets asset_set
+          join exercise_files answer_file on answer_file.id = asset_set.answer_source_file_id
+          where asset_set.id = ?
+            and answer_file.exercise_id = ?
+            and answer_file.file_type = 'solution_pdf'
+          limit 1
+        `).bind(submission.question_asset_set_id, submission.exercise_id).first()
+      : null
+
     // Remove internal fields before returning
     const {
       user_id: _uid,
+      allow_answer_pdf_download: _allowAnswerPdfDownload,
       student_name,
       student_phone,
       ...submissionData
@@ -593,6 +664,7 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
       ...(isTeacher ? { student_name, student_phone } : {}),
       files: [],
       question_assets: questionAssets,
+      answer_pdf_download_available: Boolean(!isTeacher && answerPdf),
       answers,
     })
   } catch (error) {
