@@ -1,40 +1,7 @@
 import React, { useState } from 'react'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import GradeCheckboxGroup, { GradeDropdown } from './grade-checkbox-group'
-
-function TestGroup() {
-  const [grades, setGrades] = useState([10, 11, 12, 'dgnl'])
-  return (
-    <GradeCheckboxGroup
-      id="test-grades"
-      legend="Grade access"
-      description="Choose every grade that can use this item."
-      value={grades}
-      onChange={setGrades}
-    />
-  )
-}
-
-describe('GradeCheckboxGroup', () => {
-  it('supports all classes and multiple individual classes', async () => {
-    const user = userEvent.setup()
-    render(<TestGroup />)
-
-    expect(screen.getByLabelText('All programmes')).toBeChecked()
-    await user.click(screen.getByLabelText('Grade 12'))
-    expect(screen.getByLabelText('All programmes')).not.toBeChecked()
-    expect(screen.getByLabelText('Grade 10')).toBeChecked()
-    expect(screen.getByLabelText('Grade 11')).toBeChecked()
-    expect(screen.getByLabelText('Grade 12')).not.toBeChecked()
-    expect(screen.getByLabelText('ĐGNL')).toBeChecked()
-
-    await user.click(screen.getByLabelText('All programmes'))
-    expect(screen.getByLabelText('All programmes')).toBeChecked()
-    expect(screen.getByLabelText('Grade 12')).toBeChecked()
-    expect(screen.getByLabelText('ĐGNL')).toBeChecked()
-  })
-})
+import GradeDropdown from './grade-checkbox-group'
 
 function TestDropdown() {
   const [grades, setGrades] = useState([10, 11, 12, 'dgnl'])

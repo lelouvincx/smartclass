@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import GradeCheckboxGroup, { GradeBadges } from '@/components/grade-checkbox-group'
+import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
 import AccessTierRadioGroup, { AccessTierBadge, LECTURE_ACCESS_TIERS } from '@/components/access-tier-radio-group'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
@@ -250,7 +250,7 @@ export default function TeacherLecturesPage() {
                 required
               />
             </div>
-            <GradeCheckboxGroup
+            <GradeDropdown
               id="lecture-grades"
               legend={t('common.gradeAccess')}
               description={t('common.gradeAccessDescription')}
