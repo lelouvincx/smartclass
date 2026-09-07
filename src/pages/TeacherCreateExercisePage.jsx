@@ -45,6 +45,12 @@ const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
 
 // --- Normalization helpers ---
 
+function makeRowId() {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2)
+}
+
 function normalizeAnswer(type, value) {
   const trimmed = String(value ?? '').trim()
   if (type === 'mcq') {
@@ -192,14 +198,9 @@ function toSchemaPayload(rows) {
 // --- Row factory ---
 
 function newRows(type, nextQid = '', descriptor = {}) {
-  const makeId = () =>
-    typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2)
-
   if (type === 'boolean') {
     return BOOLEAN_SUB_IDS.map((sub_id) => ({
-      id: makeId(),
+      id: makeRowId(),
       q_id: nextQid,
       section_key: descriptor.section_key ?? 'main',
       section_title: descriptor.section_title ?? null,
@@ -212,7 +213,7 @@ function newRows(type, nextQid = '', descriptor = {}) {
   }
 
   return [{
-    id: makeId(),
+    id: makeRowId(),
     q_id: nextQid,
     section_key: descriptor.section_key ?? 'main',
     section_title: descriptor.section_title ?? null,
@@ -222,6 +223,67 @@ function newRows(type, nextQid = '', descriptor = {}) {
     correct_answer: '',
     confidence: 1,
   }]
+}
+
+function fillMissingSourceNumberRows(rows) {
+  const sections = []
+  const bySection = new Map()
+  for (const row of rows) {
+    const sectionKey = row.section_key ?? 'main'
+    if (!bySection.has(sectionKey)) {
+      const section = {
+        key: sectionKey,
+        title: row.section_title ?? null,
+        rows: [],
+      }
+      bySection.set(sectionKey, section)
+      sections.push(section)
+    }
+    bySection.get(sectionKey).rows.push(row)
+  }
+
+  const expandedRows = sections.flatMap((section) => {
+    const rowsByLocal = new Map()
+    for (const row of section.rows) {
+      const localNumber = Number.parseInt(String(row.local_number ?? row.q_id), 10)
+      if (!Number.isSafeInteger(localNumber) || localNumber <= 0) return section.rows
+      if (!rowsByLocal.has(localNumber)) rowsByLocal.set(localNumber, [])
+      rowsByLocal.get(localNumber).push(row)
+    }
+    if (rowsByLocal.size === 0) return section.rows
+
+    const orderedLocalNumbers = [...rowsByLocal.keys()].sort((left, right) => left - right)
+    const expanded = []
+    for (let localNumber = orderedLocalNumbers[0]; localNumber <= orderedLocalNumbers.at(-1); localNumber += 1) {
+      const matchingRows = rowsByLocal.get(localNumber)
+      if (matchingRows) {
+        expanded.push(...matchingRows)
+      } else {
+        expanded.push({
+          id: makeRowId(),
+          q_id: `missing:${section.key}:${localNumber}`,
+          section_key: section.key,
+          section_title: section.title,
+          local_number: String(localNumber),
+          sub_id: null,
+          type: 'mcq',
+          correct_answer: '',
+          confidence: null,
+        })
+      }
+    }
+    return expanded
+  })
+
+  const renumberedQids = new Map()
+  let nextQid = 1
+  return expandedRows.map((row) => {
+    if (!renumberedQids.has(row.q_id)) {
+      renumberedQids.set(row.q_id, String(nextQid))
+      nextQid += 1
+    }
+    return { ...row, q_id: renumberedQids.get(row.q_id) }
+  })
 }
 
 // --- Main page ---
@@ -374,12 +436,8 @@ export default function TeacherCreateExercisePage() {
   }
 
   function schemaRowsToEditableRows(schema) {
-    const makeId = () =>
-      typeof crypto !== 'undefined' && crypto.randomUUID
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2)
-    return schema.map((row) => ({
-      id: makeId(),
+    return fillMissingSourceNumberRows(schema.map((row) => ({
+      id: makeRowId(),
       q_id: String(row.q_id),
       section_key: row.section_key ?? 'main',
       section_title: row.section_title ?? null,
@@ -390,7 +448,7 @@ export default function TeacherCreateExercisePage() {
         ? (row.correct_answer ?? '')
         : normalizeAnswer(row.type, row.correct_answer),
       confidence: row.confidence ?? null,
-    }))
+    })))
   }
 
   async function uploadFiles(exerciseId) {

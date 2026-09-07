@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseAnswerPdfPages, parseStudentPhotoAnswers } from './cohere-table-parser.js'
+import { parseAnswerPdfBlockPages, parseAnswerPdfPages, parseStudentPhotoAnswers } from './cohere-table-parser.js'
 
 const fixturePath = name => resolve('worker/lib/fixtures', name)
 
@@ -17,6 +17,35 @@ async function textFixture(name) {
 }
 
 describe('Answer PDF Cohere table adapter', () => {
+  it('adapts experimental Cohere table blocks by feeding only table HTML into the answer parser', () => {
+    const result = parseAnswerPdfBlockPages([{
+      page_number: 1,
+      text: 'PHẦN I. FIRST',
+      blocks: [
+        { type: 'text', text: { content: '<table><tr><td>99.D</td></tr></table>' } },
+        { type: 'image', image: { description: '<table><tr><td>98.C</td></tr></table>' } },
+        { type: 'table', table: { type: 'html', html: '<table><tr><td>1.A</td><td>2.B</td></tr></table>' } },
+      ],
+    }])
+
+    expect(result.warnings).toEqual([])
+    expect(result.schema.map(row => [row.local_number, row.correct_answer])).toEqual([
+      [1, 'A'],
+      [2, 'B'],
+    ])
+  })
+
+  it('warns when experimental Cohere blocks contain no table HTML', () => {
+    const result = parseAnswerPdfBlockPages([{
+      page_number: 2,
+      text: 'PHẦN II. SECOND',
+      blocks: [{ type: 'text', text: { content: '<table><tr><td>1.A</td></tr></table>' } }],
+    }])
+
+    expect(result.schema).toEqual([])
+    expect(result.warnings).toEqual(['Page 2 has no supported answer table.'])
+  })
+
   it('extracts all 34 POC answer cells in section and document order', async () => {
     const pages = JSON.parse(await textFixture('cohere-answer-pages.json'))
 
