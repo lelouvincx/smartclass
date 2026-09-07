@@ -78,7 +78,7 @@ describe('TeacherCreateExercisePage', () => {
       'grid-cols-[minmax(0,1fr)]',
     )
     expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
-    expect(screen.getByRole('group', { name: /duration presets/i })).toHaveClass('grid-cols-3')
+    expect(screen.getByRole('group', { name: /duration presets/i })).toHaveAttribute('data-slot', 'segmented-button-group')
     expect(screen.getByText(/questions: 1/i).parentElement).toHaveClass('flex-wrap')
     expect(screen.getByRole('button', { name: /programme access/i })).toHaveTextContent('Grade 12')
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()

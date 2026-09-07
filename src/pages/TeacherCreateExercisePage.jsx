@@ -18,6 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { SegmentedButton, SegmentedButtonGroup } from '@/components/ui/segmented-button'
 import {
   Dialog,
   DialogContent,
@@ -548,20 +549,17 @@ export default function TeacherCreateExercisePage() {
                     className="w-full sm:w-24"
                   />
                   {isTimed && (
-                    <div className="grid w-full flex-1 grid-cols-3 gap-1.5" role="group" aria-label={t('teacher.create.presets')}>
+                    <SegmentedButtonGroup className="w-full flex-1" role="group" aria-label={t('teacher.create.presets')}>
                       {[60, 90, 120].map((mins) => (
-                        <Button
+                        <SegmentedButton
                           key={mins}
-                          type="button"
-                          variant={Number(durationMinutes) === mins ? 'default' : 'outline'}
-                          size="sm"
-                          className="h-10 px-2 text-sm"
+                          selected={Number(durationMinutes) === mins}
                           onClick={() => setDurationMinutes(mins)}
                         >
                           {formatDuration(mins, i18n.resolvedLanguage)}
-                        </Button>
+                        </SegmentedButton>
                       ))}
-                    </div>
+                    </SegmentedButtonGroup>
                   )}
                 </div>
               </div>
