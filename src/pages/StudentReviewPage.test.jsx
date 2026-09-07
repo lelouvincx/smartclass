@@ -143,7 +143,7 @@ describe('StudentReviewPage', () => {
     renderReviewPage()
 
     await screen.findByText('Algebra Quiz')
-    // MCQ Q1: student answered A, correct is B — may appear in table + sidebar
+    // MCQ Q1: student answered A, correct is B - may appear in table + sidebar
     expect(screen.getAllByText('A').length).toBeGreaterThan(0)
     expect(screen.getAllByText('B').length).toBeGreaterThan(0)
     // Numeric Q3: both student and correct are 42
@@ -174,16 +174,16 @@ describe('StudentReviewPage', () => {
     expect(screen.getAllByLabelText('wrong').length).toBeGreaterThan(0)
   })
 
-  it('shows — for skipped (null) boolean sub-answer', async () => {
+  it('shows - for skipped (null) boolean sub-answer', async () => {
     const user = userEvent.setup()
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
     renderReviewPage()
 
     await screen.findByText('Algebra Quiz')
     await user.click(screen.getByRole('button', { name: /review question 2/i }))
-    // Q2c has submitted_answer=null → should render "—"
-    // Multiple "—" may appear, just check at least one
-    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+    // Q2c has submitted_answer=null → should render "-"
+    // Multiple "-" may appear, just check at least one
+    expect(screen.getAllByText('-').length).toBeGreaterThan(0)
   })
 
   it('renders from pinned assets even when no exercise_pdf file is returned', async () => {

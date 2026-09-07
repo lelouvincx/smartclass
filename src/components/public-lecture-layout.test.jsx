@@ -41,7 +41,7 @@ describe('PublicLectureLayout', () => {
         'aria-current',
         'page',
       )
-      expect(within(navigation).getByRole('button', { name: 'Exercises — Coming soon' })).toBeDisabled()
+      expect(within(navigation).getByRole('button', { name: 'Exercises - Coming soon' })).toBeDisabled()
       expect(within(navigation).queryByRole('link', { name: /Exercises/ })).not.toBeInTheDocument()
     })
     expect(screen.getAllByRole('link', { name: 'Sign in' }).length).toBeGreaterThan(0)

@@ -6,7 +6,7 @@ status: Draft
 dependencies: [RFC-1]
 ---
 
-# RFC-7 — Google Account Link & Login
+# RFC-7 - Google Account Link & Login
 
 **Date:** 2026-05-10
 **Status:** Draft
@@ -119,7 +119,7 @@ CREATE UNIQUE INDEX idx_users_google_sub ON users(google_sub) WHERE google_sub I
 ```
 
 Notes:
-- **No table rebuild.** `phone` + `password_hash` stay NOT NULL. Every acct still has phone+pw — Google is **add-on**, not replacement.
+- **No table rebuild.** `phone` + `password_hash` stay NOT NULL. Every acct still has phone+pw - Google is **add-on**, not replacement.
 - `google_sub` = join key. Immutable. Email may change.
 - `google_email` = snapshot at link-time. Refreshed on each Google login.
 - `email` reserved for future profile (Roadmap "Additional user fields"). Nullable.
@@ -132,7 +132,7 @@ Notes:
 | Google login, `sub` matches active user  | unchanged| active     | 200 + JWT |
 | Google login, `sub` matches pending user | unchanged| pending    | 403 `ACCOUNT_PENDING` |
 | Google login, `sub` matches disabled     | unchanged| disabled   | 403 `ACCOUNT_DISABLED` |
-| Google login, no `sub` match             | —        | —          | 404 `NO_LINKED_ACCOUNT` |
+| Google login, no `sub` match             | -        | -          | 404 `NO_LINKED_ACCOUNT` |
 
 No new role granted, ever. Teacher role only by manual seed/promote.
 
@@ -167,7 +167,7 @@ Body same as login. Worker:
 
 ### `DELETE /api/auth/google/link` (authed)
 
-Clear `google_sub` + `google_email`. No safeguard needed (phone+pw still works — they're never null).
+Clear `google_sub` + `google_email`. No safeguard needed (phone+pw still works - they're never null).
 
 ### `GET /api/auth/me` extended
 
@@ -189,7 +189,7 @@ Add `email`, `google_email` to response. Frontend uses for Settings render.
 
 ## Frontend (shadcn-first)
 
-### Components — reuse, don't reinvent
+### Components - reuse, don't reinvent
 
 Already installed: `Button`, `Card`, `Input`, `Label`, `Badge`, `Dialog`, `Separator`, `Spinner`, `sonner`.
 
@@ -206,7 +206,7 @@ Refactor existing `LoginPage.jsx` + `RegisterPage.jsx` form `<div>`s to `FieldGr
 
 ### New files
 
-- `src/lib/google-oauth.js` — pure helpers:
+- `src/lib/google-oauth.js` - pure helpers:
   - `generatePkcePair()` → `{ verifier, challenge }` (Web Crypto SHA-256, base64url).
   - `randomString(byteLen)` → base64url.
   - `buildAuthUrl({ clientId, redirectUri, state, nonce, codeChallenge })`.
@@ -225,8 +225,8 @@ Refactor existing `LoginPage.jsx` + `RegisterPage.jsx` form `<div>`s to `FieldGr
 - `src/pages/SettingsPage.jsx` (route `/settings`):
   - `Card` w/ `CardHeader CardTitle CardDescription CardContent CardFooter`.
   - Not linked: `Empty` w/ Connect button.
-  - Linked: row showing `google_email` + `Badge variant="secondary"` "Linked" + `Button variant="destructive" size="sm"` "Disconnect" → opens `Dialog` (`AlertDialog` semantics — confirmation required) → on confirm calls `unlinkGoogle()` + `toast`.
-- `src/components/connected-accounts-card.jsx` — encapsulates the Settings row above. Reusable if more providers added later.
+  - Linked: row showing `google_email` + `Badge variant="secondary"` "Linked" + `Button variant="destructive" size="sm"` "Disconnect" → opens `Dialog` (`AlertDialog` semantics - confirmation required) → on confirm calls `unlinkGoogle()` + `toast`.
+- `src/components/connected-accounts-card.jsx` - encapsulates the Settings row above. Reusable if more providers added later.
 
 ### Edits
 
@@ -253,7 +253,7 @@ Refactor existing `LoginPage.jsx` + `RegisterPage.jsx` form `<div>`s to `FieldGr
 | Rule | Application |
 |------|-------------|
 | Forms use `FieldGroup`+`Field` | Login/Register/Settings refactored. |
-| Buttons inside inputs use `InputGroup` | N/A — no inline buttons in input. |
+| Buttons inside inputs use `InputGroup` | N/A - no inline buttons in input. |
 | `Dialog` needs `DialogTitle` | Unlink confirm dialog has title. |
 | Button no `isPending` | Use `Spinner` + `data-icon` + `disabled`. |
 | Toasts via `sonner` | `toast.success` / `toast.error` after link/unlink. |
@@ -268,9 +268,9 @@ Refactor existing `LoginPage.jsx` + `RegisterPage.jsx` form `<div>`s to `FieldGr
 ## Config
 
 Worker env (`.dev.vars` + `wrangler secret`):
-- `GOOGLE_CLIENT_ID` — public, mirrored to SPA as `VITE_GOOGLE_CLIENT_ID`.
-- `GOOGLE_CLIENT_SECRET` — server only.
-- `GOOGLE_REDIRECT_URI` — defaults `${APP_CORS_ORIGIN}/auth/google/callback`.
+- `GOOGLE_CLIENT_ID` - public, mirrored to SPA as `VITE_GOOGLE_CLIENT_ID`.
+- `GOOGLE_CLIENT_SECRET` - server only.
+- `GOOGLE_REDIRECT_URI` - defaults `${APP_CORS_ORIGIN}/auth/google/callback`.
 
 Google Cloud Console:
 - Create OAuth 2.0 Client ID (Web app).
@@ -285,7 +285,7 @@ README → add "Google OAuth setup" subsection w/ above + new env vars in exampl
 | Case | Behavior |
 |------|----------|
 | Google login, no link → user confused | 404 + Alert copy points to "Login w/ phone, link in Settings". |
-| User links Google A, later tries to link Google B (same user) | Replace A → set `google_sub = B`. Last-write-wins. (Or 409 if we want safety. **Decision: replace** — simpler UX, user explicitly clicked Connect.) |
+| User links Google A, later tries to link Google B (same user) | Replace A → set `google_sub = B`. Last-write-wins. (Or 409 if we want safety. **Decision: replace** - simpler UX, user explicitly clicked Connect.) |
 | Two users, same Google `sub` (impossible in practice) | UNIQUE index → 409 `GOOGLE_SUB_TAKEN`. |
 | User unlinked Google, tries Google login | 404 `NO_LINKED_ACCOUNT`. |
 | `email_verified: false` | 401. We don't trust unverified emails. |
@@ -351,6 +351,6 @@ Each PR independently shippable.
 ## Open questions
 
 1. Multi-Google switch: replace (current decision) or 409? Default: replace.
-2. Surface `google_email` in header? Default: no — only Settings.
+2. Surface `google_email` in header? Default: no - only Settings.
 3. Notify teacher when student links Google? Default: no.
 4. Add audit log for link/unlink events? Default: no for v1; revisit when audit table exists.

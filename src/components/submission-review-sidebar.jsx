@@ -13,7 +13,7 @@ function StatusDot({ status, t }) {
 }
 
 function formatTimeTaken(started_at, submitted_at) {
-  if (!started_at || !submitted_at) return '—'
+  if (!started_at || !submitted_at) return '-'
   const start = new Date(started_at.endsWith('Z') ? started_at : started_at + 'Z')
   const end = new Date(submitted_at.endsWith('Z') ? submitted_at : submitted_at + 'Z')
   const secs = Math.round((end - start) / 1000)
@@ -69,12 +69,12 @@ function rowStatus(row) {
 
 function rowChosen(row) {
   if (row.type === 'boolean') {
-    if (row.subs.every((s) => s.submitted_answer === null)) return '—'
+    if (row.subs.every((s) => s.submitted_answer === null)) return '-'
     const correctCount = row.subs.filter((s) => s.is_correct === 1).length
     return `${correctCount}/4`
   }
   const val = row.answer.submitted_answer
-  if (val === null || val === undefined || val === '') return '—'
+  if (val === null || val === undefined || val === '') return '-'
   return String(val).substring(0, 6)
 }
 
@@ -117,7 +117,7 @@ export function SubmissionReviewSidebar({ submission, currentQId, onJump }) {
   const timeTaken = formatTimeTaken(started_at, submitted_at)
   const submittedDate = submitted_at
     ? formatDateTime(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z'), i18n.resolvedLanguage)
-    : '—'
+    : '-'
 
   const rows = buildSidebarRows(answers)
 

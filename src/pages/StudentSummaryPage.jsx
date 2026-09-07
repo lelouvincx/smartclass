@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { formatDateTime } from '@/lib/format'
 
 function formatTimeTaken(started_at, submitted_at) {
-  if (!started_at || !submitted_at) return '—'
+  if (!started_at || !submitted_at) return '-'
   const start = new Date(started_at.endsWith('Z') ? started_at : started_at + 'Z')
   const end = new Date(submitted_at.endsWith('Z') ? submitted_at : submitted_at + 'Z')
   const secs = Math.round((end - start) / 1000)
@@ -79,7 +79,7 @@ export default function StudentSummaryPage() {
 
   const submittedDate = submitted_at
     ? formatDateTime(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z'), i18n.resolvedLanguage)
-    : '—'
+    : '-'
 
   const scoreColor =
     score === null || score === undefined

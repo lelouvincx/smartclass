@@ -23,9 +23,9 @@ The current frontend uses plain Tailwind CSS v3 with inline utility classes and 
 components. This leads to:
 
 - **388 `className=` usages** across 9 page components with heavily duplicated styling patterns
-- **No shared primitives** — buttons, inputs, cards, badges, tables are all inlined
+- **No shared primitives** - buttons, inputs, cards, badges, tables are all inlined
 - **No dark mode** support
-- **No design system** — visual consistency depends on copy-pasting class strings
+- **No design system** - visual consistency depends on copy-pasting class strings
 
 Adopting shadcn/ui provides a component library built on Radix UI primitives with Tailwind styling,
 giving us accessible, themeable, and composable UI components out of the box.
@@ -109,8 +109,8 @@ giving us accessible, themeable, and composable UI components out of the box.
 
 ### 1.6 Verification
 
-- `npx vitest run src/` — frontend tests pass
-- `npx vitest run --config vitest.worker.config.js` — backend tests pass
+- `npx vitest run src/` - frontend tests pass
+- `npx vitest run --config vitest.worker.config.js` - backend tests pass
 - Manual: existing pages look identical
 
 ---
@@ -124,9 +124,9 @@ npx shadcn@latest add button card input label badge table select dialog switch
 ```
 
 Create shared layouts:
-- `src/components/student-layout.jsx` — resolves tech debt: "Extract StudentLayout component"
+- `src/components/student-layout.jsx` - resolves tech debt: "Extract StudentLayout component"
 - `src/components/teacher-layout.jsx`
-- `src/components/mode-toggle.jsx` — dark mode toggle in both layouts
+- `src/components/mode-toggle.jsx` - dark mode toggle in both layouts
 
 ---
 
@@ -173,4 +173,4 @@ After migration, the project code style (in `AGENTS.md`) should be updated:
 
 ## Future Tech Debt Created
 
-- [ ] **Migrate from JavaScript to TypeScript** — Add `tsconfig.json`, rename `.jsx` to `.tsx`, add type annotations. Consider incremental adoption (strict mode off initially).
+- [ ] **Migrate from JavaScript to TypeScript** - Add `tsconfig.json`, rename `.jsx` to `.tsx`, add type annotations. Consider incremental adoption (strict mode off initially).

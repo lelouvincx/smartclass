@@ -13,18 +13,18 @@ function formatSize(bytes) {
  * Controlled drag-and-drop file picker.
  *
  * Props:
- *   id              — string  — forwarded to the hidden input for label association
- *   accept          — string  — input accept attribute (e.g. ".pdf", "image/jpeg,image/png")
- *   hint            — string  — caption shown inside the dropzone
- *   file            — File|null
- *   onChange        — (File|null) => void
- *   disabled        — boolean
- *   icon            — Material Symbols icon component (default: FileUp)
- *   title           — primary label inside the dropzone (default: 'Drop a file here or click to pick')
- *   capture         — input capture attribute (e.g. 'environment' for mobile camera)
- *   inputAriaLabel  — aria-label on the hidden input (overrides default association via id)
- *   size            — 'default' | 'lg' — controls padding + icon size
- *   showPickedFile  — boolean — when false, the consumer renders its own picked-file UI
+ *   id              - string  - forwarded to the hidden input for label association
+ *   accept          - string  - input accept attribute (e.g. ".pdf", "image/jpeg,image/png")
+ *   hint            - string  - caption shown inside the dropzone
+ *   file            - File|null
+ *   onChange        - (File|null) => void
+ *   disabled        - boolean
+ *   icon            - Material Symbols icon component (default: FileUp)
+ *   title           - primary label inside the dropzone (default: 'Drop a file here or click to pick')
+ *   capture         - input capture attribute (e.g. 'environment' for mobile camera)
+ *   inputAriaLabel  - aria-label on the hidden input (overrides default association via id)
+ *   size            - 'default' | 'lg' - controls padding + icon size
+ *   showPickedFile  - boolean - when false, the consumer renders its own picked-file UI
  *                     (the dropzone unmounts once a file is selected). Default: true.
  */
 export default function FileDropzone({

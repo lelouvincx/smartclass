@@ -313,7 +313,7 @@ function PreviewAnswerReview({ rows, onUpdateRow }) {
                       aria-invalid={invalid}
                       aria-describedby={invalid ? errorId : undefined}
                     >
-                      <SelectValue placeholder="—" />
+                      <SelectValue placeholder="-" />
                     </SelectTrigger>
                     <SelectContent>
                       {['A', 'B', 'C', 'D'].map(value => (
@@ -333,7 +333,7 @@ function PreviewAnswerReview({ rows, onUpdateRow }) {
                       aria-invalid={invalid}
                       aria-describedby={invalid ? errorId : undefined}
                     >
-                      <SelectValue placeholder="—" />
+                      <SelectValue placeholder="-" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="1">{t('teacher.schema.true')}</SelectItem>
@@ -881,7 +881,7 @@ export default function TeacherCreateExercisePage() {
         <Card>
           <CardContent className="pt-5">
             <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2">
-              {/* Title — required */}
+              {/* Title - required */}
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="title">
                   {t('teacher.create.titleLabel')} <span aria-hidden="true" className="text-destructive">*</span>
@@ -942,7 +942,7 @@ export default function TeacherCreateExercisePage() {
                 </div>
               </div>
 
-              {/* Duration — required when timed, with quick-select presets */}
+              {/* Duration - required when timed, with quick-select presets */}
               <div className="space-y-2">
                 <Label htmlFor="duration">
                   {t('teacher.create.duration')}{isTimed && <span aria-hidden="true" className="text-destructive"> *</span>}

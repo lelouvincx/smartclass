@@ -107,7 +107,7 @@ def draw_ruler_overlay(image: Image.Image, page_number: int) -> Image.Image:
             draw.text((4, y + 4), label, fill=label_color, font=font)
 
     draw.rectangle((8, 8, 190, 34), fill=(255, 255, 255, 230), outline=(37, 99, 235, 255))
-    draw.text((14, 15), f"PAGE {page_number} — normalized ruler", fill=(15, 23, 42, 255), font=font)
+    draw.text((14, 15), f"PAGE {page_number} - normalized ruler", fill=(15, 23, 42, 255), font=font)
     return base
 
 

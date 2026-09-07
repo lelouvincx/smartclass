@@ -1,12 +1,12 @@
 ---
 rfc: RFC-5
-title: v0.4 — Image-based Answer Extraction (LLM, no OCR)
+title: v0.4 - Image-based Answer Extraction (LLM, no OCR)
 date: 2026-05-03
 status: Shipped
 dependencies: [RFC-1, RFC-2]
 ---
 
-# RFC: v0.4 — Image-based Answer Extraction (LLM, no OCR)
+# RFC: v0.4 - Image-based Answer Extraction (LLM, no OCR)
 
 **Date:** 2026-05-03
 **Status:** Draft
@@ -35,7 +35,7 @@ After v0.3, the core student loop is complete: students browse exercises, take t
 
 The original roadmap left this open:
 
-> v0.4 — Scanner & image upload (think again to decide whether to use an OCR or just yolo with grok because it's cheap)
+> v0.4 - Scanner & image upload (think again to decide whether to use an OCR or just yolo with grok because it's cheap)
 
 This RFC closes that question. **We skip OCR (Tesseract.js) entirely and use a multimodal LLM (Grok via OpenRouter) to extract answers directly from the uploaded image.**
 
@@ -45,7 +45,7 @@ This RFC closes that question. **We skip OCR (Tesseract.js) entirely and use a m
 | ----------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
 | **Handwriting**                     | Poor. Tesseract is tuned for printed text. Student answer sheets are handwritten. | Strong. Grok handles handwritten ticks/circles/letters well.                                                                |
 | **Bundle size**                     | ~2 MB+ WASM + language data downloaded on first OCR. Hurts mobile.                | Zero client cost. Runs server-side.                                                                                         |
-| **Layout understanding**            | None — produces a flat string. We'd need a second parser to map text → q_id.      | Native — we describe the schema in the prompt and the model returns structured JSON.                                        |
+| **Layout understanding**            | None - produces a flat string. We'd need a second parser to map text → q_id.      | Native - we describe the schema in the prompt and the model returns structured JSON.                                        |
 | **Schema awareness**                | Cannot use it.                                                                    | We pass the answer schema (q_ids, types, sub_ids) into the prompt; model fills in only the slots that exist.                |
 | **Boolean sub-questions (a/b/c/d)** | Would require custom 2D layout parsing.                                           | Trivially expressed in the prompt.                                                                                          |
 | **Cost**                            | Free (client compute).                                                            | Cheap. Grok 4.1 Fast vision is ~$0.20/1M input tokens; an answer-sheet image is ~1500 tokens → **~$0.0003 per submission**. |
@@ -70,14 +70,14 @@ In:
 3. The model returns JSON of `{q_id, sub_id?, answer, confidence}` rows.
 4. Frontend pre-fills the answer form with the extracted answers; student reviews and corrects, then submits normally.
 5. Original image is stored in R2 indefinitely (auditable; same pattern as teacher uploads). It is not deleted on submit.
-6. **Smooth upload + extract UX**: dropzone with drag-and-drop, image preview, progress states (uploading → extracting → done), error/retry states, replace-image action, side-by-side image-thumbnail-with-form on desktop. Treated as a first-class scope item, not polish — extraction can take 5–15 s and the UI must communicate clearly what's happening so the student doesn't think the page is frozen.
+6. **Smooth upload + extract UX**: dropzone with drag-and-drop, image preview, progress states (uploading → extracting → done), error/retry states, replace-image action, side-by-side image-thumbnail-with-form on desktop. Treated as a first-class scope item, not polish - extraction can take 5–15 s and the UI must communicate clearly what's happening so the student doesn't think the page is frozen.
 7. **User-selectable model** (front-end dropdown). Grok 4.1 Fast via OpenRouter is the default, but the student can pick from a small curated list (e.g., Grok 4.1 Fast, Gemini 2.5 Flash, GPT-4o-mini). The choice is sent with the extract request and forwarded to the provider. Selection is persisted to `localStorage` so it sticks across sessions.
 
 Out (deferred):
 
 - A "scanner" mode with live camera framing/edge detection. The basic file/camera input works; framing UI is polish for v0.6.
 - Standardized printable answer-sheet template. Grok handles freehand layouts well enough that a template isn't required for v0.4. We may add an optional template later if accuracy on dense exams suffers.
-- Auto-submit on extract. The student always reviews before submitting — extraction populates the form, never the submission row.
+- Auto-submit on extract. The student always reviews before submitting - extraction populates the form, never the submission row.
 
 ---
 
@@ -146,8 +146,8 @@ Single endpoint that does upload + extract + return. We deliberately do **not** 
 
 - Auth: `requireAuth`, must be the submission owner, submission must be in-progress (`submitted_at IS NULL`).
 - Body: `multipart/form-data` with:
-  - `image` — jpg/png, ≤ 20 MB
-  - `model` (optional) — one of the allowed model ids (see "Model selection" below). Defaults to the server-side default if omitted or unknown.
+  - `image` - jpg/png, ≤ 20 MB
+  - `model` (optional) - one of the allowed model ids (see "Model selection" below). Defaults to the server-side default if omitted or unknown.
 - Behavior:
   1. Validate ownership + state.
   2. Validate `model` against an allowlist; fall back to default if invalid (so a stale UI doesn't block the user).
@@ -268,7 +268,7 @@ Layout (desktop):
 │  │   (max 240px)    │                                                │
 │  └──────────────────┘   "This usually takes 5–15 seconds."           │
 │                                                                      │
-│  ⚠ 2 warnings — Q5 unreadable, Q12 confidence low                    │
+│  ⚠ 2 warnings - Q5 unreadable, Q12 confidence low                    │
 ╰──────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -280,24 +280,24 @@ Behaviour details:
 2. **Client-side validation before upload**: file type (jpg/png), size (≤ 20 MB). Surfaces inline errors instantly so we don't waste a network round trip.
 3. **Preview**: render via `URL.createObjectURL` so it appears the moment the file is selected. Revoke on unmount / replace.
 4. **Upload progress**: use `XMLHttpRequest` (not `fetch`) for the upload portion so we get an `onprogress` event and can show a real percentage during the upload phase. Once upload hits 100% we switch the label to "Extracting answers..." and show an indeterminate progress bar (we don't know how long Grok will take).
-5. **Cancel**: the upload phase is cancellable (abort the XHR). The extract phase is not (server-side; would require streaming SSE which is out of scope) — the cancel button is replaced with "Working..." once we leave the upload phase.
+5. **Cancel**: the upload phase is cancellable (abort the XHR). The extract phase is not (server-side; would require streaming SSE which is out of scope) - the cancel button is replaced with "Working..." once we leave the upload phase.
 6. **Result merge**: on success, merge `extracted` into the existing `answers` state. Highlight pre-filled cells with a soft background tint and a confidence dot:
-   - green (≥ 0.8) — high confidence
-   - amber (0.5–0.8) — review recommended
-   - red (< 0.5) — likely wrong, please check
+   - green (≥ 0.8) - high confidence
+   - amber (0.5–0.8) - review recommended
+   - red (< 0.5) - likely wrong, please check
      The form auto-scrolls to the first low-confidence cell.
 7. **Banner**: "Review the extracted answers and correct any mistakes before submitting." Plus any warnings from the validator (collapsible list).
 8. **Replace image**: top-right action; goes back to the `previewing` state with the new image.
 9. **Manual edits**: editing a highlighted cell clears the highlight + dot on that cell (signal: "I have personally verified this one").
-10. **Errors**: any 4xx/5xx surfaces a friendly message with two buttons — "Retry" (re-POST) and "Switch to manual" (closes panel without losing manual answers).
+10. **Errors**: any 4xx/5xx surfaces a friendly message with two buttons - "Retry" (re-POST) and "Switch to manual" (closes panel without losing manual answers).
 
-Submission flow is unchanged — the student still hits **Submit**, the same `PUT /api/submissions/:id/submit` runs, and grading is identical.
+Submission flow is unchanged - the student still hits **Submit**, the same `PUT /api/submissions/:id/submit` runs, and grading is identical.
 
 ##### Model picker
 
 A small shadcn `<Select>` at the top-right of the upload panel, sourced from the shared `EXTRACT_MODELS` constants module. Selected value is sent as the `model` form field on the extract request and persisted to `localStorage['smartclass-extract-model']` so the choice sticks across sessions.
 
-If the chosen model fails (e.g., 502), the error banner suggests "Try a different model" with a one-click switch to the default. The server-side allowlist check makes a stale local value harmless — the worker just falls back to the default and notes the substitution in `model_used`.
+If the chosen model fails (e.g., 502), the error banner suggests "Try a different model" with a one-click switch to the default. The server-side allowlist check makes a stale local value harmless - the worker just falls back to the default and notes the substitution in `model_used`.
 
 #### New API client function ([src/lib/api.js](file:///Users/lelouvincx/Developer/smartclass/src/lib/api.js))
 
@@ -332,7 +332,7 @@ export function extractAnswersFromImage(
 }
 ```
 
-We use XHR (not `fetch`) only for this endpoint — `fetch` does not surface upload progress. All other endpoints continue to use the existing `request()` helper.
+We use XHR (not `fetch`) only for this endpoint - `fetch` does not surface upload progress. All other endpoints continue to use the existing `request()` helper.
 
 ---
 
@@ -344,7 +344,7 @@ We use XHR (not `fetch`) only for this endpoint — `fetch` does not surface upl
 | Tesseract.js                       | **Don't install**                                                               | Removes 2 MB of WASM from the bundle, kills a whole class of layout-parser bugs.                                                                                                       |
 | Endpoint shape                     | **Single `POST /:id/extract`** (upload + extract atomically)                    | Avoids orphan R2 objects, fewer round trips, simpler client.                                                                                                                           |
 | Storage                            | **Persist image in R2 + `submission_files` row, indefinitely**                  | Auditable; teachers can review the source image when investigating disputed grades. Cheap enough at R2 storage prices. Cleanup policy can be added later if storage becomes a concern. |
-| Auto-submit                        | **No**                                                                          | Student always reviews. Matches v0.2 design rule "No auto-submit on timer expiry" — student agency over automation.                                                                    |
+| Auto-submit                        | **No**                                                                          | Student always reviews. Matches v0.2 design rule "No auto-submit on timer expiry" - student agency over automation.                                                                    |
 | Per-question confidence            | **Returned, displayed as a tri-color dot (green/amber/red)**                    | Cheap, helpful, and lets us tune a future "auto-confidence threshold" feature without schema changes.                                                                                  |
 | Schema in prompt                   | **Yes (constrain output)**                                                      | Cuts hallucinated q_ids to ~zero in our teacher-side extraction; same gain expected here.                                                                                              |
 | Image size limit                   | **20 MB**                                                                       | Modern phone cameras (12–48 MP) routinely produce 5–15 MB JPEGs; 20 MB cap prevents truncated uploads while still bounding abuse.                                                      |
@@ -366,7 +366,7 @@ We use XHR (not `fetch`) only for this endpoint — `fetch` does not surface upl
 | Numeric value not parseable                 | Kept as-is (string). Grading already tolerates non-numeric strings as wrong.                                                                                                     |
 | OpenRouter unavailable                      | Same fallback as teacher path: retry on Gemini if error message is retryable; else 502 with a friendly message. UI tells the student to retry, switch model, or use manual mode. |
 | Unknown / stale `model` value from client   | Worker silently substitutes the default and returns `model_used` in the response so the UI can correct local state.                                                              |
-| Upload after submit                         | 409 Conflict — submission is locked.                                                                                                                                             |
+| Upload after submit                         | 409 Conflict - submission is locked.                                                                                                                                             |
 | Upload to someone else's submission         | 403.                                                                                                                                                                             |
 | Submission timer expired                    | Allowed. Extraction does not bump `started_at`. Student is "over time" but can still submit.                                                                                     |
 
@@ -376,8 +376,8 @@ We use XHR (not `fetch`) only for this endpoint — `fetch` does not surface upl
 
 ### Backend
 
-- `worker/lib/extract-validator.test.js` (unit) — JSON parsing, schema filtering, type normalization, missing-row backfill, warning generation.
-- `worker/routes/submissions.integration.test.js` — extend with:
+- `worker/lib/extract-validator.test.js` (unit) - JSON parsing, schema filtering, type normalization, missing-row backfill, warning generation.
+- `worker/routes/submissions.integration.test.js` - extend with:
   - happy-path extract on a fixture image (mocked OpenRouter response)
   - 403 if non-owner extracts
   - 409 if submission already submitted
@@ -385,17 +385,17 @@ We use XHR (not `fetch`) only for this endpoint — `fetch` does not surface upl
   - 415 wrong content-type
   - 502 when both OpenRouter and Gemini fail (mocked)
   - `model` parameter forwarded to OpenRouter when valid; substituted with default and `model_used` reflects the substitution when invalid
-- Mock OpenRouter via `vi.spyOn(globalThis, 'fetch')` — same pattern as existing OpenRouter tests in `worker/routes/exercises.integration.test.js`.
+- Mock OpenRouter via `vi.spyOn(globalThis, 'fetch')` - same pattern as existing OpenRouter tests in `worker/routes/exercises.integration.test.js`.
 
 ### Frontend
 
-- `StudentTakeExercisePage.test.jsx` — extend with:
+- `StudentTakeExercisePage.test.jsx` - extend with:
   - mode toggle renders
   - successful extraction merges into form state and highlights cells
   - low-confidence cells get the warning indicator
   - manual edit clears highlight on that cell
   - extraction error shows banner without breaking the form
-- `answer-image-upload.test.jsx` (new) — covers the upload component in isolation:
+- `answer-image-upload.test.jsx` (new) - covers the upload component in isolation:
   - file-type and 20 MB size validation reject before upload
   - upload progress callback fires
   - cancel during upload aborts the request
@@ -408,10 +408,10 @@ We use XHR (not `fetch`) only for this endpoint — `fetch` does not surface upl
 
 Small, independently mergeable steps:
 
-1. **PR A — DB + endpoint scaffold.** Migration `0007` for `submission_files`, schema.dbml update, `worker/lib/extract-models.js` shared constants, `POST /api/submissions/:id/extract` returning a stub (no LLM call yet) so the contract — including `model` validation and 20 MB cap — is testable.
-2. **PR B — LLM helper + validator.** Add `requestAnswersFromImage` to `openrouter.js` (with `model` arg). Add `extract-validator.js` with unit tests. Wire into the endpoint, return `model_used`.
-3. **PR C — Frontend upload component.** New `src/components/answer-image-upload.jsx` (dropzone, preview, XHR with progress, model picker, state machine). API client function. Integration into `StudentTakeExercisePage` with mode toggle.
-4. **PR D — Result merge + UX polish.** Highlight + tri-color confidence dots, warnings banner, error/retry UI, auto-scroll to first low-confidence cell, README roadmap update, AGENTS.md design-decisions entry.
+1. **PR A - DB + endpoint scaffold.** Migration `0007` for `submission_files`, schema.dbml update, `worker/lib/extract-models.js` shared constants, `POST /api/submissions/:id/extract` returning a stub (no LLM call yet) so the contract - including `model` validation and 20 MB cap - is testable.
+2. **PR B - LLM helper + validator.** Add `requestAnswersFromImage` to `openrouter.js` (with `model` arg). Add `extract-validator.js` with unit tests. Wire into the endpoint, return `model_used`.
+3. **PR C - Frontend upload component.** New `src/components/answer-image-upload.jsx` (dropzone, preview, XHR with progress, model picker, state machine). API client function. Integration into `StudentTakeExercisePage` with mode toggle.
+4. **PR D - Result merge + UX polish.** Highlight + tri-color confidence dots, warnings banner, error/retry UI, auto-scroll to first low-confidence cell, README roadmap update, AGENTS.md design-decisions entry.
 
 Once PR C lands, the mode toggle is live (with PR D adding the polish that makes it feel finished).
 
@@ -436,8 +436,8 @@ Comfortably within the "free experiment" budget.
 
 ## Future extensions (not in v0.4)
 
-- **Standardized answer-sheet template** (printable PDF) — improves accuracy on dense 40+ question exams.
-- **Camera framing UX** — edge detection + skew correction before upload (deferred to v0.6 polish).
-- **Auto-confidence threshold** — auto-submit when all answers exceed e.g. 0.9 confidence (requires UX research; risky).
-- **Multi-image upload** — for exams that span multiple sheets. Endpoint can accept an array; LLM call is the same.
-- **Re-extract from teacher-uploaded source** — teacher view shows the original image alongside the extracted answers for dispute resolution. Data is already there (`submission_files`), just needs UI.
+- **Standardized answer-sheet template** (printable PDF) - improves accuracy on dense 40+ question exams.
+- **Camera framing UX** - edge detection + skew correction before upload (deferred to v0.6 polish).
+- **Auto-confidence threshold** - auto-submit when all answers exceed e.g. 0.9 confidence (requires UX research; risky).
+- **Multi-image upload** - for exams that span multiple sheets. Endpoint can accept an array; LLM call is the same.
+- **Re-extract from teacher-uploaded source** - teacher view shows the original image alongside the extracted answers for dispute resolution. Data is already there (`submission_files`), just needs UI.

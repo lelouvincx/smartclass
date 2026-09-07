@@ -147,7 +147,7 @@ export default function StudentReviewPage({ viewer = 'student' }) {
 
   const submittedDate = submitted_at
     ? formatDateTime(submitted_at + (submitted_at.endsWith('Z') ? '' : 'Z'), i18n.resolvedLanguage)
-    : '—'
+    : '-'
 
   function handleJump(qId) {
     setCurrentQId(qId)

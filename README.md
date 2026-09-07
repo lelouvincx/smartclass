@@ -8,7 +8,7 @@ An assessment platform for teaching and learning, built on Cloudflare.
 
 - **Teacher (admin)**: upload exercises (PDF) with answer schemas, manage lectures, create/approve student accounts
 - **Student**: take timed or untimed exercises, enter answers directly, get auto-graded, review past results, watch lecture videos
-- **Guest (roadmap)**: browse exercises and lectures, submit exercises with results saved locally — no login required
+- **Guest (roadmap)**: browse exercises and lectures, submit exercises with results saved locally - no login required
 
 ## Project status
 

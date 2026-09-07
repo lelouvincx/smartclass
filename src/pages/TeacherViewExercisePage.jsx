@@ -246,7 +246,7 @@ function ViewSchemaTable({ schema }) {
               <tr key={g.q_id} className="border-t">
                 <td className="px-4 py-2 text-muted-foreground">{g.section_title || t('teacher.schema.mainSection')}</td>
                 <td className="px-4 py-2 text-muted-foreground">{g.local_number}</td>
-                <td className="px-4 py-2 text-muted-foreground">—</td>
+                <td className="px-4 py-2 text-muted-foreground">-</td>
                 <td className="px-4 py-2 text-muted-foreground">
                   {g.type === 'mcq'
                     ? t('teacher.schema.multipleChoice')

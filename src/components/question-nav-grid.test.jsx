@@ -100,7 +100,7 @@ describe('QuestionNavGrid', () => {
       />,
     )
 
-    // Cell text is always the index — answered state is conveyed via the fill color.
+    // Cell text is always the index - answered state is conveyed via the fill color.
     expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent(/^1$/)
     expect(screen.getByLabelText('Jump to question 1')).not.toHaveTextContent(':')
     expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent(/^2$/)
@@ -192,7 +192,7 @@ describe('QuestionNavGrid', () => {
       />,
     )
 
-    // Display indices 1, 2, 3 — always plain numbers, no decoration.
+    // Display indices 1, 2, 3 - always plain numbers, no decoration.
     expect(screen.getByLabelText('Jump to question 1')).toHaveTextContent(/^1$/)
     expect(screen.getByLabelText('Jump to question 2')).toHaveTextContent(/^2$/)
     expect(screen.getByLabelText('Jump to question 3')).toHaveTextContent(/^3$/)

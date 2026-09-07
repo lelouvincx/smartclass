@@ -330,7 +330,7 @@ submissionsRoutes.put('/:id/submit', requireAuth, async (c) => {
       return jsonError(c, 400, 'ALREADY_SUBMITTED', 'This submission has already been submitted')
     }
 
-    // ── Fetch schema first — needed for both validation and grading ──────────
+    // ── Fetch schema first - needed for both validation and grading ──────────
     const schemaRows = submission.question_asset_set_id
       ? await c.env.DB.prepare(`
           select q_id, sub_id, type, correct_answer, max_score_hundredths
@@ -674,7 +674,7 @@ submissionsRoutes.get('/:id', requireAuth, async (c) => {
 })
 
 // Upload an answer-sheet image and extract answers via vision LLM (v0.4).
-// PR A: scaffold only — performs upload + persistence; LLM extraction stubbed.
+// PR A: scaffold only - performs upload + persistence; LLM extraction stubbed.
 submissionsRoutes.post('/:id/extract', requireAuth, async (c) => {
   try {
     const submissionId = c.req.param('id')

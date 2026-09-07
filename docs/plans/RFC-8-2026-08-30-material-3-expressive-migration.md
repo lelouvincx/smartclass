@@ -6,7 +6,7 @@ status: Approved
 dependencies: [RFC-3, RFC-6]
 ---
 
-# RFC-8 — Material 3 Expressive design-system migration
+# RFC-8 - Material 3 Expressive design-system migration
 
 **Date:** 2026-08-30
 
@@ -31,7 +31,7 @@ The repository therefore needs an explicit boundary, rollout sequence, and evide
 - `DESIGN.md` defines a calm academic baseline, semantic colors, restrained elevation, accessible controls, and LMS layout rules.
 - The implementation foundation is React, Tailwind CSS, and shadcn/Radix. Existing primitives carry behavior and accessibility that should not be casually replaced.
 - Assessment and administration surfaces contain dense forms, tables, answer controls, timers, navigation, scores, and review data. Scanability and predictable interaction take priority there.
-- SmartClass has natural milestone moments—creation, Start, completion, score, progress, and empty states—where stronger hierarchy can improve orientation.
+- SmartClass has natural milestone moments-creation, Start, completion, score, progress, and empty states-where stronger hierarchy can improve orientation.
 - This RFC changes no product capability. Product truth remains in [`../../PRODUCT.md`](../../PRODUCT.md).
 
 ## Decision
@@ -54,7 +54,7 @@ The Material 3 component catalogue should guide SmartClass component audits, not
 
 This plan does not override the staged rollout below. Items that standardize current primitives belong in Stage 2. Expressive treatments belong in Stage 3 and still require per-slice review. A future agent must identify a named gap and add or update a behavioural test before changing a Radix interaction contract, a shared primitive API, or a route-level interaction pattern.
 
-### Component audit tier 0 — standardize current primitives
+### Component audit tier 0 - standardize current primitives
 
 Use this table as audit vocabulary, not a conformance checklist. Map each current primitive to the closest Material 3 component pattern, then change implementation only when the audit finds a specific accessibility, behaviour, consistency, or maintenance gap:
 
@@ -70,7 +70,7 @@ Use this table as audit vocabulary, not a conformance checklist. Map each curren
 | `Table` | Data tables | Preserve compact scanability, row labels, and bounded horizontal scrolling. Do not import Material spacing that reduces useful row density. |
 | `AppShell` navigation | Navigation rail and navigation drawer | Keep the current sidebar, compact rail, and mobile drawer. Tighten active, hover, focus, disabled, and current-route states against Material 3 behaviour. |
 
-### Component audit tier 1 — candidate shared components
+### Component audit tier 1 - candidate shared components
 
 Create these only when a named product flow demonstrates a shared need. Keep low-level primitives in `src/components/ui/`. Keep product-level compositions in `src/design-system/`. Do not add a component only because Material 3 includes it.
 
@@ -81,7 +81,7 @@ Create these only when a named product flow demonstrates a shared need. Keep low
 - `SegmentedButton` for small mutually exclusive view or filter choices
 - a `Toaster` policy update, or a separate snackbar wrapper only if the existing `sonner` wrapper cannot express the required transient feedback rule cleanly
 
-### Component audit tier 2 — defer until a named product need exists
+### Component audit tier 2 - defer until a named product need exists
 
 Do not add these by default:
 
@@ -136,11 +136,11 @@ Rules:
 - Product components consume semantic or component tokens, not raw reference values.
 - Theme changes happen primarily at the semantic layer.
 - Repeated one-off Tailwind values are a signal to define or revise a token.
-- Existing useful LMS rules in [`../../DESIGN.md`](../../DESIGN.md)—density, readable scale, responsive navigation, accessible targets, status labels, and quiet elevation—remain constraints.
+- Existing useful LMS rules in [`../../DESIGN.md`](../../DESIGN.md)-density, readable scale, responsive navigation, accessible targets, status labels, and quiet elevation-remain constraints.
 
 ## Rollout plan
 
-### Stage 0 — Baseline and inventory
+### Stage 0 - Baseline and inventory
 
 **Agent actions**
 
@@ -160,7 +160,7 @@ Rules:
 
 **Stop gate:** missing baseline, unclear ownership, or unresolved product behavior.
 
-### Stage 1 — Three-layer token foundation
+### Stage 1 - Three-layer token foundation
 
 **Agent actions**
 
@@ -180,7 +180,7 @@ Rules:
 
 **Stop gate:** regressions in contrast, density, theme parity, or uncontrolled one-off values.
 
-### Stage 2 — Calm shared foundations
+### Stage 2 - Calm shared foundations
 
 **Agent actions**
 
@@ -200,7 +200,7 @@ Rules:
 
 **Stop gate:** reduced scanability, displaced primary controls, excess rounding/elevation, or migration requiring broad behavioral rewrites.
 
-### Stage 3 — Expressive vertical slices
+### Stage 3 - Expressive vertical slices
 
 **Agent actions**
 
@@ -221,7 +221,7 @@ Rules:
 
 **Stop gate:** expression competes with the exercise, score meaning depends on color/motion, or the pattern spreads beyond the approved boundary.
 
-### Stage 4 — Consolidate and document
+### Stage 4 - Consolidate and document
 
 **Agent actions**
 
