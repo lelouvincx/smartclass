@@ -63,7 +63,7 @@ function localNumber(value) {
 
 function normalizeNumeric(value) {
   const normalized = plainText(value)
-    .replace(/[−–—]/g, '-')
+    .replace(/[−–-]/g, '-')
     .replace(',', '.')
     .replace(/^\+/, '')
   if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(normalized)) return null
@@ -129,13 +129,13 @@ function parseAnswerTable(table) {
 
 function sectionContexts(text) {
   const source = String(text ?? '')
-  const matches = [...source.matchAll(/(?:^|\s)(PHẦN|PHAN)\s+([IVXLCDM]+)(?=\b|[.\s:–—-])/giu)]
+  const matches = [...source.matchAll(/(?:^|\s)(PHẦN|PHAN)\s+([IVXLCDM]+)(?=\b|[.\s:–-])/giu)]
 
   return matches.map((match, index) => {
     const titleStart = match.index + match[0].search(/PHẦN|PHAN/iu)
     const nextStart = matches[index + 1]?.index ?? source.length
     const sectionText = source.slice(titleStart, nextStart).trim()
-    const answerHeading = sectionText.search(/\s+(?:BẢNG\s+)?ĐÁP\s+ÁN(?:\b|\s|[:–—-])/iu)
+    const answerHeading = sectionText.search(/\s+(?:BẢNG\s+)?ĐÁP\s+ÁN(?:\b|\s|[:–-])/iu)
     const exactTitle = (answerHeading < 0 ? sectionText : sectionText.slice(0, answerHeading)).trim()
 
     return {

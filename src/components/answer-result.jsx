@@ -48,7 +48,7 @@ export function BooleanAnswerBadge({ value }) {
       </span>
     )
   }
-  return <span className="text-muted-foreground">—</span>
+  return <span className="text-muted-foreground">-</span>
 }
 
 // --- Result rows for the results table ---
@@ -57,13 +57,13 @@ export function BooleanAnswerBadge({ value }) {
  * A single result row for MCQ or Numeric questions.
  *
  * Props:
- *   question        — { q_id, is_correct }
- *   answer          — string|null — student's submitted answer
- *   correctAnswer   — string|null — correct answer (shown when provided)
+ *   question        - { q_id, is_correct }
+ *   answer          - string|null - student's submitted answer
+ *   correctAnswer   - string|null - correct answer (shown when provided)
  */
 export function McqNumericResultRow({ question, answer, correctAnswer }) {
   const { t } = useTranslation()
-  const display = answer !== '' && answer !== null && answer !== undefined ? answer : '—'
+  const display = answer !== '' && answer !== null && answer !== undefined ? answer : '-'
   const status = computeStatus(answer, question.is_correct)
   const questionNumber = question.local_number ?? question.q_id
   const showCorrectAnswer = correctAnswer !== undefined
@@ -75,7 +75,7 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
         {display}
       </td>
       {showCorrectAnswer && (
-        <td className="bg-success-muted px-3 py-3 text-sm font-semibold text-success">{correctAnswer ?? '—'}</td>
+        <td className="bg-success-muted px-3 py-3 text-sm font-semibold text-success">{correctAnswer ?? '-'}</td>
       )}
       <td className="px-3 py-3 text-center">
         <CorrectnessIcon status={status} />
@@ -88,9 +88,9 @@ export function McqNumericResultRow({ question, answer, correctAnswer }) {
  * A group of boolean sub-question rows.
  *
  * Props:
- *   group           — { q_id, subRows: [{sub_id}] }
- *   submittedAnswers — array of { q_id, sub_id, submitted_answer, is_correct }
- *   schemaAnswers   — array of { q_id, sub_id, correct_answer } — optional, shown when provided
+ *   group           - { q_id, subRows: [{sub_id}] }
+ *   submittedAnswers - array of { q_id, sub_id, submitted_answer, is_correct }
+ *   schemaAnswers   - array of { q_id, sub_id, correct_answer } - optional, shown when provided
  */
 export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) {
   const { t } = useTranslation()

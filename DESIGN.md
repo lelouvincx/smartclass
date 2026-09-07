@@ -233,7 +233,7 @@ Dense tables, schemas, answer forms, and review surfaces prioritize scanability.
 
 ## Elevation & Depth
 
-Default cards use a 1px `border` plus the low card shadow defined in `tokens.css`. Use the raised shadow only for temporary overlays, drawers, and menus. Hierarchy should come primarily from spacing, typography, and surface contrast—not stacks of floating containers.
+Default cards use a 1px `border` plus the low card shadow defined in `tokens.css`. Use the raised shadow only for temporary overlays, drawers, and menus. Hierarchy should come primarily from spacing, typography, and surface contrast-not stacks of floating containers.
 
 Avoid nested cards when a divider, heading, or grouped row communicates the same relationship. Sticky regions need an opaque or blurred surface and a separating border.
 

@@ -5,10 +5,10 @@
  * and rationale for every decision made here.
  *
  * Quick reference:
- *   MCQ     — exact string match (both normalized to uppercase A/B/C/D); 0.25 pts if correct
- *   Numeric — numeric equality within NUMERIC_TOLERANCE (handles 42 vs 42.0); 0.5 pts if correct
- *   Boolean — per-sub-question comparison; non-linear partial credit per q_id; max 1.0 pt
- *   Score   — (earned_points / max_possible_points) * 10, 0–10 scale
+ *   MCQ     - exact string match (both normalized to uppercase A/B/C/D); 0.25 pts if correct
+ *   Numeric - numeric equality within NUMERIC_TOLERANCE (handles 42 vs 42.0); 0.5 pts if correct
+ *   Boolean - per-sub-question comparison; non-linear partial credit per q_id; max 1.0 pt
+ *   Score   - (earned_points / max_possible_points) * 10, 0–10 scale
  */
 
 // ── Scoring tables & constants ─────────────────────────────────────────────────
@@ -132,7 +132,7 @@ export function gradeSubmission(schema, answers) {
     const schemaRow = schemaLookup.get(key)
 
     if (!schemaRow) {
-      // No matching schema row — treat as wrong
+      // No matching schema row - treat as wrong
       return { q_id: answer.q_id, sub_id: answer.sub_id ?? null, is_correct: 0 }
     }
 

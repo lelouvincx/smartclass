@@ -42,17 +42,17 @@ D1 (SQLite)  +  R2 (file storage)
 - Existing inline shadcn-style primitives (Button, Card, Table, etc.) remain.
 
 ### Pages
-- `/` — Landing / login page
-- `/register` — Student self-registration
-- `/teacher` — Teacher dashboard (manage exercises, lectures, students)
-- `/teacher/exercises/new` — Assignment builder
-- `/teacher/lectures` — Lecture page editor
-- `/teacher/students` — Student management (approve pending, create accounts)
-- `/student` — Student dashboard (exercise list, past submissions)
-- `/student/exercises/:id` — Exercise execution engine (timed/untimed)
-- `/student/exercises/:id/review` — Review past submission + view solutions
-- `/lectures` — Lecture browser (accessible to all roles)
-- `/lectures/:id` — Lecture video player
+- `/` - Landing / login page
+- `/register` - Student self-registration
+- `/teacher` - Teacher dashboard (manage exercises, lectures, students)
+- `/teacher/exercises/new` - Assignment builder
+- `/teacher/lectures` - Lecture page editor
+- `/teacher/students` - Student management (approve pending, create accounts)
+- `/student` - Student dashboard (exercise list, past submissions)
+- `/student/exercises/:id` - Exercise execution engine (timed/untimed)
+- `/student/exercises/:id/review` - Review past submission + view solutions
+- `/lectures` - Lecture browser (accessible to all roles)
+- `/lectures/:id` - Lecture video player
 
 ### Guest Behavior
 - No login required. Guest can browse exercises, lectures, and submit some exercises.
@@ -63,20 +63,20 @@ D1 (SQLite)  +  R2 (file storage)
 - Tesseract.js runs in the browser when student uses scanner mode or uploads an image.
 - Extracts answers from standardized multiple-choice sheets (gridded bubbles).
 - Extracted answers populate the form; student reviews and submits.
-- No server-side OCR needed — keeps Workers within 10ms CPU free tier.
+- No server-side OCR needed - keeps Workers within 10ms CPU free tier.
 
 ## Backend
 
 ### Framework
-- **Hono** — lightweight, Cloudflare-native router (~14KB). Provides middleware, routing, and context helpers.
+- **Hono** - lightweight, Cloudflare-native router (~14KB). Provides middleware, routing, and context helpers.
 
 ### Auth
 - **Username**: Vietnam phone number (`+84xxxxxxxxx`).
 - **Password**: hashed with `bcryptjs` (works in Workers runtime).
 - **JWT** stored in `localStorage`, sent as `Authorization: Bearer <token>` header.
 - Two registration flows:
-  1. **Teacher creates student** — default password `123`, status `active`.
-  2. **Student self-registers** — status `pending`, teacher approves via dashboard.
+  1. **Teacher creates student** - default password `123`, status `active`.
+  2. **Student self-registers** - status `pending`, teacher approves via dashboard.
 - Guest routes require no token. Protected routes use a JWT middleware.
 
 ### API Endpoints
@@ -125,7 +125,7 @@ DELETE /api/lectures/:id           → delete lecture
 - Score = count of correct answers / total questions.
 - Returns per-question results (correct/incorrect + correct answer for review).
 
-## Database (D1 — SQLite)
+## Database (D1 - SQLite)
 
 ### Schema
 
@@ -215,7 +215,7 @@ smartclass/
 
 ## Deployment
 
-- `npx wrangler pages deploy dist/` — deploy frontend
-- `npx wrangler deploy worker/index.js` — deploy API worker
-- `npx wrangler d1 migrations apply smartclass-db` — run DB migrations
+- `npx wrangler pages deploy dist/` - deploy frontend
+- `npx wrangler deploy worker/index.js` - deploy API worker
+- `npx wrangler d1 migrations apply smartclass-db` - run DB migrations
 - All managed via single `wrangler.toml`.

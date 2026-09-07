@@ -473,7 +473,7 @@ describe('PUT /api/submissions/:id/submit', () => {
   })
 
   it('accepts answers for exercises with non-contiguous q_ids', async () => {
-    // Create exercise with q_ids 1, 3 (gap at 2) — total_questions = 2
+    // Create exercise with q_ids 1, 3 (gap at 2) - total_questions = 2
     const { id: exerciseId } = await createExercise(teacherToken, {
       schema: [
         { q_id: 1, type: 'mcq', correct_answer: 'A' },
@@ -823,7 +823,7 @@ describe('GET /api/submissions/:id', () => {
     }, env)
     const submissionId = (await createRes.json()).data.id
 
-    // Do NOT submit — fetch the in-progress submission
+    // Do NOT submit - fetch the in-progress submission
     const res = await app.request(`/api/submissions/${submissionId}`, {
       headers: { 'Authorization': `Bearer ${studentToken}` },
     }, env)
@@ -981,7 +981,7 @@ describe('GET /api/submissions/:id/answer-pdf', () => {
 // All wrong   → score 0.0
 // Mixed       → partial credit
 
-describe('Grading — auto-grade on submit', () => {
+describe('Grading - auto-grade on submit', () => {
   async function createAndStartSubmission() {
     const { id: exerciseId } = await createExercise(teacherToken)
     const createRes = await app.request('/api/submissions', {
@@ -1048,7 +1048,7 @@ describe('Grading — auto-grade on submit', () => {
     expect(body.data.score).toBe(2)
   })
 
-  it('gives partial credit for boolean — 3/4 correct yields score=4', async () => {
+  it('gives partial credit for boolean - 3/4 correct yields score=4', async () => {
     const submissionId = await createAndStartSubmission()
     const body = await submitAnswers(submissionId, [
       { q_id: 1, submitted_answer: 'A' },           // MCQ wrong → 0 pts

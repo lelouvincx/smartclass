@@ -461,7 +461,7 @@ function getImageDimensions(file) {
  * Extract answers from an image of a filled answer sheet (v0.4).
  *
  * Uses XMLHttpRequest (not fetch) because we need real upload progress events.
- * The extract phase on the server is not progress-trackable — once upload is
+ * The extract phase on the server is not progress-trackable - once upload is
  * 100%, the caller should switch to an indeterminate "extracting" state until
  * the promise resolves.
  *
@@ -496,7 +496,7 @@ export function extractAnswersFromImage(token, submissionId, imageFile, { onProg
       try {
         body = JSON.parse(xhr.responseText)
       } catch {
-        // body stays null — error path below
+        // body stays null - error path below
       }
       if (xhr.status >= 200 && xhr.status < 300 && body?.success) {
         resolve(body.data)

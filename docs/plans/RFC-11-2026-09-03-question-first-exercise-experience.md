@@ -462,7 +462,7 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 ## Delivery plan
 
-### Stage A — Persistence and atomic contracts
+### Stage A - Persistence and atomic contracts
 
 **Agent actions**
 
@@ -480,7 +480,7 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 **Go gate:** migration rollback/reapply works locally; route and integration tests prove authorization, completeness, pinning, and old-set preservation on failure.
 
-### Stage B — Automatic generation and teacher confirmation
+### Stage B - Automatic generation and teacher confirmation
 
 **Agent actions**
 
@@ -499,7 +499,7 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 **Go gate:** a representative answer-free Exercise PDF produces complete crops, while low-confidence or incomplete fixtures cannot activate. Exercise 9 remains useful for boundary and answer-extraction tests but is not a valid student-copy fixture because it contains example answers.
 
-### Stage B2 — Unified answer-key preparation
+### Stage B2 - Unified answer-key preparation
 
 **Agent actions**
 
@@ -519,7 +519,7 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 **Go gate:** identical candidate values merge, omissions remain visible, disagreements block until teacher resolution, every supported highlight candidate matches its known answer, and no candidate affects grading before teacher confirmation.
 
-### Stage C — Backfill and readiness
+### Stage C - Backfill and readiness
 
 **Agent actions**
 
@@ -539,7 +539,7 @@ Existing exercises have no active asset set. Rollout must therefore separate gen
 
 **Stop gate:** any missing question, visible solution, unreadable crop, or unconfirmed exercise.
 
-### Stage D — Question-first student experience
+### Stage D - Question-first student experience
 
 **Agent actions**
 

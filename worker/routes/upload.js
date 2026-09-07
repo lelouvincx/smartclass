@@ -42,7 +42,7 @@ uploadRoutes.post(
     const timestamp = Date.now()
     const r2Key = `exercises/${exerciseId}/${timestamp}-${file_name}`
 
-    // Return upload URL for client (no DB record yet — created after successful upload)
+    // Return upload URL for client (no DB record yet - created after successful upload)
     const uploadUrl = `/api/upload/exercises/${exerciseId}/files`
 
     return jsonSuccess(c, {
@@ -54,7 +54,7 @@ uploadRoutes.post(
   }
 )
 
-// Actual file upload endpoint — creates DB record only after successful R2 upload
+// Actual file upload endpoint - creates DB record only after successful R2 upload
 uploadRoutes.put(
   '/exercises/:exerciseId/files',
   requireAuth,

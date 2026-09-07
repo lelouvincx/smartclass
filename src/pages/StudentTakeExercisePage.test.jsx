@@ -151,7 +151,7 @@ describe('StudentTakeExercisePage', () => {
 
   it('redirects to exercise landing when no sessionStorage entry exists', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
-    // sessionStorage empty — do NOT call renderPage (which pre-populates it)
+    // sessionStorage empty - do NOT call renderPage (which pre-populates it)
     render(
       <MemoryRouter initialEntries={['/student/exercises/1/take']}>
         <Routes>
@@ -349,7 +349,7 @@ describe('StudentTakeExercisePage', () => {
 
     await screen.findByText('Mixed Quiz')
 
-    // Q2 is the boolean question — navigate to it via the nav grid
+    // Q2 is the boolean question - navigate to it via the nav grid
     await user.click(screen.getByRole('button', { name: /jump to question 2/i }))
 
     // Should show True/False radios for each sub-question (a,b,c,d) of q_id=2

@@ -687,7 +687,7 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
     const exerciseId = exerciseResult.meta.last_row_id
 
-    // Batch insert answer schemas (atomic) — include sub_id
+    // Batch insert answer schemas (atomic) - include sub_id
     const schemaStmts = schema.map((item) => {
       const identity = questionIdentity(item)
       return c.env.DB.prepare(`

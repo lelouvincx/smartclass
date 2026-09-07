@@ -14,9 +14,9 @@ import { PageHeader } from '@/design-system/page-header'
 import { formatDateTime, formatDuration, formatTime } from '@/lib/format'
 
 function formatUpdatedAt(value, language) {
-  if (!value) return '—'
+  if (!value) return '-'
   const date = new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`)
-  return Number.isNaN(date.getTime()) ? '—' : formatDateTime(date, language)
+  return Number.isNaN(date.getTime()) ? '-' : formatDateTime(date, language)
 }
 
 export default function TeacherExercisesPage() {

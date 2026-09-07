@@ -1,12 +1,12 @@
 ---
 rfc: RFC-4
-title: v0.3 — Student Review
+title: v0.3 - Student Review
 date: 2026-03-16
 status: Shipped
 dependencies: [RFC-1, RFC-2]
 ---
 
-# RFC: v0.3 — Student Review
+# RFC: v0.3 - Student Review
 
 **Date:** 2026-03-16
 **Status:** Shipped
@@ -18,7 +18,7 @@ dependencies: [RFC-1, RFC-2]
 |-----|------|---------|
 | v1 | 2026-03-16 | Initial draft |
 | v2 | 2026-03-16 | Address review: tiered file auth (HIGH), schema-first left join (MED), list pagination (MED), security tests (MED), R2 Content-Type metadata (LOW) |
-| v3 | 2026-03-16 | Shipped — all 7 PRs merged (#42–#49). PDF split changed from 50/50 to 60/40 after UI feedback. |
+| v3 | 2026-03-16 | Shipped - all 7 PRs merged (#42–#49). PDF split changed from 50/50 to 60/40 after UI feedback. |
 
 ---
 
@@ -26,7 +26,7 @@ dependencies: [RFC-1, RFC-2]
 
 After v0.2, students can take exercises and see their score immediately after submission. However:
 
-- **No PDF during exercise**: Students must open the exercise PDF separately (print or another tab). The uploaded PDFs exist in R2 but **cannot be retrieved** — there is no file download/serve endpoint.
+- **No PDF during exercise**: Students must open the exercise PDF separately (print or another tab). The uploaded PDFs exist in R2 but **cannot be retrieved** - there is no file download/serve endpoint.
 - **No review after the fact**: Once a student leaves the post-submit page, they cannot revisit their graded answers or see what the correct answers were.
 - **No submission history**: There is no way to list past submissions. Students cannot track their progress over time.
 
@@ -47,13 +47,13 @@ These three gaps make the platform feel incomplete. v0.3 closes them.
 | What | Status |
 |------|--------|
 | Exercise PDFs uploaded to R2 | Yes (`exercise_files` table, `BUCKET.put()`) |
-| File download/serve endpoint | **Missing** — no `BUCKET.get()` route |
+| File download/serve endpoint | **Missing** - no `BUCKET.get()` route |
 | `GET /api/submissions/:id` | Returns answers with `is_correct` but **no `correct_answer`** |
-| List submissions endpoint | **Missing** — no `GET /api/submissions` |
-| Submission history page | **Missing** — no route, no component |
-| Review page | **Missing** — no route, no component |
+| List submissions endpoint | **Missing** - no `GET /api/submissions` |
+| Submission history page | **Missing** - no route, no component |
+| Review page | **Missing** - no route, no component |
 | `pdfjs-dist` | Installed, used for text extraction only (`src/lib/pdf.js`) |
-| Student nav links | Dashboard, Exercises only — no History |
+| Student nav links | Dashboard, Exercises only - no History |
 
 ---
 
@@ -64,9 +64,9 @@ These three gaps make the platform feel incomplete. v0.3 closes them.
 | File serving | **Worker proxy** (`BUCKET.get()` streamed through Worker) | Consistent with existing upload pattern (Worker proxy via `BUCKET.put()`). Avoids adding `@aws-sdk` deps and R2 API credentials for presigned URLs. Acceptable overhead for PDFs. |
 | File access control | **Tiered by file_type** (`exercise_pdf` = public, others = teacher-only) | Prevents leaking `solution_pdf` and `reference_image` to students. Uses optional auth pattern already in codebase. |
 | File Content-Type | **R2 metadata first**, extension fallback | Upload already stores `contentType` in R2 `httpMetadata`. More reliable than filename-based derivation. |
-| PDF display | **`<iframe src={url}>`** | Browser's native PDF viewer — zero JS bundle cost, supports zoom/scroll/print. No need for `react-pdf` complexity. |
+| PDF display | **`<iframe src={url}>`** | Browser's native PDF viewer - zero JS bundle cost, supports zoom/scroll/print. No need for `react-pdf` complexity. |
 | Review page | **Separate page** (`StudentReviewPage.jsx`) | `StudentTakeExercisePage.jsx` is already 697 lines with complex timer/navigation-guard logic. A review page has a fundamentally different data flow (fetch existing submission vs. create new one). Shared display components are extracted into reusable modules. |
-| Review query direction | **Schema-first left join** (`answer_schemas LEFT JOIN submission_answers`) | Guarantees all schema questions appear in review even if `submission_answers` has missing rows (legacy data, partial payloads). Skipped questions show as `null` / "—". |
+| Review query direction | **Schema-first left join** (`answer_schemas LEFT JOIN submission_answers`) | Guarantees all schema questions appear in review even if `submission_answers` has missing rows (legacy data, partial payloads). Skipped questions show as `null` / "-". |
 | Correct answer visibility | **Show all correct answers** in review mode | Full transparency after submission is locked. Correct answers are already implicitly derivable from `is_correct` for MCQ/boolean (small option space). No security risk post-submit. |
 | Correct answer for unsubmitted | **Excluded** (stripped from response) | In-progress attempts must not expose the answer key. Same security pattern as `GET /api/exercises/:id` for non-teachers. |
 | List submissions pagination | **Server-side `limit`/`offset`** | Dashboard needs only 3 rows; avoids fetching full history on every visit. Default limit=50, max=100. |
@@ -148,19 +148,19 @@ Client                     Worker                      R2
 ```
 
 **Props:**
-- `fileUrl: string | null` — URL to the PDF file (`/api/files/:id`). If `null`, renders children only (no split pane).
-- `children: ReactNode` — The answer form or review content (right pane).
+- `fileUrl: string | null` - URL to the PDF file (`/api/files/:id`). If `null`, renders children only (no split pane).
+- `children: ReactNode` - The answer form or review content (right pane).
 
 **Behavior:**
 - Desktop: CSS grid `lg:grid-cols-2` with the PDF on the left, children on the right
 - Mobile: PDF in a collapsible `<details>`/button section at the top
 - Toggle state persisted to `localStorage` key `smartclass-pdf-pane-collapsed`
 - PDF iframe has `width: 100%; height: 100%` with sticky positioning so it stays in view while scrolling answers
-- If `fileUrl` is null (no PDF uploaded), component renders `{children}` only — no layout change
+- If `fileUrl` is null (no PDF uploaded), component renders `{children}` only - no layout change
 
 **Used in:**
-- `StudentTakeExercisePage.jsx` — wraps the answer form
-- `StudentReviewPage.jsx` — wraps the review content
+- `StudentTakeExercisePage.jsx` - wraps the answer form
+- `StudentReviewPage.jsx` - wraps the review content
 
 ### 3. List Submissions Endpoint
 
@@ -184,14 +184,14 @@ order by s.submitted_at desc
 limit ? offset ?
 ```
 
-- **Auth**: `requireAuth` — returns only the authenticated student's submissions. Cross-user isolation enforced (Student A cannot see Student B's submissions).
+- **Auth**: `requireAuth` - returns only the authenticated student's submissions. Cross-user isolation enforced (Student A cannot see Student B's submissions).
 - **Filter**: Optional `?exercise_id=X` query param to filter by exercise
 - **Pagination**: Optional `?limit=N&offset=M` query params
   - `limit`: max rows to return (default: 50, max: 100). Dashboard passes `limit=3`.
   - `offset`: rows to skip (default: 0). For future pagination on the history page.
   - Both validated as non-negative integers; `limit` capped at 100.
-- **Excludes**: In-progress submissions (`submitted_at IS NULL`) — these are abandoned/ongoing attempts
-- **Response shape**: `{ success: true, data: { submissions: [...], total: N } }` — array of submission summaries (no answers, no schema) plus total count for pagination UI. Total count query:
+- **Excludes**: In-progress submissions (`submitted_at IS NULL`) - these are abandoned/ongoing attempts
+- **Response shape**: `{ success: true, data: { submissions: [...], total: N } }` - array of submission summaries (no answers, no schema) plus total count for pagination UI. Total count query:
   ```sql
   select count(*) as total
   from submissions
@@ -203,7 +203,7 @@ limit ? offset ?
 export function listMySubmissions(token, { exerciseId, limit, offset } = {}) { ... }
 ```
 
-Dashboard calls `listMySubmissions(token, { limit: 3 })` — fetches exactly 3 rows, not the full history.
+Dashboard calls `listMySubmissions(token, { limit: 3 })` - fetches exactly 3 rows, not the full history.
 
 ### 4. Submission Review Endpoint (Enhanced GET)
 
@@ -245,7 +245,7 @@ where a.exercise_id = ?
 order by a.q_id asc, a.sub_id asc
 ```
 
-Questions with no matching `submission_answers` row will have `submitted_answer = null` and `is_correct = 0`, rendered as "—" (skipped) in the review UI.
+Questions with no matching `submission_answers` row will have `submitted_answer = null` and `is_correct = 0`, rendered as "-" (skipped) in the review UI.
 
 **Important**: `correct_answer` is only included when `submitted_at IS NOT NULL` (submission already locked). For in-progress (unsubmitted) attempts, the query strips `correct_answer` from the response (same security pattern as `GET /api/exercises/:id` for non-teachers).
 
@@ -274,7 +274,7 @@ Also include `exercise_title` and `exercise_files` in the response so the review
 
 **Security considerations:**
 - `correct_answer` is only included when `submitted_at IS NOT NULL` (submission already locked). Unsubmitted attempts return answers without `correct_answer`.
-- The endpoint already enforces `user_id` ownership — only the submitting student can view their own submission (cross-user access returns 403).
+- The endpoint already enforces `user_id` ownership - only the submitting student can view their own submission (cross-user access returns 403).
 - Correct answers are practically derivable from `is_correct` anyway for MCQ (4 options) and boolean (2 options).
 
 ### 5. Submission History Page
@@ -333,7 +333,7 @@ Also include `exercise_title` and `exercise_files` in the response so the review
 │                   │  │ a) You: True  ✓ Ans: T  │ │
 │                   │  │ b) You: True  ✗ Ans: F  │ │
 │                   │  │ c) You: False ✓ Ans: F  │ │
-│                   │  │ d) You: —     ✗ Ans: T  │ │
+│                   │  │ d) You: -     ✗ Ans: T  │ │
 │                   │  ├─────────────────────────┤ │
 │                   │  │ Q3 (Numeric)         ✓  │ │
 │                   │  │ Your answer: 42          │ │
@@ -346,7 +346,7 @@ Also include `exercise_title` and `exercise_files` in the response so the review
 ```
 
 **Data flow:**
-1. Fetch `getSubmission(token, id)` — returns submission with enriched answers (type, correct_answer) + exercise files
+1. Fetch `getSubmission(token, id)` - returns submission with enriched answers (type, correct_answer) + exercise files
 2. Find `exercise_pdf` from `files[]`, build URL `/api/files/${file.id}`
 3. Render `<PdfSplitPane fileUrl={url}>` with review content as children
 4. Group answers by `q_id` (same grouping logic as `StudentTakeExercisePage`)
@@ -356,7 +356,7 @@ Also include `exercise_title` and `exercise_files` in the response so the review
 - **MCQ**: Show student's choice highlighted (green if correct, red if wrong) + correct answer always shown
 - **Boolean**: 4 sub-rows, each with "Your answer" / "Correct answer" + ✓/✗ icon
 - **Numeric**: Show student's number + correct number
-- **Skipped (null)**: Show "—" for student answer, correct answer still shown
+- **Skipped (null)**: Show "-" for student answer, correct answer still shown
 
 ### 7. Shared Answer Display Components
 
@@ -370,14 +370,14 @@ Currently, `McqNumericResultRow` (line ~146) and `BooleanResultGroup` (line ~160
 // Shows ✓ or ✗ icon
 export function CorrectnessIcon({ isCorrect }) { ... }
 
-// MCQ/Numeric result row — now also accepts `correctAnswer` prop
+// MCQ/Numeric result row - now also accepts `correctAnswer` prop
 export function McqNumericResultRow({ question, answer, correctAnswer }) { ... }
 
-// Boolean result group — now also accepts schema with correct answers
+// Boolean result group - now also accepts schema with correct answers
 export function BooleanResultGroup({ group, submittedAnswers, schemaAnswers }) { ... }
 ```
 
-Both `StudentTakeExercisePage` (post-submit view) and `StudentReviewPage` import from this shared module. The take page passes `correctAnswer={null}` (doesn't show correct answers immediately after submit — only score + ✓/✗). The review page passes the actual correct answers.
+Both `StudentTakeExercisePage` (post-submit view) and `StudentReviewPage` import from this shared module. The take page passes `correctAnswer={null}` (doesn't show correct answers immediately after submit - only score + ✓/✗). The review page passes the actual correct answers.
 
 ### 8. Navigation Updates
 

@@ -1,5 +1,5 @@
 // Google OIDC: token exchange + id_token verification (JWKS, RS256).
-// RFC-7. No SDK — Workers + Web Crypto only.
+// RFC-7. No SDK - Workers + Web Crypto only.
 
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 const GOOGLE_JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs'

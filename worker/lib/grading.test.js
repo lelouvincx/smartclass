@@ -30,7 +30,7 @@ const MIXED_SCHEMA = [
 
 // ── MCQ ───────────────────────────────────────────────────────────────────────
 
-describe('gradeSubmission — MCQ', () => {
+describe('gradeSubmission - MCQ', () => {
   it('marks MCQ answer correct when it matches', () => {
     const { gradedAnswers, score } = gradeSubmission(MCQ_SCHEMA, [
       { q_id: 1, sub_id: null, submitted_answer: 'B' },
@@ -58,7 +58,7 @@ describe('gradeSubmission — MCQ', () => {
 
 // ── Numeric ───────────────────────────────────────────────────────────────────
 
-describe('gradeSubmission — Numeric', () => {
+describe('gradeSubmission - Numeric', () => {
   it('marks numeric correct for exact string match', () => {
     const { gradedAnswers } = gradeSubmission(NUMERIC_SCHEMA, [
       { q_id: 1, sub_id: null, submitted_answer: '42' },
@@ -100,7 +100,7 @@ describe('gradeSubmission — Numeric', () => {
 
 // ── Boolean ───────────────────────────────────────────────────────────────────
 
-describe('gradeSubmission — Boolean', () => {
+describe('gradeSubmission - Boolean', () => {
   it('gives 1.0 point (score=10) when all 4 sub-questions are correct', () => {
     const { gradedAnswers, score } = gradeSubmission(BOOLEAN_SCHEMA, [
       { q_id: 1, sub_id: 'a', submitted_answer: '1' },
@@ -168,7 +168,7 @@ describe('gradeSubmission — Boolean', () => {
 
 // ── Mixed exercise ────────────────────────────────────────────────────────────
 
-describe('gradeSubmission — mixed exercise', () => {
+describe('gradeSubmission - mixed exercise', () => {
   it('computes score correctly across MCQ, boolean, and numeric questions', () => {
     // q_id=1 MCQ: correct (0.25 pts earned, 0.25 max)
     // q_id=2 boolean: 3/4 correct (0.5 pts earned, 1.0 max)
@@ -232,7 +232,7 @@ describe('gradeSubmission — mixed exercise', () => {
   })
 })
 
-describe('gradeSubmission — score allocation', () => {
+describe('gradeSubmission - score allocation', () => {
   it('preserves automatic allocation without rounding per-question shares', () => {
     const schema = [1, 2, 3].map(q_id => ({
       q_id,

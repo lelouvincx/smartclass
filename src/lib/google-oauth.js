@@ -1,5 +1,5 @@
 // Google OIDC PKCE + URL builder for SPA (RFC-7).
-// All state in sessionStorage — no server round-trip needed to initiate login.
+// All state in sessionStorage - no server round-trip needed to initiate login.
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_SCOPES = 'openid email profile'

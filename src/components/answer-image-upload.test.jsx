@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import AnswerImageUpload from './answer-image-upload'
 
-// Bypass userEvent.upload (which filters by accept/size) — drive the input directly.
+// Bypass userEvent.upload (which filters by accept/size) - drive the input directly.
 function uploadFile(input, file) {
   Object.defineProperty(input, 'files', {
     configurable: true,

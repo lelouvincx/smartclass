@@ -4,7 +4,7 @@
 
 - Before changing or describing shipped product behavior, read `PRODUCT.md`; it is authoritative. Treat `TODO.md` and superseded RFC content as proposals, not current behavior.
 - Before changing an established flow, read the relevant RFC under `docs/plans/` and any later RFC that supersedes it. RFCs preserve rationale and migration status but do not override `PRODUCT.md`.
-- Before any frontend change—including a route, component, style, copy, or client-side interaction—read and follow `DESIGN.md`; it is the normative UI and frontend-acceptance contract.
+- Before any frontend change-including a route, component, style, copy, or client-side interaction-read and follow `DESIGN.md`; it is the normative UI and frontend-acceptance contract.
 - When Hono behavior is uncertain, read `https://hono.dev/llms-small.txt` first, then only the relevant section of `https://hono.dev/llms-full.txt`.
 
 ## Safety and authorship

@@ -45,7 +45,7 @@ describe('POST /api/upload/exercises/:id/files/upload', () => {
     expect(body.data.r2_key).toContain(`exercises/${id}/`)
     expect(body.data.file_type).toBe('exercise_pdf')
     expect(body.data.file_name).toBe('quiz.pdf')
-    // No file_id yet — record created after upload
+    // No file_id yet - record created after upload
     expect(body.data.file_id).toBeUndefined()
   })
 

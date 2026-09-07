@@ -27,7 +27,7 @@ import {
  */
 function ScoreBadge({ score }) {
   if (score === null || score === undefined) {
-    return <span className="text-sm text-muted-foreground">—</span>
+    return <span className="text-sm text-muted-foreground">-</span>
   }
 
   const colorClass =

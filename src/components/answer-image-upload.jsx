@@ -13,12 +13,12 @@ const MAX_BYTES = 20 * 1024 * 1024 // keep in sync with worker MAX_IMAGE_BYTES
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png'])
 
 // State machine values
-//   idle       — no file picked
-//   previewing — file picked locally, ready to send
-//   uploading  — XHR uploading bytes (progress 0..1 known)
-//   extracting — upload done, waiting for model response (indeterminate)
-//   done       — extraction succeeded; preview + warnings shown, can replace
-//   error      — last attempt failed; retry / replace allowed
+//   idle       - no file picked
+//   previewing - file picked locally, ready to send
+//   uploading  - XHR uploading bytes (progress 0..1 known)
+//   extracting - upload done, waiting for model response (indeterminate)
+//   done       - extraction succeeded; preview + warnings shown, can replace
+//   error      - last attempt failed; retry / replace allowed
 
 function formatMb(bytes) {
   return (bytes / 1024 / 1024).toFixed(1)
@@ -34,11 +34,11 @@ function formatSize(bytes) {
  * Image upload + extraction panel.
  *
  * Props:
- *   submissionId — number — id of the in-progress submission
- *   onExtracted  — ({ extracted, warnings, model_used }) => void
+ *   submissionId - number - id of the in-progress submission
+ *   onExtracted  - ({ extracted, warnings, model_used }) => void
  *                  Called when the model returns a valid response. Caller
  *                  merges the answers into form state.
- *   disabled     — boolean — disable picker + buttons (e.g., already submitted)
+ *   disabled     - boolean - disable picker + buttons (e.g., already submitted)
  */
 export default function AnswerImageUpload({ submissionId, onExtracted, disabled = false }) {
   const { t } = useTranslation()
@@ -77,7 +77,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
   const handleFilePicked = useCallback((picked) => {
     if (!picked) return
 
-    // Client-side validation — saves a network round trip on obvious errors.
+    // Client-side validation - saves a network round trip on obvious errors.
     if (!ALLOWED_TYPES.has(picked.type)) {
       setErrorMessage(t('student.upload.invalidType'))
       setPhase('error')
@@ -131,7 +131,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
       })
     } catch (err) {
       if (err?.name === 'AbortError') {
-        // Cancelled mid-upload by the user — return to previewing so they can retry.
+        // Cancelled mid-upload by the user - return to previewing so they can retry.
         setPhase('previewing')
         setProgress(0)
         return
@@ -176,7 +176,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
         </div>
       )}
 
-      {/* Dropzone (shared primitive) — only when no file is selected. Once
+      {/* Dropzone (shared primitive) - only when no file is selected. Once
           picked, AnswerImageUpload renders its own preview + status panel. */}
       {!file ? (
         <FileDropzone

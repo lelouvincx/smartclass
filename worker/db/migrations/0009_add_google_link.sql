@@ -1,5 +1,5 @@
 -- RFC-7: Google OAuth account link.
--- Add Google identity columns. Phone + password_hash stay NOT NULL —
+-- Add Google identity columns. Phone + password_hash stay NOT NULL -
 -- Google is link-only, never primary identity.
 -- See docs/plans/RFC-7-2026-05-10-google-oauth-login.md.
 

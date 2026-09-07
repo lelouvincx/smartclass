@@ -123,7 +123,7 @@ export default function StudentExerciseLandingPage() {
 
           setSubmittedSubmissions(submissions)
         } catch {
-          // best effort — exercise actions remain available if results cannot be loaded
+          // best effort - exercise actions remain available if results cannot be loaded
         }
       } catch (err) {
         setError(err.message)

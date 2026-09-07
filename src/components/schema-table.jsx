@@ -69,7 +69,7 @@ function ConfidenceValue({ confidence }) {
   if (confidence === null) {
     return (
       <span title={t('teacher.schema.unscored')} aria-label={t('teacher.schema.unscored')}>
-        —
+        -
       </span>
     )
   }
@@ -255,7 +255,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
           style={i === 0 ? style : undefined}
           className={cn('align-top', isDragging && 'bg-muted/60')}
         >
-          {/* Drag handle cell — only on first sub-row */}
+          {/* Drag handle cell - only on first sub-row */}
           <TableCell className="w-7 px-1 py-2">
             {i === 0 && (
               <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={displayQuestionNumber(row)} />
@@ -285,7 +285,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
             )}
           </TableCell>
 
-          {/* type — editable on first row only */}
+          {/* type - editable on first row only */}
           <TableCell className="px-3 py-2">
             {i === 0 ? (
               <AnswerTypeSelect row={row} value="boolean" onUpdateRow={onUpdateRow} />
@@ -335,11 +335,11 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
 // TeacherViewExercisePage (edit mode).
 //
 // Props:
-//   rows           — flat validated row array (may include .confidence, .warnings)
-//   onUpdateRow    — (id, field, value) => void
-//   onDeleteRow    — (id) => void
-//   onReorder      — (newRows) => void  — called with full reordered rows array
-//   showConfidence — boolean (default false)
+//   rows           - flat validated row array (may include .confidence, .warnings)
+//   onUpdateRow    - (id, field, value) => void
+//   onDeleteRow    - (id) => void
+//   onReorder      - (newRows) => void  - called with full reordered rows array
+//   showConfidence - boolean (default false)
 
 export function SchemaTable({ rows, onUpdateRow, onDeleteRow, onReorder, showConfidence = false }) {
   const { t } = useTranslation()

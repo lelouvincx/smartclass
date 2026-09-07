@@ -232,7 +232,7 @@ authRoutes.get('/me', requireAuth, async (c) => {
 
 // ── Google OIDC (RFC-7) ──────────────────────────────────────────────────────
 // Login-only: account must already be linked. Auto-provisioning is intentionally
-// not supported — accounts are created via phone (teacher or self-register).
+// not supported - accounts are created via phone (teacher or self-register).
 
 authRoutes.post('/google/login', async (c) => {
   if (!c.env.JWT_SECRET) {

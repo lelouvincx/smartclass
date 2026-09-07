@@ -46,7 +46,7 @@ const STATUS_VARIANT = {
 }
 
 function formatCreatedDate(isoStr, language) {
-  if (!isoStr) return '—'
+  if (!isoStr) return '-'
   const d = new Date(isoStr)
   return formatFullDate(d, language)
 }

@@ -61,7 +61,7 @@ function Navigation({ items, label, onNavigate, rail = false }) {
     <nav aria-label={label} className="grid gap-1">
       {items.map(({ activePath, disabled, end, icon: Icon, label: itemLabel, options, status, to }) => {
         if (disabled) {
-          const accessibleLabel = status ? `${itemLabel} — ${status}` : itemLabel
+          const accessibleLabel = status ? `${itemLabel} - ${status}` : itemLabel
           return (
             <button
               key={itemLabel}

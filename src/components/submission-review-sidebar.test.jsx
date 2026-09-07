@@ -81,7 +81,7 @@ describe('SubmissionReviewSidebar', () => {
       />,
     )
     // Time taken row uses em-dash for both time-taken and submitted-on lines.
-    expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
   })
 
   it('rolls up boolean sub-answers as N/4 in the per-question table', () => {
@@ -108,7 +108,7 @@ describe('SubmissionReviewSidebar', () => {
     })
     render(<SubmissionReviewSidebar submission={submission} />)
     // Per-question table cell shows em-dash for skipped boolean question
-    const dashes = screen.getAllByText('—')
+    const dashes = screen.getAllByText('-')
     expect(dashes.length).toBeGreaterThan(0)
   })
 

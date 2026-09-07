@@ -567,7 +567,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }))
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByLabelText(/correct answer for question 2/i)).toHaveTextContent('—')
+    expect(await screen.findByLabelText(/correct answer for question 2/i)).toHaveTextContent('-')
     expect(screen.queryByText('Source question numbers must not skip numbers in a section')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))

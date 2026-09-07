@@ -98,7 +98,7 @@ export function TeacherExerciseSubmissions({ exerciseId, token }) {
                       )}
                     </TableCell>
                     <TableCell className="font-semibold tabular-nums">
-                      {submission.score ?? '—'}{submission.score != null && ' / 10'}
+                      {submission.score ?? '-'}{submission.score != null && ' / 10'}
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDateTime(submittedAt, i18n.resolvedLanguage)}
