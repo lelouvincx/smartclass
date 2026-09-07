@@ -8,7 +8,7 @@ import {
   uploadExerciseFile,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import { prepareAnswerPdfForParsing } from '@/lib/pdf'
+import { extractGreenHighlightedAnswerSchema, prepareAnswerPdfForParsing } from '@/lib/pdf'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -286,6 +286,19 @@ export default function TeacherCreateExercisePage() {
     setError('')
     setAnswerParseProgress({ stage: 'reading', progress: 0 })
     try {
+      const greenSchema = await extractGreenHighlightedAnswerSchema(answerFile, {
+        onProgress: ({ stage, current, total }) => setAnswerParseProgress({
+          stage,
+          progress: total ? current / total : 0,
+        }),
+      })
+      if (greenSchema.length > 0) {
+        setAnswerParseProgress({ stage: 'applying', progress: 0 })
+        setRows(schemaRowsToEditableRows(greenSchema))
+        setAnswerParseProgress({ stage: 'complete', progress: 1 })
+        return
+      }
+
       const prepared = await prepareAnswerPdfForParsing(answerFile, {
         onProgress: ({ stage, current, total }) => setAnswerParseProgress({
           stage,
@@ -301,26 +314,7 @@ export default function TeacherCreateExercisePage() {
         emptySchemaError.code = 'UNSUPPORTED_DOCUMENT'
         throw emptySchemaError
       }
-      const makeId = () =>
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Math.random().toString(36).slice(2)
-      const parsedRows = schema.map((row) => {
-        return {
-          id: makeId(),
-          q_id: String(row.q_id),
-          section_key: row.section_key ?? 'main',
-          section_title: row.section_title ?? null,
-          local_number: String(row.local_number ?? row.q_id),
-          sub_id: row.sub_id ?? null,
-          type: row.type,
-          correct_answer: row.type === 'boolean'
-            ? (row.correct_answer ?? '')
-            : normalizeAnswer(row.type, row.correct_answer),
-          confidence: row.confidence ?? null,
-        }
-      })
-      setRows(parsedRows)
+      setRows(schemaRowsToEditableRows(schema))
       setAnswerParseProgress({ stage: 'complete', progress: 1 })
     } catch (parseError) {
       setError(parseError.recoverable || parseError.code === 'UNSUPPORTED_DOCUMENT'
@@ -330,6 +324,26 @@ export default function TeacherCreateExercisePage() {
     } finally {
       setIsParsing(false)
     }
+  }
+
+  function schemaRowsToEditableRows(schema) {
+    const makeId = () =>
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2)
+    return schema.map((row) => ({
+      id: makeId(),
+      q_id: String(row.q_id),
+      section_key: row.section_key ?? 'main',
+      section_title: row.section_title ?? null,
+      local_number: String(row.local_number ?? row.q_id),
+      sub_id: row.sub_id ?? null,
+      type: row.type,
+      correct_answer: row.type === 'boolean'
+        ? (row.correct_answer ?? '')
+        : normalizeAnswer(row.type, row.correct_answer),
+      confidence: row.confidence ?? null,
+    }))
   }
 
   async function uploadFiles(exerciseId) {

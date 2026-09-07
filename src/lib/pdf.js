@@ -1,3 +1,5 @@
+import { detectGreenHighlightRegions } from './answer-highlights'
+
 let pdfjsPromise
 
 const PDF_DPI = 150
@@ -6,6 +8,11 @@ const MAX_SELECTED_PAGES = 10
 const MAX_PAGE_BYTES = 3 * 1024 * 1024
 const MAX_TOTAL_BYTES = 25 * 1024 * 1024
 const MULTIPART_OVERHEAD_BUDGET = 64 * 1024
+const GREEN_HIGHLIGHT_SCALE = 2
+const QUESTION_MARKER = /^\s*(?:câu|question)\s+(\d+)(?=\s|[:.)-]|$)/iu
+const QUESTION_WORD = /^\s*(?:câu|question)\s*$/iu
+const QUESTION_NUMBER = /^\s*(\d+)\s*[:.)-]?\s*$/u
+const OPTION_MARKER = /^\s*([A-D])\s*[.)]/i
 
 async function getPdfjs() {
   if (!pdfjsPromise) {
@@ -98,6 +105,114 @@ export async function extractTextFromPdf(file, { pdfjs } = {}) {
   return pages.join('\n').trim()
 }
 
+export function extractGreenMcqAnswerRowsFromPageEvidence(pageEvidence) {
+  const answers = new Map()
+  const conflicts = new Set()
+  const questionIds = new Set()
+
+  for (const page of pageEvidence || []) {
+    const textItems = [...(page.textItems || [])]
+      .filter(item => item?.text)
+      .sort((left, right) => left.y - right.y || left.x - right.x)
+    const questionMarkers = questionMarkersFromTextItems(textItems)
+    for (const marker of questionMarkers) questionIds.add(marker.qId)
+    const optionLabels = textItems.flatMap((item) => {
+      const match = item.text.match(OPTION_MARKER)
+      return match ? [{ ...item, value: match[1].toUpperCase() }] : []
+    })
+
+    for (const region of page.regions || []) {
+      const qId = questionForRegion(region, questionMarkers)
+      const option = optionForGreenRegion(region, optionLabels)
+      if (!qId || !option) continue
+
+      const existing = answers.get(qId)
+      if (existing && existing !== option) {
+        conflicts.add(qId)
+        continue
+      }
+      answers.set(qId, option)
+    }
+  }
+
+  if (answers.size === 0) return []
+
+  return [...questionIds]
+    .sort((left, right) => left - right)
+    .map((qId) => {
+      const correctAnswer = conflicts.has(qId) ? '' : answers.get(qId) ?? ''
+      return {
+        q_id: qId,
+        sub_id: null,
+        type: 'mcq',
+        correct_answer: correctAnswer,
+        confidence: correctAnswer ? 1 : null,
+      }
+    })
+}
+
+function questionMarkersFromTextItems(textItems) {
+  return textItems.flatMap((item, index) => {
+    const inlineMatch = item.text.match(QUESTION_MARKER)
+    if (inlineMatch) return [{ ...item, qId: Number(inlineMatch[1]) }]
+
+    if (!QUESTION_WORD.test(item.text)) return []
+    const next = textItems[index + 1]
+    const splitMatch = next?.text?.match(QUESTION_NUMBER)
+    if (!splitMatch) return []
+
+    const itemCenterY = item.y + item.height / 2
+    const nextCenterY = next.y + next.height / 2
+    const rowTolerance = Math.max(item.height, next.height) * 1.5 + 2
+    if (Math.abs(itemCenterY - nextCenterY) > rowTolerance || next.x < item.x) return []
+
+    return [{ ...item, qId: Number(splitMatch[1]) }]
+  })
+}
+
+export async function extractGreenHighlightedAnswerSchema(file, { onProgress, pdfjs } = {}) {
+  const pdf = await loadPdf(file, pdfjs)
+  const evidence = []
+
+  try {
+    onProgress?.({ stage: 'reading', current: 0, total: pdf.numPages })
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber)
+      const viewport = page.getViewport({ scale: 1 })
+      const content = await page.getTextContent()
+      const textItems = textItemsToTopLeftGeometry(viewport, content)
+      onProgress?.({ stage: 'reading', current: pageNumber, total: pdf.numPages })
+
+      const scaledViewport = page.getViewport({ scale: GREEN_HIGHLIGHT_SCALE })
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.ceil(scaledViewport.width)
+      canvas.height = Math.ceil(scaledViewport.height)
+      const canvasContext = canvas.getContext('2d', { alpha: false, willReadFrequently: true })
+      if (!canvasContext) {
+        throw new AnswerPdfPreparationError('CANVAS_UNAVAILABLE', 'Could not inspect PDF highlights.')
+      }
+      await page.render({ canvasContext, viewport: scaledViewport }).promise
+      const regions = detectGreenHighlightRegions(
+        canvasContext.getImageData(0, 0, canvas.width, canvas.height),
+      ).map(region => ({
+        ...region,
+        x: region.x / GREEN_HIGHLIGHT_SCALE,
+        y: region.y / GREEN_HIGHLIGHT_SCALE,
+        width: region.width / GREEN_HIGHLIGHT_SCALE,
+        height: region.height / GREEN_HIGHLIGHT_SCALE,
+      }))
+      if (regions.length > 0) {
+        evidence.push({ pageNumber, textItems, regions })
+      }
+      page.cleanup?.()
+    }
+  } finally {
+    await pdf.destroy?.()
+  }
+
+  return extractGreenMcqAnswerRowsFromPageEvidence(evidence)
+}
+
 export async function prepareAnswerPdfForParsing(file, { onProgress, pdfjs } = {}) {
   const pdf = await loadPdf(file, pdfjs)
   const pages = []
@@ -186,4 +301,43 @@ export async function prepareAnswerPdfForParsing(file, { onProgress, pdfjs } = {
     page_manifest: pageManifest,
     total_pages: pdf.numPages,
   }
+}
+
+function textItemsToTopLeftGeometry(viewport, content) {
+  return content.items.flatMap((item, itemIndex) => {
+    const text = item.str?.trim()
+    if (!text) return []
+
+    const height = Math.abs(item.height || item.transform?.[3] || 0)
+    return [{
+      text,
+      x: item.transform[4],
+      y: viewport.height - item.transform[5] - height,
+      width: item.width,
+      height,
+      itemIndex,
+    }]
+  })
+}
+
+function questionForRegion(region, questionMarkers) {
+  const regionCenterY = region.y + region.height / 2
+  return questionMarkers
+    .filter(marker => marker.y <= regionCenterY)
+    .at(-1)?.qId ?? null
+}
+
+function optionForGreenRegion(region, optionLabels) {
+  const regionCenterX = region.x + region.width / 2
+  const regionCenterY = region.y + region.height / 2
+  return optionLabels
+    .flatMap((label) => {
+      const labelCenterY = label.y + label.height / 2
+      const verticalDistance = Math.abs(regionCenterY - labelCenterY)
+      const rowTolerance = Math.max(region.height, label.height) * 1.5 + 2
+      if (verticalDistance > rowTolerance || label.x > regionCenterX) return []
+      const horizontalDistance = Math.max(0, region.x - (label.x + label.width))
+      return [{ value: label.value, score: verticalDistance * 4 + horizontalDistance }]
+    })
+    .sort((left, right) => left.score - right.score)[0]?.value ?? null
 }

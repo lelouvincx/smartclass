@@ -44,6 +44,15 @@ describe('detectGreenHighlightRegions', () => {
       { x: 9, y: 10, width: 7, height: 4, pixelCount: 28 },
     ])
   })
+
+  it('keeps small highlighted answer digits on a full PDF page', () => {
+    const source = image(1224, 1584)
+    fillRect(source, 478, 140, 18, 16, [0, 255, 0, 255])
+
+    expect(detectGreenHighlightRegions(source)).toEqual([
+      { x: 478, y: 140, width: 18, height: 16, pixelCount: 288 },
+    ])
+  })
 })
 
 describe('extractGreenAnswerSuggestions', () => {
