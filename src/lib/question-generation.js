@@ -38,12 +38,33 @@ export function textContentToPageGeometry(pageNumber, viewport, content) {
       if (!text) return []
 
       const height = Math.abs(item.height || item.transform?.[3] || 0)
+      const rawX = item.transform[4]
+      const rawTop = viewport.height - item.transform[5] - height
+      const rawRight = rawX + item.width
+      const rawBottom = rawTop + height
+      const x = Math.max(0, rawX)
+      const top = Math.max(0, rawTop)
+      const right = Math.min(viewport.width, rawRight)
+      const bottom = Math.min(viewport.height, rawBottom)
+      const width = right - x
+      const clippedHeight = bottom - top
+      if (![
+        rawX,
+        rawTop,
+        item.width,
+        height,
+        width,
+        clippedHeight,
+      ].every(Number.isFinite) || width <= 0 || clippedHeight <= 0) {
+        return []
+      }
+
       return [{
         text,
-        x: item.transform[4],
-        top: viewport.height - item.transform[5] - height,
-        width: item.width,
-        height,
+        x,
+        top,
+        width,
+        height: clippedHeight,
         itemIndex,
       }]
     }),

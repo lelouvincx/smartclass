@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   createExercise,
   createExerciseFileUpload,
+  getExercise,
   parseExerciseSchema,
   uploadExerciseFile,
 } from '@/lib/api'
@@ -37,6 +38,7 @@ import { formatDuration } from '@/lib/format'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
 import ScoreAllocationCard from '@/components/score-allocation-card'
 import { applyScoreAllocation } from '@/lib/score-allocation'
+import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -220,6 +222,8 @@ export default function TeacherCreateExercisePage() {
   const [isSaving, setIsSaving] = useState(false)
   const [showWarningConfirm, setShowWarningConfirm] = useState(false)
   const [createdExerciseId, setCreatedExerciseId] = useState(null)
+  const [createdExercise, setCreatedExercise] = useState(null)
+  const [questionViewGenerationKey, setQuestionViewGenerationKey] = useState(0)
   const [failedUploadName, setFailedUploadName] = useState('')
   const [allocationMode, setAllocationMode] = useState('automatic')
   const [customScores, setCustomScores] = useState({})
@@ -407,13 +411,10 @@ export default function TeacherCreateExercisePage() {
         setIsSaving(false)
         return
       }
-      navigate(
-        exerciseFile ? `/teacher/exercises/${exerciseId}` : '/teacher/exercises',
-        {
-          replace: true,
-          state: exerciseFile ? { generateQuestionViews: true } : undefined,
-        },
-      )
+      const exerciseResponse = await getExercise(exerciseId, token)
+      setCreatedExercise(exerciseResponse.data)
+      setQuestionViewGenerationKey(key => key + 1)
+      setIsSaving(false)
     } catch (saveError) {
       setError(saveError.message)
       setIsSaving(false)
@@ -457,6 +458,32 @@ export default function TeacherCreateExercisePage() {
           </div>
         </CardContent>
       </Card>
+    )
+  }
+
+  if (createdExercise) {
+    return (
+      <div className="max-w-5xl space-y-6">
+        <div>
+          <h1 className="text-2xl font-semibold">{t('teacher.create.title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('teacher.create.questionViewsDescription')}</p>
+        </div>
+        <QuestionAssetWorkflow
+          exercise={createdExercise}
+          token={token}
+          autoStartKey={questionViewGenerationKey}
+          onActivated={() => navigate(`/teacher/exercises/${createdExercise.id}`, { replace: true })}
+          onReplacePdf={() => navigate(`/teacher/exercises/${createdExercise.id}`)}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link to={`/teacher/exercises/${createdExercise.id}`}>{t('teacher.create.openCreated')}</Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link to="/teacher/exercises">{t('teacher.create.back')}</Link>
+          </Button>
+        </div>
+      </div>
     )
   }
 

@@ -1,28 +1,38 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 import TeacherCreateExercisePage from './TeacherCreateExercisePage'
 
 const createExerciseMock = vi.fn()
+const getExerciseMock = vi.fn()
 const parseExerciseSchemaMock = vi.fn()
 const createExerciseFileUploadMock = vi.fn()
 const uploadExerciseFileMock = vi.fn()
 const prepareAnswerPdfForParsingMock = vi.fn()
 const extractGreenHighlightedAnswerSchemaMock = vi.fn()
 const extractDetailedAnswerKeySchemaMock = vi.fn()
+const questionAssetWorkflowMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     createExercise: (...args) => createExerciseMock(...args),
+    getExercise: (...args) => getExerciseMock(...args),
     parseExerciseSchema: (...args) => parseExerciseSchemaMock(...args),
     createExerciseFileUpload: (...args) => createExerciseFileUploadMock(...args),
     uploadExerciseFile: (...args) => uploadExerciseFileMock(...args),
   }
 })
+
+vi.mock('../components/question-asset-workflow', () => ({
+  default: (props) => {
+    questionAssetWorkflowMock(props)
+    return <section aria-label="Question views">Question views for {props.exercise.title}</section>
+  },
+}))
 
 vi.mock('../lib/pdf', () => ({
   extractDetailedAnswerKeySchema: (...args) => extractDetailedAnswerKeySchemaMock(...args),
@@ -55,6 +65,7 @@ async function uploadRequiredPdfs() {
 describe('TeacherCreateExercisePage', () => {
   beforeEach(() => {
     createExerciseMock.mockReset()
+    getExerciseMock.mockReset()
     parseExerciseSchemaMock.mockReset()
     createExerciseFileUploadMock.mockReset()
     uploadExerciseFileMock.mockReset()
@@ -68,6 +79,22 @@ describe('TeacherCreateExercisePage', () => {
       page_manifest: [{ file_name: 'page-1.png', page_number: 1, text: 'ĐÁP ÁN' }],
       total_pages: 1,
     })
+    getExerciseMock.mockImplementation(id => Promise.resolve({
+      data: {
+        id: Number(id),
+        title: 'Created quiz',
+        duration_minutes: 60,
+        is_timed: 1,
+        max_attempts: 1,
+        allow_answer_pdf_download: 0,
+        files: [
+          { id: 91, file_type: 'exercise_pdf', file_name: 'questions.pdf' },
+          { id: 92, file_type: 'solution_pdf', file_name: 'answers.pdf' },
+        ],
+        schema: [{ q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'A' }],
+      },
+    }))
+    questionAssetWorkflowMock.mockReset()
     logoutMock.mockReset()
   })
 
@@ -590,7 +617,7 @@ describe('TeacherCreateExercisePage', () => {
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
   })
 
-  it('opens the created exercise and starts question generation after both PDF uploads', async () => {
+  it('keeps the teacher on creation and starts question generation after both PDF uploads', async () => {
     const user = userEvent.setup()
     createExerciseMock.mockResolvedValue({ data: { id: 606 } })
     createExerciseFileUploadMock.mockResolvedValue({ data: {
@@ -600,16 +627,11 @@ describe('TeacherCreateExercisePage', () => {
     } })
     uploadExerciseFileMock.mockResolvedValue({ data: {} })
 
-    function Destination() {
-      const location = useLocation()
-      return <p>{`${location.pathname}:${String(location.state?.generateQuestionViews)}`}</p>
-    }
-
     render(
       <MemoryRouter initialEntries={['/']}>
         <Routes>
           <Route path="/" element={<TeacherCreateExercisePage />} />
-          <Route path="/teacher/exercises/:id" element={<Destination />} />
+          <Route path="/teacher/exercises/:id" element={<p>Detail page</p>} />
         </Routes>
       </MemoryRouter>,
     )
@@ -619,6 +641,12 @@ describe('TeacherCreateExercisePage', () => {
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
-    expect(await screen.findByText('/teacher/exercises/606:true')).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Question views' })).toHaveTextContent('Question views for Created quiz')
+    expect(getExerciseMock).toHaveBeenCalledWith(606, 'test-token')
+    expect(questionAssetWorkflowMock).toHaveBeenCalledWith(expect.objectContaining({
+      token: 'test-token',
+      autoStartKey: 1,
+      exercise: expect.objectContaining({ id: 606 }),
+    }))
   })
 })
