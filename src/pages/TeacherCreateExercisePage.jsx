@@ -653,18 +653,18 @@ export default function TeacherCreateExercisePage() {
                 <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
                 <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
               </div>
-              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-                {['all', 'errors', 'warnings'].map((f) => (
-                  <Button
-                    key={f}
-                    type="button"
-                    size="sm"
-                    variant={filter === f ? 'default' : 'outline'}
-                    onClick={() => setFilter(f)}
-                  >
-                    {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
-                  </Button>
-                ))}
+              <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
+                <SegmentedButtonGroup aria-label={t('teacher.schema.status')} className="w-full sm:w-auto">
+                  {['all', 'errors', 'warnings'].map((f) => (
+                    <SegmentedButton
+                      key={f}
+                      selected={filter === f}
+                      onClick={() => setFilter(f)}
+                    >
+                      {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
+                    </SegmentedButton>
+                  ))}
+                </SegmentedButtonGroup>
                 <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
                   {t('teacher.create.addQuestion')}
                 </Button>

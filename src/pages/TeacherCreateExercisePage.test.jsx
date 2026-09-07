@@ -56,6 +56,17 @@ async function addManualQuestion(user) {
   await user.click(screen.getByRole('button', { name: /add question/i }))
 }
 
+async function chooseAnswerType(user, optionName) {
+  if (!window.HTMLElement.prototype.hasPointerCapture) {
+    window.HTMLElement.prototype.hasPointerCapture = () => false
+  }
+  if (!window.HTMLElement.prototype.scrollIntoView) {
+    window.HTMLElement.prototype.scrollIntoView = () => {}
+  }
+  await user.click(screen.getByLabelText(/answer type for question 1/i))
+  await user.click(await screen.findByRole('option', { name: optionName }))
+}
+
 describe('TeacherCreateExercisePage', () => {
   beforeEach(() => {
     createExerciseMock.mockReset()
@@ -493,8 +504,7 @@ describe('TeacherCreateExercisePage', () => {
 
     await addManualQuestion(user)
 
-    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
-    await user.selectOptions(typeSelect, 'boolean')
+    await chooseAnswerType(user, 'True/False')
 
     // Should now show 4 sub-question toggles labeled a,b,c,d for q_id=1
     expect(screen.getByLabelText(/question 1, part a, true/i)).toBeInTheDocument()
@@ -521,8 +531,7 @@ describe('TeacherCreateExercisePage', () => {
 
     await addManualQuestion(user)
 
-    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
-    await user.selectOptions(typeSelect, 'boolean')
+    await chooseAnswerType(user, 'True/False')
 
     // Select answers: a=1, b=0, c=1, d=0
     await user.click(screen.getByLabelText(/question 1, part a, true/i))
@@ -580,8 +589,7 @@ describe('TeacherCreateExercisePage', () => {
     await user.type(screen.getByLabelText(/exercise title/i), 'Bool Quiz')
 
     await addManualQuestion(user)
-    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
-    await user.selectOptions(typeSelect, 'boolean')
+    await chooseAnswerType(user, 'True/False')
 
     // Don't select any sub-question answers (q_id=1)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))

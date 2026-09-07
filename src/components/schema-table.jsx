@@ -19,6 +19,23 @@ import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { SegmentedButton, SegmentedButtonGroup } from '@/components/ui/segmented-button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 
 // ── DragHandleButton ────────────────────────────────────────────────────────────
@@ -54,6 +71,63 @@ function ConfidenceValue({ confidence }) {
     : `${Math.round(confidence * 100)}%`
 }
 
+function AnswerTypeSelect({ row, value = row.type, onUpdateRow }) {
+  const { t } = useTranslation()
+
+  return (
+    <Select value={value} onValueChange={(nextValue) => onUpdateRow(row.id, 'type', nextValue)}>
+      <SelectTrigger
+        aria-label={t('teacher.schema.answerTypeAria', { number: displayQuestionNumber(row) })}
+        className="w-36"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="mcq">{t('teacher.schema.multipleChoice')}</SelectItem>
+        <SelectItem value="boolean">{t('teacher.schema.trueFalse')}</SelectItem>
+        <SelectItem value="numeric">{t('teacher.schema.number')}</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
+function BooleanAnswerToggle({ row, onUpdateRow }) {
+  const { t } = useTranslation()
+
+  return (
+    <SegmentedButtonGroup aria-label={t('teacher.schema.correctAnswerAria', { number: displayQuestionNumber(row) })}>
+      <SegmentedButton
+        selected={row.correct_answer === '1'}
+        aria-label={t('teacher.schema.questionPartTrue', { number: displayQuestionNumber(row), part: row.sub_id })}
+        onClick={() => onUpdateRow(row.id, 'correct_answer', '1')}
+      >
+        {t('teacher.schema.true')}
+      </SegmentedButton>
+      <SegmentedButton
+        selected={row.correct_answer === '0'}
+        aria-label={t('teacher.schema.questionPartFalse', { number: displayQuestionNumber(row), part: row.sub_id })}
+        onClick={() => onUpdateRow(row.id, 'correct_answer', '0')}
+      >
+        {t('teacher.schema.false')}
+      </SegmentedButton>
+    </SegmentedButtonGroup>
+  )
+}
+
+function StatusBadge({ row }) {
+  const { t } = useTranslation()
+
+  if (row.errors?.length > 0) {
+    return <Badge variant="destructive" className="h-auto min-h-5 max-w-36 overflow-visible whitespace-normal py-1 text-left leading-4">{row.errors[0]}</Badge>
+  }
+
+  if (row.warnings?.length > 0) {
+    return <Badge variant="warning" className="h-auto min-h-5 max-w-36 overflow-visible whitespace-normal py-1 text-left leading-4">{row.warnings[0]}</Badge>
+  }
+
+  return <Badge variant="success">{t('teacher.schema.valid')}</Badge>
+}
+
 // ── SortableStandardRow ─────────────────────────────────────────────────────────
 
 function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) {
@@ -76,22 +150,22 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
   }
 
   return (
-    <tr
+    <TableRow
       ref={setNodeRef}
       style={style}
-      className={cn('border-t align-top', isDragging && 'bg-muted/60')}
+      className={cn('align-top', isDragging && 'bg-muted/60')}
     >
-      <td className="w-7 px-1 py-2">
+      <TableCell className="w-7 px-1 py-2">
         <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={displayQuestionNumber(row)} />
-      </td>
+      </TableCell>
 
-      <td className="px-3 py-2">
+      <TableCell className="px-3 py-2">
         <span className="block min-w-36 py-3 text-sm font-medium">
           {row.section_title || t('teacher.schema.mainSection')}
         </span>
-      </td>
+      </TableCell>
 
-      <td className="px-3 py-2">
+      <TableCell className="px-3 py-2">
         <Input
           aria-label={t('teacher.schema.localNumberAria', { question: displayQuestionNumber(row) })}
           type="number"
@@ -100,58 +174,43 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
           onChange={(e) => onUpdateRow(row.id, 'local_number', e.target.value)}
           className="min-h-[48px] w-20"
         />
-      </td>
+      </TableCell>
 
-      <td className="px-3 py-2">
-        <select
-          aria-label={t('teacher.schema.answerTypeAria', { number: displayQuestionNumber(row) })}
-          value={row.type}
-          onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-          className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
-        >
-          <option value="mcq">{t('teacher.schema.multipleChoice')}</option>
-          <option value="boolean">{t('teacher.schema.trueFalse')}</option>
-          <option value="numeric">{t('teacher.schema.number')}</option>
-        </select>
-      </td>
+      <TableCell className="px-3 py-2">
+        <AnswerTypeSelect row={row} onUpdateRow={onUpdateRow} />
+      </TableCell>
 
-      <td className="px-3 py-2">
+      <TableCell className="px-3 py-2">
         <Input
           aria-label={t('teacher.schema.correctAnswerAria', { number: displayQuestionNumber(row) })}
           type="text"
           value={row.correct_answer}
           onChange={(e) => onUpdateRow(row.id, 'correct_answer', e.target.value)}
-          className="min-h-[48px] w-36"
+          className="min-h-[48px] w-32"
         />
-      </td>
+      </TableCell>
 
       {showConfidence && (
-        <td className="px-3 py-2 text-muted-foreground">
+        <TableCell className="px-3 py-2 text-muted-foreground">
           <ConfidenceValue confidence={row.confidence} />
-        </td>
+        </TableCell>
       )}
 
-      <td className="px-3 py-2">
-        {row.errors?.length > 0
-          ? <span className="text-xs text-destructive">{row.errors[0]}</span>
-          : row.warnings?.length > 0
-          ? <span className="text-xs text-amber-600">{row.warnings[0]}</span>
-          : <span className="text-xs text-emerald-700 dark:text-emerald-400">{t('teacher.schema.valid')}</span>
-        }
-      </td>
+      <TableCell className="px-3 py-2">
+        <StatusBadge row={row} />
+      </TableCell>
 
-      <td className="px-3 py-2">
+      <TableCell className="px-3 py-2">
         <Button
           type="button"
-          variant="ghost"
+          variant="destructive"
           size="sm"
           onClick={() => onDeleteRow(row.id)}
-          className="text-destructive hover:text-destructive"
         >
           {t('teacher.schema.delete')}
         </Button>
-      </td>
-    </tr>
+      </TableCell>
+    </TableRow>
   )
 }
 
@@ -184,28 +243,28 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
   return (
     <>
       {groupRows.map((row, i) => (
-        <tr
+        <TableRow
           key={row.id}
           ref={i === 0 ? setNodeRef : undefined}
           style={i === 0 ? style : undefined}
-          className={cn('border-t align-top', isDragging && 'bg-muted/60')}
+          className={cn('align-top', isDragging && 'bg-muted/60')}
         >
           {/* Drag handle cell — only on first sub-row */}
-          <td className="w-7 px-1 py-2">
+          <TableCell className="w-7 px-1 py-2">
             {i === 0 && (
               <DragHandleButton listeners={listeners} attributes={attributes} isDragging={isDragging} questionNumber={displayQuestionNumber(row)} />
             )}
-          </td>
+          </TableCell>
 
-          <td className="px-3 py-2">
+          <TableCell className="px-3 py-2">
             {i === 0 && (
               <span className="block min-w-36 py-3 text-sm font-medium">
                 {row.section_title || t('teacher.schema.mainSection')}
               </span>
             )}
-          </td>
+          </TableCell>
 
-          <td className="px-3 py-2">
+          <TableCell className="px-3 py-2">
             {i === 0 ? (
               <Input
                 aria-label={t('teacher.schema.localNumberAria', { question: displayQuestionNumber(row) })}
@@ -218,84 +277,48 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
             ) : (
               <span className="px-2 text-sm text-muted-foreground">{row.local_number ?? row.q_id}</span>
             )}
-          </td>
+          </TableCell>
 
           {/* type — editable on first row only */}
-          <td className="px-3 py-2">
+          <TableCell className="px-3 py-2">
             {i === 0 ? (
-              <select
-                aria-label={t('teacher.schema.answerTypeAria', { number: displayQuestionNumber(row) })}
-                value="boolean"
-                onChange={(e) => onUpdateRow(row.id, 'type', e.target.value)}
-                className="min-h-[48px] rounded-md border bg-background px-2 text-sm"
-              >
-                <option value="mcq">{t('teacher.schema.multipleChoice')}</option>
-                <option value="boolean">{t('teacher.schema.trueFalse')}</option>
-                <option value="numeric">{t('teacher.schema.number')}</option>
-              </select>
+              <AnswerTypeSelect row={row} value="boolean" onUpdateRow={onUpdateRow} />
             ) : (
               <span className="text-sm text-muted-foreground">{t('teacher.schema.trueFalse')}</span>
             )}
-          </td>
+          </TableCell>
 
           {/* True/False toggle */}
-          <td className="px-3 py-2">
+          <TableCell className="px-3 py-2">
             <div className="flex items-center gap-3">
               <span className="w-4 text-sm font-medium text-muted-foreground">{row.sub_id}.</span>
-              <label className="flex min-h-[48px] items-center gap-1 text-sm">
-                <input
-                  type="radio"
-                  name={`bool-${row.id}`}
-                  value="1"
-                  checked={row.correct_answer === '1'}
-                  onChange={() => onUpdateRow(row.id, 'correct_answer', '1')}
-                  aria-label={t('teacher.schema.questionPartTrue', { number: displayQuestionNumber(row), part: row.sub_id })}
-                />
-                {t('teacher.schema.true')}
-              </label>
-              <label className="flex min-h-[48px] items-center gap-1 text-sm">
-                <input
-                  type="radio"
-                  name={`bool-${row.id}`}
-                  value="0"
-                  checked={row.correct_answer === '0'}
-                  onChange={() => onUpdateRow(row.id, 'correct_answer', '0')}
-                  aria-label={t('teacher.schema.questionPartFalse', { number: displayQuestionNumber(row), part: row.sub_id })}
-                />
-                {t('teacher.schema.false')}
-              </label>
+              <BooleanAnswerToggle row={row} onUpdateRow={onUpdateRow} />
             </div>
-          </td>
+          </TableCell>
 
           {showConfidence && (
-            <td className="px-3 py-2 text-muted-foreground">
+            <TableCell className="px-3 py-2 text-muted-foreground">
               {i === 0 ? <ConfidenceValue confidence={row.confidence} /> : ''}
-            </td>
+            </TableCell>
           )}
 
-          <td className="px-3 py-2">
-            {row.errors?.length > 0
-              ? <span className="text-xs text-destructive">{row.errors[0]}</span>
-              : row.warnings?.length > 0
-              ? <span className="text-xs text-amber-600">{row.warnings[0]}</span>
-              : <span className="text-xs text-emerald-700 dark:text-emerald-400">{t('teacher.schema.valid')}</span>
-            }
-          </td>
+          <TableCell className="px-3 py-2">
+            <StatusBadge row={row} />
+          </TableCell>
 
-          <td className="px-3 py-2">
+          <TableCell className="px-3 py-2">
             {i === 0 && (
               <Button
                 type="button"
-                variant="ghost"
+                variant="destructive"
                 size="sm"
                 onClick={() => onDeleteRow(row.id)}
-                className="text-destructive hover:text-destructive"
               >
                 {t('teacher.schema.delete')}
               </Button>
             )}
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       ))}
     </>
   )
@@ -352,7 +375,7 @@ export function SchemaTable({ rows, onUpdateRow, onDeleteRow, onReorder, showCon
     // Reorder groupIds then rebuild the flat rows array preserving group blocks
     const newGroupIds = arrayMove(groupIds, activeIdx, overIdx)
     const newRows = newGroupIds.flatMap((qid) => groupMap.get(qid) || [])
-    onReorder(newRows)
+    onReorder?.(newRows)
   }
 
   const showConfidenceCol = showConfidence && rows.some((r) => r.confidence !== undefined)
@@ -363,22 +386,21 @@ export function SchemaTable({ rows, onUpdateRow, onDeleteRow, onReorder, showCon
       collisionDetection={closestCenter}
       onDragEnd={handleDragEnd}
     >
-      <div className="overflow-x-auto">
-        <table className="min-w-full border-collapse text-sm">
-          <thead>
-            <tr className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <th className="w-7 px-1 py-2" />
-              <th className="px-3 py-2">{t('teacher.schema.section')}</th>
-              <th className="px-3 py-2">{t('teacher.schema.questionNumber')}</th>
-              <th className="px-3 py-2">{t('teacher.schema.type')}</th>
-              <th className="px-3 py-2">{t('teacher.schema.correctAnswer')}</th>
-              {showConfidenceCol && <th className="px-3 py-2">{t('teacher.schema.confidence')}</th>}
-              <th className="px-3 py-2">{t('teacher.schema.status')}</th>
-              <th className="px-3 py-2">{t('teacher.schema.actions')}</th>
-            </tr>
-          </thead>
+      <Table containerClassName="rounded-none border-0 border-t" className="min-w-[48rem]">
+        <TableHeader>
+            <TableRow className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted">
+              <TableHead className="w-7 px-1 py-2" />
+              <TableHead className="px-3 py-2 whitespace-normal leading-4">{t('teacher.schema.section')}</TableHead>
+              <TableHead className="px-3 py-2 whitespace-normal leading-4">{t('teacher.schema.questionNumber')}</TableHead>
+              <TableHead className="px-3 py-2 whitespace-normal leading-4">{t('teacher.schema.type')}</TableHead>
+              <TableHead className="px-3 py-2 whitespace-normal leading-4">{t('teacher.schema.correctAnswer')}</TableHead>
+              {showConfidenceCol && <TableHead className="px-3 py-2 whitespace-normal leading-4">{t('teacher.schema.confidence')}</TableHead>}
+              <TableHead className="px-3 py-2 whitespace-normal leading-4">{t('teacher.schema.status')}</TableHead>
+              <TableHead className="px-3 py-2 whitespace-normal leading-4">{t('teacher.schema.actions')}</TableHead>
+            </TableRow>
+          </TableHeader>
           <SortableContext items={groupIds} strategy={verticalListSortingStrategy}>
-            <tbody>
+            <TableBody>
               {groupIds.map((qid) => {
                 const groupRows = groupMap.get(qid) || []
                 if (!groupRows.length) return null
@@ -406,10 +428,9 @@ export function SchemaTable({ rows, onUpdateRow, onDeleteRow, onReorder, showCon
                   />
                 )
               })}
-            </tbody>
+            </TableBody>
           </SortableContext>
-        </table>
-      </div>
+      </Table>
     </DndContext>
   )
 }
