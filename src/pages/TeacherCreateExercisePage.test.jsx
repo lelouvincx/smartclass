@@ -389,9 +389,11 @@ describe('TeacherCreateExercisePage', () => {
     expect(prepareAnswerPdfForParsingMock).not.toHaveBeenCalled()
   })
 
-  it('warns but allows saving a parsed answer key with skipped source question numbers', async () => {
+  it('inserts manual-review rows when parsed answers skip source question numbers', async () => {
     const user = userEvent.setup()
     createExerciseMock.mockResolvedValue({ data: { id: 303 } })
+    createExerciseFileUploadMock.mockResolvedValue({ data: { r2_key: 'test', file_type: 'exercise_pdf' } })
+    uploadExerciseFileMock.mockResolvedValue({ data: {} })
     extractDetailedAnswerKeySchemaMock.mockResolvedValue([
       { q_id: 1, local_number: 1, section_key: 'main', section_title: null, sub_id: null, type: 'mcq', correct_answer: 'A', confidence: 1 },
       { q_id: 3, local_number: 3, section_key: 'main', section_title: null, sub_id: null, type: 'mcq', correct_answer: 'C', confidence: 1 },
@@ -404,13 +406,24 @@ describe('TeacherCreateExercisePage', () => {
     await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }))
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByText('Source question numbers must not skip numbers in a section')).toBeInTheDocument()
+    expect(await screen.findByLabelText(/correct answer for question 2/i)).toHaveValue('')
+    expect(screen.queryByText('Source question numbers must not skip numbers in a section')).not.toBeInTheDocument()
 
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+    expect(screen.getByText('Please fix all answer key errors before saving')).toBeInTheDocument()
+
+    await user.type(screen.getByLabelText(/correct answer for question 2/i), 'B')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
     expect(screen.getByText('Save with warnings?')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue' }))
 
-    expect(createExerciseMock).toHaveBeenCalledTimes(1)
+    expect(createExerciseMock).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      schema: expect.arrayContaining([
+        expect.objectContaining({ q_id: 1, local_number: 1, correct_answer: 'A' }),
+        expect.objectContaining({ q_id: 2, local_number: 2, correct_answer: 'B' }),
+        expect.objectContaining({ q_id: 3, local_number: 3, correct_answer: 'C' }),
+      ]),
+    }))
   })
 
   it('preserves manual rows after an unsupported-document API rejection', async () => {
