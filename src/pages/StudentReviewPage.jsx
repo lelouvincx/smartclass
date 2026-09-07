@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { getSubmission } from '@/lib/api'
+import { ArrowLeft, ArrowRight, Download } from 'lucide-react'
+import { toast } from 'sonner'
+import { getSubmission, getSubmissionAnswerPdf } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -84,6 +85,7 @@ export default function StudentReviewPage({ viewer = 'student' }) {
   const [error, setError] = useState('')
   const [submission, setSubmission] = useState(null)
   const [currentQId, setCurrentQId] = useState(null)
+  const [isDownloadingAnswerPdf, setIsDownloadingAnswerPdf] = useState(false)
 
   useEffect(() => {
     async function fetch() {
@@ -153,6 +155,26 @@ export default function StudentReviewPage({ viewer = 'student' }) {
     questionHeadingRef.current?.focus({ preventScroll: true })
   }
 
+  async function handleDownloadAnswerPdf() {
+    if (!submission || isTeacherView || isDownloadingAnswerPdf) return
+    setIsDownloadingAnswerPdf(true)
+    try {
+      const blob = await getSubmissionAnswerPdf(token, submission.id)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `answer-${submission.exercise_id}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+    } catch {
+      toast.error(t('student.results.downloadAnswerPdfFailed'))
+    } finally {
+      setIsDownloadingAnswerPdf(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -168,8 +190,22 @@ export default function StudentReviewPage({ viewer = 'student' }) {
           <p className="mt-1 text-sm font-medium">{t('student.attempt.label', { number: attempt_number })}</p>
           <p className="mt-1 text-sm text-muted-foreground">{t('student.results.submitted', { date: submittedDate })}</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <ScoreBadge score={score} />
+          {!isTeacherView && submission.answer_pdf_download_available && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isDownloadingAnswerPdf}
+              onClick={handleDownloadAnswerPdf}
+            >
+              <Download aria-hidden="true" />
+              {isDownloadingAnswerPdf
+                ? t('student.results.downloadingAnswerPdf')
+                : t('student.results.downloadAnswerPdf')}
+            </Button>
+          )}
           <Button variant="outline" size="sm" asChild>
             <Link to={backHref}>
               {t(isTeacherView ? 'teacher.submissions.backToExercise' : 'student.results.backToHistory')}

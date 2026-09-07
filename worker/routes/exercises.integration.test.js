@@ -177,6 +177,7 @@ describe('POST /api/exercises', () => {
     expect(body.data.title).toBe('Test Quiz')
     expect(body.data.is_timed).toBe(1)
     expect(body.data.duration_minutes).toBe(60)
+    expect(body.data.allow_answer_pdf_download).toBe(0)
     expect(body.data).not.toHaveProperty('extract_model')
     // 5 rows: 1 mcq + 4 boolean sub-rows
     expect(body.data.schema).toHaveLength(5)
@@ -203,6 +204,13 @@ describe('POST /api/exercises', () => {
 
     expect(res.status).toBe(201)
     expect(body.data.schema.map(row => row.max_score_hundredths)).toEqual([250, 750, 750, 750, 750])
+  })
+
+  it('creates an exercise with Answer PDF download enabled', async () => {
+    const { res, body } = await createExercise(token, { allow_answer_pdf_download: true })
+
+    expect(res.status).toBe(201)
+    expect(body.data.allow_answer_pdf_download).toBe(1)
   })
 
   it.each([
@@ -511,6 +519,22 @@ describe('PUT /api/exercises/:id', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.data.title).toBe('Updated Title')
+  })
+
+  it('updates the Answer PDF download setting', async () => {
+    const { id } = await createExercise(token)
+    const res = await app.request(`/api/exercises/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ allow_answer_pdf_download: true }),
+    }, env)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data.allow_answer_pdf_download).toBe(1)
   })
 
   it('replaces and returns class memberships', async () => {

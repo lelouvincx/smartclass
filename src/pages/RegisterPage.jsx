@@ -2,16 +2,19 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { register } from '@/lib/api'
 import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
+import { GradeDropdown } from '@/components/grade-checkbox-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldDescription, FieldGroup, FieldError, FieldLabel } from '@/components/ui/field'
+import { GRADES } from '@/lib/grades'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [grades, setGrades] = useState([...GRADES])
   const [error, setError] = useState('')
   const [invalidField, setInvalidField] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -26,6 +29,12 @@ export default function RegisterPage() {
     if (!name.trim() || !phone || !password || !confirmPassword) {
       setError('Name, phone, password, and confirm password are required.')
       setInvalidField('all')
+      return
+    }
+
+    if (grades.length === 0) {
+      setError('Select at least one programme.')
+      setInvalidField('grades')
       return
     }
 
@@ -52,7 +61,7 @@ export default function RegisterPage() {
     setIsSubmitting(true)
 
     try {
-      await register({ name: name.trim(), phone: normalizedPhone, password })
+      await register({ name: name.trim(), phone: normalizedPhone, password, grades })
       setSuccessMessage('Registration submitted. Please wait for teacher approval.')
       setName('')
       setPassword('')
@@ -144,6 +153,21 @@ export default function RegisterPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </Field>
+
+              <GradeDropdown
+                id="register-grades"
+                legend="Student programmes"
+                description="Choose the programmes you want your teacher to review."
+                value={grades}
+                onChange={(nextGrades) => {
+                  setGrades(nextGrades)
+                  if (invalidField === 'grades') {
+                    setError('')
+                    setInvalidField('')
+                  }
+                }}
+                disabled={isSubmitting}
+              />
 
               {error && <FieldError id="register-error">{error}</FieldError>}
               {successMessage && (

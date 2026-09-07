@@ -137,6 +137,7 @@ describe('TeacherCreateExercisePage', () => {
       title: 'Quiz 1',
       is_timed: true,
       duration_minutes: 60,
+      allow_answer_pdf_download: false,
       schema: [
         {
           q_id: 1,
@@ -230,6 +231,7 @@ describe('TeacherCreateExercisePage', () => {
       title: 'Untimed Quiz',
       is_timed: false,
       duration_minutes: 0,
+      allow_answer_pdf_download: false,
       schema: [
         {
           q_id: 1,
@@ -505,6 +507,7 @@ describe('TeacherCreateExercisePage', () => {
       is_timed: true,
       duration_minutes: 60,
       max_attempts: 1,
+      allow_answer_pdf_download: false,
       schema: [
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'a', correct_answer: '1', max_score_hundredths: null },
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'b', correct_answer: '0', max_score_hundredths: null },

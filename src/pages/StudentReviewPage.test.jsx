@@ -7,12 +7,14 @@ import StudentReviewPage from './StudentReviewPage'
 
 const getSubmissionMock = vi.fn()
 const getQuestionAssetBlobMock = vi.fn()
+const getSubmissionAnswerPdfMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     getSubmission: (...args) => getSubmissionMock(...args),
+    getSubmissionAnswerPdf: (...args) => getSubmissionAnswerPdfMock(...args),
     getQuestionAssetBlob: (...args) => getQuestionAssetBlobMock(...args),
   }
 })
@@ -76,7 +78,9 @@ describe('StudentReviewPage', () => {
   beforeEach(() => {
     getSubmissionMock.mockReset()
     getQuestionAssetBlobMock.mockReset()
+    getSubmissionAnswerPdfMock.mockReset()
     getQuestionAssetBlobMock.mockResolvedValue(new Blob(['question'], { type: 'image/webp' }))
+    getSubmissionAnswerPdfMock.mockResolvedValue(new Blob(['answer'], { type: 'application/pdf' }))
     global.URL.createObjectURL = vi.fn((blob) => `blob:review-${blob.size}-${Math.random()}`)
     global.URL.revokeObjectURL = vi.fn()
   })
@@ -96,6 +100,32 @@ describe('StudentReviewPage', () => {
     const scoreBadge = screen.getByText('7.5 / 10')
     expect(scoreBadge).toHaveClass('bg-success-muted', 'text-success')
     expect(scoreBadge.className).not.toMatch(/green-/)
+  })
+
+  it('downloads the Answer PDF when the teacher allows it', async () => {
+    const user = userEvent.setup()
+    const openClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    getSubmissionMock.mockResolvedValue({
+      data: { ...SUBMISSION, answer_pdf_download_available: true },
+    })
+    renderReviewPage()
+
+    await screen.findByText('Algebra Quiz')
+    await user.click(screen.getByRole('button', { name: 'Download Answer PDF' }))
+
+    expect(getSubmissionAnswerPdfMock).toHaveBeenCalledWith('test-token', 5)
+    expect(openClick).toHaveBeenCalledTimes(1)
+    openClick.mockRestore()
+  })
+
+  it('hides the Answer PDF download when the teacher blocks it', async () => {
+    getSubmissionMock.mockResolvedValue({
+      data: { ...SUBMISSION, answer_pdf_download_available: false },
+    })
+    renderReviewPage()
+
+    await screen.findByText('Algebra Quiz')
+    expect(screen.queryByRole('button', { name: 'Download Answer PDF' })).not.toBeInTheDocument()
   })
 
   it('shows the pinned question image without rendering the exercise PDF', async () => {

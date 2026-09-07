@@ -8,10 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Let teachers choose whether students can download an exercise's Answer PDF after submitting and reviewing their work. [#125](https://github.com/lelouvincx/smartclass/pull/125)
 - Add ĐGNL as an access class for students, exercises, and lectures alongside grades 10 to 12. [#116](https://github.com/lelouvincx/smartclass/pull/116)
 - Add teacher-assigned Standard and VIP student tiers, lecture minimum tiers, and a public Guest workspace with lecture browsing, playback, language selection, and a disabled coming-soon exercise destination. [#116](https://github.com/lelouvincx/smartclass/pull/116)
 - Let teachers keep automatic score weighting or allocate exactly 10.0 points across exercise questions during creation and question-set activation. [#118](https://github.com/lelouvincx/smartclass/pull/118)
 - Let teachers list completed student submissions on an exercise and open each submission's question-first review. [#114](https://github.com/lelouvincx/smartclass/pull/114)
+- Let teachers remove students from the active student list while preserving past submissions and blocking removed accounts. [#125](https://github.com/lelouvincx/smartclass/pull/125)
+- Let teachers deactivate and reactivate student accounts from the student list. [#125](https://github.com/lelouvincx/smartclass/pull/125)
+- Let self-registering students select programmes so teachers can see requested programme access before approval. [#125](https://github.com/lelouvincx/smartclass/pull/125)
 - Let teachers set a finite or unlimited exercise attempt limit, allocate stable numbered student attempts, and let students open every attempt’s separate score and review from the exercise or submission history. [#109](https://github.com/lelouvincx/smartclass/pull/109)
 - Support exercise PDFs whose question numbering restarts in named sections while preserving one global grading and navigation order. [#104](https://github.com/lelouvincx/smartclass/pull/104)
 

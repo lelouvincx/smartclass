@@ -44,6 +44,7 @@ describe('RegisterPage', () => {
     expect(phone).toBeRequired()
     expect(password).toBeRequired()
     expect(confirmPassword).toBeRequired()
+    expect(screen.getByRole('button', { name: 'Student programmes' })).toHaveTextContent('All programmes')
     expect(screen.getByText('Use 0xxxxxxxxx or +84xxxxxxxxx format.')).toBeVisible()
   })
 
@@ -92,6 +93,35 @@ describe('RegisterPage', () => {
       name: 'Nguyễn Văn An',
       phone: '+84900000002',
       password: 'abc',
+      grades: [10, 11, 12, 'dgnl'],
+    })
+  })
+
+  it('submits the selected programmes for teacher review', async () => {
+    const user = userEvent.setup()
+    registerMock.mockResolvedValue({ success: true })
+
+    render(
+      <MemoryRouter>
+        <RegisterPage />
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText('Name'), 'Nguyễn Văn An')
+    await user.type(screen.getByLabelText('Phone'), '+84900000003')
+    await user.type(screen.getByLabelText('Password'), 'abc')
+    await user.type(screen.getByLabelText('Confirm Password'), 'abc')
+    await user.click(screen.getByRole('button', { name: 'Student programmes' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'ĐGNL' }))
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+
+    expect(registerMock).toHaveBeenCalledWith({
+      name: 'Nguyễn Văn An',
+      phone: '+84900000003',
+      password: 'abc',
+      grades: [10, 11],
     })
   })
 

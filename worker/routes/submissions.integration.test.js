@@ -888,6 +888,94 @@ describe('GET /api/submissions/:id/exercise-pdf', () => {
   })
 })
 
+describe('GET /api/submissions/:id/answer-pdf', () => {
+  async function createSubmittedSubmission({ allowAnswerPdfDownload = false } = {}) {
+    const { id: exerciseId, assetSetId } = await createExercise(teacherToken, {
+      allow_answer_pdf_download: allowAnswerPdfDownload,
+    })
+    const answerR2Key = `exercises/${exerciseId}/answer.pdf`
+    const answerFile = await env.DB.prepare(`
+      insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
+      values (?, 'solution_pdf', ?, 'answers.pdf', 100)
+    `).bind(exerciseId, answerR2Key).run()
+    await env.DB.prepare(`
+      update exercise_question_asset_sets
+      set answer_source_file_id = ?
+      where id = ?
+    `).bind(answerFile.meta.last_row_id, assetSetId).run()
+    await env.BUCKET.put(answerR2Key, 'answer pdf', {
+      httpMetadata: { contentType: 'application/pdf' },
+    })
+
+    const createRes = await app.request('/api/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({ exercise_id: exerciseId, known_latest_attempt_number: 0 }),
+    }, env)
+    const submissionId = (await createRes.json()).data.id
+    await app.request(`/api/submissions/${submissionId}/submit`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${studentToken}` },
+      body: JSON.stringify({
+        answers: [
+          { q_id: 1, submitted_answer: 'B' },
+          { q_id: 2, sub_id: 'a', submitted_answer: '1' },
+          { q_id: 2, sub_id: 'b', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'c', submitted_answer: '0' },
+          { q_id: 2, sub_id: 'd', submitted_answer: '1' },
+        ],
+      }),
+    }, env)
+
+    return { submissionId }
+  }
+
+  it('downloads the pinned Answer PDF after submission when enabled', async () => {
+    const { submissionId } = await createSubmittedSubmission({ allowAnswerPdfDownload: true })
+
+    const detail = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+    const res = await app.request(`/api/submissions/${submissionId}/answer-pdf`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    expect(detail.status).toBe(200)
+    expect((await detail.json()).data.answer_pdf_download_available).toBe(true)
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Type')).toBe('application/pdf')
+    expect(res.headers.get('Content-Disposition')).toContain('attachment')
+    expect(res.headers.get('Content-Disposition')).toContain('answers.pdf')
+    expect(new TextDecoder().decode(await res.arrayBuffer())).toBe('answer pdf')
+  })
+
+  it('blocks the Answer PDF when the teacher disabled it', async () => {
+    const { submissionId } = await createSubmittedSubmission({ allowAnswerPdfDownload: false })
+
+    const detail = await app.request(`/api/submissions/${submissionId}`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+    const res = await app.request(`/api/submissions/${submissionId}/answer-pdf`, {
+      headers: { 'Authorization': `Bearer ${studentToken}` },
+    }, env)
+
+    expect((await detail.json()).data.answer_pdf_download_available).toBe(false)
+    expect(res.status).toBe(403)
+  })
+
+  it('requires the submission owner', async () => {
+    const { submissionId } = await createSubmittedSubmission({ allowAnswerPdfDownload: true })
+    await seedStudent('+84111222445')
+    const otherStudentToken = await loginAsStudent('+84111222445')
+
+    const res = await app.request(`/api/submissions/${submissionId}/answer-pdf`, {
+      headers: { 'Authorization': `Bearer ${otherStudentToken}` },
+    }, env)
+
+    expect(res.status).toBe(403)
+  })
+})
+
 // Default schema: q_id=1 mcq correct_answer='B', q_id=2 boolean a='1' b='0' c='0' d='1'
 // All correct → score 10.0 (1.0 + 1.0 points / 2 questions * 10)
 // All wrong   → score 0.0

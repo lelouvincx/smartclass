@@ -11,6 +11,8 @@ const listStudentsMock = vi.fn()
 const updateStudentNameMock = vi.fn()
 const updateStudentGradesMock = vi.fn()
 const updateStudentAccessTierMock = vi.fn()
+const updateStudentStatusMock = vi.fn()
+const removeStudentMock = vi.fn()
 const logoutMock = vi.fn()
 const navigateMock = vi.fn()
 
@@ -29,6 +31,8 @@ vi.mock('../lib/api', async (importOriginal) => {
     updateStudentName: (...args) => updateStudentNameMock(...args),
     updateStudentGrades: (...args) => updateStudentGradesMock(...args),
     updateStudentAccessTier: (...args) => updateStudentAccessTierMock(...args),
+    updateStudentStatus: (...args) => updateStudentStatusMock(...args),
+    removeStudent: (...args) => removeStudentMock(...args),
   }
 })
 
@@ -58,6 +62,8 @@ describe('TeacherStudentsPage', () => {
     updateStudentNameMock.mockReset()
     updateStudentGradesMock.mockReset()
     updateStudentAccessTierMock.mockReset()
+    updateStudentStatusMock.mockReset()
+    removeStudentMock.mockReset()
     logoutMock.mockReset()
     navigateMock.mockReset()
     toastMock.success.mockReset()
@@ -342,6 +348,126 @@ describe('TeacherStudentsPage', () => {
     })
   })
 
+  it('lets a teacher remove a student after confirmation and refreshes the list', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({
+      data: [{
+        id: 1,
+        name: 'Nguyễn Văn An',
+        phone: '+84123456789',
+        role: 'student',
+        status: 'active',
+        created_at: '2026-05-07 10:00:00',
+      }],
+    })
+    removeStudentMock.mockResolvedValue({
+      data: { id: 1, removed: true },
+      message: 'Student removed.',
+    })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: 'Remove Nguyễn Văn An' }))
+    const dialog = screen.getByRole('dialog', { name: 'Remove student' })
+    expect(within(dialog).getByRole('button', { name: 'Remove student' })).toBeDisabled()
+
+    await user.type(within(dialog).getByLabelText(/type remove to confirm/i), 'REMOVE')
+    await user.click(within(dialog).getByRole('button', { name: 'Remove student' }))
+
+    await waitFor(() => {
+      expect(removeStudentMock).toHaveBeenCalledWith('test-token', 1)
+    })
+    expect(toastMock.success).toHaveBeenCalledWith('Student removed.')
+    await waitFor(() => {
+      expect(listStudentsMock).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('lets a teacher deactivate an active student and refreshes the list', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({
+      data: [{
+        id: 1,
+        name: 'Nguyễn Văn An',
+        phone: '+84123456789',
+        role: 'student',
+        status: 'active',
+        created_at: '2026-05-07 10:00:00',
+      }],
+    })
+    updateStudentStatusMock.mockResolvedValue({
+      data: { id: 1, status: 'disabled' },
+      message: 'Student deactivated.',
+    })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    await user.click(await screen.findByRole('button', { name: 'Deactivate Nguyễn Văn An' }))
+
+    await waitFor(() => {
+      expect(updateStudentStatusMock).toHaveBeenCalledWith('test-token', 1, { status: 'disabled' })
+    })
+    expect(toastMock.success).toHaveBeenCalledWith('Student deactivated.')
+    await waitFor(() => {
+      expect(listStudentsMock).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  it('lets a teacher activate a disabled student and refreshes the list', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({
+      data: [{
+        id: 1,
+        name: 'Nguyễn Văn An',
+        phone: '+84123456789',
+        role: 'student',
+        status: 'disabled',
+        created_at: '2026-05-07 10:00:00',
+      }],
+    })
+    updateStudentStatusMock.mockResolvedValue({
+      data: { id: 1, status: 'active' },
+      message: 'Student activated.',
+    })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+    await user.click(screen.getByRole('button', { name: 'Disabled' }))
+
+    await user.click(await screen.findByRole('button', { name: 'Activate Nguyễn Văn An' }))
+
+    await waitFor(() => {
+      expect(updateStudentStatusMock).toHaveBeenCalledWith('test-token', 1, { status: 'active' })
+    })
+    expect(toastMock.success).toHaveBeenCalledWith('Student activated.')
+    await waitFor(() => {
+      expect(listStudentsMock).toHaveBeenCalledTimes(3)
+    })
+  })
+
+  it('hides disabled students from the default list and shows them through the disabled filter', async () => {
+    const user = userEvent.setup()
+    listStudentsMock
+      .mockResolvedValueOnce({
+        data: [
+          { id: 1, name: 'Active Student', phone: '+84123456789', role: 'student', status: 'active', created_at: '2026-05-07 10:00:00' },
+          { id: 2, name: 'Removed Student', phone: '+84987654321', role: 'student', status: 'disabled', created_at: '2026-05-06 09:00:00' },
+        ],
+      })
+      .mockResolvedValueOnce({
+        data: [{ id: 2, name: 'Removed Student', phone: '+84987654321', role: 'student', status: 'disabled', created_at: '2026-05-06 09:00:00' }],
+      })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    expect(await screen.findByText('Active Student')).toBeInTheDocument()
+    expect(screen.queryByText('Removed Student')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Disabled' }))
+
+    expect(await screen.findByText('Removed Student')).toBeInTheDocument()
+    expect(listStudentsMock).toHaveBeenLastCalledWith('test-token', { status: 'disabled' })
+  })
+
   it('shows status filter tabs', async () => {
     listStudentsMock.mockResolvedValue({ data: [] })
 
@@ -355,6 +481,7 @@ describe('TeacherStudentsPage', () => {
 
     expect(screen.getByRole('button', { name: /active/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /pending/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /disabled/i })).toBeInTheDocument()
   })
 
   it('changes filter and reloads list', async () => {

@@ -40,6 +40,10 @@ function isValidMaxAttempts(value) {
   return value === null || (Number.isInteger(value) && value > 0)
 }
 
+function isBooleanSetting(value) {
+  return typeof value === 'boolean'
+}
+
 function toExerciseWithTiming(exercise) {
   if (!exercise) {
     return exercise
@@ -618,7 +622,14 @@ exercisesRoutes.get('/:id', requireAuth, async (c) => {
 // Create exercise with answer schema (teacher only)
 exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { title, duration_minutes, schema, is_timed = true, max_attempts } = body || {}
+  const {
+    title,
+    duration_minutes,
+    schema,
+    is_timed = true,
+    max_attempts,
+    allow_answer_pdf_download = false,
+  } = body || {}
   const parsedGrades = parseGrades(body?.grades, { defaultToAll: true })
 
   if (!title || schema === undefined || !Object.hasOwn(body || {}, 'max_attempts')) {
@@ -627,6 +638,10 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
   if (!isValidMaxAttempts(max_attempts)) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'max_attempts must be null or a positive integer')
+  }
+
+  if (!isBooleanSetting(allow_answer_pdf_download)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'allow_answer_pdf_download must be boolean')
   }
 
   if (parsedGrades.error) {
@@ -658,9 +673,17 @@ exercisesRoutes.post('/', requireAuth, requireRole('teacher'), async (c) => {
 
   try {
     const exerciseResult = await c.env.DB.prepare(`
-      INSERT INTO exercises (title, duration_minutes, max_attempts, created_by)
-      VALUES (?, ?, ?, ?)
-    `).bind(title, normalizedDuration, max_attempts, authUser.id).run()
+      INSERT INTO exercises (
+        title, duration_minutes, max_attempts, allow_answer_pdf_download, created_by
+      )
+      VALUES (?, ?, ?, ?, ?)
+    `).bind(
+      title,
+      normalizedDuration,
+      max_attempts,
+      allow_answer_pdf_download ? 1 : 0,
+      authUser.id,
+    ).run()
 
     const exerciseId = exerciseResult.meta.last_row_id
 
@@ -732,6 +755,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     resolved_answer_candidate_keys,
     grades,
     max_attempts,
+    allow_answer_pdf_download,
   } = body || {}
   let schema = body?.schema
 
@@ -744,6 +768,7 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     && resolved_answer_candidate_keys === undefined
     && grades === undefined
     && max_attempts === undefined
+    && allow_answer_pdf_download === undefined
   ) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'At least one update field is required')
   }
@@ -754,6 +779,10 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
 
   if (max_attempts !== undefined && !isValidMaxAttempts(max_attempts)) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'max_attempts must be null or a positive integer')
+  }
+
+  if (allow_answer_pdf_download !== undefined && !isBooleanSetting(allow_answer_pdf_download)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'allow_answer_pdf_download must be boolean')
   }
 
   const parsedGrades = grades === undefined ? null : parseGrades(grades)
@@ -924,6 +953,10 @@ exercisesRoutes.put('/:id', requireAuth, requireRole('teacher'), async (c) => {
     if (max_attempts !== undefined) {
       updates.push('max_attempts = ?')
       params.push(max_attempts)
+    }
+    if (allow_answer_pdf_download !== undefined) {
+      updates.push('allow_answer_pdf_download = ?')
+      params.push(allow_answer_pdf_download ? 1 : 0)
     }
     if (updates.length > 0) {
       params.push(id)

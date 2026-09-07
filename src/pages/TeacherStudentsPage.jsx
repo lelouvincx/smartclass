@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Users } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
-import { listStudents, createStudent, approveStudent, updateStudentAccessTier, updateStudentGrades, updateStudentName } from '@/lib/api'
+import { listStudents, createStudent, approveStudent, removeStudent, updateStudentAccessTier, updateStudentGrades, updateStudentName, updateStudentStatus } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
@@ -29,6 +29,7 @@ import {
 const STATUS_FILTERS = [
   'active',
   'pending',
+  'disabled',
 ]
 
 const STATUS_VARIANT = {
@@ -64,10 +65,15 @@ export default function TeacherStudentsPage() {
   const [bulkAccessTier, setBulkAccessTier] = useState('standard')
   const [isAssigningAccessTier, setIsAssigningAccessTier] = useState(false)
   const [approvingId, setApprovingId] = useState(null)
+  const [updatingStatusId, setUpdatingStatusId] = useState(null)
   const [renamingStudent, setRenamingStudent] = useState(null)
   const [renamedName, setRenamedName] = useState('')
   const [renameError, setRenameError] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
+  const [removingStudent, setRemovingStudent] = useState(null)
+  const [removeConfirmation, setRemoveConfirmation] = useState('')
+  const [removeError, setRemoveError] = useState('')
+  const [isRemoving, setIsRemoving] = useState(false)
   const [createError, setCreateError] = useState('')
   const [listLoadError, setListLoadError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
@@ -120,6 +126,60 @@ export default function TeacherStudentsPage() {
       toast.error(err.message)
     } finally {
       setApprovingId(null)
+    }
+  }
+
+  async function handleToggleStatus(student) {
+    const nextStatus = student.status === 'disabled' ? 'active' : 'disabled'
+    setUpdatingStatusId(student.id)
+    try {
+      const res = await updateStudentStatus(token, student.id, { status: nextStatus })
+      toast.success(res.message || t(nextStatus === 'active'
+        ? 'teacher.students.activatedFallback'
+        : 'teacher.students.deactivatedFallback'))
+      setSelectedStudentIds((current) => nextStatus === 'disabled'
+        ? current.filter((id) => id !== student.id)
+        : current)
+      await loadStudents()
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setUpdatingStatusId(null)
+    }
+  }
+
+  function handleRemoveDialogChange(open) {
+    if (isRemoving) return
+    if (!open) {
+      setRemovingStudent(null)
+      setRemoveConfirmation('')
+      setRemoveError('')
+    }
+  }
+
+  function openRemoveDialog(student) {
+    setRemovingStudent(student)
+    setRemoveConfirmation('')
+    setRemoveError('')
+  }
+
+  async function handleRemove(event) {
+    event.preventDefault()
+    if (removeConfirmation !== 'REMOVE') return
+
+    setIsRemoving(true)
+    setRemoveError('')
+    try {
+      const res = await removeStudent(token, removingStudent.id)
+      toast.success(res.message || t('teacher.students.removedFallback'))
+      setRemovingStudent(null)
+      setRemoveConfirmation('')
+      setSelectedStudentIds((current) => current.filter((id) => id !== removingStudent.id))
+      await loadStudents()
+    } catch (error) {
+      setRemoveError(error.message)
+    } finally {
+      setIsRemoving(false)
     }
   }
 
@@ -208,9 +268,12 @@ export default function TeacherStudentsPage() {
   }
 
   function toggleAllStudents() {
-    setSelectedStudentIds(selectedStudentIds.length === students.length
+    const selectableStudentIds = students
+      .filter((student) => statusFilter || student.status !== 'disabled')
+      .map((student) => student.id)
+    setSelectedStudentIds(selectedStudentIds.length === selectableStudentIds.length
       ? []
-      : students.map((student) => student.id))
+      : selectableStudentIds)
   }
 
   async function handleAssignGrades() {
@@ -250,6 +313,10 @@ export default function TeacherStudentsPage() {
       setIsAssigningAccessTier(false)
     }
   }
+
+  const visibleStudents = statusFilter
+    ? students
+    : students.filter((student) => student.status !== 'disabled')
 
   return (
     <div className="space-y-6">
@@ -357,7 +424,7 @@ export default function TeacherStudentsPage() {
               <p className="font-medium">{t('teacher.students.loadError')}</p>
               <Button type="button" variant="outline" onClick={loadStudents}>{t('teacher.students.retry')}</Button>
             </div>
-          ) : hasCurrentRows && students.length === 0 ? (
+          ) : hasCurrentRows && visibleStudents.length === 0 ? (
             <EmptyState
               icon={Users}
               title={t('teacher.students.empty')}
@@ -378,7 +445,7 @@ export default function TeacherStudentsPage() {
                   <input
                     type="checkbox"
                     className="size-4 accent-primary"
-                    checked={students.length > 0 && selectedStudentIds.length === students.length}
+                    checked={visibleStudents.length > 0 && selectedStudentIds.length === visibleStudents.length}
                     onChange={toggleAllStudents}
                   />
                   {t('teacher.students.selectAll')}
@@ -418,7 +485,7 @@ export default function TeacherStudentsPage() {
                 </Button>
               </div>
               <div data-testid="responsive-student-list" className="grid gap-3" aria-label={t('teacher.students.listLabel')}>
-                {students.map((student) => (
+                {visibleStudents.map((student) => (
                   <div
                     key={student.id}
                     className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center"
@@ -466,6 +533,38 @@ export default function TeacherStudentsPage() {
                         onClick={() => openRenameDialog(student)}
                       >
                         {t('teacher.students.rename')}
+                      </Button>
+                      <Button
+                        className="w-full sm:w-auto"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        aria-label={t(student.status === 'disabled'
+                          ? 'teacher.students.activateNamed'
+                          : 'teacher.students.deactivateNamed', {
+                          name: student.name || student.phone,
+                        })}
+                        onClick={() => handleToggleStatus(student)}
+                        disabled={updatingStatusId === student.id}
+                      >
+                        {updatingStatusId === student.id ? (
+                          <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
+                        ) : null}
+                        {student.status === 'disabled'
+                          ? t(updatingStatusId === student.id ? 'teacher.students.activating' : 'teacher.students.activate')
+                          : t(updatingStatusId === student.id ? 'teacher.students.deactivating' : 'teacher.students.deactivate')}
+                      </Button>
+                      <Button
+                        className="w-full sm:w-auto"
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        aria-label={t('teacher.students.removeNamed', {
+                          name: student.name || student.phone,
+                        })}
+                        onClick={() => openRemoveDialog(student)}
+                      >
+                        {t('teacher.students.remove')}
                       </Button>
                       {student.status === 'pending' ? (
                         <Button
@@ -529,6 +628,51 @@ export default function TeacherStudentsPage() {
             </Button>
             <Button type="submit" form="rename-student-form" disabled={isRenaming}>
               {isRenaming ? t('teacher.students.savingName') : t('teacher.students.saveName')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(removingStudent)} onOpenChange={handleRemoveDialogChange}>
+        <DialogContent closeLabel={t('common.close')}>
+          <DialogHeader>
+            <DialogTitle>{t('teacher.students.removeTitle')}</DialogTitle>
+            <DialogDescription>
+              {t('teacher.students.removeDescription', {
+                name: removingStudent?.name || removingStudent?.phone,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <form id="remove-student-form" noValidate onSubmit={handleRemove} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="remove-student-confirmation">{t('teacher.students.removeInstruction')}</Label>
+              <Input
+                id="remove-student-confirmation"
+                name="confirmation"
+                type="text"
+                autoComplete="off"
+                aria-invalid={Boolean(removeError)}
+                aria-describedby={removeError ? 'remove-student-error' : undefined}
+                value={removeConfirmation}
+                onChange={(event) => {
+                  setRemoveConfirmation(event.target.value)
+                  if (removeError) setRemoveError('')
+                }}
+                disabled={isRemoving}
+              />
+            </div>
+            {removeError && (
+              <p id="remove-student-error" role="alert" className="text-sm text-destructive">
+                {removeError}
+              </p>
+            )}
+          </form>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => handleRemoveDialogChange(false)} disabled={isRemoving}>
+              {t('teacher.students.cancel')}
+            </Button>
+            <Button type="submit" form="remove-student-form" variant="destructive" disabled={isRemoving || removeConfirmation !== 'REMOVE'}>
+              {isRemoving ? t('teacher.students.removing') : t('teacher.students.confirmRemove')}
             </Button>
           </DialogFooter>
         </DialogContent>

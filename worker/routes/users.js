@@ -216,6 +216,60 @@ usersRoutes.put('/:id/name', async (c) => {
   return jsonSuccess(c, { id, name })
 })
 
+usersRoutes.delete('/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id <= 0) {
+    return jsonError(c, 400, 'INVALID_ID', 'User id must be a positive integer.')
+  }
+
+  const user = await c.env.DB.prepare('SELECT id, role, status FROM users WHERE id = ? LIMIT 1').bind(id).first()
+  if (!user) {
+    return jsonError(c, 404, 'NOT_FOUND', 'User not found.')
+  }
+  if (user.role !== 'student') {
+    return jsonError(c, 400, 'INVALID_ROLE', 'Only student accounts can be removed here.')
+  }
+
+  if (user.status !== 'disabled') {
+    await c.env.DB.prepare(
+      'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    )
+      .bind('disabled', id)
+      .run()
+  }
+
+  return jsonSuccess(c, { id, removed: true })
+})
+
+usersRoutes.put('/:id/status', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (!Number.isInteger(id) || id <= 0) {
+    return jsonError(c, 400, 'INVALID_ID', 'User id must be a positive integer.')
+  }
+
+  const body = await c.req.json().catch(() => null)
+  const status = body?.status
+  if (!['active', 'disabled'].includes(status)) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'status must be active or disabled.')
+  }
+
+  const user = await c.env.DB.prepare('SELECT id, role FROM users WHERE id = ? LIMIT 1').bind(id).first()
+  if (!user) {
+    return jsonError(c, 404, 'NOT_FOUND', 'User not found.')
+  }
+  if (user.role !== 'student') {
+    return jsonError(c, 400, 'INVALID_ROLE', 'Only student accounts can be activated or deactivated here.')
+  }
+
+  await c.env.DB.prepare(
+    'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+  )
+    .bind(status, id)
+    .run()
+
+  return jsonSuccess(c, { id, status })
+})
+
 usersRoutes.put('/:id/approve', async (c) => {
   const id = Number(c.req.param('id'))
   if (!Number.isInteger(id) || id <= 0) {

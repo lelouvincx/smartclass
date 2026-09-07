@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getSubmission, getSubmissionExercisePdf, listLectures, parseExerciseSchema } from './api'
+import { getSubmission, getSubmissionAnswerPdf, getSubmissionExercisePdf, listLectures, parseExerciseSchema } from './api'
 
 describe('API errors', () => {
   afterEach(() => {
@@ -41,6 +41,22 @@ describe('API errors', () => {
     expect(result).toBeInstanceOf(Blob)
     expect(fetchMock).toHaveBeenCalledWith(
       'http://localhost:8787/api/submissions/10/exercise-pdf',
+      { headers: { Authorization: 'Bearer student-token' } },
+    )
+  })
+
+  it('downloads the Answer PDF through the owned submitted submission', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response('pdf', {
+      status: 200,
+      headers: { 'Content-Type': 'application/pdf' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const result = await getSubmissionAnswerPdf('student-token', 10)
+
+    expect(result).toBeInstanceOf(Blob)
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://localhost:8787/api/submissions/10/answer-pdf',
       { headers: { Authorization: 'Bearer student-token' } },
     )
   })

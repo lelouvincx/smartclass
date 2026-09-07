@@ -209,6 +209,7 @@ export default function TeacherCreateExercisePage() {
   const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [maxAttempts, setMaxAttempts] = useState(1)
+  const [allowAnswerPdfDownload, setAllowAnswerPdfDownload] = useState(false)
   const [exerciseFile, setExerciseFile] = useState(null)
   const [answerFile, setAnswerFile] = useState(null)
   const [rows, setRows] = useState(newRows('mcq', '1'))
@@ -393,6 +394,7 @@ export default function TeacherCreateExercisePage() {
         is_timed: isTimed,
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
         max_attempts: maxAttempts === null ? null : Number(maxAttempts),
+        allow_answer_pdf_download: allowAnswerPdfDownload,
         schema: toSchemaPayload(applyScoreAllocation(validatedRows, allocationMode, customScores)),
       }
       const createResponse = await createExercise(token, payload)
@@ -500,6 +502,22 @@ export default function TeacherCreateExercisePage() {
                 disabled={isSaving}
                 className="max-w-md md:col-span-2"
               />
+
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="answer-pdf-download-toggle">{t('teacher.answerPdfDownload.label')}</Label>
+                <div className="flex max-w-md items-center justify-between gap-4 rounded-md border bg-background px-3 py-2">
+                  <p id="answer-pdf-download-help" className="text-sm text-muted-foreground">
+                    {t('teacher.answerPdfDownload.description')}
+                  </p>
+                  <Switch
+                    id="answer-pdf-download-toggle"
+                    checked={allowAnswerPdfDownload}
+                    onCheckedChange={setAllowAnswerPdfDownload}
+                    aria-describedby="answer-pdf-download-help"
+                    disabled={isSaving}
+                  />
+                </div>
+              </div>
 
               {/* Timed mode toggle */}
               <div className="space-y-2">
