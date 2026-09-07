@@ -198,7 +198,7 @@ describe('QuestionAssetWorkflow', () => {
     expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { name: /Question [12]/ })).toHaveLength(2)
     expect(screen.queryByText('Accessible text')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeEnabled()
     expect(screen.getByText('Final safety check').closest('[data-slot="card"]')).not.toHaveClass('sm:sticky')
     expect(screen.getByText('Final safety check').closest('[data-slot="card"]')).not.toHaveClass('sticky')
   })
@@ -387,7 +387,7 @@ describe('QuestionAssetWorkflow', () => {
 
     expect(await screen.findByText('Conflict')).toBeInTheDocument()
     expect(screen.getByLabelText('Correct answer for question 1')).toHaveTextContent('A')
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
   })
 
   it('cleans up a newly created partial set when an initial upload fails', async () => {
@@ -433,7 +433,7 @@ describe('QuestionAssetWorkflow', () => {
     expect(screen.getByRole('heading', { name: 'Question 2' })).toBeInTheDocument()
     expect(screen.getByText('Replacement required')).toBeInTheDocument()
     expect(screen.getByText('Upload question screenshot')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
   }, 10000)
 
   it('restores the latest pending preview after a reload', async () => {
@@ -517,7 +517,7 @@ describe('QuestionAssetWorkflow', () => {
     expect(screen.getByText('Upload question screenshot')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Replace exercise PDF' }))
     expect(onReplacePdf).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
   })
 
   it('uploads a screenshot for only the rejected question without requiring extracted text', async () => {
@@ -609,7 +609,7 @@ describe('QuestionAssetWorkflow', () => {
       { ...EXERCISE, pending_question_asset_set_id: 22 },
       { onActivated },
     )
-    await user.click(await screen.findByRole('button', { name: 'Confirm answers and activate' }))
+    await user.click(await screen.findByRole('button', { name: 'Activate exercise' }))
 
     expect(screen.getByRole('dialog', { name: 'Final safety check' })).toBeInTheDocument()
     expect(screen.getByText(/Confirm that every answer is correct/)).toBeInTheDocument()
@@ -640,12 +640,12 @@ describe('QuestionAssetWorkflow', () => {
     expect(await screen.findByRole('radio', { name: 'Custom allocation' })).toBeChecked()
     const firstScore = screen.getByLabelText(/Points for question 1/i)
     fireEvent.change(firstScore, { target: { value: '3.50' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm answers and activate' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Activate exercise' }))
     await waitFor(() => expect(screen.getByRole('alert', { name: 'Fix score allocation' })).toHaveFocus())
     expect(api.updateExercise).not.toHaveBeenCalled()
 
     fireEvent.change(firstScore, { target: { value: '4.00' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm answers and activate' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Activate exercise' }))
     fireEvent.click(screen.getByRole('button', { name: 'Confirm and activate' }))
     await waitFor(() => expect(api.updateExercise).toHaveBeenCalledWith('teacher-token', 9, {
       schema: customSchema,
@@ -689,13 +689,13 @@ describe('QuestionAssetWorkflow', () => {
     renderWorkflow(exercise)
 
     expect(await screen.findByText('Conflict')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
 
     const resolveConflict = screen.getByRole('button', { name: 'Keep current answer for question 1' })
     expect(resolveConflict).toHaveClass('w-full', 'whitespace-normal')
     await user.click(resolveConflict)
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: 'Confirm answers and activate' }))
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Activate exercise' }))
     await user.click(screen.getByRole('button', { name: 'Confirm and activate' }))
 
     expect(api.updateExercise).toHaveBeenCalledWith('teacher-token', 9, {
@@ -723,7 +723,7 @@ describe('QuestionAssetWorkflow', () => {
       'id',
       'question-review-1',
     )
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
   })
 
   it('links a blank final answer from the attention outline and explains how to resolve it', async () => {
@@ -747,7 +747,7 @@ describe('QuestionAssetWorkflow', () => {
     const questionOneCard = screen.getByRole('heading', { name: 'Question 1' }).closest('[data-slot="card"]')
     expect(within(questionOneCard).getByText('Needs attention')).toBeInTheDocument()
     expect(within(questionOneCard).getByText('Select or enter a valid final answer.')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
   })
 
   it('uses a destructive reject action', async () => {
