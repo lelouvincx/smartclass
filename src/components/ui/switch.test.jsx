@@ -8,8 +8,8 @@ describe('Switch', () => {
 
     const control = screen.getByRole('switch', { name: 'Enable setting' })
     expect(control).toHaveAttribute('data-state', 'checked')
-    expect(control).toHaveClass('data-[size=default]:h-8')
-    expect(control).toHaveClass('data-[size=default]:w-13')
-    expect(control.firstElementChild).toHaveClass('group-data-[size=default]/switch:size-6')
+    expect(control).toHaveClass('data-[size=default]:h-7')
+    expect(control).toHaveClass('data-[size=default]:w-12')
+    expect(control.firstElementChild).toHaveClass('group-data-[size=default]/switch:size-5')
   })
 })
