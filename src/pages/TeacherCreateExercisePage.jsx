@@ -4,8 +4,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
   createExercise,
   createExerciseFileUpload,
+  createQuestionAssetSet,
   getExercise,
   parseExerciseSchema,
+  updateExercise,
+  uploadGeneratedQuestionAsset,
   uploadExerciseFile,
 } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -39,6 +42,7 @@ import { AttemptLimitField } from '@/components/attempt-limit-field'
 import ScoreAllocationCard from '@/components/score-allocation-card'
 import { applyScoreAllocation } from '@/lib/score-allocation'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
+import { generateQuestionAssets } from '@/lib/question-generation'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -195,6 +199,61 @@ function toSchemaPayload(rows) {
   })
 }
 
+function uniqueQuestionDescriptors(rows) {
+  const byId = new Map()
+  for (const row of rows || []) {
+    const qId = Number.parseInt(String(row.q_id), 10)
+    if (!Number.isSafeInteger(qId) || qId <= 0 || byId.has(qId)) continue
+    byId.set(qId, {
+      q_id: qId,
+      section_key: row.section_key ?? 'main',
+      section_title: row.section_title ?? null,
+      local_number: Number.parseInt(String(row.local_number ?? row.q_id), 10),
+    })
+  }
+  return [...byId.values()]
+}
+
+function groupPreviewAssets(questionDescriptors, assets) {
+  return questionDescriptors.map(descriptor => ({
+    ...descriptor,
+    assets: (assets || []).filter(asset => asset.qId === descriptor.q_id),
+  }))
+}
+
+function answerPagePreviewAssets(questionDescriptors, preparedAnswerPdf) {
+  const pageFile = preparedAnswerPdf?.page_files?.[0]
+  const pageNumber = preparedAnswerPdf?.page_manifest?.[0]?.page_number ?? 1
+  if (!pageFile) return []
+  return questionDescriptors.map(descriptor => ({
+    qId: descriptor.q_id,
+    segmentIndex: 0,
+    sourcePage: pageNumber,
+    blob: pageFile,
+    fileName: `answer-page-${pageNumber}-question-${descriptor.q_id}.png`,
+  }))
+}
+
+function BlobPreviewImage({ asset, label }) {
+  const [source, setSource] = useState('')
+
+  React.useEffect(() => {
+    const objectUrl = URL.createObjectURL(asset.blob)
+    setSource(objectUrl)
+    return () => URL.revokeObjectURL(objectUrl)
+  }, [asset.blob])
+
+  if (!source) {
+    return <div className="min-h-32 animate-pulse rounded-lg border bg-muted" aria-label={label} />
+  }
+
+  return (
+    <div className="max-h-80 overflow-auto rounded-lg border bg-white">
+      <img src={source} alt="" aria-label={label} className="h-auto w-full object-contain" />
+    </div>
+  )
+}
+
 // --- Row factory ---
 
 function newRows(type, nextQid = '', descriptor = {}) {
@@ -312,6 +371,7 @@ export default function TeacherCreateExercisePage() {
   const [createdExercise, setCreatedExercise] = useState(null)
   const [questionViewGenerationKey, setQuestionViewGenerationKey] = useState(0)
   const [failedUploadName, setFailedUploadName] = useState('')
+  const [questionPreview, setQuestionPreview] = useState({ phase: 'idle', error: '', progress: null, draft: null })
   const [allocationMode, setAllocationMode] = useState('automatic')
   const [customScores, setCustomScores] = useState({})
   const allocationRef = useRef(null)
@@ -329,8 +389,22 @@ export default function TeacherCreateExercisePage() {
     if (filter === 'warnings') return validatedRows.filter((row) => row.warnings.length > 0)
     return validatedRows
   }, [filter, validatedRows])
+  const questionPreviewGroups = useMemo(() => {
+    if (!questionPreview.draft) return []
+    return groupPreviewAssets(questionPreview.draft.descriptors, questionPreview.draft.previewAssets)
+  }, [questionPreview.draft])
+  const answerPreviewGroups = useMemo(() => {
+    if (!questionPreview.draft) return new Map()
+    return new Map(groupPreviewAssets(questionPreview.draft.descriptors, questionPreview.draft.answerPreviewAssets)
+      .map(group => [group.q_id, group.assets]))
+  }, [questionPreview.draft])
+
+  function clearQuestionPreview() {
+    setQuestionPreview({ phase: 'idle', error: '', progress: null, draft: null })
+  }
 
   function handleUpdateRow(id, field, value) {
+    clearQuestionPreview()
     setRows((prev) => {
       const targetRow = prev.find((r) => r.id === id)
       if (field === 'type') {
@@ -355,6 +429,7 @@ export default function TeacherCreateExercisePage() {
   }
 
   function handleAddRow() {
+    clearQuestionPreview()
     const maxQid = rows.reduce((acc, row) => {
       const parsed = Number.parseInt(String(row.q_id), 10)
       return Number.isNaN(parsed) ? acc : Math.max(acc, parsed)
@@ -363,10 +438,12 @@ export default function TeacherCreateExercisePage() {
   }
 
   function handleReorder(newRows) {
+    clearQuestionPreview()
     setRows(newRows)
   }
 
   function handleDeleteRow(id) {
+    clearQuestionPreview()
     const targetRow = rows.find((r) => r.id === id)
     if (!targetRow) return
     if (targetRow.type === 'boolean') {
@@ -380,6 +457,7 @@ export default function TeacherCreateExercisePage() {
     if (!answerFile) return
     setIsParsing(true)
     setError('')
+    clearQuestionPreview()
     setAnswerParseProgress({ stage: 'reading', progress: 0 })
     try {
       const greenSchema = await extractGreenHighlightedAnswerSchema(answerFile, {
@@ -390,8 +468,10 @@ export default function TeacherCreateExercisePage() {
       })
       if (greenSchema.length > 0) {
         setAnswerParseProgress({ stage: 'applying', progress: 0 })
-        setRows(schemaRowsToEditableRows(greenSchema))
+        const editableRows = schemaRowsToEditableRows(greenSchema)
+        setRows(editableRows)
         setAnswerParseProgress({ stage: 'complete', progress: 1 })
+        await prepareQuestionPreview(editableRows)
         return
       }
 
@@ -403,8 +483,10 @@ export default function TeacherCreateExercisePage() {
       })
       if (detailedAnswerSchema.length > 0) {
         setAnswerParseProgress({ stage: 'applying', progress: 0 })
-        setRows(schemaRowsToEditableRows(detailedAnswerSchema))
+        const editableRows = schemaRowsToEditableRows(detailedAnswerSchema)
+        setRows(editableRows)
         setAnswerParseProgress({ stage: 'complete', progress: 1 })
+        await prepareQuestionPreview(editableRows)
         return
       }
 
@@ -423,8 +505,10 @@ export default function TeacherCreateExercisePage() {
         emptySchemaError.code = 'UNSUPPORTED_DOCUMENT'
         throw emptySchemaError
       }
-      setRows(schemaRowsToEditableRows(schema))
+      const editableRows = schemaRowsToEditableRows(schema)
+      setRows(editableRows)
       setAnswerParseProgress({ stage: 'complete', progress: 1 })
+      await prepareQuestionPreview(editableRows, prepared)
     } catch (parseError) {
       setError(parseError.recoverable || parseError.code === 'UNSUPPORTED_DOCUMENT'
         ? t('teacher.create.unreadablePdf')
@@ -433,6 +517,75 @@ export default function TeacherCreateExercisePage() {
     } finally {
       setIsParsing(false)
     }
+  }
+
+  async function prepareQuestionPreview(nextRows, preparedAnswerPdf = null) {
+    if (!exerciseFile) {
+      setQuestionPreview({
+        phase: 'error',
+        error: t('teacher.create.questionPreviewExerciseRequired'),
+        progress: null,
+        draft: null,
+      })
+      return
+    }
+
+    const descriptors = uniqueQuestionDescriptors(nextRows)
+    if (descriptors.length === 0) return
+
+    setQuestionPreview({ phase: 'generating', error: '', progress: { stage: 'reading', current: 0, total: 1 }, draft: null })
+    try {
+      const generated = await generateQuestionAssets(exerciseFile, descriptors, {
+        schemaRows: toSchemaPayload(nextRows),
+        createPreviewAssets: true,
+        onProgress: progress => setQuestionPreview(current => ({ ...current, progress })),
+      })
+      let answerPreviewAssets = []
+      try {
+        const answerGeneration = await generateQuestionAssets(answerFile, descriptors, {
+          schemaRows: toSchemaPayload(nextRows),
+          createAssets: false,
+          createPreviewAssets: true,
+        })
+        answerPreviewAssets = answerGeneration.previewAssets || []
+      } catch {
+        answerPreviewAssets = []
+      }
+      if (answerPreviewAssets.length === 0) {
+        answerPreviewAssets = answerPagePreviewAssets(descriptors, preparedAnswerPdf)
+      }
+      setQuestionPreview({
+        phase: 'ready',
+        error: '',
+        progress: null,
+        draft: {
+          descriptors,
+          detectorVersion: generated.detectorVersion,
+          detectionMethod: generated.detectionMethod,
+          assets: generated.assets,
+          previewAssets: generated.previewAssets || generated.assets,
+          answerPreviewAssets,
+        },
+      })
+    } catch (generationError) {
+      setQuestionPreview({
+        phase: 'error',
+        error: questionDetectionErrorMessage(generationError),
+        progress: null,
+        draft: null,
+      })
+    }
+  }
+
+  function questionDetectionErrorMessage(error) {
+    if (error?.code === 'SCANNED_OR_IMAGE_ONLY_PAGE') return t('teacher.questionViews.scannedUnsupported')
+    if (error?.code === 'UNEXPECTED_QUESTION_MARKER') {
+      return t('teacher.questionViews.unexpectedQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    if (error?.code === 'MISSING_QUESTION_MARKER') {
+      return t('teacher.questionViews.missingQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    return error?.message || t('teacher.questionViews.generationFailed')
   }
 
   function schemaRowsToEditableRows(schema) {
@@ -452,6 +605,7 @@ export default function TeacherCreateExercisePage() {
   }
 
   async function uploadFiles(exerciseId) {
+    const uploaded = {}
     const files = [
       { file: exerciseFile, file_type: 'exercise_pdf' },
       { file: answerFile, file_type: 'solution_pdf' },
@@ -462,13 +616,41 @@ export default function TeacherCreateExercisePage() {
           file_type: entry.file_type,
           file_name: entry.file.name,
         })
-        await uploadExerciseFile(token, exerciseId, createResponse.data, entry.file)
+        const uploadResponse = await uploadExerciseFile(token, exerciseId, createResponse.data, entry.file)
+        uploaded[entry.file_type] = uploadResponse.data
       } catch (uploadError) {
         const failure = new Error(uploadError?.message || t('teacher.create.uploadFailed'), { cause: uploadError })
         failure.failedFileName = entry.file.name
         throw failure
       }
     }
+    return uploaded
+  }
+
+  async function uploadPreparedQuestionViews(exerciseId, uploadedFiles, schemaPayload) {
+    const draft = questionPreview.draft
+    if (!draft) return null
+
+    const sourceFileId = uploadedFiles.exercise_pdf?.file_id
+    const answerSourceFileId = uploadedFiles.solution_pdf?.file_id
+    if (!sourceFileId || !answerSourceFileId) return null
+
+    const created = await createQuestionAssetSet(token, exerciseId, {
+      source_file_id: sourceFileId,
+      answer_source_file_id: answerSourceFileId,
+      answer_parser_status: 'parsed',
+      detector_version: draft.detectorVersion,
+      detection_method: draft.detectionMethod,
+    })
+    const setId = created.data.id
+    for (const asset of draft.assets) {
+      await uploadGeneratedQuestionAsset(token, exerciseId, setId, asset)
+    }
+    await updateExercise(token, exerciseId, {
+      schema: schemaPayload,
+      question_asset_set_id: setId,
+    })
+    return setId
   }
 
   async function saveExercise() {
@@ -486,12 +668,18 @@ export default function TeacherCreateExercisePage() {
       }
       const createResponse = await createExercise(token, payload)
       const exerciseId = createResponse.data.id
+      let uploadedFiles
       try {
-        await uploadFiles(exerciseId)
+        uploadedFiles = await uploadFiles(exerciseId)
       } catch (uploadError) {
         setCreatedExerciseId(exerciseId)
         setFailedUploadName(uploadError.failedFileName || '')
         setIsSaving(false)
+        return
+      }
+      if (questionPreview.draft) {
+        await uploadPreparedQuestionViews(exerciseId, uploadedFiles, payload.schema)
+        navigate(`/teacher/exercises/${exerciseId}`, { replace: true })
         return
       }
       const exerciseResponse = await getExercise(exerciseId, token)
@@ -675,7 +863,10 @@ export default function TeacherCreateExercisePage() {
                   accept=".pdf"
                   hint={t('teacher.file.pdfOnly')}
                   file={exerciseFile}
-                  onChange={setExerciseFile}
+                  onChange={(file) => {
+                    setExerciseFile(file)
+                    clearQuestionPreview()
+                  }}
                 />
                 <p className="text-xs text-sc-on-primary-container/80">
                   {t('teacher.create.exercisePdfHint')}
@@ -697,6 +888,7 @@ export default function TeacherCreateExercisePage() {
                     setAnswerFile(file)
                     setAnswerParseProgress(null)
                     setError('')
+                    clearQuestionPreview()
                   }}
                 />
                 <p className="text-xs text-sc-on-tertiary-container/80">
@@ -738,6 +930,96 @@ export default function TeacherCreateExercisePage() {
             </div>
           </CardContent>
         </Card>
+
+        {(questionPreview.phase !== 'idle') && (
+          <Card>
+            <CardHeader className="border-b px-5 py-4">
+              <div>
+                <h2 className="font-semibold">{t('teacher.questionViews.title')}</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  {t('teacher.create.questionPreviewDescription')}
+                </p>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 pt-5">
+              {questionPreview.phase === 'generating' && (
+                <div className="space-y-2" aria-live="polite">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="font-medium">
+                      {t(`teacher.questionViews.progress.${questionPreview.progress?.stage || 'reading'}`)}
+                    </span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {Math.round(((questionPreview.progress?.current || 0) / (questionPreview.progress?.total || 1)) * 100)}%
+                    </span>
+                  </div>
+                  <progress
+                    className="h-2 w-full accent-primary"
+                    value={(questionPreview.progress?.current || 0) / (questionPreview.progress?.total || 1)}
+                    max="1"
+                  />
+                </div>
+              )}
+              {questionPreview.phase === 'error' && (
+                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive" role="alert">
+                  {questionPreview.error}
+                </div>
+              )}
+              {questionPreview.phase === 'ready' && (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      {t('teacher.create.questionPreviewReady', { count: questionPreviewGroups.length })}
+                    </p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => prepareQuestionPreview(rows)}>
+                      {t('teacher.questionViews.generateNewPreview')}
+                    </Button>
+                  </div>
+                  {questionPreviewGroups.map((group) => {
+                    const answerAssets = answerPreviewGroups.get(group.q_id) || []
+                    return (
+                      <div key={group.q_id} className="rounded-lg border">
+                        <div className="border-b px-4 py-3">
+                          <h3 className="font-medium">
+                            {group.section_title
+                              ? t('teacher.questionViews.questionInSection', { section: group.section_title, number: group.local_number })
+                              : t('teacher.questionViews.question', { number: group.local_number })}
+                          </h3>
+                        </div>
+                        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
+                          <div className="min-w-0 space-y-4">
+                            {group.assets.map((asset, index) => (
+                              <figure key={`${asset.fileName}:${index}`} className="space-y-3">
+                                <figcaption className="text-xs font-medium text-muted-foreground">
+                                  {group.assets.length > 1
+                                    ? t('teacher.questionViews.exerciseSegment', { current: index + 1, total: group.assets.length })
+                                    : t('teacher.questionViews.exerciseCrop')}
+                                </figcaption>
+                                <BlobPreviewImage asset={asset} label={t('teacher.questionViews.exerciseCrop')} />
+                              </figure>
+                            ))}
+                            {answerAssets.map((asset, index) => (
+                              <figure key={`${asset.fileName}:answer:${index}`} className="space-y-3">
+                                <figcaption className="text-xs font-medium text-muted-foreground">
+                                  {answerAssets.length > 1
+                                    ? t('teacher.questionViews.answerSegment', { current: index + 1, total: answerAssets.length })
+                                    : t('teacher.questionViews.answerCrop')}
+                                </figcaption>
+                                <BlobPreviewImage asset={asset} label={t('teacher.questionViews.answerCrop')} />
+                              </figure>
+                            ))}
+                          </div>
+                          <div className="min-w-0 rounded-lg bg-muted/30 p-4 text-sm text-muted-foreground">
+                            {t('teacher.create.questionPreviewAnswerHint')}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Schema table card */}
         <Card>

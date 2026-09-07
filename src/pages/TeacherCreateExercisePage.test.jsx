@@ -8,20 +8,27 @@ import TeacherCreateExercisePage from './TeacherCreateExercisePage'
 const createExerciseMock = vi.fn()
 const getExerciseMock = vi.fn()
 const parseExerciseSchemaMock = vi.fn()
+const createQuestionAssetSetMock = vi.fn()
+const uploadGeneratedQuestionAssetMock = vi.fn()
+const updateExerciseMock = vi.fn()
 const createExerciseFileUploadMock = vi.fn()
 const uploadExerciseFileMock = vi.fn()
 const prepareAnswerPdfForParsingMock = vi.fn()
 const extractGreenHighlightedAnswerSchemaMock = vi.fn()
 const extractDetailedAnswerKeySchemaMock = vi.fn()
 const questionAssetWorkflowMock = vi.fn()
+const generateQuestionAssetsMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
   return {
     ...actual,
     createExercise: (...args) => createExerciseMock(...args),
+    createQuestionAssetSet: (...args) => createQuestionAssetSetMock(...args),
     getExercise: (...args) => getExerciseMock(...args),
     parseExerciseSchema: (...args) => parseExerciseSchemaMock(...args),
+    updateExercise: (...args) => updateExerciseMock(...args),
+    uploadGeneratedQuestionAsset: (...args) => uploadGeneratedQuestionAssetMock(...args),
     createExerciseFileUpload: (...args) => createExerciseFileUploadMock(...args),
     uploadExerciseFile: (...args) => uploadExerciseFileMock(...args),
   }
@@ -38,6 +45,10 @@ vi.mock('../lib/pdf', () => ({
   extractDetailedAnswerKeySchema: (...args) => extractDetailedAnswerKeySchemaMock(...args),
   extractGreenHighlightedAnswerSchema: (...args) => extractGreenHighlightedAnswerSchemaMock(...args),
   prepareAnswerPdfForParsing: (...args) => prepareAnswerPdfForParsingMock(...args),
+}))
+
+vi.mock('../lib/question-generation', () => ({
+  generateQuestionAssets: (...args) => generateQuestionAssetsMock(...args),
 }))
 
 const logoutMock = vi.fn()
@@ -64,11 +75,17 @@ async function uploadRequiredPdfs() {
 
 describe('TeacherCreateExercisePage', () => {
   beforeEach(() => {
+    if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:preview')
+    if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
     createExerciseMock.mockReset()
     getExerciseMock.mockReset()
     parseExerciseSchemaMock.mockReset()
+    createQuestionAssetSetMock.mockReset()
+    uploadGeneratedQuestionAssetMock.mockReset()
+    updateExerciseMock.mockReset()
     createExerciseFileUploadMock.mockReset()
     uploadExerciseFileMock.mockReset()
+    generateQuestionAssetsMock.mockReset()
     prepareAnswerPdfForParsingMock.mockReset()
     extractDetailedAnswerKeySchemaMock.mockReset()
     extractGreenHighlightedAnswerSchemaMock.mockReset()
@@ -96,6 +113,43 @@ describe('TeacherCreateExercisePage', () => {
     }))
     questionAssetWorkflowMock.mockReset()
     logoutMock.mockReset()
+    createQuestionAssetSetMock.mockResolvedValue({ data: { id: 707 } })
+    uploadGeneratedQuestionAssetMock.mockResolvedValue({ data: { id: 1 } })
+    updateExerciseMock.mockResolvedValue({ data: { id: 1 } })
+    generateQuestionAssetsMock.mockResolvedValue({
+      detectorVersion: 'question-detector-test',
+      detectionMethod: 'text',
+      assets: [{
+        id: 'preview-1',
+        qId: 1,
+        segmentIndex: 0,
+        sourcePage: 1,
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        confidence: 1,
+        blob: new Blob(['image'], { type: 'image/webp' }),
+        pixelWidth: 100,
+        pixelHeight: 100,
+        fileName: 'question-1-1.webp',
+      }],
+      previewAssets: [{
+        qId: 1,
+        segmentIndex: 0,
+        sourcePage: 1,
+        x: 0,
+        y: 0,
+        width: 1,
+        height: 1,
+        confidence: 1,
+        blob: new Blob(['image'], { type: 'image/webp' }),
+        pixelWidth: 100,
+        pixelHeight: 100,
+        fileName: 'question-1-1.webp',
+      }],
+      answerCandidates: [],
+    })
   })
 
   it('lets the metadata form shrink to narrow mobile widths', () => {
@@ -387,6 +441,71 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByText('Answers are ready to review')).toBeInTheDocument()
     expect(parseExerciseSchemaMock).not.toHaveBeenCalled()
     expect(prepareAnswerPdfForParsingMock).not.toHaveBeenCalled()
+  })
+
+  it('prepares question views inside the create form after reading answers', async () => {
+    const user = userEvent.setup()
+    extractDetailedAnswerKeySchemaMock.mockResolvedValue([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+    ])
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.upload(screen.getByLabelText(/Exercise PDF/i), new File(['exercise'], 'questions.pdf', { type: 'application/pdf' }))
+    await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer'], 'answers.pdf', { type: 'application/pdf' }))
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByRole('heading', { name: 'Question views' })).toBeInTheDocument()
+    expect(screen.getByText('1 question views are ready to save.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Exercise PDF crop')).toBeInTheDocument()
+    expect(screen.getByLabelText('Answer PDF crop (teacher-only)')).toBeInTheDocument()
+    expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
+      expect.any(File),
+      [expect.objectContaining({ q_id: 1, local_number: 1 })],
+      expect.objectContaining({ createPreviewAssets: true }),
+    )
+  })
+
+  it('saves and activates question views prepared during creation', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 808 } })
+    createExerciseFileUploadMock
+      .mockResolvedValueOnce({ data: { r2_key: 'exercise-key', file_type: 'exercise_pdf' } })
+      .mockResolvedValueOnce({ data: { r2_key: 'answer-key', file_type: 'solution_pdf' } })
+    uploadExerciseFileMock
+      .mockResolvedValueOnce({ data: { file_id: 81 } })
+      .mockResolvedValueOnce({ data: { file_id: 82 } })
+    extractDetailedAnswerKeySchemaMock.mockResolvedValue([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+    ])
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="/" element={<TeacherCreateExercisePage />} />
+          <Route path="/teacher/exercises/:id" element={<p>Detail page</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Prepared quiz')
+    await user.upload(screen.getByLabelText(/Exercise PDF/i), new File(['exercise'], 'questions.pdf', { type: 'application/pdf' }))
+    await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer'], 'answers.pdf', { type: 'application/pdf' }))
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+    expect(await screen.findByText('1 question views are ready to save.')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    await waitFor(() => expect(createQuestionAssetSetMock).toHaveBeenCalledWith('test-token', 808, expect.objectContaining({
+      source_file_id: 81,
+      answer_source_file_id: 82,
+      detector_version: 'question-detector-test',
+      detection_method: 'text',
+    })))
+    expect(uploadGeneratedQuestionAssetMock).toHaveBeenCalledWith('test-token', 808, 707, expect.objectContaining({ qId: 1 }))
+    expect(updateExerciseMock).toHaveBeenCalledWith('test-token', 808, expect.objectContaining({ question_asset_set_id: 707 }))
+    expect(await screen.findByText('Detail page')).toBeInTheDocument()
+    expect(questionAssetWorkflowMock).not.toHaveBeenCalled()
   })
 
   it('inserts manual-review rows when parsed answers skip source question numbers', async () => {
