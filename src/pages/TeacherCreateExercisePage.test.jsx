@@ -84,6 +84,8 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     expect(screen.getByTestId('exercise-pdf-upload')).toHaveClass('bg-sc-primary-container')
     expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
+    expect(screen.getByTestId('answer-pdf-upload')).not.toContainElement(screen.getByRole('button', { name: /read answers from pdf/i }))
+    expect(screen.getByTestId('answer-parse-action')).toContainElement(screen.getByRole('button', { name: /read answers from pdf/i }))
   })
 
   it('defaults new exercises to one attempt', () => {

@@ -582,7 +582,7 @@ export default function TeacherCreateExercisePage() {
                 </p>
               </div>
 
-              {/* Answer PDF upload + answer extraction grouped as related actions */}
+              {/* Answer PDF upload */}
               <div data-testid="answer-pdf-upload" className="space-y-2 rounded-[var(--sc-component-control-shape)] border border-[var(--sc-tertiary)]/20 bg-sc-tertiary-container p-4 text-sc-on-tertiary-container">
                 <Label htmlFor="answerFile" className="gap-2">
                   <FileCheck2 aria-hidden="true" className="size-4" />
@@ -602,40 +602,45 @@ export default function TeacherCreateExercisePage() {
                 <p className="text-xs text-sc-on-tertiary-container/80">
                   {t('teacher.create.answerPdfHint')}
                 </p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!answerFile || isParsing}
-                  onClick={handleParseSchema}
-                  className="w-full mt-2"
-                >
-                  {isParsing ? (
-                    <>
-                      <Spinner className="mr-1.5" aria-label={t('common.loading')} />
-                      {t('teacher.create.reading')}
-                    </>
-                  ) : (
-                    t('teacher.create.readAnswers')
-                  )}
-                </Button>
-                {answerParseProgress && (
-                  <AnswerParseProgress
-                    stage={answerParseProgress.stage}
-                    stageProgress={answerParseProgress.progress}
-                    labels={{
-                      reading: t('teacher.answerParse.reading'),
-                      rendering: t('teacher.answerParse.rendering'),
-                      waiting: t('teacher.answerParse.waiting'),
-                      stillWaiting: t('teacher.answerParse.stillWaiting'),
-                      applying: t('teacher.answerParse.applying'),
-                      complete: t('teacher.answerParse.complete'),
-                      error: t('teacher.answerParse.error'),
-                    }}
-                  />
-                )}
               </div>
+
             </div>
+          </CardContent>
+        </Card>
+
+        <Card data-testid="answer-parse-action" size="sm">
+          <CardContent className="space-y-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!answerFile || isParsing}
+              onClick={handleParseSchema}
+              className="w-full"
+            >
+              {isParsing ? (
+                <>
+                  <Spinner className="mr-1.5" aria-label={t('common.loading')} />
+                  {t('teacher.create.reading')}
+                </>
+              ) : (
+                t('teacher.create.readAnswers')
+              )}
+            </Button>
+            {answerParseProgress && (
+              <AnswerParseProgress
+                stage={answerParseProgress.stage}
+                stageProgress={answerParseProgress.progress}
+                labels={{
+                  reading: t('teacher.answerParse.reading'),
+                  rendering: t('teacher.answerParse.rendering'),
+                  waiting: t('teacher.answerParse.waiting'),
+                  stillWaiting: t('teacher.answerParse.stillWaiting'),
+                  applying: t('teacher.answerParse.applying'),
+                  complete: t('teacher.answerParse.complete'),
+                  error: t('teacher.answerParse.error'),
+                }}
+              />
+            )}
           </CardContent>
         </Card>
 
