@@ -7,7 +7,7 @@ function SegmentedButtonGroup({ className, ...props }) {
     <div
       data-slot="segmented-button-group"
       className={cn(
-        "inline-flex min-h-[var(--sc-component-hit-target)] overflow-hidden rounded-[var(--sc-component-control-shape)] border border-input bg-background p-0.5 shadow-sm",
+        "inline-flex min-h-[var(--sc-component-hit-target)] overflow-hidden rounded-[var(--sc-component-control-shape)] border border-input bg-background p-px shadow-sm",
         className,
       )}
       {...props}

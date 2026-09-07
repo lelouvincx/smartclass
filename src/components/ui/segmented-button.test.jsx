@@ -12,6 +12,7 @@ describe('SegmentedButton', () => {
     )
 
     expect(screen.getByRole('group', { name: 'Quick presets' })).toHaveAttribute('data-slot', 'segmented-button-group')
+    expect(screen.getByRole('group', { name: 'Quick presets' })).toHaveClass('p-px')
     expect(screen.getByRole('button', { name: '60 minutes' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: '90 minutes' })).toHaveAttribute('aria-pressed', 'false')
   })
