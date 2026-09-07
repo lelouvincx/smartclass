@@ -97,7 +97,7 @@ export default function StudentExercisesPage() {
         }
       />
 
-      <Card>
+      <Card className="py-0">
         {isLoading && (
           <p className="p-5 text-sm text-muted-foreground">{t('student.exercises.loading')}</p>
         )}
