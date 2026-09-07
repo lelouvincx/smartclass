@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Align loading spinners and progress bars with Material Design 3 progress indicators. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Use Google Material Symbols for app icons and remove the Lucide icon dependency. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Standardize shared UI primitives against the Material 3 component adoption plan. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Document the Material 3 component adoption plan for shared UI primitives, missing components, deferred components, rollout order, and review gates. [#129](https://github.com/lelouvincx/smartclass/pull/129)

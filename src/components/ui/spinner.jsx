@@ -1,16 +1,17 @@
 import { cn } from "@/lib/utils"
-import { Loader2Icon } from "@/components/material-symbol"
 
 function Spinner({
   className,
   ...props
 }) {
   return (
-    <Loader2Icon
+    <span
       role="status"
       aria-label="Loading"
-      className={cn("size-4 animate-spin", className)}
-      {...props} />
+      data-slot="spinner"
+      className={cn("sc-circular-progress-indicator size-4", className)}
+      {...props}
+    />
   );
 }
 

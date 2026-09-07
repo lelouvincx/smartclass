@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertCircle, Camera, ImagePlus, Loader2, RotateCcw, X } from '@/components/material-symbol'
+import { AlertCircle, Camera, ImagePlus, RotateCcw, X } from '@/components/material-symbol'
 import { Button } from '@/components/ui/button'
 import FileDropzone from '@/components/file-dropzone'
+import { ProgressIndicator } from '@/design-system/progress-indicator'
+import { Spinner } from '@/components/ui/spinner'
 import { extractAnswersFromImage } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
@@ -211,18 +213,16 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                   <div className="text-xs text-muted-foreground">
                     {t('student.upload.uploading', { percent: Math.round(progress * 100) })}
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${Math.round(progress * 100)}%` }}
-                    />
-                  </div>
+                  <ProgressIndicator
+                    label={t('student.upload.uploading', { percent: Math.round(progress * 100) })}
+                    value={Math.round(progress * 100)}
+                  />
                 </div>
               )}
 
               {phase === 'extracting' && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="size-4 animate-spin" />
+                  <Spinner className="size-4" aria-label={t('student.upload.extracting')} />
                   {t('student.upload.extracting')}
                 </div>
               )}

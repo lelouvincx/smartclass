@@ -21,4 +21,13 @@ describe('ProgressIndicator', () => {
     rerender(<ProgressIndicator value={-10} valueText="Too low" />)
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
   })
+
+  it('exposes indeterminate progress without a determinate value', () => {
+    render(<ProgressIndicator label="Loading preview" valueText="Loading preview" />)
+
+    const progressbar = screen.getByRole('progressbar', { name: 'Loading preview' })
+    expect(progressbar).not.toHaveAttribute('aria-valuenow')
+    expect(progressbar).toHaveAttribute('data-indeterminate')
+    expect(progressbar).toHaveAttribute('aria-valuetext', 'Loading preview')
+  })
 })

@@ -1,6 +1,7 @@
 import { useTheme } from "@/components/theme-provider"
 import { Toaster as Sonner } from "sonner";
-import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "@/components/material-symbol"
+import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon } from "@/components/material-symbol"
+import { Spinner } from "@/components/ui/spinner"
 
 const Toaster = ({
   ...props
@@ -25,7 +26,7 @@ const Toaster = ({
           <OctagonXIcon className="size-4" />
         ),
         loading: (
-          <Loader2Icon className="size-4 animate-spin" />
+          <Spinner className="size-4" />
         ),
       }}
       style={

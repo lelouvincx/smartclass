@@ -67,12 +67,54 @@
   }
 }
 
+@layer components {
+  .sc-linear-progress-indicator__bar {
+    animation: sc-linear-progress-indicator 1.45s infinite var(--sc-motion-standard);
+  }
+
+  .sc-circular-progress-indicator {
+    --sc-circular-progress-size: 1rem;
+    --sc-circular-progress-thickness: 0.125rem;
+    display: inline-block;
+    width: var(--sc-circular-progress-size);
+    height: var(--sc-circular-progress-size);
+    border: var(--sc-circular-progress-thickness) solid var(--sc-secondary-container);
+    border-block-start-color: var(--sc-primary);
+    border-inline-end-color: var(--sc-primary);
+    border-radius: var(--sc-shape-full);
+    animation: sc-circular-progress-indicator 900ms linear infinite;
+  }
+}
+
+@keyframes sc-linear-progress-indicator {
+  0% {
+    transform: translateX(-120%);
+  }
+  50% {
+    transform: translateX(70%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes sc-circular-progress-indicator {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :root {
     --sc-motion-duration-short: 1ms;
     --sc-motion-duration-medium: 1ms;
     --sc-motion-duration-long: 1ms;
     --sc-motion-expressive: var(--sc-motion-standard);
+  }
+
+  .sc-linear-progress-indicator__bar,
+  .sc-circular-progress-indicator {
+    animation-duration: 2500ms;
   }
 }
 
