@@ -118,11 +118,11 @@ function StatusBadge({ row }) {
   const { t } = useTranslation()
 
   if (row.errors?.length > 0) {
-    return <Badge variant="destructive" className="h-auto min-h-5 max-w-36 overflow-visible whitespace-normal py-1 text-left leading-4">{row.errors[0]}</Badge>
+    return <Badge variant="destructive" className="h-7 rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap">{row.errors[0]}</Badge>
   }
 
   if (row.warnings?.length > 0) {
-    return <Badge variant="warning" className="h-auto min-h-5 max-w-36 overflow-visible whitespace-normal py-1 text-left leading-4">{row.warnings[0]}</Badge>
+    return <Badge variant="warning" className="h-7 rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap">{row.warnings[0]}</Badge>
   }
 
   return <Badge variant="success">{t('teacher.schema.valid')}</Badge>
@@ -196,7 +196,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
         </TableCell>
       )}
 
-      <TableCell className="px-3 py-2">
+      <TableCell className="min-w-40 px-3 py-2">
         <StatusBadge row={row} />
       </TableCell>
 
@@ -302,7 +302,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
             </TableCell>
           )}
 
-          <TableCell className="px-3 py-2">
+          <TableCell className="min-w-40 px-3 py-2">
             <StatusBadge row={row} />
           </TableCell>
 
