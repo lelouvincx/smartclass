@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add a non-product Pillow-based vision question-locator POC script with ruler overlays, structured box validation, and crop previews. [#128](https://github.com/lelouvincx/smartclass/pull/128)
+- Add an isolated experimental Cohere Parse blocks adapter for Answer PDF table extraction. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Let teachers choose whether students can download an exercise's Answer PDF after submitting and reviewing their work. [#125](https://github.com/lelouvincx/smartclass/pull/125)
 - Add ĐGNL as an access class for students, exercises, and lectures alongside grades 10 to 12. [#116](https://github.com/lelouvincx/smartclass/pull/116)
 - Add teacher-assigned Standard and VIP student tiers, lecture minimum tiers, and a public Guest workspace with lecture browsing, playback, language selection, and a disabled coming-soon exercise destination. [#116](https://github.com/lelouvincx/smartclass/pull/116)
@@ -25,6 +27,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Use Google Material Symbols for app icons and remove the Lucide icon dependency. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Standardize shared UI primitives against the Material 3 component adoption plan. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Document the Material 3 component adoption plan for shared UI primitives, missing components, deferred components, rollout order, and review gates. [#129](https://github.com/lelouvincx/smartclass/pull/129)
+- Merge create-stage question-view crops with per-question answer review controls, including teacher-only Answer PDF previews below Exercise PDF crops. [#128](https://github.com/lelouvincx/smartclass/pull/128)
+- Insert manual-review answer rows when parsed Answer PDFs skip source question numbers, so teachers can fill gaps before question-view generation. [#128](https://github.com/lelouvincx/smartclass/pull/128)
+- Keep teachers on exercise creation to prepare and activate question views immediately after reading answers from PDF, before saving, while keeping safe partial question views for teacher replacement when some markers are missing. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Default student programme selectors to Grade 12 instead of all programmes. [#127](https://github.com/lelouvincx/smartclass/pull/127)
 - Allow the production API to accept the alternate frontend domain `tienganhcothuy.com` alongside `toanthaythanh.com`. [#126](https://github.com/lelouvincx/smartclass/pull/126)
 - Replace DeepSeek with Cohere Parse v5 for Answer PDF and student answer-photo extraction, with deterministic parsing and safe abstention for ambiguous results. [#119](https://github.com/lelouvincx/smartclass/pull/119)
@@ -44,6 +49,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Ignore or clip unusable PDF text geometry before question-view detection so selectable PDFs with stray text items can still generate previews. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Vertically center Standard and VIP options in teacher access-tier radio cards. [#120](https://github.com/lelouvincx/smartclass/pull/120)
 - Treat Answer PDF parses with no extracted answer rows as recoverable manual-entry failures instead of showing a false ready state, and read green-highlighted or detailed-solution MCQ choices from worked-solution PDFs. [#122](https://github.com/lelouvincx/smartclass/pull/122)
 - Show the authenticated PDF viewing action for both Exercise PDFs and teacher-only Answer PDFs. [#113](https://github.com/lelouvincx/smartclass/pull/113)

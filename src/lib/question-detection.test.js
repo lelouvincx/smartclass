@@ -166,11 +166,37 @@ describe('detectQuestionRegions', () => {
   })
 
   it.each([
-    ['MISSING_QUESTION_MARKER', [page(1, [item('Câu 1', 20, 0)])], [1, 2]],
     ['DUPLICATE_QUESTION_MARKER', [page(1, [item('Câu 1', 20, 0), item('Question 1', 80, 1)])], [1]],
-    ['UNEXPECTED_QUESTION_MARKER', [page(1, [item('Câu 1', 20, 0), item('Câu 9', 80, 1)])], [1]],
-  ])('blocks structural marker failure %s', (errorCode, pages, ids) => {
+  ])('blocks ambiguous structural marker failure %s', (errorCode, pages, ids) => {
     expect(() => detectQuestionRegions(pages, ids)).toThrow(code(errorCode))
+  })
+
+  it('keeps detected question regions when another expected marker is missing', () => {
+    const result = detectQuestionRegions([
+      page(1, [item('Câu 1', 20, 0), item('Body one', 50, 1)]),
+    ], [1, 2])
+
+    expect(result.questions).toHaveLength(2)
+    expect(result.questions[0].segments).toHaveLength(1)
+    expect(result.questions[1]).toEqual({ qId: 2, segments: [] })
+    expect(result.warnings).toContainEqual({ code: 'MISSING_QUESTION_MARKER', qId: 2 })
+  })
+
+  it('uses unexpected question markers as safe crop boundaries without blocking partial generation', () => {
+    const result = detectQuestionRegions([
+      page(1, [
+        item('Câu 1', 20, 0),
+        item('Body one', 50, 1),
+        item('Câu 2', 90, 2),
+        item('Missing from schema', 120, 3),
+        item('Câu 3', 180, 4),
+      ]),
+    ], [1, 3])
+
+    expect(result.questions.map(question => [question.qId, question.segments.length])).toEqual([[1, 1], [3, 1]])
+    expect(result.questions[0].segments[0]._bottomAnchorType).toBe('question')
+    expect(result.questions[0].segments[0].accessibleText).toBe('Câu 1 Body one')
+    expect(result.warnings).toContainEqual({ code: 'UNEXPECTED_QUESTION_MARKER', qId: 2 })
   })
 
   it('rejects invalid page and item geometry', () => {

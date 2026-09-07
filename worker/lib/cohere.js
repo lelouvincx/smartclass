@@ -17,11 +17,11 @@ function hasHtmlTable(markdown) {
   return /<table\b[^>]*>[\s\S]*?<\/table>/i.test(markdown)
 }
 
-export async function parseImageWithCohere(env, {
+async function requestImageParse(env, {
   imageBytes,
   contentType,
   signal: callerSignal,
-  requireHtmlTable = true,
+  outputFormat,
 }) {
   if (!env?.COHERE_API_KEY) {
     throw new Error('COHERE_API_KEY is not configured')
@@ -71,7 +71,7 @@ export async function parseImageWithCohere(env, {
           type: 'image_url',
           image_url: `data:${contentType || 'image/jpeg'};base64,${bytesToBase64(imageBytes)}`,
         },
-        output_format: 'markdown',
+        output_format: outputFormat,
       }),
       signal: controller.signal,
     }), aborted])
@@ -92,6 +92,21 @@ export async function parseImageWithCohere(env, {
   }
 
   const providerMs = Math.round(performance.now() - started)
+  return { payload, providerMs }
+}
+
+export async function parseImageWithCohere(env, {
+  imageBytes,
+  contentType,
+  signal: callerSignal,
+  requireHtmlTable = true,
+}) {
+  const { payload, providerMs } = await requestImageParse(env, {
+    imageBytes,
+    contentType,
+    signal: callerSignal,
+    outputFormat: 'markdown',
+  })
   const markdown = payload?.pages?.[0]?.markdown?.content
   const billedPages = payload?.meta?.billed_units?.pages
   if (typeof markdown !== 'string' || !Number.isFinite(billedPages)) {
@@ -103,6 +118,36 @@ export async function parseImageWithCohere(env, {
 
   return {
     markdown,
+    provider_ms: providerMs,
+    billed_pages: billedPages,
+  }
+}
+
+export async function parseImageBlocksWithCohere(env, {
+  imageBytes,
+  contentType,
+  signal: callerSignal,
+  requireTableBlock = true,
+}) {
+  const { payload, providerMs } = await requestImageParse(env, {
+    imageBytes,
+    contentType,
+    signal: callerSignal,
+    outputFormat: 'blocks',
+  })
+  const blocks = payload?.pages?.[0]?.blocks
+  const billedPages = payload?.meta?.billed_units?.pages
+  if (!Array.isArray(blocks) || !Number.isFinite(billedPages)) {
+    throw new Error('Cohere Parse returned a malformed response')
+  }
+  if (requireTableBlock && !blocks.some(block => block?.type === 'table'
+    && (!block.table?.type || block.table.type === 'html')
+    && typeof block.table?.html === 'string')) {
+    throw new Error('Cohere Parse returned no table block')
+  }
+
+  return {
+    blocks,
     provider_ms: providerMs,
     billed_pages: billedPages,
   }

@@ -271,7 +271,6 @@ export default function TeacherViewExercisePage() {
   const { id } = useParams()
   const { token } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
 
   const [exercise, setExercise] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -295,9 +294,7 @@ export default function TeacherViewExercisePage() {
   const [editExerciseFile, setEditExerciseFile] = useState(null)
   const [editSolutionFile, setEditSolutionFile] = useState(null)
   const [openingFileId, setOpeningFileId] = useState(null)
-  const [autoGenerateKey, setAutoGenerateKey] = useState(
-    location.state?.generateQuestionViews ? 1 : 0,
-  )
+  const [autoGenerateKey, setAutoGenerateKey] = useState(0)
 
   const validatedRows = useMemo(() => validateRows(editRows, t), [editRows, t])
   const hasErrors = validatedRows.some((r) => r.errors.length > 0)
@@ -317,12 +314,6 @@ export default function TeacherViewExercisePage() {
     }
     load()
   }, [id, token])
-
-  useEffect(() => {
-    if (location.state?.generateQuestionViews) {
-      navigate(location.pathname, { replace: true, state: null })
-    }
-  }, [location.pathname, location.state, navigate])
 
   function enterEditMode() {
     setEditTitle(exercise.title)
