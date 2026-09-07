@@ -12,6 +12,7 @@ const api = vi.hoisted(() => ({
   getQuestionAssetSet: vi.fn(),
   parseExerciseSchema: vi.fn(),
   rejectQuestionAsset: vi.fn(),
+  replaceQuestionAnswerAssetWithScreenshot: vi.fn(),
   replaceQuestionAssetsWithGenerated: vi.fn(),
   replaceQuestionAssetWithScreenshot: vi.fn(),
   updateExercise: vi.fn(),
@@ -436,7 +437,8 @@ describe('QuestionAssetWorkflow', () => {
     expect(screen.getByRole('heading', { name: 'Question 1' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Question 2' })).toBeInTheDocument()
     expect(screen.getByText('Replacement required')).toBeInTheDocument()
-    expect(screen.getByText('Upload question screenshot')).toBeInTheDocument()
+    expect(screen.getAllByText('Upload question screenshot')).toHaveLength(2)
+    expect(screen.getAllByText('Upload answer screenshot')).toHaveLength(2)
     expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
   }, 10000)
 
@@ -447,6 +449,8 @@ describe('QuestionAssetWorkflow', () => {
 
     expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
     expect(api.getQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, 22)
+    expect(screen.getAllByText('Upload question screenshot')).toHaveLength(2)
+    expect(screen.getAllByText('Upload answer screenshot')).toHaveLength(2)
   })
 
   it('replaces an old pending preview immediately after the exercise PDF changes', async () => {
@@ -518,38 +522,121 @@ describe('QuestionAssetWorkflow', () => {
 
     expect(await screen.findByText('Replacement required')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Retry detection' })).toBeInTheDocument()
-    expect(screen.getByText('Upload question screenshot')).toBeInTheDocument()
+    expect(screen.getAllByText('Upload question screenshot')).toHaveLength(2)
+    expect(screen.getAllByText('Upload answer screenshot')).toHaveLength(2)
     await userEvent.click(screen.getByRole('button', { name: 'Replace exercise PDF' }))
     expect(onReplacePdf).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeDisabled()
   })
 
-  it('uploads a screenshot for only the rejected question without requiring extracted text', async () => {
+  it('uploads alternate exercise and answer screenshots for a question', async () => {
     const user = userEvent.setup()
     api.getQuestionAssetSet
       .mockResolvedValueOnce(preview([
-        storedAsset(1, { rejected_at: '2026-09-03T12:00:00.000Z' }),
+        storedAsset(1),
         storedAsset(2),
       ]))
       .mockResolvedValueOnce(preview([
         storedAsset(1, { source_kind: 'teacher_screenshot', confidence: null }),
         storedAsset(2),
       ]))
+      .mockResolvedValueOnce(preview([
+        storedAsset(1, { source_kind: 'teacher_screenshot', confidence: null }),
+        storedAsset(2),
+      ], {
+        answerCandidates: [],
+        schema: EXERCISE.schema,
+      }))
     api.replaceQuestionAssetWithScreenshot.mockResolvedValue({ data: {} })
+    api.replaceQuestionAnswerAssetWithScreenshot.mockResolvedValue({ data: {} })
 
     renderWorkflow({ ...EXERCISE, pending_question_asset_set_id: 22 })
-    await screen.findByText('Replacement required')
+    const questionOneHeading = await screen.findByRole('heading', { name: 'Question 1' })
+    const questionOneCard = questionOneHeading.closest('[data-slot="card"]')
     await user.upload(
       screen.getByLabelText('Screenshot for question 1'),
       new File(['png'], 'question-1.png', { type: 'image/png' }),
     )
-    await user.click(screen.getByRole('button', { name: 'Use this screenshot' }))
+    await user.click(within(questionOneCard).getByRole('button', { name: 'Use this screenshot' }))
 
     expect(api.replaceQuestionAssetWithScreenshot).toHaveBeenCalledWith(
       'teacher-token',
       9,
       22,
       1,
+      expect.any(File),
+      expect.objectContaining({ onProgress: expect.any(Function) }),
+    )
+
+    await waitFor(() => expect(api.getQuestionAssetSet).toHaveBeenCalledTimes(2))
+    await user.upload(
+      screen.getByLabelText('Answer screenshot for question 1'),
+      new File(['png'], 'answer-1.png', { type: 'image/png' }),
+    )
+    await user.click(within(questionOneCard).getByRole('button', { name: 'Use this answer image' }))
+
+    expect(api.replaceQuestionAnswerAssetWithScreenshot).toHaveBeenCalledWith(
+      'teacher-token',
+      9,
+      22,
+      1,
+      expect.any(File),
+      expect.objectContaining({ onProgress: expect.any(Function) }),
+    )
+    await waitFor(() => expect(api.getQuestionAssetSet).toHaveBeenCalledTimes(3))
+  })
+
+  it('shows stored teacher-only answer images before generated answer previews', async () => {
+    api.getQuestionAssetSet.mockResolvedValue({
+      data: {
+        ...preview([
+          storedAsset(1),
+          storedAsset(2),
+        ], { schema: EXERCISE.schema }).data,
+        answer_assets: [{
+          id: 501,
+          asset_set_id: 22,
+          q_id: 1,
+          segment_index: 0,
+          mime_type: 'image/png',
+          file_url: '/api/question-assets/answer/501',
+        }],
+      },
+    })
+
+    renderWorkflow({ ...EXERCISE, pending_question_asset_set_id: 22 })
+
+    await screen.findByRole('heading', { name: 'Question 1' })
+    expect(api.getQuestionAssetBlob).toHaveBeenCalledWith('teacher-token', '/api/question-assets/answer/501')
+  })
+
+  it('uploads a screenshot for a missing question without requiring extracted text', async () => {
+    const user = userEvent.setup()
+    api.getQuestionAssetSet
+      .mockResolvedValueOnce(preview([
+        storedAsset(1),
+      ]))
+      .mockResolvedValueOnce(preview([
+        storedAsset(1),
+        storedAsset(2, { source_kind: 'teacher_screenshot', confidence: null }),
+      ]))
+    api.replaceQuestionAssetWithScreenshot.mockResolvedValue({ data: {} })
+
+    renderWorkflow({ ...EXERCISE, pending_question_asset_set_id: 22 })
+    await screen.findByText('Replacement required')
+    const questionTwoHeading = screen.getByRole('heading', { name: 'Question 2' })
+    const questionTwoCard = questionTwoHeading.closest('[data-slot="card"]')
+    await user.upload(
+      screen.getByLabelText('Screenshot for question 2'),
+      new File(['png'], 'question-2.png', { type: 'image/png' }),
+    )
+    await user.click(within(questionTwoCard).getByRole('button', { name: 'Use this screenshot' }))
+
+    expect(api.replaceQuestionAssetWithScreenshot).toHaveBeenCalledWith(
+      'teacher-token',
+      9,
+      22,
+      2,
       expect.any(File),
       expect.objectContaining({ onProgress: expect.any(Function) }),
     )

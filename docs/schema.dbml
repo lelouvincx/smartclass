@@ -1,6 +1,6 @@
 // SmartClass - Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0021_add_answer_pdf_download_setting
+// Last updated: migration 0022_add_question_answer_assets
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -116,6 +116,25 @@ Table exercise_question_assets {
   indexes {
     (asset_set_id, q_id, segment_index) [unique, name: 'idx_exercise_question_assets_set_question']
   }
+}
+
+Table exercise_question_answer_assets {
+  id            integer [pk, increment]
+  asset_set_id  integer [not null, ref: > exercise_question_asset_sets.id, note: 'ON DELETE CASCADE']
+  q_id          integer [not null]
+  segment_index integer [not null, note: 'Contiguous and zero-based within one question answer preview']
+  r2_key        text    [not null, unique]
+  mime_type     text    [not null, note: 'image/webp | image/png | image/jpeg']
+  file_size     integer [not null, note: 'bytes']
+  pixel_width   integer [not null]
+  pixel_height  integer [not null]
+  created_at    text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (asset_set_id, q_id, segment_index) [unique, name: 'idx_exercise_question_answer_assets_set_question']
+  }
+
+  Note: 'Teacher-only detailed answer images for a pending question asset set. These images are review evidence and are not returned to students.'
 }
 
 // ── Answer schemas ─────────────────────────────────────────────────────────────

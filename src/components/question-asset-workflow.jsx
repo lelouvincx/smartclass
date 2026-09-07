@@ -16,6 +16,7 @@ import {
   getQuestionAssetSet,
   parseExerciseSchema,
   rejectQuestionAsset,
+  replaceQuestionAnswerAssetWithScreenshot,
   replaceQuestionAssetsWithGenerated,
   replaceQuestionAssetWithScreenshot,
   updateExercise,
@@ -156,6 +157,13 @@ function groupPreviewAssets(questionDescriptors, assets) {
   ]))
 }
 
+function groupStoredAssets(questionDescriptors, assets) {
+  return new Map(questionDescriptors.map(descriptor => [
+    descriptor.q_id,
+    (assets || []).filter(asset => asset.q_id === descriptor.q_id),
+  ]))
+}
+
 function AuthenticatedQuestionImage({ asset, token }) {
   const { t } = useTranslation()
   const [source, setSource] = useState('')
@@ -233,12 +241,13 @@ function BlobQuestionImage({ asset, label }) {
   )
 }
 
-function ReplacementForm({ exerciseId, setId, qId, token, onReplaced }) {
+function ReplacementForm({ exerciseId, setId, qId, token, onReplaced, kind = 'exercise' }) {
   const { t } = useTranslation()
   const [file, setFile] = useState(null)
   const [progress, setProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState('')
+  const isAnswer = kind === 'answer'
 
   async function handleUpload() {
     if (!file) return
@@ -246,7 +255,10 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced }) {
     setIsUploading(true)
     setError('')
     try {
-      await replaceQuestionAssetWithScreenshot(
+      const replace = isAnswer
+        ? replaceQuestionAnswerAssetWithScreenshot
+        : replaceQuestionAssetWithScreenshot
+      await replace(
         token,
         exerciseId,
         setId,
@@ -263,11 +275,17 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced }) {
   }
 
   return (
-    <div className="space-y-3 border-t pt-4">
+    <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
       <div>
-        <h4 className="text-sm font-semibold">{t('teacher.questionViews.uploadScreenshot')}</h4>
+        <h4 className="text-sm font-semibold">
+          {isAnswer
+            ? t('teacher.questionViews.uploadAnswerScreenshot')
+            : t('teacher.questionViews.uploadScreenshot')}
+        </h4>
         <p className="mt-1 text-xs text-muted-foreground">
-          {t('teacher.questionViews.screenshotHelp')}
+          {isAnswer
+            ? t('teacher.questionViews.answerScreenshotHelp')
+            : t('teacher.questionViews.screenshotHelp')}
         </p>
       </div>
       <FileDropzone
@@ -276,9 +294,13 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced }) {
         onChange={setFile}
         disabled={isUploading}
         icon={ImageUp}
-        title={t('teacher.questionViews.chooseScreenshot')}
+        title={isAnswer
+          ? t('teacher.questionViews.chooseAnswerScreenshot')
+          : t('teacher.questionViews.chooseScreenshot')}
         hint={t('teacher.questionViews.imageTypes')}
-        inputAriaLabel={t('teacher.questionViews.screenshotAria', { number: qId })}
+        inputAriaLabel={isAnswer
+          ? t('teacher.questionViews.answerScreenshotAria', { number: qId })
+          : t('teacher.questionViews.screenshotAria', { number: qId })}
       />
       {isUploading && (
         <ProgressIndicator
@@ -289,7 +311,11 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced }) {
       )}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       <Button type="button" onClick={handleUpload} disabled={isUploading || !file}>
-        {isUploading ? t('teacher.questionViews.uploadingScreenshot') : t('teacher.questionViews.useScreenshot')}
+        {isUploading
+          ? t('teacher.questionViews.uploadingScreenshot')
+          : isAnswer
+            ? t('teacher.questionViews.useAnswerScreenshot')
+            : t('teacher.questionViews.useScreenshot')}
       </Button>
     </div>
   )
@@ -533,6 +559,10 @@ export default function QuestionAssetWorkflow({
   const answerPreviewGroups = useMemo(
     () => groupPreviewAssets(questionDescriptors, answerPreviewAssets),
     [answerPreviewAssets, questionDescriptors],
+  )
+  const storedAnswerGroups = useMemo(
+    () => groupStoredAssets(questionDescriptors, draft?.answer_assets),
+    [draft?.answer_assets, questionDescriptors],
   )
   const answerReview = useMemo(
     () => mergeAnswerCandidates(answerSchema, draft?.answer_candidates || []),
@@ -1083,6 +1113,7 @@ export default function QuestionAssetWorkflow({
           needsAttention,
         }) => {
           const answerPreviews = answerPreviewGroups.get(qId) || []
+          const storedAnswerPreviews = storedAnswerGroups.get(qId) || []
           return (
             <Card
               key={qId}
@@ -1126,7 +1157,18 @@ export default function QuestionAssetWorkflow({
                       </figure>
                     ))}
 
-                    {answerPreviews.map((asset, index) => (
+                    {storedAnswerPreviews.map((asset, index) => (
+                      <figure key={asset.id} className="space-y-3">
+                        <figcaption className="text-xs font-medium text-muted-foreground">
+                          {storedAnswerPreviews.length > 1
+                            ? t('teacher.questionViews.answerSegment', { current: index + 1, total: storedAnswerPreviews.length })
+                            : t('teacher.questionViews.answerCrop')}
+                        </figcaption>
+                        <AuthenticatedQuestionImage asset={asset} token={token} />
+                      </figure>
+                    ))}
+
+                    {storedAnswerPreviews.length === 0 && answerPreviews.map((asset, index) => (
                       <figure key={`${asset.fileName}:${asset.segmentIndex}`} className="space-y-3">
                         <figcaption className="text-xs font-medium text-muted-foreground">
                           {answerPreviews.length > 1
@@ -1140,11 +1182,29 @@ export default function QuestionAssetWorkflow({
                       </figure>
                     ))}
 
-                    {answerSourceFile && answerPreviews.length === 0 && phase === 'review' && (
+                    {answerSourceFile && storedAnswerPreviews.length === 0 && answerPreviews.length === 0 && phase === 'review' && (
                       <p className="text-xs text-muted-foreground">
                         {t('teacher.questionViews.answerCropUnavailable')}
                       </p>
                     )}
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <ReplacementForm
+                        exerciseId={exercise.id}
+                        setId={draft.asset_set.id}
+                        qId={qId}
+                        token={token}
+                        onReplaced={() => loadDraft(draft.asset_set.id)}
+                      />
+                      <ReplacementForm
+                        exerciseId={exercise.id}
+                        setId={draft.asset_set.id}
+                        qId={qId}
+                        token={token}
+                        kind="answer"
+                        onReplaced={() => loadDraft(draft.asset_set.id)}
+                      />
+                    </div>
 
                     {(isRejected || isMissing) && (
                       <div className="space-y-4 rounded-lg bg-warning-muted p-4">
@@ -1185,13 +1245,6 @@ export default function QuestionAssetWorkflow({
                         <p className="text-xs text-muted-foreground">
                           {t('teacher.questionViews.retryHelp')}
                         </p>
-                        <ReplacementForm
-                          exerciseId={exercise.id}
-                          setId={draft.asset_set.id}
-                          qId={qId}
-                          token={token}
-                          onReplaced={() => loadDraft(draft.asset_set.id)}
-                        />
                       </div>
                     )}
                   </div>

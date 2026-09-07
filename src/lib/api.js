@@ -286,6 +286,30 @@ export function replaceQuestionAssetWithScreenshot(
   })
 }
 
+export function replaceQuestionAnswerAssetWithScreenshot(
+  token,
+  exerciseId,
+  setId,
+  qId,
+  image,
+  { onProgress, signal } = {},
+) {
+  const form = new FormData()
+  form.append('image', image)
+
+  return getImageDimensions(image).then(({ width, height }) => {
+    form.append('pixel_width', String(width))
+    form.append('pixel_height', String(height))
+    return uploadMultipart(
+      `/api/exercises/${exerciseId}/question-asset-sets/${setId}/questions/${qId}/answer-screenshot`,
+      token,
+      'PUT',
+      form,
+      { onProgress, signal },
+    )
+  })
+}
+
 export function listExercises(token) {
   return request('/api/exercises', {
     headers: authHeaders(token),

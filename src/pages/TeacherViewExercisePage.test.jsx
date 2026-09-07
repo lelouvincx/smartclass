@@ -284,6 +284,11 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByRole('button', { name: 'Programme access' })).toBeInTheDocument()
     expect(screen.getByLabelText('Student answer download')).not.toBeChecked()
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Exercise title').parentElement?.parentElement).toHaveClass(
+      'grid-cols-[minmax(0,1fr)]',
+    )
+    expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
+    expect(screen.getByRole('group', { name: /duration presets/i })).toHaveAttribute('data-slot', 'segmented-button-group')
     // Save and Cancel buttons should appear
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()

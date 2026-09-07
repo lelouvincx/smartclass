@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { SegmentedButton, SegmentedButtonGroup } from '@/components/ui/segmented-button'
 import {
   Dialog,
   DialogContent,
@@ -267,7 +268,7 @@ function ViewSchemaTable({ schema }) {
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function TeacherViewExercisePage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { id } = useParams()
   const { token } = useAuth()
   const navigate = useNavigate()
@@ -533,19 +534,22 @@ export default function TeacherViewExercisePage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               {isEditing ? (
-                <div className="space-y-4 sm:pr-32">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-title">{t('teacher.create.titleLabel')}</Label>
+                <div className="grid grid-cols-[minmax(0,1fr)] gap-6 md:grid-cols-2">
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="edit-title">
+                      {t('teacher.create.titleLabel')} <span aria-hidden="true" className="text-destructive">*</span>
+                    </Label>
                     <Input
                       id="edit-title"
                       type="text"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
+                      aria-label={t('teacher.create.titleLabel')}
                     />
                   </div>
                   <GradeDropdown
                     id="edit-exercise-grades"
-                    className="max-w-md"
+                    className="max-w-md md:col-span-2"
                     legend={t('common.gradeAccess')}
                     description={t('common.gradeAccessDescription')}
                     value={editGrades}
@@ -557,9 +561,9 @@ export default function TeacherViewExercisePage() {
                     value={editMaxAttempts}
                     onChange={setEditMaxAttempts}
                     disabled={isSaving}
-                    className="max-w-md"
+                    className="max-w-md md:col-span-2"
                   />
-                  <div className="space-y-2">
+                  <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="edit-answer-pdf-download-toggle">{t('teacher.answerPdfDownload.label')}</Label>
                     <div className="flex max-w-md items-center justify-between gap-4 rounded-md border bg-background px-3 py-2">
                       <p id="edit-answer-pdf-download-help" className="text-sm text-muted-foreground">
@@ -574,31 +578,47 @@ export default function TeacherViewExercisePage() {
                       />
                     </div>
                   </div>
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-timed">{t('teacher.create.mode')}</Label>
-                      <div className="flex h-10 items-center justify-between rounded-md border bg-background px-3">
-                        <span className="text-sm">{editIsTimed ? t('teacher.create.timedMode') : t('teacher.create.untimedMode')}</span>
-                        <Switch
-                          id="edit-timed"
-                          aria-label={t('teacher.create.timedToggle')}
-                          checked={editIsTimed}
-                          onCheckedChange={setEditIsTimed}
-                        />
-                      </div>
+                  <div className="space-y-2">
+                    <Label>{t('teacher.create.mode')}</Label>
+                    <div className="flex h-10 items-center justify-between rounded-md border bg-background px-3">
+                      <span className="text-sm">{editIsTimed ? t('teacher.create.timedMode') : t('teacher.create.untimedMode')}</span>
+                      <Switch
+                        id="edit-timed"
+                        aria-label={t('teacher.create.timedToggle')}
+                        checked={editIsTimed}
+                        onCheckedChange={setEditIsTimed}
+                        disabled={isSaving}
+                      />
                     </div>
-                    {editIsTimed && (
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-duration">{t('teacher.create.duration')}</Label>
-                        <Input
-                          id="edit-duration"
-                          type="number"
-                          value={editDuration}
-                          onChange={(e) => setEditDuration(e.target.value)}
-                          className="h-10 w-full"
-                        />
-                      </div>
-                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-duration">
+                      {t('teacher.create.duration')}{editIsTimed && <span aria-hidden="true" className="text-destructive"> *</span>}
+                    </Label>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        id="edit-duration"
+                        type="number"
+                        value={editIsTimed ? editDuration : ''}
+                        onChange={(e) => setEditDuration(e.target.value)}
+                        disabled={!editIsTimed || isSaving}
+                        className="w-full sm:w-24"
+                      />
+                      {editIsTimed && (
+                        <SegmentedButtonGroup className="w-full flex-1" role="group" aria-label={t('teacher.create.presets')}>
+                          {[60, 90, 120].map((mins) => (
+                            <SegmentedButton
+                              key={mins}
+                              selected={Number(editDuration) === mins}
+                              onClick={() => setEditDuration(mins)}
+                              disabled={isSaving}
+                            >
+                              {formatDuration(mins, i18n.resolvedLanguage)}
+                            </SegmentedButton>
+                          ))}
+                        </SegmentedButtonGroup>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : (

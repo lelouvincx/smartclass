@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { jsonError, jsonSuccess } from '../lib/response.js'
-import { toQuestionAssetResponse } from '../lib/question-assets.js'
+import { toQuestionAnswerAssetResponse, toQuestionAssetResponse } from '../lib/question-assets.js'
 import { inspectImageFile } from '../lib/image-metadata.js'
 import { normalizeCorrectAnswer } from '../lib/schema-parser.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
@@ -521,6 +521,12 @@ questionAssetsRoutes.get(
       where asset_set_id = ?
       order by q_id asc, sub_id asc, source_kind asc
     `).bind(setId).all()
+    const answerAssets = await c.env.DB.prepare(`
+      select *
+      from exercise_question_answer_assets
+      where asset_set_id = ?
+      order by q_id asc, segment_index asc
+    `).bind(setId).all()
     const schema = await c.env.DB.prepare(`
       select q_id, section_key, section_title, local_number, sub_id, type,
         correct_answer, max_score_hundredths
@@ -532,6 +538,7 @@ questionAssetsRoutes.get(
     return jsonSuccess(c, {
       asset_set: assetSet,
       assets: assets.results.map(toQuestionAssetResponse),
+      answer_assets: answerAssets.results.map(toQuestionAnswerAssetResponse),
       answer_candidates: answerCandidates.results,
       schema: schema.results,
     })
@@ -569,6 +576,11 @@ questionAssetsRoutes.delete(
       from exercise_question_assets
       where asset_set_id = ?
     `).bind(setId).all()
+    const answerAssets = await c.env.DB.prepare(`
+      select r2_key
+      from exercise_question_answer_assets
+      where asset_set_id = ?
+    `).bind(setId).all()
 
     const result = await c.env.DB.prepare(`
       delete from exercise_question_asset_sets
@@ -592,7 +604,7 @@ questionAssetsRoutes.delete(
     }
 
     await Promise.allSettled(
-      assets.results.map((asset) => c.env.BUCKET.delete(asset.r2_key)),
+      [...assets.results, ...answerAssets.results].map((asset) => c.env.BUCKET.delete(asset.r2_key)),
     )
 
     return jsonSuccess(c, { id: setId, deleted: true })
@@ -789,8 +801,6 @@ questionAssetsRoutes.put(
       })
     }
 
-    const oldAssetIds = oldAssets.results.map((asset) => asset.id)
-    const oldAssetPlaceholders = oldAssetIds.map(() => '?').join(', ')
     const replacementRows = replacements.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ')
     let persisted = false
 
@@ -816,6 +826,8 @@ questionAssetsRoutes.put(
         replacement.accessible_text,
         replacement.confidence,
       ])
+      const oldAssetIds = oldAssets.results.map((asset) => asset.id)
+      const oldAssetPlaceholders = oldAssetIds.map(() => '?').join(', ')
       const batchResults = await c.env.DB.batch([
         c.env.DB.prepare(`
           delete from exercise_question_assets
@@ -956,20 +968,22 @@ questionAssetsRoutes.put(
       return jsonError(c, 409, 'SET_ALREADY_CONFIRMED', 'Confirmed question asset sets are immutable')
     }
 
+    const pinnedQuestion = await c.env.DB.prepare(`
+      select 1
+      from exercise_question_answer_schemas
+      where asset_set_id = ? and q_id = ?
+      limit 1
+    `).bind(setId, qId).first()
+    if (!pinnedQuestion) {
+      return jsonError(c, 404, 'NOT_FOUND', 'Question not found in this asset set')
+    }
+
     const oldAssets = await c.env.DB.prepare(`
-      select id, r2_key, rejected_at
+      select r2_key
       from exercise_question_assets
       where asset_set_id = ? and q_id = ?
       order by segment_index asc
     `).bind(setId, qId).all()
-
-    if (oldAssets.results.length === 0) {
-      return jsonError(c, 404, 'NOT_FOUND', 'Question not found in this asset set')
-    }
-
-    if (oldAssets.results.some((asset) => !asset.rejected_at)) {
-      return jsonError(c, 409, 'QUESTION_NOT_REJECTED', 'Reject the generated question before replacing it')
-    }
 
     let body
     try {
@@ -1018,8 +1032,6 @@ questionAssetsRoutes.put(
       'image/jpeg': 'jpg',
     }[image.type]
     const r2Key = `exercise-question-assets/${exerciseId}/${setId}/${crypto.randomUUID()}.${extension}`
-    const oldAssetIds = oldAssets.results.map((asset) => asset.id)
-    const oldAssetPlaceholders = oldAssetIds.map(() => '?').join(', ')
     let persisted = false
 
     try {
@@ -1030,16 +1042,14 @@ questionAssetsRoutes.put(
       const batchResults = await c.env.DB.batch([
         c.env.DB.prepare(`
           delete from exercise_question_assets
-          where id in (${oldAssetPlaceholders})
-            and asset_set_id = ?
+          where asset_set_id = ?
             and q_id = ?
-            and rejected_at is not null
             and exists (
               select 1
               from exercise_question_asset_sets
               where id = ? and exercise_id = ? and confirmed_at is null
             )
-        `).bind(...oldAssetIds, setId, qId, setId, exerciseId),
+        `).bind(setId, qId, setId, exerciseId),
         c.env.DB.prepare(`
           insert into exercise_question_assets (
             asset_set_id
@@ -1058,7 +1068,6 @@ questionAssetsRoutes.put(
           where id = ?
             and exercise_id = ?
             and confirmed_at is null
-            and changes() = ?
         `).bind(
           setId,
           qId,
@@ -1070,7 +1079,6 @@ questionAssetsRoutes.put(
           accessibleText,
           setId,
           exerciseId,
-          oldAssetIds.length,
         ),
         c.env.DB.prepare(`
           update exercise_question_asset_sets
@@ -1112,6 +1120,170 @@ questionAssetsRoutes.put(
       }
       console.error('Question screenshot replacement error:', error)
       return jsonError(c, 500, 'SCREENSHOT_REPLACEMENT_FAILED', 'Failed to replace question screenshot')
+    }
+  },
+)
+
+questionAssetsRoutes.put(
+  '/:exerciseId/question-asset-sets/:setId/questions/:qId/answer-screenshot',
+  requireAuth,
+  requireRole('teacher'),
+  async (c) => {
+    const exerciseId = Number.parseInt(c.req.param('exerciseId'), 10)
+    const setId = Number.parseInt(c.req.param('setId'), 10)
+    const qId = Number.parseInt(c.req.param('qId'), 10)
+
+    if (
+      !Number.isInteger(exerciseId) || exerciseId < 1
+      || !Number.isInteger(setId) || setId < 1
+      || !Number.isInteger(qId) || qId < 1
+    ) {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'Exercise, asset set, and question IDs must be positive integers')
+    }
+
+    const assetSet = await c.env.DB.prepare(`
+      select id, confirmed_at
+      from exercise_question_asset_sets
+      where id = ? and exercise_id = ?
+    `).bind(setId, exerciseId).first()
+
+    if (!assetSet) {
+      return jsonError(c, 404, 'NOT_FOUND', 'Question asset set not found')
+    }
+
+    if (assetSet.confirmed_at) {
+      return jsonError(c, 409, 'SET_ALREADY_CONFIRMED', 'Confirmed question asset sets are immutable')
+    }
+
+    const pinnedQuestion = await c.env.DB.prepare(`
+      select 1
+      from exercise_question_answer_schemas
+      where asset_set_id = ? and q_id = ?
+      limit 1
+    `).bind(setId, qId).first()
+    if (!pinnedQuestion) {
+      return jsonError(c, 404, 'NOT_FOUND', 'Question not found in this asset set')
+    }
+
+    let body
+    try {
+      body = await c.req.parseBody()
+    } catch {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'Request body must be multipart/form-data')
+    }
+
+    const image = body.image
+    const allowedTypes = new Set(['image/webp', 'image/png', 'image/jpeg'])
+    if (!(image instanceof File)) {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'image field is required')
+    }
+
+    if (!allowedTypes.has(image.type)) {
+      return jsonError(c, 415, 'UNSUPPORTED_MEDIA_TYPE', 'Only PNG, JPEG, and WebP screenshots are accepted')
+    }
+
+    if (image.size < 1 || image.size > MAX_ASSET_BYTES) {
+      return jsonError(c, 400, 'VALIDATION_ERROR', 'Image size must be between 1 byte and 10 MB')
+    }
+
+    const pixelWidth = parseInteger(body.pixel_width)
+    const pixelHeight = parseInteger(body.pixel_height)
+    if (!pixelWidth || !pixelHeight) {
+      return jsonError(c, 400, 'INVALID_ASSET_METADATA', 'Screenshot dimensions are required')
+    }
+
+    let inspectedImage
+    try {
+      inspectedImage = await inspectImageFile(image)
+    } catch (error) {
+      return jsonError(c, 400, 'INVALID_IMAGE', error.message)
+    }
+
+    if (pixelWidth !== inspectedImage.width || pixelHeight !== inspectedImage.height) {
+      return jsonError(c, 400, 'INVALID_IMAGE_METADATA', 'Image dimensions do not match pixel_width and pixel_height')
+    }
+
+    const extension = {
+      'image/webp': 'webp',
+      'image/png': 'png',
+      'image/jpeg': 'jpg',
+    }[image.type]
+    const r2Key = `exercise-question-answer-assets/${exerciseId}/${setId}/${crypto.randomUUID()}.${extension}`
+    const oldAssets = await c.env.DB.prepare(`
+      select id, r2_key
+      from exercise_question_answer_assets
+      where asset_set_id = ? and q_id = ?
+    `).bind(setId, qId).all()
+    let persisted = false
+
+    try {
+      await c.env.BUCKET.put(r2Key, inspectedImage.bytes, {
+        httpMetadata: { contentType: inspectedImage.mimeType },
+      })
+
+      const batchResults = await c.env.DB.batch([
+        c.env.DB.prepare(`
+          delete from exercise_question_answer_assets
+          where asset_set_id = ?
+            and q_id = ?
+            and exists (
+              select 1
+              from exercise_question_asset_sets
+              where id = ? and exercise_id = ? and confirmed_at is null
+            )
+        `).bind(setId, qId, setId, exerciseId),
+        c.env.DB.prepare(`
+          insert into exercise_question_answer_assets (
+            asset_set_id
+            , q_id
+            , segment_index
+            , r2_key
+            , mime_type
+            , file_size
+            , pixel_width
+            , pixel_height
+          )
+          select ?, ?, 0, ?, ?, ?, ?, ?
+          from exercise_question_asset_sets
+          where id = ?
+            and exercise_id = ?
+            and confirmed_at is null
+        `).bind(
+          setId,
+          qId,
+          r2Key,
+          inspectedImage.mimeType,
+          inspectedImage.bytes.byteLength,
+          inspectedImage.width,
+          inspectedImage.height,
+          setId,
+          exerciseId,
+        ),
+      ])
+
+      if (batchResults[1].meta.changes === 0) {
+        await c.env.BUCKET.delete(r2Key)
+        return jsonError(c, 409, 'SET_ALREADY_CONFIRMED', 'Confirmed question asset sets are immutable')
+      }
+      persisted = true
+
+      await Promise.allSettled(
+        oldAssets.results.map((asset) => c.env.BUCKET.delete(asset.r2_key)),
+      )
+
+      const replacement = await c.env.DB.prepare(`
+        select *
+        from exercise_question_answer_assets
+        where asset_set_id = ? and q_id = ? and segment_index = 0
+      `).bind(setId, qId).first()
+
+      return jsonSuccess(c, toQuestionAnswerAssetResponse(replacement))
+    } catch (error) {
+      if (!persisted) {
+        await c.env.BUCKET.delete(r2Key).catch(() => {})
+      }
+      console.error('Answer screenshot replacement error:', error)
+      return jsonError(c, 500, 'ANSWER_SCREENSHOT_REPLACEMENT_FAILED', 'Failed to replace answer screenshot')
     }
   },
 )
