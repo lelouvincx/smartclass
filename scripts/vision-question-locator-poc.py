@@ -28,6 +28,8 @@ DEFAULT_MODEL = "google/gemini-2.5-flash"
 DEFAULT_BASE_URL = "https://openrouter.ai/api/v1"
 GRID_STEP = 0.05
 MIN_CONFIDENCE = 0.5
+SEGMENT_PADDING_X = 0.02
+SEGMENT_PADDING_Y = 0.03
 
 
 @dataclass(frozen=True)
@@ -143,7 +145,7 @@ Return only JSON, no markdown, in this exact shape:
       "y": 0.10,
       "width": 0.90,
       "height": 0.18,
-      "confidence": 0.0,
+      "confidence": 0.8,
       "text": "short detected question heading or empty"
     }}
   ],
@@ -153,7 +155,11 @@ Return only JSON, no markdown, in this exact shape:
 Rules:
 - Do not invent unexpected question IDs.
 - If a question is not visible, omit it and add a warning.
-- Include enough of each question: stem, options, diagrams, and shared context.
+- Prefer the full usable page width for each question rectangle, usually x near
+  0.03-0.08 and width near 0.85-0.94. Use narrower rectangles only when the
+  page clearly has independent columns.
+- Include enough of each question: stem, options, diagrams, shared context, and
+  any blank workspace that visually belongs to that question.
 - Stop before solution/answer/explanation regions if visible.
 - Use multiple segments only if one question spans pages.
 - Rectangles must be finite, non-empty, and inside the page.
@@ -261,6 +267,7 @@ def validate_segments(payload: dict[str, Any], expected_questions: list[int], pa
             warnings.append(f"Ignored duplicate question {q_id} segment {segment_index}.")
             continue
         seen.add(key)
+        x, y, width, height = padded_rect(x, y, width, height)
         segments.append(Segment(
             q_id=q_id,
             page_number=page_number,
@@ -285,6 +292,19 @@ def valid_rect(x: float, y: float, width: float, height: float) -> bool:
     return all(value == value and value not in (float("inf"), float("-inf")) for value in values) \
         and x >= 0 and y >= 0 and width > 0 and height > 0 \
         and x + width <= 1 and y + height <= 1
+
+
+def padded_rect(x: float, y: float, width: float, height: float) -> tuple[float, float, float, float]:
+    left = max(0, x - SEGMENT_PADDING_X)
+    top = max(0, y - SEGMENT_PADDING_Y)
+    right = min(1, x + width + SEGMENT_PADDING_X)
+    bottom = min(1, y + height + SEGMENT_PADDING_Y)
+    return (
+        round(left, 6),
+        round(top, 6),
+        round(right - left, 6),
+        round(bottom - top, 6),
+    )
 
 
 def write_outputs(
