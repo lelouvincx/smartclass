@@ -195,8 +195,9 @@ describe('TeacherStudentsPage', () => {
 
     await user.click(await screen.findByLabelText('Select Nguyễn Văn An'))
     await user.click(screen.getByLabelText('Select Trần Thị Bình'))
-    const tierGroup = screen.getByRole('radiogroup', { name: 'Access tier to assign' })
-    await user.click(within(tierGroup).getByRole('radio', { name: 'VIP' }))
+    const tierGroup = screen.getByRole('group', { name: 'Access tier to assign' })
+    expect(tierGroup.querySelector('[data-slot="segmented-button-group"]')).toBeInTheDocument()
+    await user.click(within(tierGroup).getByRole('button', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: 'Assign tier to 2 students' }))
 
     expect(updateStudentAccessTierMock).toHaveBeenCalledWith('test-token', {
@@ -242,8 +243,9 @@ describe('TeacherStudentsPage', () => {
     await user.type(screen.getByLabelText('Name'), '  Nguyễn Văn An  ')
     const input = screen.getByPlaceholderText(/\+84xxx/)
     await user.type(input, '+84111111111')
-    const createTierGroup = screen.getByRole('radiogroup', { name: 'Student access tier' })
-    await user.click(within(createTierGroup).getByRole('radio', { name: 'VIP' }))
+    const createTierGroup = screen.getByRole('group', { name: 'Student access tier' })
+    expect(createTierGroup.querySelector('[data-slot="segmented-button-group"]')).toBeInTheDocument()
+    await user.click(within(createTierGroup).getByRole('button', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: /create student/i }))
 
     await waitFor(() => {

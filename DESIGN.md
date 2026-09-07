@@ -255,6 +255,7 @@ Motion explains state and hierarchy; it is not decoration. Keep dense flows shor
 - **Action cards:** use an icon well, action name, one-line outcome, and trailing arrow. Keep the whole card clickable.
 - **Empty states:** `EmptyState` uses a semantic heading, explains what happened, and offers one recovery action when the user can proceed.
 - **Buttons:** show one primary action per local group. Secondary actions are outline or quiet. Labels use verbs and controls remain large enough for touch.
+- **Subscription tiers:** choose access or subscription tiers with `SegmentedButtonGroup`, not card radios or select menus, when all tier options can be shown at once.
 - **Navigation:** current location uses blue text on `selection`, not a solid blue rail. Every item combines icon and text.
 - **Tables and metadata:** use muted headers, restrained row separators, and explicit column labels. Scores and statuses include text, not color alone.
 - **Disclosures:** summarize collapsed content and keep expanded learning rows grouped. Move complex or lengthy work to a dedicated page.

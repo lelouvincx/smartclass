@@ -1,7 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Field, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { FieldLegend, FieldSet } from '@/components/ui/field'
+import { SegmentedButton, SegmentedButtonGroup } from '@/components/ui/segmented-button'
 
 export const STUDENT_ACCESS_TIERS = ['standard', 'vip']
 export const LECTURE_ACCESS_TIERS = ['guest', ...STUDENT_ACCESS_TIERS]
@@ -29,22 +29,19 @@ export default function AccessTierRadioGroup({
   return (
     <FieldSet className={className}>
       <FieldLegend id={`${id}-legend`} variant="label">{legend}</FieldLegend>
-      <RadioGroup
-        aria-labelledby={`${id}-legend`}
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        className="grid gap-2 sm:grid-cols-[repeat(auto-fit,minmax(8rem,1fr))]"
-      >
+      <SegmentedButtonGroup className="grid w-full grid-cols-[repeat(auto-fit,minmax(7rem,1fr))]">
         {tiers.map((tier) => (
-          <FieldLabel key={tier} htmlFor={`${id}-${tier}`} className="min-h-12 cursor-pointer justify-center">
-            <Field orientation="horizontal">
-              <RadioGroupItem id={`${id}-${tier}`} value={tier} />
-              <span className="[text-box:trim-both_cap_alphabetic]">{t(`common.accessTier.${tier}`)}</span>
-            </Field>
-          </FieldLabel>
+          <SegmentedButton
+            key={tier}
+            id={`${id}-${tier}`}
+            selected={value === tier}
+            disabled={disabled}
+            onClick={() => onChange(tier)}
+          >
+            {t(`common.accessTier.${tier}`)}
+          </SegmentedButton>
         ))}
-      </RadioGroup>
+      </SegmentedButtonGroup>
     </FieldSet>
   )
 }
