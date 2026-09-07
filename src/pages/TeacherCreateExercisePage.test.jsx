@@ -282,6 +282,53 @@ describe('TeacherCreateExercisePage', () => {
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
   })
 
+  it('treats an empty parse success as a recoverable manual-entry state', async () => {
+    const user = userEvent.setup()
+    parseExerciseSchemaMock.mockResolvedValue({
+      data: {
+        schema: [],
+        confidence: null,
+        pages_processed: 1,
+      },
+    })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
+    await user.upload(
+      screen.getByLabelText(/Answer PDF/i),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByText(/Could not find a supported answer table/i)).toBeInTheDocument()
+    expect(screen.queryByText('Answers are ready to review')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuetext', 'Could not read answers')
+    expect(Number(screen.getByRole('progressbar').getAttribute('aria-valuenow'))).toBeLessThan(100)
+    expect(screen.getByLabelText(/correct answer for question 1/i)).toHaveValue('C')
+  })
+
+  it('preserves manual rows after an unsupported-document API rejection', async () => {
+    const user = userEvent.setup()
+    const error = new Error('No supported answer table could be extracted from the supplied pages. Retry or enter answers manually.')
+    error.status = 422
+    error.code = 'UNSUPPORTED_DOCUMENT'
+    parseExerciseSchemaMock.mockRejectedValue(error)
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'D')
+    await user.upload(
+      screen.getByLabelText(/Answer PDF/i),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByText(/Could not find a supported answer table/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/correct answer for question 1/i)).toHaveValue('D')
+    expect(screen.getByRole('button', { name: /Read answers from PDF/ })).toBeEnabled()
+  })
+
   it('keeps an unscored Cohere answer populated and marks it for review', async () => {
     const user = userEvent.setup()
     parseExerciseSchemaMock.mockResolvedValue({

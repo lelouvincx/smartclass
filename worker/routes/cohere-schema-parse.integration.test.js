@@ -137,6 +137,62 @@ describe('multipart POST /api/exercises/schema/parse', () => {
     expect(data.warnings).toContain('Page 2 could not be read and was skipped.')
   })
 
+  it('returns 422 when Cohere reads a page but no supported answer table is extracted', async () => {
+    env.COHERE_API_KEY = 'test-key'
+    vi.stubGlobal('fetch', vi.fn(async () => cohereResponse(
+      '<table><tr><td>Worked solution</td></tr><tr><td>Choose a method</td></tr></table>',
+    )))
+
+    const response = await post(parseForm())
+
+    expect(response.status).toBe(422)
+    const body = await response.json()
+    expect(body.error.code).toBe('UNSUPPORTED_DOCUMENT')
+  })
+
+  it('returns 422 for mixed page failures when the only readable page has no supported schema rows', async () => {
+    env.COHERE_API_KEY = 'test-key'
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      return call === 8
+        ? cohereResponse('<table><tr><td>Unsupported solution notes</td></tr></table>')
+        : new Response('{}', { status: 503 })
+    }))
+    const entries = [2, 5, 6, 7, 8, 9, 10, 11].map(pageNumber => ({
+      file_name: `page-${pageNumber}.png`,
+      page_number: pageNumber,
+      text: pageNumber === 10 ? 'TRẢ LỜI' : 'ordinary worked-solution text',
+    }))
+
+    const response = await post(parseForm(entries))
+
+    expect(response.status).toBe(422)
+    expect((await response.json()).error.code).toBe('UNSUPPORTED_DOCUMENT')
+  })
+
+  it('keeps usable answers when another readable page has an unsupported table', async () => {
+    env.COHERE_API_KEY = 'test-key'
+    let call = 0
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      call += 1
+      return call === 1
+        ? cohereResponse('<table><tr><td>1.A</td></tr></table>')
+        : cohereResponse('<table><tr><td>Unsupported solution notes</td></tr></table>')
+    }))
+
+    const response = await post(parseForm([
+      { file_name: 'one.png', page_number: 1, text: 'BẢNG ĐÁP ÁN' },
+      { file_name: 'two.png', page_number: 2, text: 'TRẢ LỜI' },
+    ]))
+
+    expect(response.status).toBe(200)
+    const data = (await response.json()).data
+    expect(data.schema).toHaveLength(1)
+    expect(data.schema[0].correct_answer).toBe('A')
+    expect(data.confidence).toBeNull()
+  })
+
   it.each([
     ['missing key', () => {}, undefined],
     ['provider error', () => vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 500 }))), 'test-key'],

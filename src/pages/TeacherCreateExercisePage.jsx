@@ -295,11 +295,17 @@ export default function TeacherCreateExercisePage() {
       setAnswerParseProgress({ stage: 'waiting', progress: 0 })
       const response = await parseExerciseSchema(token, prepared)
       setAnswerParseProgress({ stage: 'applying', progress: 0 })
+      const schema = response?.data?.schema
+      if (!Array.isArray(schema) || schema.length === 0) {
+        const emptySchemaError = new Error(t('teacher.create.unreadablePdf'))
+        emptySchemaError.code = 'UNSUPPORTED_DOCUMENT'
+        throw emptySchemaError
+      }
       const makeId = () =>
         typeof crypto !== 'undefined' && crypto.randomUUID
           ? crypto.randomUUID()
           : Math.random().toString(36).slice(2)
-      const parsedRows = response.data.schema.map((row) => {
+      const parsedRows = schema.map((row) => {
         return {
           id: makeId(),
           q_id: String(row.q_id),
@@ -314,10 +320,12 @@ export default function TeacherCreateExercisePage() {
           confidence: row.confidence ?? null,
         }
       })
-      setRows(parsedRows.length > 0 ? parsedRows : newRows('mcq', '1'))
+      setRows(parsedRows)
       setAnswerParseProgress({ stage: 'complete', progress: 1 })
     } catch (parseError) {
-      setError(parseError.recoverable ? t('teacher.create.unreadablePdf') : parseError.message)
+      setError(parseError.recoverable || parseError.code === 'UNSUPPORTED_DOCUMENT'
+        ? t('teacher.create.unreadablePdf')
+        : parseError.message)
       setAnswerParseProgress(current => ({ ...(current || {}), stage: 'error' }))
     } finally {
       setIsParsing(false)

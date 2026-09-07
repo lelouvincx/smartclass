@@ -305,6 +305,9 @@ exercisesRoutes.post('/schema/parse', requireAuth, requireRole('teacher'), async
     text: result.manifest.text,
     markdown: result.markdown,
   })), { expectedQuestionCount, schemaShape })
+  if (parsed.schema.length === 0) {
+    return jsonError(c, 422, 'UNSUPPORTED_DOCUMENT', 'No supported answer table could be extracted from the supplied pages. Retry or enter answers manually.')
+  }
   const errors = validateSchemaRows(parsed.schema, { allowBlankAnswers: true })
   if (errors.length) {
     return jsonError(c, 422, 'INVALID_SCHEMA', errors.join('; '))
