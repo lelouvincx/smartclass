@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldDescription, FieldGroup, FieldError, FieldLabel } from '@/components/ui/field'
-import { GRADES } from '@/lib/grades'
+import { DEFAULT_STUDENT_GRADES } from '@/lib/grades'
 
 export default function RegisterPage() {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [grades, setGrades] = useState([...GRADES])
+  const [grades, setGrades] = useState([...DEFAULT_STUDENT_GRADES])
   const [error, setError] = useState('')
   const [invalidField, setInvalidField] = useState('')
   const [successMessage, setSuccessMessage] = useState('')

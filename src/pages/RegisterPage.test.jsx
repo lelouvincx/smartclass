@@ -44,7 +44,7 @@ describe('RegisterPage', () => {
     expect(phone).toBeRequired()
     expect(password).toBeRequired()
     expect(confirmPassword).toBeRequired()
-    expect(screen.getByRole('button', { name: 'Student programmes' })).toHaveTextContent('All programmes')
+    expect(screen.getByRole('button', { name: 'Student programmes' })).toHaveTextContent('Grade 12')
     expect(screen.getByText('Use 0xxxxxxxxx or +84xxxxxxxxx format.')).toBeVisible()
   })
 
@@ -93,7 +93,7 @@ describe('RegisterPage', () => {
       name: 'Nguyễn Văn An',
       phone: '+84900000002',
       password: 'abc',
-      grades: [10, 11, 12, 'dgnl'],
+      grades: [12],
     })
   })
 
@@ -112,7 +112,8 @@ describe('RegisterPage', () => {
     await user.type(screen.getByLabelText('Password'), 'abc')
     await user.type(screen.getByLabelText('Confirm Password'), 'abc')
     await user.click(screen.getByRole('button', { name: 'Student programmes' }))
-    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 10' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 11' }))
     await user.click(screen.getByRole('menuitemcheckbox', { name: 'ĐGNL' }))
     await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Register' }))
@@ -121,7 +122,7 @@ describe('RegisterPage', () => {
       name: 'Nguyễn Văn An',
       phone: '+84900000003',
       password: 'abc',
-      grades: [10, 11],
+      grades: [10, 11, 12, 'dgnl'],
     })
   })
 

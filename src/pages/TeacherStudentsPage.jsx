@@ -16,7 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { formatFullDate } from '@/lib/format'
-import { GRADES } from '@/lib/grades'
+import { DEFAULT_STUDENT_GRADES } from '@/lib/grades'
 import {
   Dialog,
   DialogContent,
@@ -56,11 +56,11 @@ export default function TeacherStudentsPage() {
   const [statusFilter, setStatusFilter] = useState(null)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
-  const [newStudentGrades, setNewStudentGrades] = useState([...GRADES])
+  const [newStudentGrades, setNewStudentGrades] = useState([...DEFAULT_STUDENT_GRADES])
   const [newStudentAccessTier, setNewStudentAccessTier] = useState('standard')
   const [creating, setCreating] = useState(false)
   const [selectedStudentIds, setSelectedStudentIds] = useState([])
-  const [bulkGrades, setBulkGrades] = useState([...GRADES])
+  const [bulkGrades, setBulkGrades] = useState([...DEFAULT_STUDENT_GRADES])
   const [isAssigningGrades, setIsAssigningGrades] = useState(false)
   const [bulkAccessTier, setBulkAccessTier] = useState('standard')
   const [isAssigningAccessTier, setIsAssigningAccessTier] = useState(false)
@@ -213,7 +213,7 @@ export default function TeacherStudentsPage() {
       })
       setName('')
       setPhone('')
-      setNewStudentGrades([...GRADES])
+      setNewStudentGrades([...DEFAULT_STUDENT_GRADES])
       setNewStudentAccessTier('standard')
       setSuccessMessage(res.message || t('teacher.students.createdFallback'))
       await loadStudents()
