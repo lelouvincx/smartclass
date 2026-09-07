@@ -389,6 +389,28 @@ describe('TeacherCreateExercisePage', () => {
     expect(prepareAnswerPdfForParsingMock).not.toHaveBeenCalled()
   })
 
+  it('blocks saving a parsed answer key with skipped source question numbers', async () => {
+    const user = userEvent.setup()
+    extractDetailedAnswerKeySchemaMock.mockResolvedValue([
+      { q_id: 1, local_number: 1, section_key: 'main', section_title: null, sub_id: null, type: 'mcq', correct_answer: 'A', confidence: 1 },
+      { q_id: 3, local_number: 3, section_key: 'main', section_title: null, sub_id: null, type: 'mcq', correct_answer: 'C', confidence: 1 },
+    ])
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Gap Quiz')
+    await user.upload(screen.getByLabelText(/Exercise PDF/i), new File(['pdf'], 'questions.pdf', { type: 'application/pdf' }))
+    await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }))
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByText('Source question numbers must not skip numbers in a section')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(screen.getByText('Please fix all answer key errors before saving')).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
+  })
+
   it('preserves manual rows after an unsupported-document API rejection', async () => {
     const user = userEvent.setup()
     const error = new Error('No supported answer table could be extracted from the supplied pages. Retry or enter answers manually.')

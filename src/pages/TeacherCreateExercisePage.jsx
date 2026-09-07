@@ -82,6 +82,7 @@ function validateRows(rows, t) {
       sourceQuestions.set(key, row.q_id)
     }
   }
+  const missingPreviousBySource = missingPreviousSourceNumbers(rows)
 
   return rows.map((row) => {
     const errors = []
@@ -97,6 +98,9 @@ function validateRows(rows, t) {
     }
     if (sourceQuestions.get(`${row.section_key ?? 'main'}:${row.local_number ?? row.q_id}`) === null) {
       errors.push(t('teacher.schema.uniqueLocalNumber'))
+    }
+    if (missingPreviousBySource.has(`${row.section_key ?? 'main'}:${localNumber}`)) {
+      errors.push(t('teacher.schema.contiguousLocalNumber'))
     }
 
     if (row.type === 'boolean') {
@@ -133,6 +137,27 @@ function validateRows(rows, t) {
       warnings,
     }
   })
+}
+
+function missingPreviousSourceNumbers(rows) {
+  const numbersBySection = new Map()
+  for (const row of rows) {
+    const localNumber = Number.parseInt(String(row.local_number ?? row.q_id), 10)
+    if (Number.isNaN(localNumber) || localNumber <= 0) continue
+    const sectionKey = row.section_key ?? 'main'
+    if (!numbersBySection.has(sectionKey)) numbersBySection.set(sectionKey, new Set())
+    numbersBySection.get(sectionKey).add(localNumber)
+  }
+
+  const invalidRows = new Set()
+  for (const [sectionKey, numbers] of numbersBySection) {
+    const ordered = [...numbers].sort((a, b) => a - b)
+    for (const number of ordered) {
+      if (number === 1 || numbers.has(number - 1)) continue
+      invalidRows.add(`${sectionKey}:${number}`)
+    }
+  }
+  return invalidRows
 }
 
 // --- Schema payload builder ---

@@ -648,9 +648,7 @@ export default function QuestionAssetWorkflow({
       if (createdSetId && !readyForReview) {
         await deleteQuestionAssetSet(token, exercise.id, createdSetId).catch(() => {})
       }
-      setError(generationError.code === 'SCANNED_OR_IMAGE_ONLY_PAGE'
-        ? t('teacher.questionViews.scannedUnsupported')
-        : generationError.message)
+      setError(questionDetectionErrorMessage(generationError, t))
       setPhase('error')
     }
   }, [
@@ -715,9 +713,7 @@ export default function QuestionAssetWorkflow({
       )
       await loadDraft(draft.asset_set.id)
     } catch (retryError) {
-      setError(retryError.code === 'SCANNED_OR_IMAGE_ONLY_PAGE'
-        ? t('teacher.questionViews.scannedUnsupported')
-        : retryError.message)
+      setError(questionDetectionErrorMessage(retryError, t))
     } finally {
       setBusyQuestionId(null)
     }
@@ -750,6 +746,19 @@ export default function QuestionAssetWorkflow({
       setError(activationError.message)
       setPhase('review')
     }
+  }
+
+  function questionDetectionErrorMessage(error, t) {
+    if (error?.code === 'SCANNED_OR_IMAGE_ONLY_PAGE') {
+      return t('teacher.questionViews.scannedUnsupported')
+    }
+    if (error?.code === 'UNEXPECTED_QUESTION_MARKER') {
+      return t('teacher.questionViews.unexpectedQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    if (error?.code === 'MISSING_QUESTION_MARKER') {
+      return t('teacher.questionViews.missingQuestionMarker', { number: error.details?.qId ?? '' })
+    }
+    return error?.message || t('teacher.questionViews.generationFailed')
   }
 
   function handleAnswerChange(row, value) {
@@ -1038,9 +1047,9 @@ export default function QuestionAssetWorkflow({
                       })
                       : t('teacher.questionViews.question', { number: localNumber })}
                   </h3>
-                  {isRejected ? (
+                  {isRejected || isMissing ? (
                     <Badge variant="destructive">{t('teacher.questionViews.replacementRequired')}</Badge>
-                  ) : isLowConfidence || isMissing || hasUnresolvedAnswer || hasInvalidAnswer ? (
+                  ) : isLowConfidence || hasUnresolvedAnswer || hasInvalidAnswer ? (
                     <Badge variant="outline" className="border-warning text-warning">
                       {t('teacher.questionViews.needsAttention')}
                     </Badge>
@@ -1078,7 +1087,7 @@ export default function QuestionAssetWorkflow({
                       </Button>
                     )}
 
-                    {isRejected && (
+                    {(isRejected || isMissing) && (
                       <div className="space-y-4 rounded-lg bg-warning-muted p-4">
                         <div className="flex flex-wrap gap-2">
                           <Button

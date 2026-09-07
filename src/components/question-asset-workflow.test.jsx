@@ -406,6 +406,31 @@ describe('QuestionAssetWorkflow', () => {
     expect(api.getQuestionAssetSet).not.toHaveBeenCalled()
   })
 
+  it('keeps generated questions and leaves missing markers for teacher replacement', async () => {
+    const user = userEvent.setup()
+    api.getExerciseFileBlob.mockResolvedValue(new Blob(['pdf'], { type: 'application/pdf' }))
+    generateQuestionAssetsMock.mockResolvedValue({
+      detectorVersion: 'text-geometry-v1',
+      detectionMethod: 'text',
+      warnings: [{ code: 'MISSING_QUESTION_MARKER', qId: 2 }],
+      assets: [generatedAsset(1)],
+    })
+    api.createQuestionAssetSet.mockResolvedValue({ data: { id: 22 } })
+    api.uploadGeneratedQuestionAsset.mockResolvedValue({ data: {} })
+    api.getQuestionAssetSet.mockResolvedValue(preview([storedAsset(1)]))
+
+    renderWorkflow()
+    await user.click(screen.getByRole('button', { name: 'Prepare exercise' }))
+
+    expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
+    expect(api.uploadGeneratedQuestionAsset).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('heading', { name: 'Question 1' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Question 2' })).toBeInTheDocument()
+    expect(screen.getByText('Replacement required')).toBeInTheDocument()
+    expect(screen.getByText('Upload question screenshot')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Confirm answers and activate' })).toBeDisabled()
+  }, 10000)
+
   it('restores the latest pending preview after a reload', async () => {
     api.getQuestionAssetSet.mockResolvedValue(preview())
 
