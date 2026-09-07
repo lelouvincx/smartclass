@@ -604,43 +604,41 @@ export default function TeacherCreateExercisePage() {
                 </p>
               </div>
 
-            </div>
-          </CardContent>
-        </Card>
+              <div data-testid="answer-parse-action" className="space-y-3 rounded-[var(--sc-component-control-shape)] border border-border bg-muted/30 p-3 md:col-span-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!answerFile || isParsing}
+                  onClick={handleParseSchema}
+                  className="w-full"
+                >
+                  {isParsing ? (
+                    <>
+                      <Spinner className="mr-1.5" aria-label={t('common.loading')} />
+                      {t('teacher.create.reading')}
+                    </>
+                  ) : (
+                    t('teacher.create.readAnswers')
+                  )}
+                </Button>
+                {answerParseProgress && (
+                  <AnswerParseProgress
+                    stage={answerParseProgress.stage}
+                    stageProgress={answerParseProgress.progress}
+                    labels={{
+                      reading: t('teacher.answerParse.reading'),
+                      rendering: t('teacher.answerParse.rendering'),
+                      waiting: t('teacher.answerParse.waiting'),
+                      stillWaiting: t('teacher.answerParse.stillWaiting'),
+                      applying: t('teacher.answerParse.applying'),
+                      complete: t('teacher.answerParse.complete'),
+                      error: t('teacher.answerParse.error'),
+                    }}
+                  />
+                )}
+              </div>
 
-        <Card data-testid="answer-parse-action" size="sm">
-          <CardContent className="space-y-3">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!answerFile || isParsing}
-              onClick={handleParseSchema}
-              className="w-full"
-            >
-              {isParsing ? (
-                <>
-                  <Spinner className="mr-1.5" aria-label={t('common.loading')} />
-                  {t('teacher.create.reading')}
-                </>
-              ) : (
-                t('teacher.create.readAnswers')
-              )}
-            </Button>
-            {answerParseProgress && (
-              <AnswerParseProgress
-                stage={answerParseProgress.stage}
-                stageProgress={answerParseProgress.progress}
-                labels={{
-                  reading: t('teacher.answerParse.reading'),
-                  rendering: t('teacher.answerParse.rendering'),
-                  waiting: t('teacher.answerParse.waiting'),
-                  stillWaiting: t('teacher.answerParse.stillWaiting'),
-                  applying: t('teacher.answerParse.applying'),
-                  complete: t('teacher.answerParse.complete'),
-                  error: t('teacher.answerParse.error'),
-                }}
-              />
-            )}
+            </div>
           </CardContent>
         </Card>
 
