@@ -100,7 +100,7 @@ function validateRows(rows, t) {
       errors.push(t('teacher.schema.uniqueLocalNumber'))
     }
     if (missingPreviousBySource.has(`${row.section_key ?? 'main'}:${localNumber}`)) {
-      errors.push(t('teacher.schema.contiguousLocalNumber'))
+      warnings.push(t('teacher.schema.contiguousLocalNumber'))
     }
 
     if (row.type === 'boolean') {

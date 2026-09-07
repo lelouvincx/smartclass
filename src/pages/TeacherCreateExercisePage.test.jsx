@@ -389,8 +389,9 @@ describe('TeacherCreateExercisePage', () => {
     expect(prepareAnswerPdfForParsingMock).not.toHaveBeenCalled()
   })
 
-  it('blocks saving a parsed answer key with skipped source question numbers', async () => {
+  it('warns but allows saving a parsed answer key with skipped source question numbers', async () => {
     const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 303 } })
     extractDetailedAnswerKeySchemaMock.mockResolvedValue([
       { q_id: 1, local_number: 1, section_key: 'main', section_title: null, sub_id: null, type: 'mcq', correct_answer: 'A', confidence: 1 },
       { q_id: 3, local_number: 3, section_key: 'main', section_title: null, sub_id: null, type: 'mcq', correct_answer: 'C', confidence: 1 },
@@ -406,9 +407,10 @@ describe('TeacherCreateExercisePage', () => {
     expect(await screen.findByText('Source question numbers must not skip numbers in a section')).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+    expect(screen.getByText('Save with warnings?')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Continue' }))
 
-    expect(screen.getByText('Please fix all answer key errors before saving')).toBeInTheDocument()
-    expect(createExerciseMock).not.toHaveBeenCalled()
+    expect(createExerciseMock).toHaveBeenCalledTimes(1)
   })
 
   it('preserves manual rows after an unsupported-document API rejection', async () => {
