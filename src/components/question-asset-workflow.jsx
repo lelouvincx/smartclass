@@ -1224,8 +1224,8 @@ export default function QuestionAssetWorkflow({
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
-      <Card className="border-primary/30 shadow-[var(--shadow-raised)]">
-        <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-center sm:justify-between">
+      <Card className="border-primary/30 py-0 shadow-[var(--shadow-raised)]">
+        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
             <div>
