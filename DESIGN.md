@@ -50,27 +50,27 @@ colors:
   dark-warning: "#FACC15"
 typography:
   display:
-    fontFamily: Roboto, Noto Sans, sans-serif
+    fontFamily: Inter, Noto Sans, sans-serif
     fontSize: 3rem
     fontWeight: 760
     lineHeight: 0.95
   headline:
-    fontFamily: Roboto, Noto Sans, sans-serif
+    fontFamily: Inter, Noto Sans, sans-serif
     fontSize: 1.75rem
     fontWeight: 720
     lineHeight: 1.12
   title:
-    fontFamily: Roboto, Noto Sans, sans-serif
+    fontFamily: Inter, Noto Sans, sans-serif
     fontSize: 1rem
     fontWeight: 600
     lineHeight: 1.5rem
   body:
-    fontFamily: Roboto, Noto Sans, sans-serif
+    fontFamily: Inter, Noto Sans, sans-serif
     fontSize: 0.875rem
     fontWeight: 400
     lineHeight: 1.25rem
   label:
-    fontFamily: Roboto, Noto Sans, sans-serif
+    fontFamily: Inter, Noto Sans, sans-serif
     fontSize: 0.75rem
     fontWeight: 400
     lineHeight: 1rem
@@ -213,7 +213,7 @@ All body text and interactive labels must meet WCAG AA contrast. Focus rings use
 
 ## Typography
 
-Use Roboto, the Material 3 default typeface, with Noto Sans and the system sans serif as fallbacks. Load Roboto with `font-display: swap` so text remains visible while the web font loads. Page titles are bold and compact; section titles are semibold; body text stays regular. Keep descriptions to readable line lengths rather than stretching them across the workspace.
+Use Inter with Noto Sans and the system sans serif as fallbacks. Load Inter with `font-display: swap` so text remains visible while the web font loads. Page titles are bold and compact; section titles are semibold; body text stays regular. Keep descriptions to readable line lengths rather than stretching them across the workspace.
 
 SmartClass uses `html { font-size: 125% }` as a readable default without making dense learning workflows feel zoomed in. Relative type and spacing scale from that baseline; do not reset it inside components. Use tabular numerals for times and scores when alignment matters.
 

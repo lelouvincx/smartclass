@@ -1,6 +1,9 @@
 import { vi } from 'vitest'
 import {
   AnswerPdfPreparationError,
+  extractDetailedAnswerKeyRowsFromText,
+  extractDetailedAnswerKeySchema,
+  extractGreenMcqAnswerRowsFromPageEvidence,
   extractTextFromPdf,
   prepareAnswerPdfForParsing,
 } from './pdf'
@@ -59,6 +62,117 @@ describe('extractTextFromPdf', () => {
     await expect(extractTextFromPdf(makeSourceFile(), { pdfjs })).resolves.toBe(
       'First answer line\nSecond page',
     )
+  })
+})
+
+describe('extractDetailedAnswerKeyRowsFromText', () => {
+  it('maps detailed solution answer lines to schema rows', () => {
+    const text = `
+ĐÁP ÁN CHI TIẾT
+Question 1:
+Kiến thức: Từ vựng theo ngữ cảnh
+→ Chọn đáp án D
+Question 2:
+Giải thích chi tiết
+→ Chọn đáp án B
+Question 3:
+→ Chọn đáp án C
+`
+
+    expect(extractDetailedAnswerKeyRowsFromText(text)).toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 1 },
+      { q_id: 3, sub_id: null, type: 'mcq', correct_answer: 'C', confidence: 1 },
+    ])
+  })
+
+  it('tolerates PDF text extraction splitting Vietnamese and English glyphs', () => {
+    const text = `
+Question 26 : explanation → Ch ọ n đáp án A
+Questio n 27 : explanation → Ch ọ n đáp án C
+`
+
+    expect(extractDetailedAnswerKeyRowsFromText(text)).toEqual([
+      { q_id: 26, sub_id: null, type: 'mcq', correct_answer: 'A', confidence: 1 },
+      { q_id: 27, sub_id: null, type: 'mcq', correct_answer: 'C', confidence: 1 },
+    ])
+  })
+
+  it('keeps conflicting detailed answers blank for review', () => {
+    const text = `
+Question 1:
+→ Chọn đáp án B
+Question 1:
+→ Chọn đáp án D
+`
+
+    expect(extractDetailedAnswerKeyRowsFromText(text)).toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: '', confidence: null },
+    ])
+  })
+
+  it('extracts detailed answer rows from every PDF page', async () => {
+    const { pdfjs, pdf } = makePdfjs([
+      ['Question 1:', '→ Chọn đáp án D'],
+      ['Question 2:', '→ Chọn đáp án B'],
+    ])
+    const onProgress = vi.fn()
+
+    await expect(extractDetailedAnswerKeySchema(makeSourceFile(), { pdfjs, onProgress })).resolves.toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 1 },
+    ])
+    expect(pdf.getPage.mock.calls.map(([pageNumber]) => pageNumber)).toEqual([1, 2])
+    expect(onProgress).toHaveBeenLastCalledWith({ stage: 'reading', current: 2, total: 2 })
+  })
+})
+
+describe('extractGreenMcqAnswerRowsFromPageEvidence', () => {
+  it('maps highlighted multiple-choice options to answer schema rows', () => {
+    const rows = extractGreenMcqAnswerRowsFromPageEvidence([
+      {
+        pageNumber: 1,
+        regions: [
+          { x: 100, y: 90, width: 24, height: 10, pixelCount: 240 },
+          { x: 220, y: 190, width: 24, height: 10, pixelCount: 240 },
+        ],
+        textItems: [
+          { text: 'Câu', x: 20, y: 20, width: 24, height: 10 },
+          { text: '1:', x: 48, y: 20, width: 10, height: 10 },
+          { text: 'A.', x: 20, y: 90, width: 12, height: 10 },
+          { text: 'B.', x: 82, y: 90, width: 12, height: 10 },
+          { text: 'Câu 2:', x: 20, y: 130, width: 40, height: 10 },
+          { text: 'C.', x: 20, y: 190, width: 12, height: 10 },
+          { text: 'D.', x: 202, y: 190, width: 12, height: 10 },
+        ],
+      },
+    ])
+
+    expect(rows).toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 1 },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+    ])
+  })
+
+  it('keeps ambiguous detected questions as blank review rows instead of inventing answers', () => {
+    const rows = extractGreenMcqAnswerRowsFromPageEvidence([
+      {
+        pageNumber: 1,
+        regions: [
+          { x: 100, y: 90, width: 24, height: 10, pixelCount: 240 },
+          { x: 150, y: 110, width: 24, height: 10, pixelCount: 240 },
+        ],
+        textItems: [
+          { text: 'Câu 1:', x: 20, y: 20, width: 40, height: 10 },
+          { text: 'B.', x: 82, y: 90, width: 12, height: 10 },
+          { text: 'C.', x: 132, y: 110, width: 12, height: 10 },
+        ],
+      },
+    ])
+
+    expect(rows).toEqual([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: '', confidence: null },
+    ])
   })
 })
 

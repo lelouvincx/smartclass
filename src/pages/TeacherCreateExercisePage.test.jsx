@@ -10,6 +10,8 @@ const parseExerciseSchemaMock = vi.fn()
 const createExerciseFileUploadMock = vi.fn()
 const uploadExerciseFileMock = vi.fn()
 const prepareAnswerPdfForParsingMock = vi.fn()
+const extractGreenHighlightedAnswerSchemaMock = vi.fn()
+const extractDetailedAnswerKeySchemaMock = vi.fn()
 
 vi.mock('../lib/api', async (importOriginal) => {
   const actual = await importOriginal()
@@ -23,6 +25,8 @@ vi.mock('../lib/api', async (importOriginal) => {
 })
 
 vi.mock('../lib/pdf', () => ({
+  extractDetailedAnswerKeySchema: (...args) => extractDetailedAnswerKeySchemaMock(...args),
+  extractGreenHighlightedAnswerSchema: (...args) => extractGreenHighlightedAnswerSchemaMock(...args),
   prepareAnswerPdfForParsing: (...args) => prepareAnswerPdfForParsingMock(...args),
 }))
 
@@ -55,6 +59,10 @@ describe('TeacherCreateExercisePage', () => {
     createExerciseFileUploadMock.mockReset()
     uploadExerciseFileMock.mockReset()
     prepareAnswerPdfForParsingMock.mockReset()
+    extractDetailedAnswerKeySchemaMock.mockReset()
+    extractGreenHighlightedAnswerSchemaMock.mockReset()
+    extractGreenHighlightedAnswerSchemaMock.mockResolvedValue([])
+    extractDetailedAnswerKeySchemaMock.mockResolvedValue([])
     prepareAnswerPdfForParsingMock.mockResolvedValue({
       page_files: [new File(['page'], 'page-1.png', { type: 'image/png' })],
       page_manifest: [{ file_name: 'page-1.png', page_number: 1, text: 'ĐÁP ÁN' }],
@@ -280,6 +288,97 @@ describe('TeacherCreateExercisePage', () => {
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(createExerciseMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('treats an empty parse success as a recoverable manual-entry state', async () => {
+    const user = userEvent.setup()
+    parseExerciseSchemaMock.mockResolvedValue({
+      data: {
+        schema: [],
+        confidence: null,
+        pages_processed: 1,
+      },
+    })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
+    await user.upload(
+      screen.getByLabelText(/Answer PDF/i),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByText(/Could not find a supported answer table/i)).toBeInTheDocument()
+    expect(screen.queryByText('Answers are ready to review')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuetext', 'Could not read answers')
+    expect(Number(screen.getByRole('progressbar').getAttribute('aria-valuenow'))).toBeLessThan(100)
+    expect(screen.getByLabelText(/correct answer for question 1/i)).toHaveValue('C')
+  })
+
+  it('uses green-highlighted answer choices without sending the PDF to the table parser', async () => {
+    const user = userEvent.setup()
+    extractGreenHighlightedAnswerSchemaMock.mockResolvedValue([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 1 },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+    ])
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.upload(
+      screen.getByLabelText(/Answer PDF/i),
+      new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByDisplayValue('B')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('D')).toBeInTheDocument()
+    expect(screen.getByText('Answers are ready to review')).toBeInTheDocument()
+    expect(parseExerciseSchemaMock).not.toHaveBeenCalled()
+    expect(prepareAnswerPdfForParsingMock).not.toHaveBeenCalled()
+  })
+
+  it('uses detailed solution answer lines without sending the PDF to the table parser', async () => {
+    const user = userEvent.setup()
+    extractDetailedAnswerKeySchemaMock.mockResolvedValue([
+      { q_id: 1, sub_id: null, type: 'mcq', correct_answer: 'D', confidence: 1 },
+      { q_id: 2, sub_id: null, type: 'mcq', correct_answer: 'B', confidence: 1 },
+    ])
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.upload(
+      screen.getByLabelText(/Answer PDF/i),
+      new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByDisplayValue('D')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('B')).toBeInTheDocument()
+    expect(screen.getByText('Answers are ready to review')).toBeInTheDocument()
+    expect(parseExerciseSchemaMock).not.toHaveBeenCalled()
+    expect(prepareAnswerPdfForParsingMock).not.toHaveBeenCalled()
+  })
+
+  it('preserves manual rows after an unsupported-document API rejection', async () => {
+    const user = userEvent.setup()
+    const error = new Error('No supported answer table could be extracted from the supplied pages. Retry or enter answers manually.')
+    error.status = 422
+    error.code = 'UNSUPPORTED_DOCUMENT'
+    parseExerciseSchemaMock.mockRejectedValue(error)
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'D')
+    await user.upload(
+      screen.getByLabelText(/Answer PDF/i),
+      new File(['pdf'], 'answer.pdf', { type: 'application/pdf' }),
+    )
+    await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
+
+    expect(await screen.findByText(/Could not find a supported answer table/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/correct answer for question 1/i)).toHaveValue('D')
+    expect(screen.getByRole('button', { name: /Read answers from PDF/ })).toBeEnabled()
   })
 
   it('keeps an unscored Cohere answer populated and marks it for review', async () => {

@@ -1,5 +1,5 @@
 const MIN_HIGHLIGHT_PIXELS = 24
-const HIGHLIGHT_AREA_RATIO = 0.0005
+const HIGHLIGHT_AREA_RATIO = 0.0001
 
 export function isSuspiciousHighlightGreen(red, green, blue, alpha) {
   return alpha >= 128
