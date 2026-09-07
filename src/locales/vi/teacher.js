@@ -86,7 +86,7 @@ export default {
     confirmDescription: 'Hãy xác nhận mọi đáp án đều đúng và mọi ảnh câu hỏi đều đầy đủ, dễ đọc, không để lộ lời giải, đáp án đúng hoặc dấu hiệu gợi ý đáp án. Thao tác này sẽ kích hoạt bộ câu hỏi hoàn chỉnh cho các lượt làm bài mới.',
     confirm: 'Xác nhận và kích hoạt',
     confirmAnswersDescription: 'Kiểm tra đáp án và ảnh câu hỏi trước khi học sinh làm bài.',
-    confirmAnswers: 'Kích hoạt bài tập',
+    confirmAnswers: 'Lưu',
     activating: 'Đang kích hoạt…',
     activeTitle: 'Bộ câu hỏi đã được kích hoạt',
     activeDescription: 'Các lượt làm bài mới của học sinh sẽ dùng bộ câu hỏi đã xác nhận này.',
