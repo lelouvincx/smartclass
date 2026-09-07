@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ImageOff, Maximize2, X, ZoomIn, ZoomOut } from 'lucide-react'
+import { ImageOff, Maximize2, X, ZoomIn, ZoomOut } from '@/components/material-symbol'
 import { getQuestionAssetBlob } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {
@@ -164,7 +164,7 @@ export function QuestionImagePanel({ token, assets = [], currentQId, adjacentQId
   if (currentAssets.length === 0) {
     return (
       <div role="alert" className="flex min-h-64 flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-muted/35 p-6 text-center">
-        <ImageOff className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+        <ImageOff className="size-5 text-muted-foreground" aria-hidden="true" />
         <p className="text-sm text-muted-foreground">{t('student.questionView.unavailable')}</p>
       </div>
     )
@@ -205,13 +205,13 @@ export function QuestionImagePanel({ token, assets = [], currentQId, adjacentQId
                   aria-hidden="true"
                   className="flex min-h-12 items-center justify-center gap-2 border-t bg-muted/30 px-3 text-sm font-medium text-foreground transition-colors group-hover:bg-muted/60"
                 >
-                  <Maximize2 className="h-4 w-4" />
+                  <Maximize2 className="size-4" />
                   {t('student.questionView.openLargeShort')}
                 </span>
               </button>
             ) : state.status === 'failed' ? (
               <div role="alert" className="flex min-h-64 flex-col items-center justify-center gap-3 p-6 text-center">
-                <ImageOff className="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+                <ImageOff className="size-5 text-muted-foreground" aria-hidden="true" />
                 <p className="text-sm text-muted-foreground">{t('student.questionView.failed')}</p>
                 <Button type="button" variant="outline" onClick={() => loadAsset(asset, { force: true })}>
                   {t('student.questionView.retry')}

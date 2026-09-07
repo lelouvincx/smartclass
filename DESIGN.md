@@ -241,7 +241,7 @@ Avoid nested cards when a divider, heading, or grouped row communicates the same
 
 Use 20px corners for cards and selected navigation, and 14px corners for controls and icon wells. Reserve the 32px focal shape for approved expressive moments. Use pills only for short statuses, tags, and compact metadata. Do not make ordinary buttons or content containers fully rounded.
 
-Icons use the Lucide outline family at 16–20px. They support labels rather than replace them unless the control has an explicit accessible name.
+Icons must come from [Google Fonts Icons](https://fonts.google.com/icons), using the Material Symbols family at 16–20px. They support labels rather than replace them unless the control has an explicit accessible name.
 
 Use shape contrast deliberately. Standard controls retain the existing restrained radii. A larger focal shape is allowed only at an approved expressive moment; do not create a page-wide collection of unrelated rounded forms.
 
@@ -255,6 +255,7 @@ Motion explains state and hierarchy; it is not decoration. Keep dense flows shor
 - **Action cards:** use an icon well, action name, one-line outcome, and trailing arrow. Keep the whole card clickable.
 - **Empty states:** `EmptyState` uses a semantic heading, explains what happened, and offers one recovery action when the user can proceed.
 - **Buttons:** show one primary action per local group. Secondary actions are outline or quiet. Labels use verbs and controls remain large enough for touch.
+- **Subscription tiers:** choose access or subscription tiers with `SegmentedButtonGroup`, not card radios or select menus, when all tier options can be shown at once.
 - **Navigation:** current location uses blue text on `selection`, not a solid blue rail. Every item combines icon and text.
 - **Tables and metadata:** use muted headers, restrained row separators, and explicit column labels. Scores and statuses include text, not color alone.
 - **Disclosures:** summarize collapsed content and keep expanded learning rows grouped. Move complex or lengthy work to a dedicated page.

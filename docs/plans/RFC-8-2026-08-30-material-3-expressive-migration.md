@@ -14,7 +14,7 @@ dependencies: [RFC-3, RFC-6]
 
 **Decision owner:** Chinh
 
-**Implementation status (2026-09-02):** The planned code changes and automated verification are complete. Final human visual approval is still pending; completion of the implementation does not imply visual acceptance.
+**Implementation status (2026-09-02):** The planned code changes and automated verification are complete. Final human visual approval is still pending; completion of the implementation does not imply visual acceptance. The component adoption plan added on 2026-09-07 is a follow-up workstream under the same boundary and gates, not a new approval for wholesale component migration.
 
 ## Trigger
 
@@ -47,6 +47,70 @@ Use Material 3 Expressive as a reference for token structure, purposeful shape c
 - empty states with a clear recovery action.
 
 Do not conduct a wholesale component rewrite. Existing shadcn/Radix primitives remain the default until a specific component demonstrates a user, accessibility, maintenance, or interoperability benefit from changing.
+
+## Material 3 component adoption plan
+
+The Material 3 component catalogue should guide SmartClass component audits, not replace SmartClass's visual identity. Use Material 3 as vocabulary for accessibility, state, hierarchy, motion, and component semantics. Keep SmartClass tokens, density, and assessment-first layout.
+
+This plan does not override the staged rollout below. Items that standardize current primitives belong in Stage 2. Expressive treatments belong in Stage 3 and still require per-slice review. A future agent must identify a named gap and add or update a behavioural test before changing a Radix interaction contract, a shared primitive API, or a route-level interaction pattern.
+
+### Component audit tier 0 — standardize current primitives
+
+Use this table as audit vocabulary, not a conformance checklist. Map each current primitive to the closest Material 3 component pattern, then change implementation only when the audit finds a specific accessibility, behaviour, consistency, or maintenance gap:
+
+| SmartClass primitive | Material 3 reference | Adoption action |
+| --- | --- | --- |
+| `Button` | Filled, outlined, text, and icon buttons | Document variant meaning without renaming the public API by default: the current primary action uses the `default` variant, `outline` is outlined, `ghost` and `link` are text-like treatments, and icon sizes are icon buttons. Preserve actual links for navigation, 48px touch targets, and visible focus. |
+| `Card` and `ActionCard` | Cards | Keep restrained cards for dense content. Reserve expressive shape or motion for action cards and approved milestone moments. |
+| `Dialog` | Dialogs | Audit action ordering, footer layout, focus restoration, close affordances, Escape handling, and outside-dismiss behaviour. Preserve safer behaviour when dismissing could lose input or interrupt a task. |
+| `Sheet` | Navigation drawer and bottom sheet | Treat left sheets as navigation drawers. Use bottom sheets only for task-local choices. |
+| `Input`, `Select`, `RadioGroup`, and `Switch` | Text fields, menus, radio buttons, and switches | Standardize labels, helper text, error text, required or optional copy, disabled states, and invalid states. |
+| `Badge` | Badges and chips | Keep status badges text-first. Add a separate chip component only when an item becomes selectable, removable, or filter-like. |
+| `Alert` and `Toaster` | Banners and snackbars | Use alerts for persistent page state. Use the existing `Toaster` wrapper for transient confirmation and recovery unless a named API gap requires another wrapper. |
+| `Table` | Data tables | Preserve compact scanability, row labels, and bounded horizontal scrolling. Do not import Material spacing that reduces useful row density. |
+| `AppShell` navigation | Navigation rail and navigation drawer | Keep the current sidebar, compact rail, and mobile drawer. Tighten active, hover, focus, disabled, and current-route states against Material 3 behaviour. |
+
+### Component audit tier 1 — candidate shared components
+
+Create these only when a named product flow demonstrates a shared need. Keep low-level primitives in `src/components/ui/`. Keep product-level compositions in `src/design-system/`. Do not add a component only because Material 3 includes it.
+
+- `Tabs` for switching between related panels without leaving the route
+- `Chips` for filters, programme tags, selected access classes, and compact removable values
+- `ProgressIndicator` for upload, PDF parsing, question generation, grading, and other asynchronous work
+- `WorkflowStatus` for teacher exercise creation and review stages
+- `SegmentedButton` for small mutually exclusive view or filter choices
+- a `Toaster` policy update, or a separate snackbar wrapper only if the existing `sonner` wrapper cannot express the required transient feedback rule cleanly
+
+### Component audit tier 2 — defer until a named product need exists
+
+Do not add these by default:
+
+- floating action buttons, because they can overlap learning content and compete with the next task
+- split buttons, because current flows do not need secondary actions hidden behind a primary action
+- carousels, because assessment and administration flows need direct navigation and scanability
+- large top app bars, because SmartClass uses a sidebar-first workspace
+- Material Web, because dependency adoption has a separate approval gate in this RFC
+
+### Rollout order
+
+Use this sequence inside the existing rollout. Steps 1 to 5 are Stage 2 work. Step 6 is Stage 3 work and still needs per-slice approval. The sequence is not approval to build every candidate component.
+
+1. Standardize button variant semantics, disabled states, loading states, focus states, and icon-button sizing.
+2. Standardize form control labels, helper text, validation text, error state, and required or optional copy.
+3. Align sidebar, compact rail, and mobile drawer behaviour with Material 3 navigation rail and drawer patterns.
+4. Standardize dialogs, sheets, menus, close behaviour, focus restoration, and action ordering.
+5. Add progress and workflow components only after PDF upload, parsing, question generation, or grading flows show a repeated shared need.
+6. Apply expressive treatment only to creation, Start, completion, score, progress, and empty states.
+
+### Review gates
+
+Each component adoption change must pass these gates:
+
+- the change improves behaviour, accessibility, consistency, or maintenance without reducing assessment scanability
+- the component consumes semantic or component tokens, not raw one-off values
+- dense teacher and student workflows remain compact and calm
+- keyboard, focus, reduced-motion, light-theme, dark-theme, desktop, and mobile checks pass under the frontend acceptance contract
+- dependency adoption remains out of scope unless the Material Web gate below is explicitly met
 
 ## Oracle conclusions accepted
 

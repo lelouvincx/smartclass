@@ -16,19 +16,20 @@ function TestGroup() {
 }
 
 describe('AccessTierRadioGroup', () => {
-  it('vertically centers each option in its card', async () => {
+  it('renders subscription tiers as a segmented button group', async () => {
     const user = userEvent.setup()
     render(<TestGroup />)
 
-    const standard = screen.getByLabelText('Standard')
-    const vip = screen.getByLabelText('VIP')
+    const group = screen.getByRole('group', { name: 'Student access tier' })
+    const standard = screen.getByRole('button', { name: 'Standard' })
+    const vip = screen.getByRole('button', { name: 'VIP' })
 
-    expect(standard.closest('[data-slot="field-label"]')).toHaveClass('justify-center')
-    expect(vip.closest('[data-slot="field-label"]')).toHaveClass('justify-center')
-    expect(standard.closest('[data-slot="field"]')).toHaveClass('items-center')
+    expect(group.querySelector('[data-slot="segmented-button-group"]')).toBeInTheDocument()
+    expect(standard).toHaveAttribute('aria-pressed', 'true')
+    expect(vip).toHaveAttribute('aria-pressed', 'false')
 
     await user.click(vip)
-    expect(vip).toBeChecked()
-    expect(standard).not.toBeChecked()
+    expect(vip).toHaveAttribute('aria-pressed', 'true')
+    expect(standard).toHaveAttribute('aria-pressed', 'false')
   })
 })

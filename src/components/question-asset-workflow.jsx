@@ -7,7 +7,7 @@ import {
   ImageUp,
   RefreshCw,
   ShieldCheck,
-} from 'lucide-react'
+} from '@/components/material-symbol'
 import {
   createQuestionAssetSet,
   deleteQuestionAssetSet,
@@ -26,6 +26,8 @@ import { mergeAnswerCandidates } from '@/lib/answer-candidates'
 import { prepareAnswerPdfForParsing } from '@/lib/pdf'
 import { generateQuestionAssets } from '@/lib/question-generation'
 import AnswerParseProgress from '@/components/answer-parse-progress'
+import { ProgressIndicator } from '@/design-system/progress-indicator'
+import { Spinner } from '@/components/ui/spinner'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -279,9 +281,11 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced }) {
         inputAriaLabel={t('teacher.questionViews.screenshotAria', { number: qId })}
       />
       {isUploading && (
-        <progress className="h-2 w-full accent-primary" value={progress} max="1">
-          {Math.round(progress * 100)}%
-        </progress>
+        <ProgressIndicator
+          label={t('teacher.questionViews.uploadingScreenshot')}
+          value={Math.round(progress * 100)}
+          valueText={`${Math.round(progress * 100)}%`}
+        />
       )}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
       <Button type="button" onClick={handleUpload} disabled={isUploading || !file}>
@@ -945,10 +949,12 @@ export default function QuestionAssetWorkflow({
                   <span className="tabular-nums text-muted-foreground">{Math.round(progressValue * 100)}%</span>
                 )}
               </div>
-              <progress
-                className="h-2 w-full accent-primary"
-                value={phase === 'loading' ? undefined : progressValue}
-                max="1"
+              <ProgressIndicator
+                label={phase === 'loading'
+                  ? t('teacher.questionViews.loadingPreview')
+                  : t(`teacher.questionViews.progress.${progress.stage || 'reading'}`)}
+                value={phase === 'loading' ? undefined : Math.round(progressValue * 100)}
+                valueText={phase === 'loading' ? undefined : `${Math.round(progressValue * 100)}%`}
               />
             </div>
             )
@@ -1149,7 +1155,7 @@ export default function QuestionAssetWorkflow({
                             onClick={() => handleRetry(qId)}
                             disabled={busyQuestionId !== null}
                           >
-                            <RefreshCw className={busyQuestionId === qId ? 'animate-spin' : ''} />
+                            {busyQuestionId === qId ? <Spinner aria-label={t('common.loading')} /> : <RefreshCw />}
                             {t('teacher.questionViews.retryDetection')}
                           </Button>
                           <Button
@@ -1169,7 +1175,11 @@ export default function QuestionAssetWorkflow({
                                 {Math.round(progressValue * 100)}%
                               </span>
                             </div>
-                            <progress className="h-2 w-full accent-primary" value={progressValue} max="1" />
+                            <ProgressIndicator
+                              label={t(`teacher.questionViews.progress.${progress.stage || 'reading'}`)}
+                              value={Math.round(progressValue * 100)}
+                              valueText={`${Math.round(progressValue * 100)}%`}
+                            />
                           </div>
                         )}
                         <p className="text-xs text-muted-foreground">

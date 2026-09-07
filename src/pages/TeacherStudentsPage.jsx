@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Users } from 'lucide-react'
+import { ChevronDown, Users } from '@/components/material-symbol'
 import { useSearchParams } from 'react-router-dom'
 import { listStudents, createStudent, approveStudent, removeStudent, updateStudentAccessTier, updateStudentGrades, updateStudentName, updateStudentStatus } from '@/lib/api'
 import { toast } from 'sonner'
@@ -11,8 +11,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Spinner } from '@/components/ui/spinner'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { formatFullDate } from '@/lib/format'
@@ -33,7 +40,7 @@ const STATUS_FILTERS = [
 ]
 
 const STATUS_VARIANT = {
-  active: 'default',
+  active: 'success',
   pending: 'secondary',
   disabled: 'outline',
 }
@@ -42,6 +49,102 @@ function formatCreatedDate(isoStr, language) {
   if (!isoStr) return '—'
   const d = new Date(isoStr)
   return formatFullDate(d, language)
+}
+
+function StudentRowActions({
+  student,
+  approvingId,
+  updatingStatusId,
+  onApprove,
+  onRename,
+  onToggleStatus,
+  onRemove,
+  t,
+}) {
+  const displayName = student.name || student.phone
+  const isPending = student.status === 'pending'
+  const actionVariant = isPending ? 'default' : 'outline'
+  const menuButtonClassName = isPending
+    ? 'w-9 rounded-l-none border-l border-primary-foreground/25 px-0'
+    : '-ml-px w-9 rounded-l-none px-0'
+  const toggleLabel = student.status === 'disabled'
+    ? t(updatingStatusId === student.id ? 'teacher.students.activating' : 'teacher.students.activate')
+    : t(updatingStatusId === student.id ? 'teacher.students.deactivating' : 'teacher.students.deactivate')
+  const toggleAriaLabel = t(student.status === 'disabled'
+    ? 'teacher.students.activateNamed'
+    : 'teacher.students.deactivateNamed', {
+    name: displayName,
+  })
+
+  return (
+    <div className="flex w-full justify-stretch sm:w-auto sm:justify-end">
+      <div className="inline-flex w-full min-w-0 rounded-[var(--sc-component-control-shape)] shadow-sm sm:w-auto">
+        {isPending ? (
+          <Button
+            className="min-w-0 flex-1 rounded-r-none sm:flex-none"
+            size="sm"
+            variant={actionVariant}
+            onClick={() => onApprove(student.id)}
+            disabled={approvingId === student.id}
+          >
+            {approvingId === student.id ? (
+              <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
+            ) : null}
+            {approvingId === student.id ? t('teacher.students.approving') : t('teacher.students.approve')}
+          </Button>
+        ) : (
+          <Button
+            className="min-w-0 flex-1 rounded-r-none sm:flex-none"
+            type="button"
+            size="sm"
+            variant={actionVariant}
+            aria-label={toggleAriaLabel}
+            onClick={() => onToggleStatus(student)}
+            disabled={updatingStatusId === student.id}
+          >
+            {updatingStatusId === student.id ? (
+              <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
+            ) : null}
+            {toggleLabel}
+          </Button>
+        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              className={menuButtonClassName}
+              type="button"
+              size="icon-sm"
+              variant={actionVariant}
+              aria-label={t('teacher.students.moreActionsNamed', { name: displayName })}
+            >
+              <ChevronDown className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem onSelect={() => onRename(student)} aria-label={t('teacher.students.renameNamed', { name: displayName })}>
+              {t('teacher.students.rename')}
+            </DropdownMenuItem>
+            {student.status === 'pending' ? (
+              <DropdownMenuItem
+                onSelect={() => onToggleStatus(student)}
+                disabled={updatingStatusId === student.id}
+                aria-label={toggleAriaLabel}
+              >
+                {toggleLabel}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => onRemove(student)}
+              aria-label={t('teacher.students.removeNamed', { name: displayName })}
+            >
+              {t('teacher.students.remove')}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  )
 }
 
 export default function TeacherStudentsPage() {
@@ -442,11 +545,9 @@ export default function TeacherStudentsPage() {
               )}
               <div className="mb-4 grid gap-4 rounded-lg border bg-muted/30 p-4 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-end">
                 <label className="flex min-h-[var(--sc-component-hit-target)] cursor-pointer items-center gap-2 text-sm font-medium">
-                  <input
-                    type="checkbox"
-                    className="size-4 accent-primary"
+                  <Checkbox
                     checked={visibleStudents.length > 0 && selectedStudentIds.length === visibleStudents.length}
-                    onChange={toggleAllStudents}
+                    onCheckedChange={toggleAllStudents}
                   />
                   {t('teacher.students.selectAll')}
                 </label>
@@ -494,11 +595,9 @@ export default function TeacherStudentsPage() {
                       <span className="sr-only">
                         {t('teacher.students.selectNamed', { name: student.name || student.phone })}
                       </span>
-                      <input
-                        type="checkbox"
-                        className="size-4 accent-primary"
+                      <Checkbox
                         checked={selectedStudentIds.includes(student.id)}
-                        onChange={() => toggleStudentSelection(student.id)}
+                        onCheckedChange={() => toggleStudentSelection(student.id)}
                       />
                     </label>
                     <div className="min-w-0">
@@ -521,66 +620,16 @@ export default function TeacherStudentsPage() {
                     <Badge className="w-fit" variant={STATUS_VARIANT[student.status] || 'outline'}>
                       {t(`teacher.students.${student.status}`, { defaultValue: student.status })}
                     </Badge>
-                    <div className="flex flex-col gap-2 sm:min-w-24 sm:flex-row sm:justify-end">
-                      <Button
-                        className="w-full sm:w-auto"
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={t('teacher.students.renameNamed', {
-                          name: student.name || student.phone,
-                        })}
-                        onClick={() => openRenameDialog(student)}
-                      >
-                        {t('teacher.students.rename')}
-                      </Button>
-                      <Button
-                        className="w-full sm:w-auto"
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={t(student.status === 'disabled'
-                          ? 'teacher.students.activateNamed'
-                          : 'teacher.students.deactivateNamed', {
-                          name: student.name || student.phone,
-                        })}
-                        onClick={() => handleToggleStatus(student)}
-                        disabled={updatingStatusId === student.id}
-                      >
-                        {updatingStatusId === student.id ? (
-                          <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
-                        ) : null}
-                        {student.status === 'disabled'
-                          ? t(updatingStatusId === student.id ? 'teacher.students.activating' : 'teacher.students.activate')
-                          : t(updatingStatusId === student.id ? 'teacher.students.deactivating' : 'teacher.students.deactivate')}
-                      </Button>
-                      <Button
-                        className="w-full sm:w-auto"
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        aria-label={t('teacher.students.removeNamed', {
-                          name: student.name || student.phone,
-                        })}
-                        onClick={() => openRemoveDialog(student)}
-                      >
-                        {t('teacher.students.remove')}
-                      </Button>
-                      {student.status === 'pending' ? (
-                        <Button
-                          className="w-full sm:w-auto"
-                          size="sm"
-                          variant="default"
-                          onClick={() => handleApprove(student.id)}
-                          disabled={approvingId === student.id}
-                        >
-                          {approvingId === student.id ? (
-                            <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
-                          ) : null}
-                          {approvingId === student.id ? t('teacher.students.approving') : t('teacher.students.approve')}
-                        </Button>
-                      ) : null}
-                    </div>
+                    <StudentRowActions
+                      student={student}
+                      approvingId={approvingId}
+                      updatingStatusId={updatingStatusId}
+                      onApprove={handleApprove}
+                      onRename={openRenameDialog}
+                      onToggleStatus={handleToggleStatus}
+                      onRemove={openRemoveDialog}
+                      t={t}
+                    />
                   </div>
                 ))}
               </div>

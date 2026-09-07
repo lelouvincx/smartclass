@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardList, RefreshCw } from 'lucide-react'
+import { ClipboardList, RefreshCw } from '@/components/material-symbol'
 import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
-import { cn } from '@/lib/utils'
 import { formatDuration, formatTime } from '@/lib/format'
 import { useAuth } from '@/lib/auth-context'
 import { loadStudentExerciseStates } from '@/lib/student-exercise-state'
@@ -91,7 +91,9 @@ export default function StudentExercisesPage() {
               disabled={isLoading}
               aria-label={t('student.exercises.refresh')}
             >
-              <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+              {isLoading
+                ? <Spinner className="size-4" aria-label={t('student.exercises.loading')} />
+                : <RefreshCw className="size-4" />}
             </Button>
           </>
         }

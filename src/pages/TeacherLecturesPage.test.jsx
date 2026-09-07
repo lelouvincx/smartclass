@@ -116,7 +116,7 @@ describe('TeacherLecturesPage', () => {
     fireEvent.change(screen.getByLabelText('Lecture title'), { target: { value: 'Exam review' } })
     fireEvent.change(screen.getByLabelText('Section'), { target: { value: 'Revision' } })
     fireEvent.change(screen.getByLabelText('YouTube URL'), { target: { value: 'https://youtu.be/zyxwvutsrqp' } })
-    await user.click(screen.getByRole('radio', { name: 'VIP' }))
+    await user.click(screen.getByRole('button', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: 'Create lecture' }))
 
     await waitFor(() => {

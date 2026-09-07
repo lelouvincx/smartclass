@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Download, Eye, EyeOff, ListChecks, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Clock, Download, Eye, EyeOff, ListChecks, X } from '@/components/material-symbol'
 import { ButtonGroup } from '@/components/ui/button-group'
 import { toast } from 'sonner'
 import { getExercise, getSubmission, getSubmissionExercisePdf, submitAnswers } from '@/lib/api'
@@ -681,7 +681,7 @@ export default function StudentTakeExercisePage() {
                 className={`flex items-center gap-2 ${timerColor}`}
                 aria-label={t('student.take.timer')}
               >
-                <Clock className="h-4 w-4" />
+                <Clock className="size-4" />
                 {!timerHidden && (
                   <span className="tabular-nums text-lg font-semibold">
                     {formatTime(secondsLeft)}
@@ -700,7 +700,7 @@ export default function StudentTakeExercisePage() {
                 aria-label={timerHidden ? t('student.take.showTimer') : t('student.take.hideTimer')}
                 title={timerHidden ? t('student.take.showTimer') : t('student.take.hideTimer')}
               >
-                {timerHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                {timerHidden ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
               </Button>
             </div>
           </div>
@@ -756,7 +756,7 @@ export default function StudentTakeExercisePage() {
 
           {overtime && (
             <div className="mt-3 flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-destructive">
-              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <AlertTriangle className="size-4 shrink-0" />
               {t('student.take.timeExpired')}
             </div>
           )}

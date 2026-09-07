@@ -1,6 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { Check, CircleDot, Minus } from 'lucide-react'
+import { Check, CircleDot, Minus } from '@/components/material-symbol'
 import { cn } from '@/lib/utils'
 
 function getCellContent(qId, schema, answers, displayNumber) {

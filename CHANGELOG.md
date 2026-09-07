@@ -23,9 +23,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Align loading spinners and progress bars with Material Design 3 progress indicators. [#129](https://github.com/lelouvincx/smartclass/pull/129)
+- Use Google Material Symbols for app icons and remove the Lucide icon dependency. [#129](https://github.com/lelouvincx/smartclass/pull/129)
+- Standardize shared UI primitives against the Material 3 component adoption plan. [#129](https://github.com/lelouvincx/smartclass/pull/129)
+- Document the Material 3 component adoption plan for shared UI primitives, missing components, deferred components, rollout order, and review gates. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Merge create-stage question-view crops with per-question answer review controls, including teacher-only Answer PDF previews below Exercise PDF crops. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Insert manual-review answer rows when parsed Answer PDFs skip source question numbers, so teachers can fill gaps before question-view generation. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Keep teachers on exercise creation to prepare and activate question views immediately after reading answers from PDF, before saving, while keeping safe partial question views for teacher replacement when some markers are missing. [#128](https://github.com/lelouvincx/smartclass/pull/128)
+- Default student programme selectors to Grade 12 instead of all programmes. [#127](https://github.com/lelouvincx/smartclass/pull/127)
+- Allow the production API to accept the alternate frontend domain `tienganhcothuy.com` alongside `toanthaythanh.com`. [#126](https://github.com/lelouvincx/smartclass/pull/126)
 - Replace DeepSeek with Cohere Parse v5 for Answer PDF and student answer-photo extraction, with deterministic parsing and safe abstention for ambiguous results. [#119](https://github.com/lelouvincx/smartclass/pull/119)
 - Use the shared checkbox dropdown for every teacher programme selection, including the lecture form. [#124](https://github.com/lelouvincx/smartclass/pull/124)
 - Present submission scores in a compact “score / 10” format, highlight submitted and correct answers with semantic design-system colors, and use a compact navigation rail for detailed reviews. [#117](https://github.com/lelouvincx/smartclass/pull/117)

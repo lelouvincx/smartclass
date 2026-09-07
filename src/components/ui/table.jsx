@@ -6,10 +6,17 @@ import { cn } from "@/lib/utils"
 
 function Table({
   className,
+  containerClassName,
   ...props
 }) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto">
+    <div
+      data-slot="table-container"
+      className={cn(
+        "relative w-full overflow-x-auto rounded-[var(--sc-component-control-shape)] border border-border bg-card",
+        containerClassName
+      )}
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}

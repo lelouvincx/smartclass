@@ -10,7 +10,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
-} from 'lucide-react'
+} from '@/components/material-symbol'
 import { ModeToggle } from '@/components/mode-toggle'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,7 +29,7 @@ function Brand({ workspaceLabel }) {
   const { t } = useTranslation()
   return (
     <div className="flex min-w-0 items-center gap-3">
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-primary text-primary-foreground shadow-sm">
         <GraduationCap className="size-5" aria-hidden="true" />
       </span>
       <span className="min-w-0">
@@ -44,7 +44,7 @@ function Brand({ workspaceLabel }) {
 
 function navigationItemClass(rail, isActive = false, disabled = false) {
   return cn(
-    'flex min-h-[var(--sc-component-hit-target)] w-full items-center rounded-xl text-sm font-medium text-muted-foreground transition-colors',
+    'flex min-h-[var(--sc-component-hit-target)] w-full items-center rounded-[var(--sc-component-navigation-shape)] text-sm font-medium text-muted-foreground transition-colors',
     rail ? 'flex-col justify-center gap-1 px-2 py-2 text-center text-xs' : 'gap-3 px-3 py-2',
     disabled
       ? 'cursor-not-allowed opacity-60'
@@ -108,7 +108,7 @@ function Navigation({ items, label, onNavigate, rail = false }) {
                         key={optionTo}
                         to={optionTo}
                         onClick={onNavigate}
-                        className="flex min-h-[var(--sc-component-hit-target)] items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+                        className="flex min-h-[var(--sc-component-hit-target)] items-center gap-3 rounded-[var(--sc-component-navigation-shape)] px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       >
                         <OptionIcon className="size-4 shrink-0" aria-hidden="true" />
                         {optionLabel}
@@ -335,7 +335,7 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
             <span
               role="img"
               aria-label="SmartClass"
-              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"
+              className="flex size-10 shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-primary text-primary-foreground shadow-sm"
             >
               <GraduationCap className="size-5" aria-hidden="true" />
             </span>
@@ -374,7 +374,7 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
           <span
             role="img"
             aria-label="SmartClass"
-            className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"
+            className="flex size-10 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-primary text-primary-foreground shadow-sm"
           >
             <GraduationCap className="size-5" aria-hidden="true" />
           </span>

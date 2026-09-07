@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { AlertCircle, Camera, ImagePlus, Loader2, RotateCcw, X } from 'lucide-react'
+import { AlertCircle, Camera, ImagePlus, RotateCcw, X } from '@/components/material-symbol'
 import { Button } from '@/components/ui/button'
 import FileDropzone from '@/components/file-dropzone'
+import { ProgressIndicator } from '@/design-system/progress-indicator'
+import { Spinner } from '@/components/ui/spinner'
 import { extractAnswersFromImage } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 
@@ -160,7 +162,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
             disabled={disabled}
             aria-label={t('student.upload.replace')}
           >
-            <RotateCcw className="mr-1 h-3.5 w-3.5" />
+            <RotateCcw className="mr-1 size-4" />
             {t('student.upload.replace')}
           </Button>
         </div>
@@ -169,7 +171,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
       {/* Inline error before any file is accepted (e.g., wrong type / oversize) */}
       {!file && phase === 'error' && (
         <div className="flex items-start gap-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
-          <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -211,18 +213,16 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                   <div className="text-xs text-muted-foreground">
                     {t('student.upload.uploading', { percent: Math.round(progress * 100) })}
                   </div>
-                  <div className="h-1.5 w-full overflow-hidden rounded bg-muted">
-                    <div
-                      className="h-full bg-primary transition-all"
-                      style={{ width: `${Math.round(progress * 100)}%` }}
-                    />
-                  </div>
+                  <ProgressIndicator
+                    label={t('student.upload.uploading', { percent: Math.round(progress * 100) })}
+                    value={Math.round(progress * 100)}
+                  />
                 </div>
               )}
 
               {phase === 'extracting' && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Spinner className="size-4" aria-label={t('student.upload.extracting')} />
                   {t('student.upload.extracting')}
                 </div>
               )}
@@ -238,7 +238,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                       onClick={() => setShowWarnings((v) => !v)}
                       className="flex min-h-[var(--sc-component-hit-target)] min-w-[var(--sc-component-hit-target)] items-center gap-1 text-amber-700 underline-offset-2 hover:underline dark:text-amber-400"
                     >
-                      <AlertCircle className="h-3.5 w-3.5" />
+                      <AlertCircle className="size-4" />
                       {t('student.upload.warning', { count: warnings.length })}
                       {showWarnings ? t('student.upload.hideWarnings') : t('student.upload.showWarnings')}
                     </button>
@@ -255,7 +255,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
 
               {phase === 'error' && (
                 <div className="flex items-start gap-2 rounded bg-destructive/10 px-2 py-1.5 text-xs text-destructive">
-                  <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
                   <span>{errorMessage}</span>
                 </div>
               )}
@@ -266,7 +266,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
               {phase === 'previewing' && (
                 <>
                   <Button type="button" size="sm" onClick={startExtraction} disabled={disabled}>
-                    <Camera className="mr-1.5 h-4 w-4" />
+                    <Camera className="mr-1.5 size-4" />
                     {t('student.upload.extract')}
                   </Button>
                   <Button
@@ -282,7 +282,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
               )}
               {phase === 'uploading' && (
                 <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
-                  <X className="mr-1 h-4 w-4" />
+                  <X className="mr-1 size-4" />
                   {t('student.upload.cancelUpload')}
                 </Button>
               )}
@@ -298,7 +298,7 @@ export default function AnswerImageUpload({ submissionId, onExtracted, disabled 
                   disabled={disabled}
                   title={t('student.upload.rerunTitle')}
                 >
-                  <RotateCcw className="mr-1.5 h-4 w-4" />
+                  <RotateCcw className="mr-1.5 size-4" />
                   {t('student.upload.reextract')}
                 </Button>
               )}

@@ -22,6 +22,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { SegmentedButton, SegmentedButtonGroup } from '@/components/ui/segmented-button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -31,7 +39,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { FileCheck2, FileText } from 'lucide-react'
+import { FileCheck2, FileText } from '@/components/material-symbol'
 import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
 import AnswerParseProgress from '@/components/answer-parse-progress'
@@ -42,6 +50,7 @@ import { AttemptLimitField } from '@/components/attempt-limit-field'
 import ScoreAllocationCard from '@/components/score-allocation-card'
 import { applyScoreAllocation } from '@/lib/score-allocation'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
+import { ProgressIndicator } from '@/design-system/progress-indicator'
 import { generateQuestionAssets } from '@/lib/question-generation'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
@@ -244,11 +253,15 @@ function BlobPreviewImage({ asset, label }) {
   }, [asset.blob])
 
   if (!source) {
-    return <div className="min-h-32 animate-pulse rounded-lg border bg-muted" aria-label={label} />
+    return (
+      <div className="flex min-h-32 items-center justify-center rounded-[var(--sc-component-card-shape)] border bg-muted/40 p-4" aria-label={label}>
+        <ProgressIndicator indeterminate className="max-w-48" />
+      </div>
+    )
   }
 
   return (
-    <div className="max-h-80 overflow-auto rounded-lg border bg-white">
+    <div className="max-h-80 overflow-auto rounded-[var(--sc-component-card-shape)] border bg-white">
       <img src={source} alt="" aria-label={label} className="h-auto w-full object-contain" />
     </div>
   )
@@ -289,33 +302,44 @@ function PreviewAnswerReview({ rows, onUpdateRow }) {
                   {t('teacher.questionViews.currentAnswer')}
                 </Label>
                 {row.type === 'mcq' ? (
-                  <select
-                    id={fieldId}
+                  <Select
                     value={row.correct_answer}
-                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
-                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
-                    aria-invalid={invalid}
-                    aria-describedby={invalid ? errorId : undefined}
-                    className="min-h-12 w-32 rounded-md border bg-background px-3 text-sm"
+                    onValueChange={value => onUpdateRow(row.id, 'correct_answer', value)}
                   >
-                    {['', 'A', 'B', 'C', 'D'].map(value => (
-                      <option key={value} value={value}>{value || '—'}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger
+                      id={fieldId}
+                      className="w-32 px-3 [&_svg]:!size-5"
+                      aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                      aria-invalid={invalid}
+                      aria-describedby={invalid ? errorId : undefined}
+                    >
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {['A', 'B', 'C', 'D'].map(value => (
+                        <SelectItem key={value} value={value}>{value}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 ) : row.type === 'boolean' ? (
-                  <select
-                    id={fieldId}
+                  <Select
                     value={row.correct_answer}
-                    onChange={event => onUpdateRow(row.id, 'correct_answer', event.target.value)}
-                    aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
-                    aria-invalid={invalid}
-                    aria-describedby={invalid ? errorId : undefined}
-                    className="min-h-12 w-32 rounded-md border bg-background px-3 text-sm"
+                    onValueChange={value => onUpdateRow(row.id, 'correct_answer', value)}
                   >
-                    <option value="">—</option>
-                    <option value="1">{t('teacher.schema.true')}</option>
-                    <option value="0">{t('teacher.schema.false')}</option>
-                  </select>
+                    <SelectTrigger
+                      id={fieldId}
+                      className="w-32 px-3 [&_svg]:!size-5"
+                      aria-label={t('teacher.schema.correctAnswerAria', { number: labelNumber })}
+                      aria-invalid={invalid}
+                      aria-describedby={invalid ? errorId : undefined}
+                    >
+                      <SelectValue placeholder="—" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">{t('teacher.schema.true')}</SelectItem>
+                      <SelectItem value="0">{t('teacher.schema.false')}</SelectItem>
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <Input
                     id={fieldId}
@@ -450,7 +474,7 @@ export default function TeacherCreateExercisePage() {
   const [allowAnswerPdfDownload, setAllowAnswerPdfDownload] = useState(false)
   const [exerciseFile, setExerciseFile] = useState(null)
   const [answerFile, setAnswerFile] = useState(null)
-  const [rows, setRows] = useState(newRows('mcq', '1'))
+  const [rows, setRows] = useState([])
   const [filter, setFilter] = useState('all')
   const [error, setError] = useState('')
   const [isParsing, setIsParsing] = useState(false)
@@ -933,20 +957,17 @@ export default function TeacherCreateExercisePage() {
                     className="w-full sm:w-24"
                   />
                   {isTimed && (
-                    <div className="grid w-full flex-1 grid-cols-3 gap-1.5" role="group" aria-label={t('teacher.create.presets')}>
+                    <SegmentedButtonGroup className="w-full flex-1" role="group" aria-label={t('teacher.create.presets')}>
                       {[60, 90, 120].map((mins) => (
-                        <Button
+                        <SegmentedButton
                           key={mins}
-                          type="button"
-                          variant={Number(durationMinutes) === mins ? 'default' : 'outline'}
-                          size="sm"
-                          className="h-10 px-2 text-sm"
+                          selected={Number(durationMinutes) === mins}
                           onClick={() => setDurationMinutes(mins)}
                         >
                           {formatDuration(mins, i18n.resolvedLanguage)}
-                        </Button>
+                        </SegmentedButton>
                       ))}
-                    </div>
+                    </SegmentedButtonGroup>
                   )}
                 </div>
               </div>
@@ -972,7 +993,7 @@ export default function TeacherCreateExercisePage() {
                 </p>
               </div>
 
-              {/* Answer PDF upload + answer extraction grouped as related actions */}
+              {/* Answer PDF upload */}
               <div data-testid="answer-pdf-upload" className="space-y-2 rounded-[var(--sc-component-control-shape)] border border-[var(--sc-tertiary)]/20 bg-sc-tertiary-container p-4 text-sc-on-tertiary-container">
                 <Label htmlFor="answerFile" className="gap-2">
                   <FileCheck2 aria-hidden="true" className="size-4" />
@@ -993,13 +1014,15 @@ export default function TeacherCreateExercisePage() {
                 <p className="text-xs text-sc-on-tertiary-container/80">
                   {t('teacher.create.answerPdfHint')}
                 </p>
+              </div>
+
+              <div data-testid="answer-parse-action" className="space-y-3 md:col-span-2">
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
                   disabled={!answerFile || isParsing}
                   onClick={handleParseSchema}
-                  className="w-full mt-2"
+                  className="w-full"
                 >
                   {isParsing ? (
                     <>
@@ -1026,6 +1049,7 @@ export default function TeacherCreateExercisePage() {
                   />
                 )}
               </div>
+
             </div>
           </CardContent>
         </Card>
@@ -1051,15 +1075,13 @@ export default function TeacherCreateExercisePage() {
                       {Math.round(((questionPreview.progress?.current || 0) / (questionPreview.progress?.total || 1)) * 100)}%
                     </span>
                   </div>
-                  <progress
-                    className="h-2 w-full accent-primary"
+                  <ProgressIndicator
                     value={(questionPreview.progress?.current || 0) / (questionPreview.progress?.total || 1)}
-                    max="1"
                   />
                 </div>
               )}
               {questionPreview.phase === 'error' && (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive" role="alert">
+                <div className="rounded-[var(--sc-component-card-shape)] border border-destructive/40 bg-destructive/5 p-4 text-sm text-destructive" role="alert">
                   {questionPreview.error}
                 </div>
               )}
@@ -1077,7 +1099,7 @@ export default function TeacherCreateExercisePage() {
                     const answerAssets = answerPreviewGroups.get(group.q_id) || []
                     const answerRows = previewAnswerRowsByQuestion.get(group.q_id) || []
                     return (
-                      <div key={group.q_id} className="rounded-lg border">
+                      <div key={group.q_id} className="rounded-[var(--sc-component-card-shape)] border">
                         <div className="border-b px-4 py-3">
                           <h3 className="font-medium">
                             {group.section_title
@@ -1130,18 +1152,18 @@ export default function TeacherCreateExercisePage() {
                   <span className="text-destructive">{t('teacher.create.errors', { count: stats.errorsCount })}</span>
                   <span className="text-amber-600">{t('teacher.create.warnings', { count: stats.warningsCount })}</span>
                 </div>
-                <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
-                  {['all', 'errors', 'warnings'].map((f) => (
-                    <Button
-                      key={f}
-                      type="button"
-                      size="sm"
-                      variant={filter === f ? 'default' : 'outline'}
-                      onClick={() => setFilter(f)}
-                    >
-                      {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
-                    </Button>
-                  ))}
+                <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:items-center">
+                  <SegmentedButtonGroup aria-label={t('teacher.schema.status')} className="w-full sm:w-auto">
+                    {['all', 'errors', 'warnings'].map((f) => (
+                      <SegmentedButton
+                        key={f}
+                        selected={filter === f}
+                        onClick={() => setFilter(f)}
+                      >
+                        {t(`teacher.create.${f === 'all' ? 'all' : `${f}Filter`}`)}
+                      </SegmentedButton>
+                    ))}
+                  </SegmentedButtonGroup>
                   <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>
                     {t('teacher.create.addQuestion')}
                   </Button>

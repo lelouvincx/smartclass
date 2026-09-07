@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { BookOpen, ClipboardList, Plus, Users } from 'lucide-react'
+import { BookOpen, ClipboardList, Plus, Users } from '@/components/material-symbol'
 import { ActionCard } from '@/design-system/action-card'
 import { PageHeader } from '@/design-system/page-header'
 import { useTranslation } from 'react-i18next'

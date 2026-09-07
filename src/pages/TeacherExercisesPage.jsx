@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ClipboardList, RefreshCw, Plus } from 'lucide-react'
+import { ClipboardList, RefreshCw, Plus } from '@/components/material-symbol'
 import { Link } from 'react-router-dom'
 import { listExercises } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
@@ -8,9 +8,9 @@ import { GradeBadges } from '@/components/grade-checkbox-group'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import { Spinner } from '@/components/ui/spinner'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
-import { cn } from '@/lib/utils'
 import { formatDateTime, formatDuration, formatTime } from '@/lib/format'
 
 function formatUpdatedAt(value, language) {
@@ -66,11 +66,13 @@ export default function TeacherExercisesPage() {
               disabled={isLoading}
               aria-label={t('teacher.exercises.refresh')}
             >
-              <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+              {isLoading
+                ? <Spinner className="size-4" aria-label={t('teacher.exercises.loading')} />
+                : <RefreshCw className="size-4" />}
             </Button>
             <Button asChild>
               <Link to="/teacher/exercises/new">
-                <Plus className="h-4 w-4" />
+                <Plus className="size-4" />
                 {t('teacher.exercises.create')}
               </Link>
             </Button>

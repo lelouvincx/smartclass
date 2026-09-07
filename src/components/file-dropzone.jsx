@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { FileUp, X } from 'lucide-react'
+import { FileUp, X } from '@/components/material-symbol'
 import { Button } from '@/components/ui/button'
 
 function formatSize(bytes) {
@@ -19,7 +19,7 @@ function formatSize(bytes) {
  *   file            — File|null
  *   onChange        — (File|null) => void
  *   disabled        — boolean
- *   icon            — Lucide icon component (default: FileUp)
+ *   icon            — Material Symbols icon component (default: FileUp)
  *   title           — primary label inside the dropzone (default: 'Drop a file here or click to pick')
  *   capture         — input capture attribute (e.g. 'environment' for mobile camera)
  *   inputAriaLabel  — aria-label on the hidden input (overrides default association via id)
@@ -86,7 +86,7 @@ export default function FileDropzone({
           disabled={disabled}
           aria-label={t('teacher.file.remove')}
         >
-          <X className="h-3.5 w-3.5" />
+          <X className="size-4" />
         </Button>
       </div>
     )
@@ -97,7 +97,7 @@ export default function FileDropzone({
   if (file && !showPickedFile) return null
 
   const padding = size === 'lg' ? 'px-6 py-10' : 'px-4 py-6'
-  const iconSize = size === 'lg' ? 'h-7 w-7' : 'h-6 w-6'
+  const iconSize = size === 'lg' ? 'size-5' : 'size-4'
   const gap = size === 'lg' ? 'gap-2' : 'gap-1.5'
   const bg = size === 'lg' ? 'bg-muted/30 hover:bg-muted/50' : 'bg-muted/20 hover:bg-muted/40'
 

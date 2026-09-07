@@ -73,8 +73,23 @@ async function uploadRequiredPdfs() {
   })
 }
 
+async function addManualQuestion(user) {
+  await user.click(screen.getByRole('button', { name: /add question/i }))
+}
+
+async function chooseAnswerType(user, optionName) {
+  await user.click(screen.getByLabelText(/answer type for question 1/i))
+  await user.click(await screen.findByRole('option', { name: optionName }))
+}
+
 describe('TeacherCreateExercisePage', () => {
   beforeEach(() => {
+    if (!window.HTMLElement.prototype.hasPointerCapture) {
+      window.HTMLElement.prototype.hasPointerCapture = () => false
+    }
+    if (!window.HTMLElement.prototype.scrollIntoView) {
+      window.HTMLElement.prototype.scrollIntoView = () => {}
+    }
     if (!URL.createObjectURL) URL.createObjectURL = vi.fn(() => 'blob:preview')
     if (!URL.revokeObjectURL) URL.revokeObjectURL = vi.fn()
     createExerciseMock.mockReset()
@@ -159,18 +174,21 @@ describe('TeacherCreateExercisePage', () => {
       'grid-cols-[minmax(0,1fr)]',
     )
     expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
-    expect(screen.getByRole('group', { name: /duration presets/i })).toHaveClass('grid-cols-3')
-    expect(screen.getByText(/questions: 1/i).parentElement).toHaveClass('flex-wrap')
+    expect(screen.getByRole('group', { name: /duration presets/i })).toHaveAttribute('data-slot', 'segmented-button-group')
+    expect(screen.getByText(/questions: 0/i).parentElement).toHaveClass('flex-wrap')
     expect(screen.getByRole('button', { name: /programme access/i })).toHaveTextContent('Grade 12')
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     expect(screen.getByTestId('exercise-pdf-upload')).toHaveClass('bg-sc-primary-container')
     expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
+    expect(screen.getByTestId('answer-pdf-upload')).not.toContainElement(screen.getByRole('button', { name: /read answers from pdf/i }))
+    expect(screen.getByTestId('answer-parse-action')).toContainElement(screen.getByRole('button', { name: /read answers from pdf/i }))
+    expect(screen.getByTestId('answer-parse-action')).not.toHaveClass('border', 'bg-muted/30', 'p-3')
   })
 
   it('defaults new exercises to one attempt', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
-    expect(screen.getByRole('radio', { name: 'Limited' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Limited' })).toBeChecked()
     expect(screen.getByLabelText('Maximum attempts')).toHaveValue(1)
   })
 
@@ -192,10 +210,24 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Quiz 1')
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
     expect(screen.getByText('Upload both the student Exercise PDF and teacher Answer PDF.')).toBeInTheDocument()
+    expect(createExerciseMock).not.toHaveBeenCalled()
+  })
+
+  it('requires at least one answer row before saving', async () => {
+    const user = userEvent.setup()
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'Quiz 1')
+    await uploadRequiredPdfs(user)
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(screen.getByText('At least one question is required')).toBeInTheDocument()
     expect(createExerciseMock).not.toHaveBeenCalled()
   })
 
@@ -210,6 +242,7 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Quiz 1')
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
@@ -243,6 +276,7 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     fireEvent.change(screen.getByLabelText(/exercise title/i), { target: { value: 'Scored quiz' } })
+    await addManualQuestion(user)
     fireEvent.change(screen.getByLabelText(/correct answer for question 1/i), { target: { value: 'A' } })
     fireEvent.change(screen.getByLabelText(/Exercise PDF/i), { target: { files: [new File(['pdf'], 'questions.pdf', { type: 'application/pdf' })] } })
     fireEvent.change(screen.getByLabelText(/Answer PDF/i), { target: { files: [new File(['pdf'], 'answers.pdf', { type: 'application/pdf' })] } })
@@ -268,7 +302,9 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Practice set')
-    await user.click(screen.getByRole('radio', { name: 'Unlimited' }))
+    await user.click(screen.getByRole('switch', { name: 'Limited' }))
+    expect(screen.getByRole('switch', { name: 'Unlimited' })).not.toBeChecked()
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'B')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
@@ -304,6 +340,7 @@ describe('TeacherCreateExercisePage', () => {
     const durationInput = screen.getByLabelText(/duration \(minutes\)/i)
     expect(durationInput).toBeDisabled()
     expect(durationInput).toHaveValue(null)
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
@@ -340,6 +377,7 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Timed Quiz')
     await user.clear(screen.getByLabelText(/duration \(minutes\)/i))
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
@@ -367,6 +405,7 @@ describe('TeacherCreateExercisePage', () => {
 
     expect(await screen.findByText('Cohere unavailable')).toBeInTheDocument()
 
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'D')
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
 
@@ -385,6 +424,7 @@ describe('TeacherCreateExercisePage', () => {
 
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'C')
     await user.upload(
       screen.getByLabelText(/Answer PDF/i),
@@ -460,7 +500,7 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByLabelText('Exercise PDF crop')).toBeInTheDocument()
     expect(screen.getByLabelText('Answer PDF crop (teacher-only)')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Correct answer for question 1')).toHaveValue('D')
+    expect(screen.getByLabelText('Correct answer for question 1')).toHaveTextContent('D')
     expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
       expect.any(File),
       [expect.objectContaining({ q_id: 1, local_number: 1 })],
@@ -527,13 +567,14 @@ describe('TeacherCreateExercisePage', () => {
     await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer-pdf'], 'answers.pdf', { type: 'application/pdf' }))
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByLabelText(/correct answer for question 2/i)).toHaveValue('')
+    expect(await screen.findByLabelText(/correct answer for question 2/i)).toHaveTextContent('—')
     expect(screen.queryByText('Source question numbers must not skip numbers in a section')).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
     expect(screen.getByText('Please fix all answer key errors before saving')).toBeInTheDocument()
 
-    await user.selectOptions(screen.getByLabelText(/correct answer for question 2/i), 'B')
+    await user.click(screen.getByLabelText(/correct answer for question 2/i))
+    await user.click(await screen.findByRole('option', { name: 'B' }))
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
     expect(screen.getByText('Save with warnings?')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Continue' }))
@@ -556,6 +597,7 @@ describe('TeacherCreateExercisePage', () => {
 
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'D')
     await user.upload(
       screen.getByLabelText(/Answer PDF/i),
@@ -647,9 +689,9 @@ describe('TeacherCreateExercisePage', () => {
       </MemoryRouter>,
     )
 
-    // Change the initial row type to boolean (initial q_id = '1')
-    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
-    await user.selectOptions(typeSelect, 'boolean')
+    await addManualQuestion(user)
+
+    await chooseAnswerType(user, 'True/False')
 
     // Should now show 4 sub-question toggles labeled a,b,c,d for q_id=1
     expect(screen.getByLabelText(/question 1, part a, true/i)).toBeInTheDocument()
@@ -674,9 +716,9 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Bool Quiz')
 
-    // Change to boolean type (initial q_id = '1')
-    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
-    await user.selectOptions(typeSelect, 'boolean')
+    await addManualQuestion(user)
+
+    await chooseAnswerType(user, 'True/False')
 
     // Select answers: a=1, b=0, c=1, d=0
     await user.click(screen.getByLabelText(/question 1, part a, true/i))
@@ -709,6 +751,7 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Grade Quiz')
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Programme access' }))
@@ -732,8 +775,8 @@ describe('TeacherCreateExercisePage', () => {
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Bool Quiz')
 
-    const typeSelect = screen.getByLabelText(/answer type for question 1/i)
-    await user.selectOptions(typeSelect, 'boolean')
+    await addManualQuestion(user)
+    await chooseAnswerType(user, 'True/False')
 
     // Don't select any sub-question answers (q_id=1)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
@@ -743,16 +786,20 @@ describe('TeacherCreateExercisePage', () => {
   })
 
   it('renders a drag handle button for each schema row', async () => {
+    const user = userEvent.setup()
+
     render(
       <MemoryRouter>
         <TeacherCreateExercisePage />
       </MemoryRouter>,
     )
 
-    // Default state: 1 MCQ row → 1 drag handle
+    await addManualQuestion(user)
+
     await screen.findByLabelText(/source number for 1/i)
     const handles = screen.getAllByRole('button', { name: /move question/i })
     expect(handles.length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByRole('table')).toHaveClass('table-fixed')
   })
 
   it('freezes the form and links to the created exercise when an upload fails', async () => {
@@ -763,6 +810,7 @@ describe('TeacherCreateExercisePage', () => {
     render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
 
     await user.type(screen.getByLabelText(/exercise title/i), 'Upload Quiz')
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
@@ -795,6 +843,7 @@ describe('TeacherCreateExercisePage', () => {
     )
 
     await user.type(screen.getByLabelText(/exercise title/i), 'PDF Quiz')
+    await addManualQuestion(user)
     await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
     await uploadRequiredPdfs(user)
     await user.click(screen.getByRole('button', { name: 'Save Exercise' }))

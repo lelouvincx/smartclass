@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { CheckCircle, Clock } from 'lucide-react'
+import { CheckCircle, Clock } from '@/components/material-symbol'
 import { createSubmission, getExercise, getSubmission, listMySubmissions } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import { Badge } from '@/components/ui/badge'
@@ -228,7 +228,7 @@ export default function StudentExerciseLandingPage() {
               <>
                 <Badge>{t('student.exercises.timed')}</Badge>
                 <span className="flex items-center gap-1 text-muted-foreground">
-                  <Clock className="h-4 w-4" />
+                  <Clock className="size-4" />
                   {formatDuration(exercise.duration_minutes, i18n.resolvedLanguage)}
                 </span>
               </>
@@ -261,7 +261,7 @@ export default function StudentExerciseLandingPage() {
           ) : submittedSubmissions.length > 0 ? (
             <div className="space-y-4">
               <div className="flex items-center gap-2 rounded-lg bg-success-muted px-4 py-3 text-sm text-success">
-                <CheckCircle className="h-5 w-5 shrink-0" />
+                <CheckCircle className="size-5 shrink-0" />
                 {t('student.landing.submitted')}
               </div>
               <p className="text-sm font-medium">

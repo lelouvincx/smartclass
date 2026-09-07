@@ -146,6 +146,7 @@ describe('TeacherStudentsPage', () => {
     expect(screen.getAllByText('Grade 11').length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText('Grade 12').length).toBeGreaterThanOrEqual(1)
     const studentList = screen.getByTestId('responsive-student-list')
+    expect(within(studentList).getByText('Active').closest('[data-slot="badge"]')).toHaveAttribute('data-variant', 'success')
     expect(within(studentList).getByText('VIP')).toBeInTheDocument()
     expect(within(studentList).getByText('Standard')).toBeInTheDocument()
     expect(studentList).toHaveClass('grid')
@@ -195,8 +196,9 @@ describe('TeacherStudentsPage', () => {
 
     await user.click(await screen.findByLabelText('Select Nguyễn Văn An'))
     await user.click(screen.getByLabelText('Select Trần Thị Bình'))
-    const tierGroup = screen.getByRole('radiogroup', { name: 'Access tier to assign' })
-    await user.click(within(tierGroup).getByRole('radio', { name: 'VIP' }))
+    const tierGroup = screen.getByRole('group', { name: 'Access tier to assign' })
+    expect(tierGroup.querySelector('[data-slot="segmented-button-group"]')).toBeInTheDocument()
+    await user.click(within(tierGroup).getByRole('button', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: 'Assign tier to 2 students' }))
 
     expect(updateStudentAccessTierMock).toHaveBeenCalledWith('test-token', {
@@ -242,8 +244,9 @@ describe('TeacherStudentsPage', () => {
     await user.type(screen.getByLabelText('Name'), '  Nguyễn Văn An  ')
     const input = screen.getByPlaceholderText(/\+84xxx/)
     await user.type(input, '+84111111111')
-    const createTierGroup = screen.getByRole('radiogroup', { name: 'Student access tier' })
-    await user.click(within(createTierGroup).getByRole('radio', { name: 'VIP' }))
+    const createTierGroup = screen.getByRole('group', { name: 'Student access tier' })
+    expect(createTierGroup.querySelector('[data-slot="segmented-button-group"]')).toBeInTheDocument()
+    await user.click(within(createTierGroup).getByRole('button', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: /create student/i }))
 
     await waitFor(() => {
@@ -332,7 +335,8 @@ describe('TeacherStudentsPage', () => {
 
     render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: 'Rename Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('button', { name: 'More actions for Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Rename Nguyễn Văn An' }))
     const dialog = screen.getByRole('dialog', { name: 'Rename student' })
     const nameInput = within(dialog).getByRole('textbox', { name: 'Name' })
     await user.clear(nameInput)
@@ -368,7 +372,8 @@ describe('TeacherStudentsPage', () => {
 
     render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: 'Remove Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('button', { name: 'More actions for Nguyễn Văn An' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Remove Nguyễn Văn An' }))
     const dialog = screen.getByRole('dialog', { name: 'Remove student' })
     expect(within(dialog).getByRole('button', { name: 'Remove student' })).toBeDisabled()
 
