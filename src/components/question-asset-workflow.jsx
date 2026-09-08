@@ -366,7 +366,7 @@ function QuestionAnswerReview({
     const isValid = hasValidFinalAnswer(row)
     if (readOnly) {
       return (
-        <p className="inline-flex min-h-8 min-w-20 items-center rounded-[var(--sc-component-control-shape)] border bg-muted/30 px-3 text-sm font-medium">
+        <p className="inline-flex min-h-8 w-full items-center rounded-[var(--sc-component-control-shape)] border bg-muted/30 px-3 text-sm font-medium">
           {String(row.correct_answer ?? '-')}
         </p>
       )
@@ -378,7 +378,7 @@ function QuestionAnswerReview({
           onValueChange={value => onAnswerChange(row, value)}
         >
           <SelectTrigger
-            className="w-32 px-3 [&_svg]:!size-5"
+            className="w-full px-3 [&_svg]:!size-5"
             aria-label={label}
             aria-invalid={!isValid}
             aria-describedby={isValid ? undefined : errorId}
@@ -400,7 +400,7 @@ function QuestionAnswerReview({
           onValueChange={value => onAnswerChange(row, value)}
         >
           <SelectTrigger
-            className="w-32 px-3 [&_svg]:!size-5"
+            className="w-full px-3 [&_svg]:!size-5"
             aria-label={label}
             aria-invalid={!isValid}
             aria-describedby={isValid ? undefined : errorId}
@@ -416,7 +416,7 @@ function QuestionAnswerReview({
     }
     return (
       <Input
-        className="min-h-12 w-32"
+        className="min-h-12 w-full"
         value={row.correct_answer}
         inputMode="decimal"
         onChange={event => onAnswerChange(row, event.target.value)}
