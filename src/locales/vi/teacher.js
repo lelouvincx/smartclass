@@ -20,6 +20,7 @@ export default {
     answerPdfRequired: 'Hãy thêm PDF đáp án dành cho giáo viên trước khi chuẩn bị bài tập.',
     generate: 'Tạo ảnh từng câu hỏi',
     prepare: 'Chuẩn bị bài tập',
+    prepareAgain: 'Chuẩn bị lại',
     tryAgain: 'Thử tạo lại',
     visionDisabled: 'Tính năng tự động hiện hỗ trợ PDF có văn bản chọn được. Nhận diện PDF scan bằng thị giác vẫn tắt cho đến khi một mô hình vượt qua bước kiểm tra.',
     scannedUnsupported: 'PDF này có trang không đọc được văn bản. Nhận diện bằng thị giác chưa được bật; hãy thay PDF hoặc dùng ảnh chụp câu hỏi đã kiểm tra sau khi nhận diện được câu.',

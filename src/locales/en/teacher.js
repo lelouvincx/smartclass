@@ -20,6 +20,7 @@ export default {
     answerPdfRequired: 'Add the teacher Answer PDF before preparing this exercise.',
     generate: 'Generate question views',
     prepare: 'Prepare exercise',
+    prepareAgain: 'Prepare again',
     tryAgain: 'Try generation again',
     visionDisabled: 'Automatic generation currently supports PDFs with selectable text. Scanned-PDF vision detection stays disabled until a model passes review.',
     scannedUnsupported: 'This PDF has a page without readable text. Vision detection is not enabled yet; replace the PDF or use reviewed question screenshots after a question is detected.',

@@ -1011,9 +1011,22 @@ export default function QuestionAssetWorkflow({
             {isActiveReview ? t('teacher.questionViews.activeDescription') : t('teacher.questionViews.reviewDescription')}
           </p>
         </div>
-        <Badge variant="secondary">
-          {t(isActiveReview ? 'teacher.questionViews.activeQuestionCount' : 'teacher.questionViews.questionCount', { count: groups.length })}
-        </Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          {isActiveReview && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={startGeneration}
+              disabled={!sourceFile || !answerSourceFile || questionIds.length === 0 || phase === 'generating' || phase === 'loading'}
+            >
+              <RefreshCw />
+              {t('teacher.questionViews.prepareAgain')}
+            </Button>
+          )}
+          <Badge variant="secondary">
+            {t(isActiveReview ? 'teacher.questionViews.activeQuestionCount' : 'teacher.questionViews.questionCount', { count: groups.length })}
+          </Badge>
+        </div>
       </div>
 
       {!isActiveReview && (!sourceIsCurrent || !answerSourceIsCurrent) && (

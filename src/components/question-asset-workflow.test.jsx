@@ -253,6 +253,7 @@ describe('QuestionAssetWorkflow', () => {
     expect(within(questionOneCard).getByText('Exercise PDF crop')).toBeInTheDocument()
     expect(within(questionOneCard).getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
     expect(within(questionOneCard).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Prepare again' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Activate exercise' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Use this screenshot' })).not.toBeInTheDocument()
   })
