@@ -196,7 +196,7 @@ describe('QuestionAssetWorkflow', () => {
       detection_method: 'text',
     })
     expect(api.uploadGeneratedQuestionAsset).toHaveBeenCalledTimes(2)
-    expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Review questions' })).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { name: /Question [12]/ })).toHaveLength(2)
     expect(screen.queryByText('Accessible text')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Activate exercise' })).toBeEnabled()
@@ -459,7 +459,7 @@ describe('QuestionAssetWorkflow', () => {
     renderWorkflow()
     await user.click(screen.getByRole('button', { name: 'Prepare exercise' }))
 
-    expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Review questions' })).toBeInTheDocument()
     expect(api.uploadGeneratedQuestionAsset).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('heading', { name: 'Question 1' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Question 2' })).toBeInTheDocument()
@@ -474,7 +474,7 @@ describe('QuestionAssetWorkflow', () => {
 
     renderWorkflow({ ...EXERCISE, pending_question_asset_set_id: 22 })
 
-    expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Review questions' })).toBeInTheDocument()
     expect(api.getQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, 22)
     expect(screen.getAllByText('Upload question screenshot')).toHaveLength(2)
     expect(screen.getAllByText('Upload answer screenshot')).toHaveLength(2)
@@ -483,7 +483,7 @@ describe('QuestionAssetWorkflow', () => {
   it('replaces an old pending preview immediately after the exercise PDF changes', async () => {
     api.getExerciseFileBlob.mockResolvedValue(new Blob(['new pdf'], { type: 'application/pdf' }))
     generateQuestionAssetsMock.mockImplementation(async () => {
-      expect(screen.queryByRole('heading', { name: 'Review every question' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Review questions' })).not.toBeInTheDocument()
       return {
         detectorVersion: 'text-geometry-v1',
         detectionMethod: 'text',
@@ -505,7 +505,7 @@ describe('QuestionAssetWorkflow', () => {
       ],
     }, { autoStartKey: 1 })
 
-    expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Review questions' })).toBeInTheDocument()
     expect(api.getQuestionAssetSet).toHaveBeenCalledTimes(1)
     expect(api.getQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, 23)
     expect(api.deleteQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, 22)
@@ -530,7 +530,7 @@ describe('QuestionAssetWorkflow', () => {
     renderWorkflow({ ...EXERCISE, pending_question_asset_set_id: 22 })
     await user.click(await screen.findByRole('button', { name: 'Generate new preview' }))
 
-    expect(await screen.findByRole('heading', { name: 'Review every question' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Review questions' })).toBeInTheDocument()
     expect(api.createQuestionAssetSet).toHaveBeenCalledTimes(1)
     expect(api.deleteQuestionAssetSet).toHaveBeenCalledWith('teacher-token', 9, 22)
   })
@@ -755,7 +755,7 @@ describe('QuestionAssetWorkflow', () => {
       pending_question_asset_set_id: 22,
     })
 
-    const questionViews = await screen.findByRole('region', { name: 'Review every question' })
+    const questionViews = await screen.findByRole('region', { name: 'Review questions' })
     const firstQuestion = within(questionViews).getByRole('heading', { name: 'Question 1' }).closest('[data-slot="card"]')
     const secondQuestion = within(questionViews).getByRole('heading', { name: 'Question 2' }).closest('[data-slot="card"]')
     expect(firstQuestion).not.toBeNull()
