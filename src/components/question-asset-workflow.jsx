@@ -247,6 +247,21 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced, kind = 'ex
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState('')
   const isAnswer = kind === 'answer'
+  const tone = isAnswer
+    ? {
+      card: 'border-[var(--sc-tertiary)]/30 bg-sc-tertiary-container text-sc-on-tertiary-container',
+      muted: 'text-sc-on-tertiary-container/75',
+      dropzone: 'border-[var(--sc-tertiary)]/35 bg-white/60 hover:bg-white/80 dark:bg-white/10 dark:hover:bg-white/15',
+      icon: 'text-[var(--sc-tertiary)] dark:text-sc-on-tertiary-container',
+      button: 'bg-[var(--sc-tertiary)] text-white hover:bg-[var(--sc-tertiary)]/90',
+    }
+    : {
+      card: 'border-primary/30 bg-sc-primary-container text-sc-on-primary-container',
+      muted: 'text-sc-on-primary-container/75',
+      dropzone: 'border-primary/35 bg-white/60 hover:bg-white/80 dark:bg-white/10 dark:hover:bg-white/15',
+      icon: 'text-primary dark:text-sc-on-primary-container',
+      button: '',
+    }
 
   async function handleUpload() {
     if (!file) return
@@ -274,14 +289,14 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced, kind = 'ex
   }
 
   return (
-    <div className="space-y-3 rounded-lg border bg-muted/20 p-4">
+    <div className={`space-y-3 rounded-lg border p-4 ${tone.card}`}>
       <div>
         <h4 className="text-sm font-semibold">
           {isAnswer
             ? t('teacher.questionViews.uploadAnswerScreenshot')
             : t('teacher.questionViews.uploadScreenshot')}
         </h4>
-        <p className="mt-1 text-xs text-muted-foreground">
+        <p className={`mt-1 text-xs ${tone.muted}`}>
           {isAnswer
             ? t('teacher.questionViews.answerScreenshotHelp')
             : t('teacher.questionViews.screenshotHelp')}
@@ -297,6 +312,8 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced, kind = 'ex
           ? t('teacher.questionViews.chooseAnswerScreenshot')
           : t('teacher.questionViews.chooseScreenshot')}
         hint={t('teacher.questionViews.imageTypes')}
+        className={tone.dropzone}
+        iconClassName={tone.icon}
         inputAriaLabel={isAnswer
           ? t('teacher.questionViews.answerScreenshotAria', { number: qId })
           : t('teacher.questionViews.screenshotAria', { number: qId })}
@@ -309,7 +326,7 @@ function ReplacementForm({ exerciseId, setId, qId, token, onReplaced, kind = 'ex
         />
       )}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
-      <Button type="button" onClick={handleUpload} disabled={isUploading || !file}>
+      <Button type="button" className={tone.button} onClick={handleUpload} disabled={isUploading || !file}>
         {isUploading
           ? t('teacher.questionViews.uploadingScreenshot')
           : isAnswer

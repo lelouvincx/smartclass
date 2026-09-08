@@ -132,20 +132,20 @@ const ScoreAllocationInline = forwardRef(function ScoreAllocationInline({
     const fixedPoints = values?.[question.qId]
       ?? formatHundredths((rows || []).find(row => Number(row.q_id) === question.qId)?.max_score_hundredths ?? 0)
     return (
-      <section className="space-y-3 rounded-lg border bg-muted/20 p-4" aria-label={t('teacher.scoreAllocation.title')}>
-        <div>
-          <h4 className="text-sm font-semibold">{t('teacher.scoreAllocation.title')}</h4>
-          <p className="mt-1 text-xs text-muted-foreground">
+      <section className="rounded-lg border bg-muted/10 p-3" aria-label={t('teacher.scoreAllocation.title')}>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('teacher.scoreAllocation.shortTitle')}</h4>
+          <span className="text-xs text-muted-foreground">
             {t(`teacher.scoreAllocation.types.${question.type}`)}
-          </p>
+          </span>
         </div>
         {mode === 'automatic' ? (
-          <p className="rounded-lg bg-background px-3 py-2 text-sm tabular-nums">
-            {t('teacher.scoreAllocation.weightColumn')}: {relativeWeight(question.type).toFixed(2)}
+          <p className="text-sm font-semibold tabular-nums">
+            {t('teacher.scoreAllocation.weightShort')}: {relativeWeight(question.type).toFixed(2)}
           </p>
         ) : readOnly ? (
-          <p className="rounded-lg bg-background px-3 py-2 text-sm tabular-nums">
-            {t('teacher.scoreAllocation.pointsColumn')}: {fixedPoints}
+          <p className="text-sm font-semibold tabular-nums">
+            {fixedPoints} {t('teacher.scoreAllocation.pointsShort')}
           </p>
         ) : (
           <div className="space-y-1.5">

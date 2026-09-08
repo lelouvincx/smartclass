@@ -225,9 +225,9 @@ describe('QuestionAssetWorkflow', () => {
     expect(within(questionOneCard).queryByLabelText('Correct answer for question 2')).not.toBeInTheDocument()
     expect(within(questionOneCard).getByRole('heading', { name: 'Answer review' })
       .closest('.border-t')).toContainElement(
-        within(questionOneCard).getByRole('button', { name: 'Reject question preview' }),
+        within(questionOneCard).getByRole('button', { name: 'Reject preview' }),
       )
-    expect(within(questionOneCard).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    expect(within(questionOneCard).getByRole('heading', { name: 'Score' })).toBeInTheDocument()
     expect(within(questionTwoCard).getByLabelText('Correct answer for question 2')).toHaveValue('42')
     expect(screen.queryByRole('heading', { name: 'Review the answer key' })).not.toBeInTheDocument()
   })
@@ -252,7 +252,7 @@ describe('QuestionAssetWorkflow', () => {
     expect(questionOneCard).not.toBeNull()
     expect(within(questionOneCard).getByText('Exercise PDF crop')).toBeInTheDocument()
     expect(within(questionOneCard).getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
-    expect(within(questionOneCard).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    expect(within(questionOneCard).getByRole('heading', { name: 'Score' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Prepare again' })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Activate exercise' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Use this screenshot' })).not.toBeInTheDocument()
@@ -712,7 +712,7 @@ describe('QuestionAssetWorkflow', () => {
     expect(api.deleteQuestionAssetSet).not.toHaveBeenCalled()
     expect(api.createQuestionAssetSet).not.toHaveBeenCalled()
     expect(api.uploadGeneratedQuestionAsset).not.toHaveBeenCalled()
-    expect(await screen.findAllByRole('button', { name: 'Reject question preview' })).toHaveLength(2)
+    expect(await screen.findAllByRole('button', { name: 'Reject preview' })).toHaveLength(2)
     expect(screen.queryByText('Replacement required')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Question 2' })).toBeInTheDocument()
   })
@@ -762,8 +762,8 @@ describe('QuestionAssetWorkflow', () => {
     expect(secondQuestion).not.toBeNull()
     expect(within(firstQuestion).getByText('Exercise PDF crop')).toBeInTheDocument()
     expect(within(firstQuestion).getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
-    expect(within(firstQuestion).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
-    expect(within(secondQuestion).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    expect(within(firstQuestion).getByRole('heading', { name: 'Score' })).toBeInTheDocument()
+    expect(within(secondQuestion).getByRole('heading', { name: 'Score' })).toBeInTheDocument()
     expect(await screen.findByRole('radio', { name: 'Custom allocation' })).toBeChecked()
     const firstScore = screen.getByLabelText(/Points for question 1/i)
     fireEvent.change(firstScore, { target: { value: '3.50' } })
@@ -882,7 +882,7 @@ describe('QuestionAssetWorkflow', () => {
 
     renderWorkflow({ ...EXERCISE, pending_question_asset_set_id: 22 })
 
-    const reject = (await screen.findAllByRole('button', { name: 'Reject question preview' }))[0]
+    const reject = (await screen.findAllByRole('button', { name: 'Reject preview' }))[0]
     expect(reject).toHaveAttribute('data-variant', 'destructive')
   })
 })

@@ -504,7 +504,7 @@ describe('TeacherCreateExercisePage', () => {
     expect(within(firstQuestion).getByLabelText('Exercise PDF crop')).toBeInTheDocument()
     expect(within(firstQuestion).getByLabelText('Answer PDF crop (teacher-only)')).toBeInTheDocument()
     expect(within(firstQuestion).getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
-    expect(within(firstQuestion).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    expect(within(firstQuestion).getByRole('heading', { name: 'Score' })).toBeInTheDocument()
     expect(within(firstQuestion).getByLabelText('Correct answer for question 1')).toHaveTextContent('D')
     expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
       expect.any(File),

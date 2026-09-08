@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Polish exercise question-review upload cards, per-question score allocation, submissions rows, and reject-preview wording. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Show active exercise question views in the same per-question layout used while creating and editing exercises. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Place each question's score allocation alongside its Exercise PDF crop, Answer PDF crop, and answer review in the Question views workflow. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Replace em dash punctuation across code comments, tests, documentation, and localized copy. [#130](https://github.com/lelouvincx/smartclass/pull/130)

@@ -2,6 +2,7 @@ import React, { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FileUp, X } from '@/components/material-symbol'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`
@@ -26,6 +27,8 @@ function formatSize(bytes) {
  *   size            - 'default' | 'lg' - controls padding + icon size
  *   showPickedFile  - boolean - when false, the consumer renders its own picked-file UI
  *                     (the dropzone unmounts once a file is selected). Default: true.
+ *   className       - string  - optional dropzone styling override
+ *   iconClassName   - string  - optional icon styling override
  */
 export default function FileDropzone({
   id,
@@ -40,6 +43,8 @@ export default function FileDropzone({
   inputAriaLabel,
   size = 'default',
   showPickedFile = true,
+  className,
+  iconClassName,
 }) {
   const { t } = useTranslation()
   const inputRef = useRef(null)
@@ -127,11 +132,13 @@ export default function FileDropzone({
         }}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        className={`flex flex-col items-center justify-center ${gap} rounded-lg border-2 border-dashed border-input ${bg} ${padding} text-center transition-colors ${
-          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-        }`}
+        className={cn(
+          `flex flex-col items-center justify-center ${gap} rounded-lg border-2 border-dashed border-input ${bg} ${padding} text-center transition-colors`,
+          disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+          className,
+        )}
       >
-        <Icon className={`${iconSize} text-muted-foreground`} />
+        <Icon className={cn(iconSize, 'text-muted-foreground', iconClassName)} />
         <p className="text-sm font-medium">{visibleTitle}</p>
         {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       </div>
