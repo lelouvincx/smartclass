@@ -52,6 +52,8 @@ import { applyScoreAllocation } from '@/lib/score-allocation'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { ProgressIndicator } from '@/design-system/progress-indicator'
 import { generateQuestionAssets } from '@/lib/question-generation'
+import ScrollToTopButton from '@/components/scroll-to-top-button'
+import ScoreAllocationInline from '@/components/score-allocation-inline'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -865,6 +867,7 @@ export default function TeacherCreateExercisePage() {
           onActivated={() => navigate(`/teacher/exercises/${createdExercise.id}`, { replace: true })}
           onReplacePdf={() => navigate(`/teacher/exercises/${createdExercise.id}`)}
         />
+        <ScrollToTopButton />
       </div>
     )
   }
@@ -1055,10 +1058,10 @@ export default function TeacherCreateExercisePage() {
         </Card>
 
         {(questionPreview.phase !== 'idle') && (
-          <Card>
+          <Card role="region" aria-labelledby="create-question-views-title">
             <CardHeader className="border-b px-5 py-4">
               <div>
-                <h2 className="font-semibold">{t('teacher.questionViews.title')}</h2>
+                <h2 id="create-question-views-title" className="font-semibold">{t('teacher.questionViews.title')}</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {t('teacher.create.questionPreviewDescription')}
                 </p>
@@ -1086,58 +1089,82 @@ export default function TeacherCreateExercisePage() {
                 </div>
               )}
               {questionPreview.phase === 'ready' && (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm text-muted-foreground">
-                      {t('teacher.create.questionPreviewReady', { count: questionPreviewGroups.length })}
-                    </p>
-                    <Button type="button" variant="outline" size="sm" onClick={() => prepareQuestionPreview(rows)}>
-                      {t('teacher.questionViews.generateNewPreview')}
-                    </Button>
-                  </div>
-                  {questionPreviewGroups.map((group) => {
-                    const answerAssets = answerPreviewGroups.get(group.q_id) || []
-                    const answerRows = previewAnswerRowsByQuestion.get(group.q_id) || []
-                    return (
-                      <div key={group.q_id} className="rounded-[var(--sc-component-card-shape)] border">
-                        <div className="border-b px-4 py-3">
-                          <h3 className="font-medium">
-                            {group.section_title
-                              ? t('teacher.questionViews.questionInSection', { section: group.section_title, number: group.local_number })
-                              : t('teacher.questionViews.question', { number: group.local_number })}
-                          </h3>
-                        </div>
-                        <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
-                          <div className="min-w-0 space-y-4">
-                            {group.assets.map((asset, index) => (
-                              <figure key={`${asset.fileName}:${index}`} className="space-y-3">
-                                <figcaption className="text-xs font-medium text-muted-foreground">
-                                  {group.assets.length > 1
-                                    ? t('teacher.questionViews.exerciseSegment', { current: index + 1, total: group.assets.length })
-                                    : t('teacher.questionViews.exerciseCrop')}
-                                </figcaption>
-                                <BlobPreviewImage asset={asset} label={t('teacher.questionViews.exerciseCrop')} />
-                              </figure>
-                            ))}
-                            {answerAssets.map((asset, index) => (
-                              <figure key={`${asset.fileName}:answer:${index}`} className="space-y-3">
-                                <figcaption className="text-xs font-medium text-muted-foreground">
-                                  {answerAssets.length > 1
-                                    ? t('teacher.questionViews.answerSegment', { current: index + 1, total: answerAssets.length })
-                                    : t('teacher.questionViews.answerCrop')}
-                                </figcaption>
-                                <BlobPreviewImage asset={asset} label={t('teacher.questionViews.answerCrop')} />
-                              </figure>
-                            ))}
-                          </div>
-                          <div className="min-w-0 border-t p-4 lg:border-l lg:border-t-0">
-                            <PreviewAnswerReview rows={answerRows} onUpdateRow={handleUpdateRow} />
-                          </div>
-                        </div>
+                <ScoreAllocationInline
+                  ref={allocationRef}
+                  rows={validatedRows}
+                  mode={allocationMode}
+                  onModeChange={setAllocationMode}
+                  values={customScores}
+                  onValuesChange={setCustomScores}
+                >
+                  {({ controls, questionControl }) => (
+                    <div className="space-y-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm text-muted-foreground">
+                          {t('teacher.create.questionPreviewReady', { count: questionPreviewGroups.length })}
+                        </p>
+                        <Button type="button" variant="outline" size="sm" onClick={() => prepareQuestionPreview(rows)}>
+                          {t('teacher.questionViews.generateNewPreview')}
+                        </Button>
                       </div>
-                    )
-                  })}
-                </div>
+                      {controls}
+                      {questionPreviewGroups.map((group) => {
+                        const answerAssets = answerPreviewGroups.get(group.q_id) || []
+                        const answerRows = previewAnswerRowsByQuestion.get(group.q_id) || []
+                        return (
+                          <div key={group.q_id} className="rounded-[var(--sc-component-card-shape)] border">
+                            <div className="border-b px-4 py-3">
+                              <h3 className="font-medium">
+                                {group.section_title
+                                  ? t('teacher.questionViews.questionInSection', { section: group.section_title, number: group.local_number })
+                                  : t('teacher.questionViews.question', { number: group.local_number })}
+                              </h3>
+                            </div>
+                            <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
+                              <div className="min-w-0 space-y-4">
+                                {group.assets.map((asset, index) => (
+                                  <figure key={`${asset.fileName}:${index}`} className="space-y-3">
+                                    <figcaption className="text-xs font-medium text-muted-foreground">
+                                      {group.assets.length > 1
+                                        ? t('teacher.questionViews.exerciseSegment', { current: index + 1, total: group.assets.length })
+                                        : t('teacher.questionViews.exerciseCrop')}
+                                    </figcaption>
+                                    <BlobPreviewImage asset={asset} label={t('teacher.questionViews.exerciseCrop')} />
+                                  </figure>
+                                ))}
+                                {answerAssets.map((asset, index) => (
+                                  <figure key={`${asset.fileName}:answer:${index}`} className="space-y-3">
+                                    <figcaption className="text-xs font-medium text-muted-foreground">
+                                      {answerAssets.length > 1
+                                        ? t('teacher.questionViews.answerSegment', { current: index + 1, total: answerAssets.length })
+                                        : t('teacher.questionViews.answerCrop')}
+                                    </figcaption>
+                                    <BlobPreviewImage asset={asset} label={t('teacher.questionViews.answerCrop')} />
+                                  </figure>
+                                ))}
+                              </div>
+                              <div className="min-w-0 space-y-4 border-t p-4 lg:border-l lg:border-t-0">
+                                <PreviewAnswerReview rows={answerRows} onUpdateRow={handleUpdateRow} />
+                                {questionControl(group.q_id)}
+                              </div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </ScoreAllocationInline>
+              )}
+              {questionPreview.phase !== 'ready' && (
+                <ScoreAllocationCard
+                  ref={allocationRef}
+                  rows={validatedRows}
+                  mode={allocationMode}
+                  onModeChange={setAllocationMode}
+                  values={customScores}
+                  onValuesChange={setCustomScores}
+                  embedded
+                />
               )}
             </CardContent>
           </Card>
@@ -1180,14 +1207,16 @@ export default function TeacherCreateExercisePage() {
           </Card>
         )}
 
-        <ScoreAllocationCard
-          ref={allocationRef}
-          rows={validatedRows}
-          mode={allocationMode}
-          onModeChange={setAllocationMode}
-          values={customScores}
-          onValuesChange={setCustomScores}
-        />
+        {questionPreview.phase === 'idle' && (
+          <ScoreAllocationCard
+            ref={allocationRef}
+            rows={validatedRows}
+            mode={allocationMode}
+            onModeChange={setAllocationMode}
+            values={customScores}
+            onValuesChange={setCustomScores}
+          />
+        )}
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -1197,6 +1226,7 @@ export default function TeacherCreateExercisePage() {
           </Button>
         </div>
       </form>
+      <ScrollToTopButton />
 
       {/* Warning confirm dialog */}
       <Dialog open={showWarningConfirm} onOpenChange={setShowWarningConfirm}>

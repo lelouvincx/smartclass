@@ -8,6 +8,14 @@ export function toQuestionAssetResponse(asset) {
   }
 }
 
+export function toQuestionAnswerAssetResponse(asset) {
+  const { r2_key: _r2Key, ...data } = asset
+  return {
+    ...data,
+    file_url: `/api/question-assets/answer/${asset.id}`,
+  }
+}
+
 export async function validateQuestionAssetSetForActivation(
   env,
   { exerciseId, setId, schemaRows, resolvedAnswerCandidateKeys = [] },

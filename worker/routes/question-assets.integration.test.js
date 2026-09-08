@@ -195,6 +195,24 @@ function replaceQuestionWithScreenshot(
   )
 }
 
+function replaceQuestionAnswerWithScreenshot(
+  exerciseId,
+  setId,
+  qId,
+  overrides = {},
+  requestToken = teacherToken,
+) {
+  return app.request(
+    `/api/exercises/${exerciseId}/question-asset-sets/${setId}/questions/${qId}/answer-screenshot`,
+    {
+      method: 'PUT',
+      headers: { 'Authorization': `Bearer ${requestToken}` },
+      body: buildScreenshotForm(overrides),
+    },
+    env,
+  )
+}
+
 function buildGeneratedReplacementForm(qId, segments = [
   { segment_index: 0, source_page: 1, y: 0.1, height: 0.2 },
 ]) {
@@ -862,7 +880,7 @@ describe('PUT /api/exercises/:exerciseId/question-asset-sets/:setId/questions/:q
     expect(exercise.active_question_asset_set_id).toBeNull()
   })
 
-  it('rejects an unknown, unrejected, confirmed, or invalid replacement', async () => {
+  it('accepts direct replacement and rejects unknown, confirmed, or invalid replacements', async () => {
     const { id: exerciseId } = await createExercise(teacherToken)
     const sourceFileId = await createSourceFile(exerciseId)
     const assetSet = await createPendingSetData(exerciseId, sourceFileId)
@@ -871,10 +889,8 @@ describe('PUT /api/exercises/:exerciseId/question-asset-sets/:setId/questions/:q
     const unknown = await replaceQuestionWithScreenshot(exerciseId, assetSet.id, 99)
     expect(unknown.status).toBe(404)
 
-    const unrejected = await replaceQuestionWithScreenshot(exerciseId, assetSet.id, 1)
-    expect(unrejected.status).toBe(409)
-
-    await rejectQuestion(exerciseId, assetSet.id, 1)
+    const directReplacement = await replaceQuestionWithScreenshot(exerciseId, assetSet.id, 1)
+    expect(directReplacement.status).toBe(200)
 
     const malformed = await replaceQuestionWithScreenshot(exerciseId, assetSet.id, 1, {
       imageBytes: new Uint8Array(64).fill(0xcd),
@@ -890,6 +906,91 @@ describe('PUT /api/exercises/:exerciseId/question-asset-sets/:setId/questions/:q
     `).bind(assetSet.id).run()
     const confirmed = await replaceQuestionWithScreenshot(exerciseId, assetSet.id, 1)
     expect(confirmed.status).toBe(409)
+  })
+
+  it('uploads a screenshot for a missing generated question', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createPendingSetData(exerciseId, sourceFileId)
+    await uploadGeneratedAsset(exerciseId, assetSet.id, { q_id: 1 })
+
+    const res = await replaceQuestionWithScreenshot(exerciseId, assetSet.id, 2)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toMatchObject({
+      asset_set_id: assetSet.id,
+      q_id: 2,
+      segment_index: 0,
+      source_kind: 'teacher_screenshot',
+    })
+  })
+})
+
+describe('PUT /api/exercises/:exerciseId/question-asset-sets/:setId/questions/:qId/answer-screenshot', () => {
+  it('stores one teacher-only answer image per question and returns it with the pending set', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createReadySet(exerciseId, sourceFileId)
+
+    const res = await replaceQuestionAnswerWithScreenshot(exerciseId, assetSet.id, 1)
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.data).toMatchObject({
+      asset_set_id: assetSet.id,
+      q_id: 1,
+      segment_index: 0,
+      mime_type: 'image/png',
+      file_url: expect.stringMatching(/^\/api\/question-assets\/answer\/\d+$/),
+    })
+
+    const setResponse = await app.request(
+      `/api/exercises/${exerciseId}/question-asset-sets/${assetSet.id}`,
+      { headers: { Authorization: `Bearer ${teacherToken}` } },
+      env,
+    )
+    const setBody = await setResponse.json()
+    expect(setBody.data.answer_assets).toHaveLength(1)
+    expect(setBody.data.answer_assets[0]).toMatchObject({ q_id: 1, file_url: body.data.file_url })
+
+    const fileResponse = await app.request(body.data.file_url, {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    expect(fileResponse.status).toBe(200)
+    expect(fileResponse.headers.get('Content-Type')).toBe('image/png')
+    expect((await fileResponse.arrayBuffer()).byteLength).toBe(SCREENSHOT_PNG_BYTES.byteLength)
+
+    const studentFileResponse = await app.request(body.data.file_url, {
+      headers: { Authorization: `Bearer ${studentToken}` },
+    }, env)
+    expect(studentFileResponse.status).toBe(403)
+    await studentFileResponse.json()
+  })
+
+  it('replaces an older answer image and deletes the old object', async () => {
+    const { id: exerciseId } = await createExercise(teacherToken)
+    const sourceFileId = await createSourceFile(exerciseId)
+    const assetSet = await createReadySet(exerciseId, sourceFileId)
+    const firstResponse = await replaceQuestionAnswerWithScreenshot(exerciseId, assetSet.id, 1)
+    expect(firstResponse.status).toBe(200)
+    await firstResponse.json()
+    const first = await env.DB.prepare(`
+      select r2_key
+      from exercise_question_answer_assets
+      where asset_set_id = ? and q_id = 1
+    `).bind(assetSet.id).first()
+
+    const res = await replaceQuestionAnswerWithScreenshot(exerciseId, assetSet.id, 1, { mime: 'image/jpeg' })
+
+    expect(res.status).toBe(200)
+    expect(await env.BUCKET.get(first.r2_key)).toBeNull()
+    const rows = await env.DB.prepare(`
+      select q_id, segment_index, mime_type
+      from exercise_question_answer_assets
+      where asset_set_id = ?
+    `).bind(assetSet.id).all()
+    expect(rows.results).toEqual([{ q_id: 1, segment_index: 0, mime_type: 'image/jpeg' }])
   })
 })
 

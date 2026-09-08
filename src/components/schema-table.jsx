@@ -124,11 +124,11 @@ function StatusBadge({ row }) {
   const { t } = useTranslation()
 
   if (row.errors?.length > 0) {
-    return <Badge variant="destructive" title={row.errors[0]} className="h-7 max-w-full rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap truncate">{row.errors[0]}</Badge>
+    return <Badge variant="destructive" title={row.errors[0]} className="h-auto min-h-7 max-w-full justify-start overflow-visible rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 text-left whitespace-normal">{row.errors[0]}</Badge>
   }
 
   if (row.warnings?.length > 0) {
-    return <Badge variant="warning" title={row.warnings[0]} className="h-7 max-w-full rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 whitespace-nowrap truncate">{row.warnings[0]}</Badge>
+    return <Badge variant="warning" title={row.warnings[0]} className="h-auto min-h-7 max-w-full justify-start overflow-visible rounded-[min(var(--sc-component-control-shape),10px)] px-2.5 text-left whitespace-normal">{row.warnings[0]}</Badge>
   }
 
   return <Badge variant="success">{t('teacher.schema.valid')}</Badge>
@@ -166,7 +166,7 @@ function SortableStandardRow({ row, onUpdateRow, onDeleteRow, showConfidence }) 
       </TableCell>
 
       <TableCell className="px-3 py-2">
-        <span className="block truncate py-3 text-sm font-medium" title={row.section_title || t('teacher.schema.mainSection')}>
+        <span className="block break-words py-3 text-sm font-medium whitespace-normal" title={row.section_title || t('teacher.schema.mainSection')}>
           {row.section_title || t('teacher.schema.mainSection')}
         </span>
       </TableCell>
@@ -264,7 +264,7 @@ function SortableBooleanGroup({ groupRows, onUpdateRow, onDeleteRow, showConfide
 
           <TableCell className="px-3 py-2">
             {i === 0 && (
-              <span className="block truncate py-3 text-sm font-medium" title={row.section_title || t('teacher.schema.mainSection')}>
+              <span className="block break-words py-3 text-sm font-medium whitespace-normal" title={row.section_title || t('teacher.schema.mainSection')}>
                 {row.section_title || t('teacher.schema.mainSection')}
               </span>
             )}
@@ -395,13 +395,13 @@ export function SchemaTable({ rows, onUpdateRow, onDeleteRow, onReorder, showCon
       <Table containerClassName="rounded-none border-0 border-t" className="table-fixed">
         <colgroup>
           <col className="w-[4%]" />
-          <col className="w-[18%]" />
-          <col className="w-[11%]" />
-          <col className="w-[15%]" />
-          <col className="w-[16%]" />
-          {showConfidenceCol && <col className="w-[14%]" />}
           <col className="w-[14%]" />
-          <col className="w-[8%]" />
+          <col className="w-[10%]" />
+          <col className="w-[14%]" />
+          <col className="w-[22%]" />
+          {showConfidenceCol && <col className="w-[14%]" />}
+          <col className="w-[12%]" />
+          <col className="w-[12%]" />
         </colgroup>
         <TableHeader>
             <TableRow className="bg-muted text-left text-xs font-medium uppercase tracking-wide text-muted-foreground hover:bg-muted">

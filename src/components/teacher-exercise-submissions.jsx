@@ -5,14 +5,6 @@ import { Link } from 'react-router-dom'
 import { listTeacherExerciseSubmissions } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { EmptyState } from '@/design-system/empty-state'
 import { formatDateTime } from '@/lib/format'
 
@@ -71,53 +63,44 @@ export function TeacherExerciseSubmissions({ exerciseId, token }) {
             className="min-h-48 rounded-none border-0"
           />
         ) : (
-          <Table className="table-fixed sm:table-auto">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[52%] px-3 sm:w-auto sm:px-5">
-                  {t('teacher.submissions.student')}
-                </TableHead>
-                <TableHead className="w-[23%] sm:w-auto">{t('teacher.submissions.score')}</TableHead>
-                <TableHead className="hidden sm:table-cell">{t('teacher.submissions.submitted')}</TableHead>
-                <TableHead className="w-1/4 text-right sm:w-auto">{t('teacher.submissions.action')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {submissions.map((submission) => {
-                const studentLabel = submission.student_name || submission.student_phone
-                const submittedAt = submission.submitted_at.endsWith('Z')
-                  ? submission.submitted_at
-                  : `${submission.submitted_at}Z`
+          <ul className="divide-y">
+            {submissions.map((submission) => {
+              const studentLabel = submission.student_name || submission.student_phone
+              const submittedAt = submission.submitted_at.endsWith('Z')
+                ? submission.submitted_at
+                : `${submission.submitted_at}Z`
 
-                return (
-                  <TableRow key={submission.id}>
-                    <TableCell className="whitespace-normal px-3 sm:px-5">
-                      <span className="block font-medium text-foreground">{studentLabel}</span>
-                      {submission.student_name && (
-                        <span className="block text-xs text-muted-foreground">{submission.student_phone}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-semibold tabular-nums">
-                      {submission.score ?? '-'}{submission.score != null && ' / 10'}
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
+              return (
+                <li key={submission.id} className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-foreground">{studentLabel}</p>
+                    {submission.student_name && (
+                      <p className="text-xs text-muted-foreground">{submission.student_phone}</p>
+                    )}
+                    <p className="mt-1 text-xs text-muted-foreground sm:hidden">
                       {formatDateTime(submittedAt, i18n.resolvedLanguage)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link
-                          to={`/teacher/submissions/${submission.id}/review`}
-                          aria-label={t('teacher.submissions.viewNamed', { name: studentLabel })}
-                        >
-                          {t('teacher.submissions.view')}
-                        </Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                    <span className="rounded-full bg-selection px-3 py-1 text-sm font-semibold tabular-nums text-primary">
+                      {submission.score ?? '-'}{submission.score != null && ' / 10'}
+                    </span>
+                    <span className="hidden min-w-44 text-sm text-muted-foreground sm:inline">
+                      {formatDateTime(submittedAt, i18n.resolvedLanguage)}
+                    </span>
+                  </div>
+                  <Button variant="outline" size="sm" className="justify-center" asChild>
+                    <Link
+                      to={`/teacher/submissions/${submission.id}/review`}
+                      aria-label={t('teacher.submissions.viewNamed', { name: studentLabel })}
+                    >
+                      {t('teacher.submissions.view')}
+                    </Link>
+                  </Button>
+                </li>
+              )
+            })}
+          </ul>
         )}
       </CardContent>
     </Card>

@@ -4,6 +4,22 @@ import { requireAuth } from '../middleware/auth.js'
 
 const questionAssetFilesRoutes = new Hono()
 
+async function streamAsset(c, asset, notFoundMessage) {
+  const object = await c.env.BUCKET.get(asset.r2_key)
+  if (!object) {
+    return jsonError(c, 404, 'NOT_FOUND', notFoundMessage)
+  }
+
+  return new Response(object.body, {
+    status: 200,
+    headers: {
+      'Content-Type': asset.mime_type,
+      'Content-Disposition': 'inline',
+      'Cache-Control': 'private, no-store',
+    },
+  })
+}
+
 questionAssetFilesRoutes.get('/:assetId', requireAuth, async (c) => {
   const assetId = Number.parseInt(c.req.param('assetId'), 10)
   if (!Number.isInteger(assetId) || assetId < 1) {
@@ -58,19 +74,36 @@ questionAssetFilesRoutes.get('/:assetId', requireAuth, async (c) => {
     }
   }
 
-  const object = await c.env.BUCKET.get(asset.r2_key)
-  if (!object) {
-    return jsonError(c, 404, 'NOT_FOUND', 'Question asset content not found')
+  return streamAsset(c, asset, 'Question asset content not found')
+})
+
+questionAssetFilesRoutes.get('/answer/:assetId', requireAuth, async (c) => {
+  const assetId = Number.parseInt(c.req.param('assetId'), 10)
+  if (!Number.isInteger(assetId) || assetId < 1) {
+    return jsonError(c, 400, 'VALIDATION_ERROR', 'assetId must be a positive integer')
   }
 
-  return new Response(object.body, {
-    status: 200,
-    headers: {
-      'Content-Type': asset.mime_type,
-      'Content-Disposition': 'inline',
-      'Cache-Control': 'private, no-store',
-    },
-  })
+  const authUser = c.get('authUser')
+  if (authUser.role !== 'teacher') {
+    return jsonError(c, 403, 'FORBIDDEN', 'Only teachers can view answer question assets')
+  }
+
+  const asset = await c.env.DB.prepare(`
+    select
+      answer_asset.id
+      , answer_asset.r2_key
+      , answer_asset.mime_type
+    from exercise_question_answer_assets answer_asset
+    join exercise_question_asset_sets asset_set on asset_set.id = answer_asset.asset_set_id
+    join exercises exercise on exercise.id = asset_set.exercise_id
+    where answer_asset.id = ?
+  `).bind(assetId).first()
+
+  if (!asset) {
+    return jsonError(c, 404, 'NOT_FOUND', 'Answer question asset not found')
+  }
+
+  return streamAsset(c, asset, 'Answer question asset content not found')
 })
 
 export default questionAssetFilesRoutes

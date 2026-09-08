@@ -35,6 +35,7 @@ const ScoreAllocationCard = forwardRef(function ScoreAllocationCard({
   onModeChange,
   values,
   onValuesChange,
+  embedded = false,
 }, ref) {
   const { t } = useTranslation()
   const questions = useMemo(() => scoreQuestions(rows), [rows])
@@ -119,15 +120,8 @@ const ScoreAllocationCard = forwardRef(function ScoreAllocationCard({
           points: formatHundredths(validation.totalHundredths - 1000),
         })
 
-  return (
-    <Card>
-      <CardHeader className="border-b px-5 py-4">
-        <h2 className="font-semibold">{t('teacher.scoreAllocation.title')}</h2>
-        <p className="max-w-[70ch] text-sm text-muted-foreground">
-          {t('teacher.scoreAllocation.description')}
-        </p>
-      </CardHeader>
-      <CardContent className="space-y-5 pt-1">
+  const content = (
+    <>
         <RadioGroup
           value={mode}
           onValueChange={handleModeChange}
@@ -258,6 +252,35 @@ const ScoreAllocationCard = forwardRef(function ScoreAllocationCard({
         <p aria-live="polite" className="rounded-lg bg-muted px-4 py-3 font-medium tabular-nums">
           {summaryText}
         </p>
+    </>
+  )
+
+  if (embedded) {
+    return (
+      <section className="rounded-lg border bg-muted/20" aria-label={t('teacher.scoreAllocation.title')}>
+        <div className="border-b px-4 py-3">
+          <h3 className="font-semibold">{t('teacher.scoreAllocation.title')}</h3>
+          <p className="mt-1 max-w-[70ch] text-sm text-muted-foreground">
+            {t('teacher.scoreAllocation.description')}
+          </p>
+        </div>
+        <div className="space-y-5 p-4">
+          {content}
+        </div>
+      </section>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader className="border-b px-5 py-4">
+        <h2 className="font-semibold">{t('teacher.scoreAllocation.title')}</h2>
+        <p className="max-w-[70ch] text-sm text-muted-foreground">
+          {t('teacher.scoreAllocation.description')}
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-5 pt-1">
+        {content}
       </CardContent>
     </Card>
   )

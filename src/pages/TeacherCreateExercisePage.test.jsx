@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -495,12 +495,17 @@ describe('TeacherCreateExercisePage', () => {
     await user.upload(screen.getByLabelText(/Answer PDF/i), new File(['answer'], 'answers.pdf', { type: 'application/pdf' }))
     await user.click(screen.getByRole('button', { name: /Read answers from PDF/ }))
 
-    expect(await screen.findByRole('heading', { name: 'Question views' })).toBeInTheDocument()
+    const questionViews = await screen.findByRole('region', { name: 'Question views' })
+    expect(within(questionViews).getByRole('heading', { name: 'Question views' })).toBeInTheDocument()
     expect(screen.getByText('1 question views are ready to save.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Exercise PDF crop')).toBeInTheDocument()
-    expect(screen.getByLabelText('Answer PDF crop (teacher-only)')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Correct answer for question 1')).toHaveTextContent('D')
+    const firstQuestionHeading = within(questionViews).getByRole('heading', { name: 'Question 1' })
+    const firstQuestion = firstQuestionHeading.parentElement?.parentElement
+    expect(firstQuestion).not.toBeNull()
+    expect(within(firstQuestion).getByLabelText('Exercise PDF crop')).toBeInTheDocument()
+    expect(within(firstQuestion).getByLabelText('Answer PDF crop (teacher-only)')).toBeInTheDocument()
+    expect(within(firstQuestion).getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
+    expect(within(firstQuestion).getByRole('heading', { name: 'Score' })).toBeInTheDocument()
+    expect(within(firstQuestion).getByLabelText('Correct answer for question 1')).toHaveTextContent('D')
     expect(generateQuestionAssetsMock).toHaveBeenCalledWith(
       expect.any(File),
       [expect.objectContaining({ q_id: 1, local_number: 1 })],

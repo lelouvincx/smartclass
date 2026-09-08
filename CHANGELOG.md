@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Let teachers upload or drag and drop replacement question screenshots and teacher-only answer-detail screenshots during exercise question review. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Add a non-product Pillow-based vision question-locator POC script with ruler overlays, structured box validation, and crop previews. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Add an isolated experimental Cohere Parse blocks adapter for Answer PDF table extraction. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Let teachers choose whether students can download an exercise's Answer PDF after submitting and reviewing their work. [#125](https://github.com/lelouvincx/smartclass/pull/125)
@@ -23,6 +24,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Polish exercise question-review upload cards, per-question score allocation, submissions rows, and reject-preview wording. [#132](https://github.com/lelouvincx/smartclass/pull/132)
+- Show active exercise question views in the same per-question layout used while creating and editing exercises. [#132](https://github.com/lelouvincx/smartclass/pull/132)
+- Place each question's score allocation alongside its Exercise PDF crop, Answer PDF crop, and answer review in the Question views workflow. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Replace em dash punctuation across code comments, tests, documentation, and localized copy. [#130](https://github.com/lelouvincx/smartclass/pull/130)
 - Align loading spinners and progress bars with Material Design 3 progress indicators. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Use Google Material Symbols for app icons and remove the Lucide icon dependency. [#129](https://github.com/lelouvincx/smartclass/pull/129)

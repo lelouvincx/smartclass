@@ -140,6 +140,21 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByText('Preparation required')).toBeInTheDocument()
   })
 
+  it('lists the exercise PDF before the answer PDF', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: {
+        ...EXERCISE_WITH_BOOLEAN,
+        files: [...EXERCISE_WITH_BOOLEAN.files].reverse(),
+      },
+    })
+    renderPage('6')
+
+    await screen.findByText('Biology Quiz')
+    const exercisePdf = screen.getByText('Exercise PDF')
+    const answerPdf = screen.getByText('Answer PDF')
+    expect(exercisePdf.compareDocumentPosition(answerPdf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('renders schema rows with correct_answer in view mode', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     renderPage()
@@ -235,10 +250,8 @@ describe('TeacherViewExercisePage', () => {
     expect(await screen.findByText('Nguyễn Văn Minh')).toBeInTheDocument()
     expect(screen.getByText('+84901234567')).toBeInTheDocument()
     expect(screen.getByText('8.5 / 10')).toBeInTheDocument()
-    expect(submissionsHeading.closest('[data-slot="card"]')?.querySelector('table'))
-      .toHaveClass('table-fixed', 'sm:table-auto')
-    expect(screen.getByRole('columnheader', { name: 'Student' }))
-      .toHaveClass('w-[52%]', 'px-3', 'sm:w-auto', 'sm:px-5')
+    expect(submissionsHeading.closest('[data-slot="card"]')?.querySelector('ul'))
+      .toHaveClass('divide-y')
     expect(screen.getByRole('link', { name: 'View Nguyễn Văn Minh’s submission' }))
       .toHaveAttribute('href', '/teacher/submissions/81/review')
     expect(listTeacherExerciseSubmissionsMock).toHaveBeenCalledWith('teacher-token', 5)
@@ -284,6 +297,11 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByRole('button', { name: 'Programme access' })).toBeInTheDocument()
     expect(screen.getByLabelText('Student answer download')).not.toBeChecked()
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Exercise title').parentElement?.parentElement).toHaveClass(
+      'grid-cols-[minmax(0,1fr)]',
+    )
+    expect(screen.getByLabelText(/duration \(minutes\)/i).parentElement).toHaveClass('flex-col')
+    expect(screen.getByRole('group', { name: /duration presets/i })).toHaveAttribute('data-slot', 'segmented-button-group')
     // Save and Cancel buttons should appear
     expect(screen.getByRole('button', { name: /save/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()

@@ -10,6 +10,7 @@ export default {
   signIn: 'Sign in',
   openWorkspace: 'Open workspace',
   comingSoon: 'Coming soon',
+  backToTop: 'Back to top',
   skipToMain: 'Skip to main content',
   openNavigation: 'Open navigation',
   collapseSidebar: 'Collapse sidebar',
