@@ -232,6 +232,31 @@ describe('QuestionAssetWorkflow', () => {
     expect(screen.queryByRole('heading', { name: 'Review the answer key' })).not.toBeInTheDocument()
   })
 
+  it('shows the active question views in the same per-question layout by default', async () => {
+    api.getQuestionAssetSet.mockResolvedValue({
+      data: {
+        ...preview(undefined, {
+          answerCandidates: [storedCandidate(1, 'answer_pdf_text', 'B')],
+        }).data,
+        asset_set: {
+          ...preview().data.asset_set,
+          confirmed_at: '2026-09-08T00:00:00.000Z',
+        },
+      },
+    })
+
+    renderWorkflow({ ...EXERCISE, question_asset_set_id: 22 })
+
+    const questionViews = await screen.findByRole('region', { name: 'Question views' })
+    const questionOneCard = within(questionViews).getByRole('heading', { name: 'Question 1' }).closest('[data-slot="card"]')
+    expect(questionOneCard).not.toBeNull()
+    expect(within(questionOneCard).getByText('Exercise PDF crop')).toBeInTheDocument()
+    expect(within(questionOneCard).getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
+    expect(within(questionOneCard).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Activate exercise' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Use this screenshot' })).not.toBeInTheDocument()
+  })
+
   it('prepares Answer PDF and green-highlight candidates in the same generation flow', async () => {
     const user = userEvent.setup()
     const exercise = {

@@ -32,6 +32,8 @@ export default {
     reviewDescription: 'Review each question image with its matching answer. Reject anything clipped, incomplete, hard to read, or showing a solution or correct answer, and resolve every answer conflict.',
     questionCount_one: '{{count}} question to review',
     questionCount_other: '{{count}} questions to review',
+    activeQuestionCount_one: '{{count}} question view',
+    activeQuestionCount_other: '{{count}} question views',
     question: 'Question {{number}}',
     questionInSection: '{{section}} · Question {{number}}',
     attentionOutlineTitle: 'Check these questions',

@@ -32,6 +32,8 @@ export default {
     reviewDescription: 'Kiểm tra từng ảnh câu hỏi cùng đáp án tương ứng. Từ chối ảnh bị cắt, thiếu nội dung, khó đọc hoặc để lộ lời giải hay đáp án đúng, đồng thời xử lý mọi xung đột đáp án.',
     questionCount_one: '{{count}} câu cần kiểm tra',
     questionCount_other: '{{count}} câu cần kiểm tra',
+    activeQuestionCount_one: '{{count}} ảnh câu hỏi',
+    activeQuestionCount_other: '{{count}} ảnh câu hỏi',
     question: 'Câu {{number}}',
     questionInSection: '{{section}} · Câu {{number}}',
     attentionOutlineTitle: 'Kiểm tra các câu sau',

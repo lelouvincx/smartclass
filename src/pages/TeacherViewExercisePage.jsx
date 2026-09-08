@@ -762,15 +762,13 @@ export default function TeacherViewExercisePage() {
         </CardContent>
       </Card>
 
-      {!isEditing && (
-        <QuestionAssetWorkflow
-          exercise={exercise}
-          token={token}
-          onActivated={handleQuestionViewsActivated}
-          onReplacePdf={replaceExercisePdf}
-          autoStartKey={autoGenerateKey}
-        />
-      )}
+      <QuestionAssetWorkflow
+        exercise={exercise}
+        token={token}
+        onActivated={handleQuestionViewsActivated}
+        onReplacePdf={replaceExercisePdf}
+        autoStartKey={autoGenerateKey}
+      />
 
       {(isEditing || !exercise.pending_question_asset_set_id) && (
         <Card>

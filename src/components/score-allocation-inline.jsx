@@ -35,6 +35,7 @@ const ScoreAllocationInline = forwardRef(function ScoreAllocationInline({
   values,
   onValuesChange,
   children,
+  readOnly = false,
 }, ref) {
   const { t } = useTranslation()
   const questions = useMemo(() => scoreQuestions(rows), [rows])
@@ -128,6 +129,8 @@ const ScoreAllocationInline = forwardRef(function ScoreAllocationInline({
     if (!question) return null
     const name = questionName(question, t)
     const error = fieldErrors[question.qId]
+    const fixedPoints = values?.[question.qId]
+      ?? formatHundredths((rows || []).find(row => Number(row.q_id) === question.qId)?.max_score_hundredths ?? 0)
     return (
       <section className="space-y-3 rounded-lg border bg-muted/20 p-4" aria-label={t('teacher.scoreAllocation.title')}>
         <div>
@@ -139,6 +142,10 @@ const ScoreAllocationInline = forwardRef(function ScoreAllocationInline({
         {mode === 'automatic' ? (
           <p className="rounded-lg bg-background px-3 py-2 text-sm tabular-nums">
             {t('teacher.scoreAllocation.weightColumn')}: {relativeWeight(question.type).toFixed(2)}
+          </p>
+        ) : readOnly ? (
+          <p className="rounded-lg bg-background px-3 py-2 text-sm tabular-nums">
+            {t('teacher.scoreAllocation.pointsColumn')}: {fixedPoints}
           </p>
         ) : (
           <div className="space-y-1.5">

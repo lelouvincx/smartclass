@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   AlertTriangle,
-  CheckCircle2,
   Eye,
   ImageUp,
   RefreshCw,
@@ -326,6 +325,7 @@ function QuestionAnswerReview({
   resolvedKeys,
   onAnswerChange,
   onResolve,
+  readOnly = false,
 }) {
   const { t } = useTranslation()
 
@@ -347,6 +347,13 @@ function QuestionAnswerReview({
       number: row.sub_id ? `${row.q_id}${row.sub_id}` : row.q_id,
     })
     const isValid = hasValidFinalAnswer(row)
+    if (readOnly) {
+      return (
+        <p className="inline-flex min-h-8 min-w-20 items-center rounded-[var(--sc-component-control-shape)] border bg-muted/30 px-3 text-sm font-medium">
+          {String(row.correct_answer ?? '-')}
+        </p>
+      )
+    }
     if (row.type === 'mcq') {
       return (
         <Select
@@ -467,7 +474,7 @@ function QuestionAnswerReview({
                   )}
                 </div>
               </div>
-              {row.hasConflict && !isResolved && (
+              {row.hasConflict && !isResolved && !readOnly && (
                 <Button
                   type="button"
                   variant="outline"
@@ -590,11 +597,13 @@ export default function QuestionAssetWorkflow({
     }
   }, [exercise.id, exercise.schema, token])
 
+  const reviewSetId = exercise.pending_question_asset_set_id || exercise.question_asset_set_id
+
   useEffect(() => {
-    if (exercise.pending_question_asset_set_id && !autoStartKey) {
-      loadDraft(exercise.pending_question_asset_set_id)
+    if (reviewSetId && !autoStartKey) {
+      loadDraft(reviewSetId)
     }
-  }, [autoStartKey, exercise.pending_question_asset_set_id, loadDraft])
+  }, [autoStartKey, loadDraft, reviewSetId])
 
   const startGeneration = useCallback(async () => {
     if (!sourceFile || !answerSourceFile || questionIds.length === 0 || phase === 'generating') return
@@ -895,41 +904,15 @@ export default function QuestionAssetWorkflow({
   ))
   const hasUnresolvedAnswer = questionReviews.some(review => review.hasUnresolvedAnswer)
     || answerReview.unexpected.some(row => !resolvedAnswerKeys.has(row.key))
+  const isActiveReview = Boolean(draft?.asset_set?.confirmed_at)
   const canActivate = phase === 'review'
+    && !isActiveReview
     && sourceIsCurrent
     && answerSourceIsCurrent
     && !hasBlockingQuestion
     && !hasUnresolvedAnswer
     && validAnswerSchema(answerSchema)
   const progressValue = progress.total ? progress.current / progress.total : 0
-  const activeWithoutDraft = !draft && exercise.question_asset_set_id
-
-  if (activeWithoutDraft) {
-    return (
-      <Card>
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 pt-5">
-          <div className="flex items-start gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-success-muted text-success">
-              <CheckCircle2 className="size-5" />
-            </span>
-            <div>
-              <h2 className="font-semibold">{t('teacher.questionViews.activeTitle')}</h2>
-              <p className="mt-1 text-sm text-muted-foreground">{t('teacher.questionViews.activeDescription')}</p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={startGeneration}
-            disabled={!sourceFile || !answerSourceFile}
-          >
-            <RefreshCw />
-            {t('teacher.questionViews.generateReplacement')}
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
 
   if (!draft || phase === 'generating' || phase === 'loading' || phase === 'error') {
     return (
@@ -1022,18 +1005,18 @@ export default function QuestionAssetWorkflow({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-2xl">
           <h2 id="question-view-review-title" className="text-xl font-semibold">
-            {t('teacher.questionViews.reviewTitle')}
+            {isActiveReview ? t('teacher.questionViews.title') : t('teacher.questionViews.reviewTitle')}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            {t('teacher.questionViews.reviewDescription')}
+            {isActiveReview ? t('teacher.questionViews.activeDescription') : t('teacher.questionViews.reviewDescription')}
           </p>
         </div>
         <Badge variant="secondary">
-          {t('teacher.questionViews.questionCount', { count: groups.length })}
+          {t(isActiveReview ? 'teacher.questionViews.activeQuestionCount' : 'teacher.questionViews.questionCount', { count: groups.length })}
         </Badge>
       </div>
 
-      {(!sourceIsCurrent || !answerSourceIsCurrent) && (
+      {!isActiveReview && (!sourceIsCurrent || !answerSourceIsCurrent) && (
         <Alert variant="destructive">
           <AlertTriangle />
           <AlertTitle>{t('teacher.questionViews.outdatedTitle')}</AlertTitle>
@@ -1047,7 +1030,7 @@ export default function QuestionAssetWorkflow({
         </Alert>
       )}
 
-      {draft.asset_set.answer_parser_status === 'failed' && (
+      {!isActiveReview && draft.asset_set.answer_parser_status === 'failed' && (
         <Alert>
           <AlertTriangle />
           <AlertTitle>{t('teacher.questionViews.answerParseFailedTitle')}</AlertTitle>
@@ -1055,11 +1038,13 @@ export default function QuestionAssetWorkflow({
         </Alert>
       )}
 
-      <UnexpectedAnswerCandidates
-        candidates={answerReview.unexpected}
-        resolvedKeys={resolvedAnswerKeys}
-        onResolve={handleResolveAnswer}
-      />
+      {!isActiveReview && (
+        <UnexpectedAnswerCandidates
+          candidates={answerReview.unexpected}
+          resolvedKeys={resolvedAnswerKeys}
+          onResolve={handleResolveAnswer}
+        />
+      )}
 
       {attentionQuestions.length > 0 && (
         <nav
@@ -1105,10 +1090,11 @@ export default function QuestionAssetWorkflow({
         onModeChange={setAllocationMode}
         values={customScores}
         onValuesChange={setCustomScores}
+        readOnly={isActiveReview}
       >
         {({ controls, questionControl }) => (
           <>
-            {controls}
+            {!isActiveReview && controls}
             <div className="space-y-4">
               {questionReviews.map(({
                 qId,
@@ -1199,25 +1185,27 @@ export default function QuestionAssetWorkflow({
                       </p>
                     )}
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <ReplacementForm
-                        exerciseId={exercise.id}
-                        setId={draft.asset_set.id}
-                        qId={qId}
-                        token={token}
-                        onReplaced={() => loadDraft(draft.asset_set.id)}
-                      />
-                      <ReplacementForm
-                        exerciseId={exercise.id}
-                        setId={draft.asset_set.id}
-                        qId={qId}
-                        token={token}
-                        kind="answer"
-                        onReplaced={() => loadDraft(draft.asset_set.id)}
-                      />
-                    </div>
+                    {!isActiveReview && (
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <ReplacementForm
+                          exerciseId={exercise.id}
+                          setId={draft.asset_set.id}
+                          qId={qId}
+                          token={token}
+                          onReplaced={() => loadDraft(draft.asset_set.id)}
+                        />
+                        <ReplacementForm
+                          exerciseId={exercise.id}
+                          setId={draft.asset_set.id}
+                          qId={qId}
+                          token={token}
+                          kind="answer"
+                          onReplaced={() => loadDraft(draft.asset_set.id)}
+                        />
+                      </div>
+                    )}
 
-                    {(isRejected || isMissing) && (
+                    {!isActiveReview && (isRejected || isMissing) && (
                       <div className="space-y-4 rounded-lg bg-warning-muted p-4">
                         <div className="flex flex-wrap gap-2">
                           <Button
@@ -1266,9 +1254,10 @@ export default function QuestionAssetWorkflow({
                         resolvedKeys={resolvedAnswerKeys}
                         onAnswerChange={handleAnswerChange}
                         onResolve={handleResolveAnswer}
+                        readOnly={isActiveReview}
                       />
                       {questionControl(qId)}
-                      {!isRejected && !isMissing && (
+                      {!isActiveReview && !isRejected && !isMissing && (
                         <Button
                           type="button"
                           variant="destructive"
@@ -1295,30 +1284,32 @@ export default function QuestionAssetWorkflow({
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 
-      <Card className="border-primary/30 py-0 shadow-[var(--shadow-raised)]">
-        <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
-            <div>
-              <p className="text-sm font-semibold">{t('teacher.questionViews.confirmTitle')}</p>
-              <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
-                {t('teacher.questionViews.confirmAnswersDescription')}
-              </p>
+      {!isActiveReview && (
+        <Card className="border-primary/30 py-0 shadow-[var(--shadow-raised)]">
+          <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" />
+              <div>
+                <p className="text-sm font-semibold">{t('teacher.questionViews.confirmTitle')}</p>
+                <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                  {t('teacher.questionViews.confirmAnswersDescription')}
+                </p>
+              </div>
             </div>
-          </div>
-          <Button
-            type="button"
-            onClick={() => {
-              if (allocationRef.current?.validate()) setShowActivationConfirm(true)
-            }}
-            disabled={!canActivate}
-          >
-            {phase === 'activating'
-              ? t('teacher.questionViews.activating')
-              : t('teacher.questionViews.confirmAnswers')}
-          </Button>
-        </CardContent>
-      </Card>
+            <Button
+              type="button"
+              onClick={() => {
+                if (allocationRef.current?.validate()) setShowActivationConfirm(true)
+              }}
+              disabled={!canActivate}
+            >
+              {phase === 'activating'
+                ? t('teacher.questionViews.activating')
+                : t('teacher.questionViews.confirmAnswers')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={showActivationConfirm} onOpenChange={setShowActivationConfirm}>
         <DialogContent closeLabel={t('common.close')}>
