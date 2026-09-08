@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Place each question's score allocation alongside its Exercise PDF crop, Answer PDF crop, and answer review in the Question views workflow. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Replace em dash punctuation across code comments, tests, documentation, and localized copy. [#130](https://github.com/lelouvincx/smartclass/pull/130)
 - Align loading spinners and progress bars with Material Design 3 progress indicators. [#129](https://github.com/lelouvincx/smartclass/pull/129)
 - Use Google Material Symbols for app icons and remove the Lucide icon dependency. [#129](https://github.com/lelouvincx/smartclass/pull/129)

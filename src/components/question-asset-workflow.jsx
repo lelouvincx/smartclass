@@ -50,7 +50,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import FileDropzone from '@/components/file-dropzone'
-import ScoreAllocationCard from '@/components/score-allocation-card'
+import ScoreAllocationInline from '@/components/score-allocation-inline'
 import { allocationStateFromSchema, applyScoreAllocation } from '@/lib/score-allocation'
 
 const MIN_CONFIDENCE = 0.75
@@ -1098,64 +1098,75 @@ export default function QuestionAssetWorkflow({
         </nav>
       )}
 
-      <div className="space-y-4">
-        {questionReviews.map(({
-          qId,
-          sectionTitle,
-          localNumber,
-          assets,
-          answerRows,
-          isRejected,
-          isLowConfidence,
-          isMissing,
-          hasUnresolvedAnswer,
-          hasInvalidAnswer,
-          needsAttention,
-        }) => {
-          const answerPreviews = answerPreviewGroups.get(qId) || []
-          const storedAnswerPreviews = storedAnswerGroups.get(qId) || []
-          return (
-            <Card
-              key={qId}
-              id={`question-review-${qId}`}
-              className={needsAttention ? 'scroll-mt-24 border-warning/60' : 'scroll-mt-24'}
-            >
-              <CardHeader className="border-b px-5 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="font-semibold">
-                    {sectionTitle
-                      ? t('teacher.questionViews.questionInSection', {
-                        section: sectionTitle,
-                        number: localNumber,
-                      })
-                      : t('teacher.questionViews.question', { number: localNumber })}
-                  </h3>
-                  {isRejected || isMissing ? (
-                    <Badge variant="destructive">{t('teacher.questionViews.replacementRequired')}</Badge>
-                  ) : isLowConfidence || hasUnresolvedAnswer || hasInvalidAnswer ? (
-                    <Badge variant="outline" className="border-warning text-warning">
-                      {t('teacher.questionViews.needsAttention')}
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-success/40 text-success">
-                      {t('teacher.questionViews.ready')}
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
-                  <div className="min-w-0 space-y-4 p-5">
-                    {assets.map((asset, index) => (
-                      <figure key={asset.id} className="space-y-3">
-                        <figcaption className="text-xs font-medium text-muted-foreground">
-                          {assets.length > 1
-                            ? t('teacher.questionViews.exerciseSegment', { current: index + 1, total: assets.length })
-                            : t('teacher.questionViews.exerciseCrop')}
-                        </figcaption>
-                        <AuthenticatedQuestionImage asset={asset} token={token} />
-                      </figure>
-                    ))}
+      <ScoreAllocationInline
+        ref={allocationRef}
+        rows={answerSchema}
+        mode={allocationMode}
+        onModeChange={setAllocationMode}
+        values={customScores}
+        onValuesChange={setCustomScores}
+      >
+        {({ controls, questionControl }) => (
+          <>
+            {controls}
+            <div className="space-y-4">
+              {questionReviews.map(({
+                qId,
+                sectionTitle,
+                localNumber,
+                assets,
+                answerRows,
+                isRejected,
+                isLowConfidence,
+                isMissing,
+                hasUnresolvedAnswer,
+                hasInvalidAnswer,
+                needsAttention,
+              }) => {
+                const answerPreviews = answerPreviewGroups.get(qId) || []
+                const storedAnswerPreviews = storedAnswerGroups.get(qId) || []
+                return (
+                  <Card
+                    key={qId}
+                    id={`question-review-${qId}`}
+                    className={needsAttention ? 'scroll-mt-24 border-warning/60' : 'scroll-mt-24'}
+                  >
+                    <CardHeader className="border-b px-5 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="font-semibold">
+                          {sectionTitle
+                            ? t('teacher.questionViews.questionInSection', {
+                              section: sectionTitle,
+                              number: localNumber,
+                            })
+                            : t('teacher.questionViews.question', { number: localNumber })}
+                        </h3>
+                        {isRejected || isMissing ? (
+                          <Badge variant="destructive">{t('teacher.questionViews.replacementRequired')}</Badge>
+                        ) : isLowConfidence || hasUnresolvedAnswer || hasInvalidAnswer ? (
+                          <Badge variant="outline" className="border-warning text-warning">
+                            {t('teacher.questionViews.needsAttention')}
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-success/40 text-success">
+                            {t('teacher.questionViews.ready')}
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="grid lg:grid-cols-[minmax(0,3fr)_minmax(14rem,1fr)]">
+                        <div className="min-w-0 space-y-4 p-5">
+                          {assets.map((asset, index) => (
+                            <figure key={asset.id} className="space-y-3">
+                              <figcaption className="text-xs font-medium text-muted-foreground">
+                                {assets.length > 1
+                                  ? t('teacher.questionViews.exerciseSegment', { current: index + 1, total: assets.length })
+                                  : t('teacher.questionViews.exerciseCrop')}
+                              </figcaption>
+                              <AuthenticatedQuestionImage asset={asset} token={token} />
+                            </figure>
+                          ))}
 
                     {storedAnswerPreviews.map((asset, index) => (
                       <figure key={asset.id} className="space-y-3">
@@ -1256,6 +1267,7 @@ export default function QuestionAssetWorkflow({
                         onAnswerChange={handleAnswerChange}
                         onResolve={handleResolveAnswer}
                       />
+                      {questionControl(qId)}
                       {!isRejected && !isMissing && (
                         <Button
                           type="button"
@@ -1273,20 +1285,13 @@ export default function QuestionAssetWorkflow({
                   </div>
                 </div>
               </CardContent>
-            </Card>
-          )
-        })}
-      </div>
-
-      <ScoreAllocationCard
-        ref={allocationRef}
-        rows={answerSchema}
-        mode={allocationMode}
-        onModeChange={setAllocationMode}
-        values={customScores}
-        onValuesChange={setCustomScores}
-        embedded
-      />
+                  </Card>
+                )
+              })}
+            </div>
+          </>
+        )}
+      </ScoreAllocationInline>
 
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
 

@@ -227,6 +227,7 @@ describe('QuestionAssetWorkflow', () => {
       .closest('.border-t')).toContainElement(
         within(questionOneCard).getByRole('button', { name: 'Reject question preview' }),
       )
+    expect(within(questionOneCard).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
     expect(within(questionTwoCard).getByLabelText('Correct answer for question 2')).toHaveValue('42')
     expect(screen.queryByRole('heading', { name: 'Review the answer key' })).not.toBeInTheDocument()
   })
@@ -729,7 +730,14 @@ describe('QuestionAssetWorkflow', () => {
     })
 
     const questionViews = await screen.findByRole('region', { name: 'Review every question' })
-    expect(within(questionViews).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    const firstQuestion = within(questionViews).getByRole('heading', { name: 'Question 1' }).closest('[data-slot="card"]')
+    const secondQuestion = within(questionViews).getByRole('heading', { name: 'Question 2' }).closest('[data-slot="card"]')
+    expect(firstQuestion).not.toBeNull()
+    expect(secondQuestion).not.toBeNull()
+    expect(within(firstQuestion).getByText('Exercise PDF crop')).toBeInTheDocument()
+    expect(within(firstQuestion).getByRole('heading', { name: 'Answer review' })).toBeInTheDocument()
+    expect(within(firstQuestion).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
+    expect(within(secondQuestion).getByRole('heading', { name: 'Score allocation' })).toBeInTheDocument()
     expect(await screen.findByRole('radio', { name: 'Custom allocation' })).toBeChecked()
     const firstScore = screen.getByLabelText(/Points for question 1/i)
     fireEvent.change(firstScore, { target: { value: '3.50' } })
