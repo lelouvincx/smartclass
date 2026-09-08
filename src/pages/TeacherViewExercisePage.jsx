@@ -33,12 +33,28 @@ import ScrollToTopButton from '@/components/scroll-to-top-button'
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
+const FILE_TYPE_ORDER = {
+  exercise_pdf: 0,
+  solution_pdf: 1,
+  reference_image: 2,
+}
 
 // ── Schema helpers ─────────────────────────────────────────────────────────────
 
 function normalizeAnswer(type, value) {
   const trimmed = String(value ?? '').trim()
   return type === 'mcq' ? trimmed.toUpperCase() : trimmed
+}
+
+function orderExerciseFiles(files = []) {
+  return files
+    .map((file, index) => ({ file, index }))
+    .sort((left, right) => {
+      const leftOrder = FILE_TYPE_ORDER[left.file.file_type] ?? 99
+      const rightOrder = FILE_TYPE_ORDER[right.file.file_type] ?? 99
+      return leftOrder - rightOrder || left.index - right.index
+    })
+    .map(({ file }) => file)
 }
 
 function validateRows(rows, t) {
@@ -300,6 +316,7 @@ export default function TeacherViewExercisePage() {
 
   const validatedRows = useMemo(() => validateRows(editRows, t), [editRows, t])
   const hasErrors = validatedRows.some((r) => r.errors.length > 0)
+  const exerciseFiles = useMemo(() => orderExerciseFiles(exercise?.files), [exercise?.files])
 
   useEffect(() => {
     async function load() {
@@ -684,9 +701,9 @@ export default function TeacherViewExercisePage() {
       <Card>
         <CardContent className="pt-5">
           <h2 className="mb-3 text-sm font-semibold">{t('teacher.view.files')}</h2>
-          {exercise.files?.length > 0 ? (
+          {exerciseFiles.length > 0 ? (
             <ul className={`space-y-1 ${isEditing ? 'mb-4' : ''}`}>
-              {exercise.files.map((f) => (
+              {exerciseFiles.map((f) => (
                 <li key={f.id} className="flex flex-col items-start gap-1 text-sm sm:flex-row sm:items-center sm:gap-2">
                   <Badge
                     variant="outline"

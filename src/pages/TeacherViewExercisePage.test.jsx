@@ -140,6 +140,21 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByText('Preparation required')).toBeInTheDocument()
   })
 
+  it('lists the exercise PDF before the answer PDF', async () => {
+    getExerciseMock.mockResolvedValue({
+      data: {
+        ...EXERCISE_WITH_BOOLEAN,
+        files: [...EXERCISE_WITH_BOOLEAN.files].reverse(),
+      },
+    })
+    renderPage('6')
+
+    await screen.findByText('Biology Quiz')
+    const exercisePdf = screen.getByText('Exercise PDF')
+    const answerPdf = screen.getByText('Answer PDF')
+    expect(exercisePdf.compareDocumentPosition(answerPdf) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('renders schema rows with correct_answer in view mode', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     renderPage()
