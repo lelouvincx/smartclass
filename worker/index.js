@@ -1,53 +1,44 @@
 import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import authRoutes from './routes/auth.js'
-import usersRoutes from './routes/users.js'
-import exercisesRoutes from './routes/exercises.js'
-import questionAssetsRoutes from './routes/question-assets.js'
-import questionAssetFilesRoutes from './routes/question-asset-files.js'
-import uploadRoutes from './routes/upload.js'
-import submissionsRoutes from './routes/submissions.js'
-import filesRoutes from './routes/files.js'
-import lecturesRoutes from './routes/lectures.js'
-import { jsonSuccess } from './lib/response.js'
+import { requireWorkspace } from './middleware/workspace.js'
+import authRoutes from './routes/workspace-auth.js'
+import usersRoutes from './routes/workspace-users.js'
+import exercisesRoutes from './routes/workspace-exercises.js'
+import questionAssetsRoutes from './routes/workspace-question-assets.js'
+import questionAssetFilesRoutes from './routes/workspace-question-asset-files.js'
+import uploadRoutes from './routes/workspace-upload.js'
+import submissionsRoutes from './routes/workspace-submissions.js'
+import filesRoutes from './routes/workspace-files.js'
+import lecturesRoutes from './routes/workspace-lectures.js'
+import { jsonError, jsonSuccess } from './lib/response.js'
+import { getWorkspaceSites } from './lib/workspaces.js'
 import { BUILD_COMMIT } from './version.js'
 
 const app = new Hono()
 
-const PRODUCTION_CORS_ORIGINS = new Set([
-  'https://toanthaythanh.com',
-  'https://tienganhcothuy.com',
-])
+app.use('*', async (c, next) => {
+  const url = new URL(c.req.url)
+  const diagnostic = c.req.method === 'GET' && ['/api/health', '/api/version'].includes(url.pathname)
+  if (c.env.APP_MAINTENANCE !== 'true' || diagnostic) return next()
 
-app.use('/api/*', async (c, next) => {
-  const allowedOrigins = c.env.APP_ENV === 'production'
-    ? PRODUCTION_CORS_ORIGINS
-    : new Set([c.env.APP_CORS_ORIGIN || 'http://localhost:5173'])
-
-  return cors({
-    origin: (origin) => {
-      if (!origin) {
-        return [...allowedOrigins][0]
-      }
-
-      return allowedOrigins.has(origin) ? origin : null
-    },
-    allowHeaders: ['Content-Type', 'Authorization', 'x-r2-key', 'x-file-type', 'x-file-name'],
-    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    exposeHeaders: ['Content-Length'],
-    maxAge: 600,
-    credentials: true,
-  })(c, next)
+  c.header('Cache-Control', 'no-store')
+  c.header('Retry-After', '60')
+  c.header('Vary', 'Origin')
+  const site = getWorkspaceSites(c.env).find((candidate) => candidate.api_origin === url.origin)
+  if (site && c.req.header('Origin') === site.frontend_origin) {
+    c.header('Access-Control-Allow-Origin', site.frontend_origin)
+    c.header('Access-Control-Allow-Credentials', 'true')
+  }
+  return jsonError(c, 503, 'MAINTENANCE', 'SmartClass is temporarily unavailable for maintenance. Please try again shortly.')
 })
 
+app.use('/api/*', requireWorkspace)
+
 app.get('/api/health', (c) => {
-  return c.json({
-    success: true,
-    data: {
-      service: 'smartclass-api',
-      environment: c.env.APP_ENV || 'development',
-      timestamp: new Date().toISOString(),
-    },
+  return jsonSuccess(c, {
+    service: 'smartclass-api',
+    environment: c.env.APP_ENV || 'development',
+    maintenance: c.env.APP_MAINTENANCE === 'true',
+    timestamp: new Date().toISOString(),
   })
 })
 

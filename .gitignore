@@ -11,3 +11,4 @@ agent-sessions
 .playwright-cli
 backend.log
 frontend.log
+/worker/db/seed-assets/exercises/

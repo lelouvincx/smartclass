@@ -3,12 +3,13 @@ import { useTranslation } from 'react-i18next'
 import { Outlet } from 'react-router-dom'
 import { BookOpen, ClipboardList } from '@/components/material-symbol'
 import { useAuth } from '@/lib/auth-context'
-import { getDefaultPathForRole } from '@/lib/navigation'
+import { getDefaultPathForAuth } from '@/lib/navigation'
 import { AppShell } from '@/design-system/app-shell'
 
 export function PublicLectureLayout() {
   const { t } = useTranslation()
-  const { user } = useAuth()
+  const auth = useAuth()
+  const { user } = auth
   const navigation = [
     { label: t('common.lectures'), to: '/lectures', icon: BookOpen },
     {
@@ -19,7 +20,7 @@ export function PublicLectureLayout() {
     },
   ]
   const accountAction = user
-    ? { label: t('common.openWorkspace'), to: getDefaultPathForRole(user.role) }
+    ? { label: t('common.openWorkspace'), to: getDefaultPathForAuth(auth) }
     : { label: t('common.signIn'), to: '/' }
 
   return (

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { env } from 'cloudflare:test'
-import app from '../index.js'
+import { app } from '../test/helpers.js'
 import { _resetJwksCache } from '../lib/google-oauth.js'
 import { makeIdToken, mockGoogleFetch, tamperSignature } from '../test/google-oauth-helpers.js'
 import { loginAsStudent, seedStudent, seedTeacher } from '../test/helpers.js'
@@ -8,12 +8,13 @@ import { loginAsStudent, seedStudent, seedTeacher } from '../test/helpers.js'
 const VALID_BODY = {
   code: 'auth-code-from-google',
   code_verifier: 'pkce-verifier',
-  redirect_uri: 'http://localhost:5173/auth/google/callback',
+  redirect_uri: 'http://maths.test/auth/google/callback',
+  expected_nonce: 'test-nonce',
 }
 
 async function setupGoogleMock(payloadOverrides = {}) {
   const { idToken, publicJwk } = await makeIdToken({
-    payload: { sub: 'google-sub-123', email: 'student@gmail.com', ...payloadOverrides },
+    payload: { sub: 'google-sub-123', email: 'student@gmail.com', nonce: 'test-nonce', ...payloadOverrides },
   })
   mockGoogleFetch({
     tokenResponse: { status: 200, body: { id_token: idToken, access_token: 'a' } },
@@ -160,17 +161,18 @@ describe('POST /api/auth/google/login', () => {
     expect(body.data.token).toBeTruthy()
     expect(body.data.user.name).toBe('Test Student')
     expect(body.data.user.phone).toBe('+84900000001')
-    expect(body.data.user.role).toBe('student')
+    expect(body.data.membership.role).toBe('student')
 
     // google_email refreshed
     const row = await env.DB.prepare(`SELECT google_email FROM users WHERE phone = '+84900000001'`).first()
     expect(row.google_email).toBe('student@gmail.com')
   })
 
-  it('403 ACCOUNT_PENDING when matched user is pending', async () => {
+  it('signs in a pending member but denies learning access', async () => {
     await env.DB.prepare(
       `INSERT INTO users (phone, password_hash, role, status, google_sub) VALUES ('+84900000002', 'hash', 'student', 'pending', 'google-sub-pending')`,
     ).run()
+    await env.DB.prepare("insert into workspace_memberships (workspace_id, user_id, role, status) select 'maths', id, 'student', 'pending' from users where phone = '+84900000002'").run()
 
     await setupGoogleMock({ sub: 'google-sub-pending' })
 
@@ -183,14 +185,17 @@ describe('POST /api/auth/google/login', () => {
       },
       env,
     )
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.error.code).toBe('ACCOUNT_PENDING')
+    expect(body.data.membership.status).toBe('pending')
+    const learning = await app.request('/api/exercises', { headers: { Authorization: `Bearer ${body.data.token}` } }, env)
+    expect(learning.status).toBe(403)
+    expect((await learning.json()).error.code).toBe('MEMBERSHIP_PENDING')
   })
 
-  it('403 ACCOUNT_DISABLED when matched user is disabled', async () => {
+  it('403 ACCOUNT_DISABLED when matched identity is globally disabled', async () => {
     await env.DB.prepare(
-      `INSERT INTO users (phone, password_hash, role, status, google_sub) VALUES ('+84900000003', 'hash', 'student', 'disabled', 'google-sub-disabled')`,
+      `insert into users (phone, password_hash, role, status, google_sub, disabled_at) values ('+84900000003', 'hash', 'student', 'active', 'google-sub-disabled', current_timestamp)`,
     ).run()
 
     await setupGoogleMock({ sub: 'google-sub-disabled' })
@@ -242,7 +247,7 @@ describe('POST /api/auth/google/link', () => {
     )
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.google_email).toBe('fresh@gmail.com')
+    expect(body.data.user.google_email).toBe('fresh@gmail.com')
 
     const row = await env.DB.prepare(
       `SELECT google_sub, google_email FROM users WHERE phone = '+84900000010'`,
@@ -324,7 +329,7 @@ describe('DELETE /api/auth/google/link', () => {
     )
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.google_email).toBeNull()
+    expect(body.data.user.google_email).toBeNull()
 
     const row = await env.DB.prepare(
       `SELECT google_sub, google_email FROM users WHERE phone = '+84900000040'`,
@@ -359,7 +364,7 @@ describe('GET /api/auth/me extended fields', () => {
     )
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.data.google_email).toBe('teacher@gmail.com')
-    expect(body.data).toHaveProperty('email')
+    expect(body.data.user.google_email).toBe('teacher@gmail.com')
+    expect(body.data.user).toHaveProperty('email')
   })
 })

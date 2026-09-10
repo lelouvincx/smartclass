@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll } from 'vitest'
-import app from '../index.js'
+import { app, setStudentGrades } from '../test/helpers.js'
 import { seedTeacher, loginAsTeacher, seedStudent, loginAsStudent, createExercise } from '../test/helpers.js'
 
 let teacherToken
@@ -46,7 +46,7 @@ async function activateExercise(exerciseId, sourceFileId) {
       exercise_id, source_file_id, detector_version, detection_method,
       confirmed_by, confirmed_at
     ) VALUES (?, ?, 'test-v1', 'text',
-      (SELECT id FROM users WHERE role = 'teacher' LIMIT 1), CURRENT_TIMESTAMP)
+      (select user_id from workspace_memberships where workspace_id = 'maths' and role = 'teacher' limit 1), CURRENT_TIMESTAMP)
   `).bind(exerciseId, sourceFileId).run()
   await env.DB.prepare(
     'UPDATE exercises SET active_question_asset_set_id = ? WHERE id = ?',
@@ -105,10 +105,7 @@ describe('GET /api/files/:fileId', () => {
       const student = await env.DB.prepare(
         "SELECT id FROM users WHERE phone = '+84123456789'",
       ).first()
-      await env.DB.batch([
-        env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-        env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
-      ])
+      await setStudentGrades(student.id, [10])
 
       const res = await app.request(`/api/files/${fileId}`, {
         headers: { 'Authorization': `Bearer ${studentToken}` },

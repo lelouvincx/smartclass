@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/lib/auth-context'
-import { getDefaultPathForRole } from '@/lib/navigation'
+import { getDefaultPathForAuth } from '@/lib/navigation'
 import { consumeStoredParams } from '@/lib/google-oauth'
+import { requireWorkspaceSite } from '@/lib/workspaces'
 import { linkGoogle, loginWithGoogle } from '@/lib/api'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -10,20 +11,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 
 export default function GoogleCallbackPage() {
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const { token, isLoading, loginWithGoogleResponse } = useAuth()
+  const auth = useAuth()
+  const { token, isLoading, loginWithGoogleResponse } = auth
   const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const [errorTitle, setErrorTitle] = useState('')
   const [storedParams] = useState(() => {
     const errorParam = searchParams.get('error')
-    if (errorParam === 'access_denied') return { cancelled: true }
-
     const code = searchParams.get('code')
     const returnedState = searchParams.get('state')
     const stored = consumeStoredParams()
 
-    return { cancelled: false, code, returnedState, stored }
+    return { cancelled: errorParam === 'access_denied', code, returnedState, stored }
   })
   const hasAttempted = useRef(false)
 
@@ -31,7 +32,8 @@ export default function GoogleCallbackPage() {
     if (hasAttempted.current) return
 
     const { cancelled, code, returnedState, stored } = storedParams
-    if (!stored) return
+    // Keep the one-use code in memory only, including before a cross-site redirect.
+    window.history.replaceState(window.history.state, '', '/auth/google/callback')
 
     if (cancelled) {
       hasAttempted.current = true
@@ -46,7 +48,7 @@ export default function GoogleCallbackPage() {
       return
     }
 
-    if (!stored.state || !stored.verifier || stored.state !== returnedState) {
+    if (!stored?.state || !stored.verifier || !stored.nonce || stored.state !== returnedState) {
       hasAttempted.current = true
       setError('State mismatch. This may be a CSRF attempt.')
       setStatus('error')
@@ -69,25 +71,25 @@ export default function GoogleCallbackPage() {
     hasAttempted.current = true
 
     async function handleCallback() {
-      const payload = {
-        code,
-        code_verifier: stored.verifier,
-        redirect_uri: window.location.origin + '/auth/google/callback',
-      }
-
       try {
+        const payload = {
+          code,
+          code_verifier: stored.verifier,
+          redirect_uri: requireWorkspaceSite().google_redirect_uri,
+          expected_nonce: stored.nonce,
+        }
         if (stored.mode === 'link') {
           await linkGoogle(token, payload)
+          await auth.refreshUser?.()
           toast.success('Google account linked.')
-          window.location.replace('/settings')
+          navigate('/settings', { replace: true })
         } else {
-          const response = await loginWithGoogle({
-            ...payload,
-            expected_nonce: stored.nonce,
-          })
+          const response = await loginWithGoogle(payload)
           loginWithGoogleResponse(response.data)
-          const target = getDefaultPathForRole(response.data.user.role)
-          window.location.replace(target)
+          const routing = response.data.teacher_routing
+          if (response.data.user.platform_role === 'platform_admin' || !routing || routing.action === 'stay') {
+            navigate(getDefaultPathForAuth(response.data), { replace: true })
+          }
         }
       } catch (err) {
         setError(err.message)
@@ -113,7 +115,7 @@ export default function GoogleCallbackPage() {
     }
 
     handleCallback()
-  }, [storedParams, isLoading, token, loginWithGoogleResponse])
+  }, [storedParams, isLoading, token, loginWithGoogleResponse, auth, navigate])
 
   if (status === 'loading') {
     return (

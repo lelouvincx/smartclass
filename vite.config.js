@@ -22,6 +22,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    environmentOptions: { jsdom: { url: 'http://maths.test' } },
     globals: true,
     setupFiles: './src/test/setup.js',
     include: ['src/**/*.test.{js,jsx}', 'worker/**/*.test.{js,jsx}'],

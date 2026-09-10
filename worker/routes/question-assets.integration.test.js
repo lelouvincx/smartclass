@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, expect, it, beforeAll } from 'vitest'
-import app from '../index.js'
+import { app, setStudentGrades } from '../test/helpers.js'
 import {
   createExercise,
   loginAsStudent,
@@ -42,6 +42,7 @@ beforeAll(async () => {
 
 async function createSourceFile(exerciseId) {
   const r2Key = `exercises/${exerciseId}/source.pdf`
+  await env.BUCKET.put(r2Key, '%PDF-1.4 test source')
   const result = await env.DB.prepare(`
     insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
     values (?, 'exercise_pdf', ?, 'source.pdf', 1024)
@@ -52,6 +53,7 @@ async function createSourceFile(exerciseId) {
 
 async function createAnswerFile(exerciseId, suffix = 'answer') {
   const r2Key = `exercises/${exerciseId}/${suffix}.pdf`
+  await env.BUCKET.put(r2Key, '%PDF-1.4 test answers')
   const result = await env.DB.prepare(`
     insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
     values (?, 'solution_pdf', ?, ?, 1024)
@@ -1040,7 +1042,7 @@ describe('PUT /api/exercises/:id question asset activation', () => {
       { q_id: 2, type: 'numeric', correct_answer: '42' },
     ]
     const { id: exerciseId } = await createExercise(teacherToken, { schema })
-    const student = await env.DB.prepare("select id from users where role = 'student' limit 1").first()
+    const student = await env.DB.prepare("select user_id as id from workspace_memberships where workspace_id = 'maths' and role = 'student' limit 1").first()
     await env.DB.prepare(`
       insert into submissions (exercise_id, user_id, mode, total_questions, started_at)
       values (?, ?, 'untimed', 2, current_timestamp)
@@ -1646,10 +1648,7 @@ describe('GET /api/question-assets/:assetId', () => {
     const student = await env.DB.prepare(
       "SELECT id FROM users WHERE phone = '+84123456789'",
     ).first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
-    ])
+    await setStudentGrades(student.id, [10])
 
     const res = await app.request(`/api/question-assets/${asset.id}`, {
       headers: { 'Authorization': `Bearer ${studentToken}` },

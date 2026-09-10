@@ -18,6 +18,26 @@ function renderLayout(initialEntry = '/teacher') {
 }
 
 describe('TeacherLayout navigation', () => {
+  it('keeps workspace details below navigation rather than beside the brand', async () => {
+    const user = userEvent.setup()
+    const { container } = renderLayout()
+    const sidebar = container.querySelector('#desktop-sidebar')
+    const header = sidebar.firstElementChild
+    expect(header).toHaveTextContent('SmartClass')
+    expect(header).not.toHaveTextContent('Maths · Thầy Thành')
+    expect(header).not.toHaveTextContent('Teacher workspace')
+    expect(sidebar.lastElementChild).toHaveTextContent('Maths · Thầy Thành')
+    expect(sidebar.lastElementChild).toHaveTextContent('Teacher workspace')
+    expect(container.querySelector('[data-app-shell-mobile-header]')).not.toHaveTextContent('Teacher workspace')
+
+    await user.click(screen.getByRole('button', { name: 'Open navigation' }))
+    const drawer = screen.getByRole('dialog')
+    const navigation = within(drawer).getByRole('navigation', { name: 'Teacher navigation' })
+    const siteLabel = within(drawer).getByText('Maths · Thầy Thành')
+    expect(navigation.compareDocumentPosition(siteLabel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(drawer).getByText('Teacher workspace')).toBeInTheDocument()
+  })
+
   it('shows the teacher name in the account label', () => {
     renderLayout()
 

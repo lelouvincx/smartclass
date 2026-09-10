@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
+import { getWorkspaceSiteForOrigin } from '@/lib/workspaces'
 import { register } from '@/lib/api'
 import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
 import { GradeDropdown } from '@/components/grade-checkbox-group'
@@ -10,6 +12,8 @@ import { Field, FieldDescription, FieldGroup, FieldError, FieldLabel } from '@/c
 import { DEFAULT_STUDENT_GRADES } from '@/lib/grades'
 
 export default function RegisterPage() {
+  const { t } = useTranslation()
+  const site = getWorkspaceSiteForOrigin()
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -78,8 +82,9 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">Student Registration</CardTitle>
-          <CardDescription>Create your account for teacher approval.</CardDescription>
+          <CardTitle className="text-2xl"><h1>Student Registration</h1></CardTitle>
+          <p className="font-medium">{site ? t(site.id === 'english' ? 'common.englishSite' : 'common.mathsSite') : t('common.unsupportedSite')}</p>
+          <CardDescription>Create a shared account and request access to this teaching site. Already registered on either site? Sign in with your existing account.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>

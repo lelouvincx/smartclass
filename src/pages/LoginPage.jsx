@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
-import { getDefaultPathForRole } from '@/lib/navigation'
+import { getWorkspaceSiteForOrigin } from '@/lib/workspaces'
+import { getDefaultPathForAuth } from '@/lib/navigation'
 import { PHONE_REGEX, normalizePhone } from '@/lib/validation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,8 +19,11 @@ import {
 import GoogleSignInButton from '@/components/google-signin-button'
 
 export default function LoginPage() {
+  const { t } = useTranslation()
+  const site = getWorkspaceSiteForOrigin()
   const navigate = useNavigate()
-  const { login } = useAuth()
+  const auth = useAuth()
+  const { login } = auth
 
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -49,7 +54,10 @@ export default function LoginPage() {
 
     try {
       const response = await login({ phone: normalizedPhone, password })
-      navigate(getDefaultPathForRole(response.data.user.role), { replace: true })
+      const routing = response.data.teacher_routing
+      if (response.data.user.platform_role === 'platform_admin' || !routing || routing.action === 'stay') {
+        navigate(getDefaultPathForAuth(response.data), { replace: true })
+      }
     } catch (submitError) {
       setError(submitError.message)
       setInvalidField('all')
@@ -62,8 +70,9 @@ export default function LoginPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-2xl">SmartClass Login</CardTitle>
-          <CardDescription>Sign in with your phone number.</CardDescription>
+          <CardTitle className="text-2xl"><h1>SmartClass</h1></CardTitle>
+          <p className="font-medium">{site ? t(site.id === 'english' ? 'common.englishSite' : 'common.mathsSite') : t('common.unsupportedSite')}</p>
+          <CardDescription>Sign in to this teaching site with your shared phone account.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit}>
@@ -84,7 +93,7 @@ export default function LoginPage() {
                   placeholder="0xxxxxxxxx or +84xxxxxxxxx"
                 />
                 <FieldDescription id="login-phone-help">
-                  Use 0xxxxxxxxx or +84xxxxxxxxx format.
+                  Use your shared SmartClass phone number.
                 </FieldDescription>
               </Field>
 
@@ -106,7 +115,7 @@ export default function LoginPage() {
               {error && <FieldError id="login-error">{error}</FieldError>}
 
               <Button type="submit" disabled={isSubmitting} className="w-full">
-                {isSubmitting ? 'Signing in...' : 'Sign In'}
+                {isSubmitting ? 'Signing in...' : 'Sign in'}
               </Button>
             </FieldGroup>
           </form>
@@ -123,7 +132,7 @@ export default function LoginPage() {
           <p className="mt-5 text-sm text-muted-foreground">
             No account?{' '}
             <Link to="/register" className="font-medium text-foreground underline underline-offset-4">
-              Register as student
+              Request student access
             </Link>
           </p>
         </CardContent>

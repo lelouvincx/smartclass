@@ -1,0 +1,33 @@
+# Manual deployments stay closed. The release workflow reopens after its checks.
+name = "smartclass-api"
+main = "worker/index.js"
+compatibility_date = "2026-03-01"
+workers_dev = false
+preview_urls = false
+
+routes = [
+  { pattern = "api.toanthaythanh.com", custom_domain = true },
+  { pattern = "api.tienganhcothuy.com", custom_domain = true },
+]
+
+[placement]
+mode = "smart"
+
+[vars]
+APP_ENV = "production"
+APP_MAINTENANCE = "true"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "smartclass"
+database_id = "34265c7a-6455-4e0c-a166-e0b87e2e8eee"
+migrations_dir = "worker/db/migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "smartclass"
+
+[observability]
+[observability.logs]
+enabled = true
+invocation_logs = true

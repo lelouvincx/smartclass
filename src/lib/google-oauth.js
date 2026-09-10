@@ -1,6 +1,8 @@
 // Google OIDC PKCE + URL builder for SPA (RFC-7).
 // All state in sessionStorage - no server round-trip needed to initiate login.
 
+import { requireWorkspaceSite } from './workspaces'
+
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_SCOPES = 'openid email profile'
 
@@ -17,8 +19,7 @@ export function getGoogleClientId() {
 }
 
 export function getGoogleRedirectUri() {
-  const origin = window.location.origin
-  return `${origin}/auth/google/callback`
+  return requireWorkspaceSite().google_redirect_uri
 }
 
 function base64UrlEncode(bytes) {

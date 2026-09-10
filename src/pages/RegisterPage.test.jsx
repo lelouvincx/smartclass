@@ -46,6 +46,7 @@ describe('RegisterPage', () => {
     expect(confirmPassword).toBeRequired()
     expect(screen.getByRole('button', { name: 'Student programmes' })).toHaveTextContent('Grade 12')
     expect(screen.getByText('Use 0xxxxxxxxx or +84xxxxxxxxx format.')).toBeVisible()
+    expect(screen.getByText('Maths · Thầy Thành')).toBeVisible()
   })
 
   it('validates password confirmation', async () => {

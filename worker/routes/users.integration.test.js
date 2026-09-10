@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
-import app from '../index.js'
+import { app, setStudentGrades } from '../test/helpers.js'
 import { loginAsStudent, loginAsTeacher, seedStudent, seedTeacher } from '../test/helpers.js'
 
 beforeEach(async () => {
@@ -39,7 +39,12 @@ describe('student names', () => {
 
     expect(response.status).toBe(201)
     await expect(response.json()).resolves.toMatchObject({
-      data: { name: 'Nguyễn Văn An', phone: '+84900000051', role: 'student', status: 'pending', grades: [10, 'dgnl'] },
+      data: {
+        user: { name: 'Nguyễn Văn An', phone: '+84900000051' },
+        membership: { role: 'student', status: 'pending', grades: [10, 'dgnl'] },
+        workspace: { id: 'maths' },
+        teacher_routing: { action: 'stay' },
+      },
     })
     await expect(env.DB.prepare(
       "SELECT name FROM users WHERE phone = '+84900000051'",
@@ -64,7 +69,7 @@ describe('student names', () => {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name: '  Trần Thị Bình  ', phone: '+84900000052' }),
+      body: JSON.stringify({ name: '  Trần Thị Bình  ', phone: '+84900000052', grades: [10] }),
     }, env)
 
     expect(createResponse.status).toBe(201)
@@ -93,6 +98,8 @@ describe('student names', () => {
     await expect(renameResponse.json()).resolves.toMatchObject({
       data: { id: created.data.id, name: 'Trần Bình' },
     })
+    expect(await env.DB.prepare('select name from users where id = ?').bind(created.data.id).first('name')).toBe('Trần Thị Bình')
+    expect(await env.DB.prepare("select display_name from workspace_memberships where user_id = ? and workspace_id = 'maths'").bind(created.data.id).first('display_name')).toBe('Trần Bình')
   })
 
   it('lets a student rename themselves and exposes the name through authentication', async () => {
@@ -110,14 +117,14 @@ describe('student names', () => {
 
     expect(renameResponse.status).toBe(200)
     await expect(renameResponse.json()).resolves.toMatchObject({
-      data: { name: 'Student Name' },
+      data: { user: { name: 'Student Name' } },
     })
 
     const meResponse = await app.request('/api/auth/me', {
       headers: { Authorization: `Bearer ${token}` },
     }, env)
     await expect(meResponse.json()).resolves.toMatchObject({
-      data: { name: 'Student Name', phone: '+84900000053' },
+      data: { user: { name: 'Student Name', phone: '+84900000053' } },
     })
 
     const loginResponse = await app.request('/api/auth/login', {
@@ -164,9 +171,9 @@ describe('student names', () => {
       body: JSON.stringify({ name: 'Other Teacher Name' }),
     }, env)
 
-    expect(teacherRenameResponse.status).toBe(400)
+    expect(teacherRenameResponse.status).toBe(404)
     await expect(teacherRenameResponse.json()).resolves.toMatchObject({
-      error: { code: 'INVALID_ROLE' },
+      error: { code: 'NOT_FOUND' },
     })
 
     const blankSelfRenameResponse = await app.request('/api/auth/name', {
@@ -203,7 +210,7 @@ describe('student removal', () => {
     await expect(deactivateResponse.json()).resolves.toMatchObject({
       data: { id: student.id, status: 'disabled' },
     })
-    await expect(env.DB.prepare('SELECT status FROM users WHERE id = ?').bind(student.id).first('status'))
+    await expect(env.DB.prepare("select status from workspace_memberships where user_id = ? and workspace_id = 'maths'").bind(student.id).first('status'))
       .resolves.toBe('disabled')
 
     const disabledLoginResponse = await app.request('/api/auth/login', {
@@ -211,7 +218,12 @@ describe('student removal', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: '+84900000054', password: '123' }),
     }, env)
-    expect(disabledLoginResponse.status).toBe(403)
+    expect(disabledLoginResponse.status).toBe(200)
+    const disabledLogin = await disabledLoginResponse.json()
+    expect(disabledLogin.data.membership.status).toBe('disabled')
+    const deniedLearning = await app.request('/api/exercises', { headers: { Authorization: `Bearer ${disabledLogin.data.token}` } }, env)
+    expect(deniedLearning.status).toBe(403)
+    expect((await deniedLearning.json()).error.code).toBe('MEMBERSHIP_DISABLED')
 
     const activateResponse = await app.request(`/api/users/${student.id}/status`, {
       method: 'PUT',
@@ -232,6 +244,198 @@ describe('student removal', () => {
     expect(activeLoginResponse.status).toBe(200)
   })
 
+  it('rejects activation of pending or disabled students without programme membership', async () => {
+    const teacherToken = await loginAsTeacher()
+    await seedStudent('+84900000067', 'Different Student With Programmes')
+    for (const [phone, status] of [
+      ['+84900000058', 'pending'],
+      ['+84900000059', 'pending'],
+      ['+84900000064', 'disabled'],
+      ['+84900000066', 'active'],
+    ]) {
+      await seedStudent(phone, `No Programme ${phone}`)
+      const student = await env.DB.prepare('select id from users where phone = ?').bind(phone).first()
+      await setStudentGrades(student.id, [])
+      await env.DB.prepare("update workspace_memberships set status = ? where user_id = ? and workspace_id = 'maths'").bind(status, student.id).run()
+    }
+    const rows = await env.DB.prepare(`
+      select id, phone from users
+      where phone in ('+84900000058', '+84900000059', '+84900000064', '+84900000066')
+    `).all()
+    const byPhone = Object.fromEntries(rows.results.map((row) => [row.phone, row]))
+
+    const approveResponse = await app.request(`/api/users/${byPhone['+84900000058'].id}/approve`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    expect(approveResponse.status).toBe(400)
+    await expect(approveResponse.json()).resolves.toMatchObject({
+      error: {
+        code: 'PROGRAMMES_REQUIRED',
+        message: 'Assign at least one programme before approving or activating this student.',
+      },
+    })
+
+    const statusResponse = await app.request(`/api/users/${byPhone['+84900000059'].id}/status`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'active' }),
+    }, env)
+    expect(statusResponse.status).toBe(400)
+    await expect(statusResponse.json()).resolves.toMatchObject({
+      error: { code: 'PROGRAMMES_REQUIRED' },
+    })
+
+    const disabledResponse = await app.request(`/api/users/${byPhone['+84900000064'].id}/status`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'active' }),
+    }, env)
+    expect(disabledResponse.status).toBe(400)
+    await expect(disabledResponse.json()).resolves.toMatchObject({
+      error: { code: 'PROGRAMMES_REQUIRED' },
+    })
+
+    const alreadyActiveApproveResponse = await app.request(`/api/users/${byPhone['+84900000066'].id}/approve`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    expect(alreadyActiveApproveResponse.status).toBe(400)
+    await expect(alreadyActiveApproveResponse.json()).resolves.toMatchObject({
+      error: { code: 'PROGRAMMES_REQUIRED' },
+    })
+
+    const alreadyActiveStatusResponse = await app.request(`/api/users/${byPhone['+84900000066'].id}/status`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'active' }),
+    }, env)
+    expect(alreadyActiveStatusResponse.status).toBe(400)
+    await expect(alreadyActiveStatusResponse.json()).resolves.toMatchObject({
+      error: { code: 'PROGRAMMES_REQUIRED' },
+    })
+
+    const pendingListResponse = await app.request('/api/users?status=pending', {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    await expect(pendingListResponse.json()).resolves.toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({ id: byPhone['+84900000058'].id, status: 'pending', grades: [] }),
+        expect.objectContaining({ id: byPhone['+84900000059'].id, status: 'pending', grades: [] }),
+      ]),
+    })
+    const disabledListResponse = await app.request('/api/users?status=disabled', {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    await expect(disabledListResponse.json()).resolves.toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({ id: byPhone['+84900000064'].id, status: 'disabled', grades: [] }),
+      ]),
+    })
+    const activeListResponse = await app.request('/api/users?status=active', {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    await expect(activeListResponse.json()).resolves.toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({ id: byPhone['+84900000066'].id, status: 'active', grades: [] }),
+      ]),
+    })
+
+    for (const [phone, code] of [
+      ['+84900000058', 'MEMBERSHIP_PENDING'],
+      ['+84900000059', 'MEMBERSHIP_PENDING'],
+      ['+84900000064', 'MEMBERSHIP_DISABLED'],
+    ]) {
+      const loginResponse = await app.request('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, password: '123' }),
+      }, env)
+      expect(loginResponse.status).toBe(200)
+      const login = await loginResponse.json()
+      const learning = await app.request('/api/exercises', { headers: { Authorization: `Bearer ${login.data.token}` } }, env)
+      expect(learning.status).toBe(403)
+      await expect(learning.json()).resolves.toMatchObject({
+        error: { code },
+      })
+    }
+  })
+
+  it('keeps programme assignment separate from approval for no-programme pending students', async () => {
+    const teacherToken = await loginAsTeacher()
+    await seedStudent('+84900000065', 'No Programme Then DGNL')
+    const student = await env.DB.prepare(
+      "select id from users where phone = '+84900000065'",
+    ).first()
+    await setStudentGrades(student.id, [])
+    await env.DB.prepare("update workspace_memberships set status = 'pending', access_tier = 'vip' where user_id = ? and workspace_id = 'maths'").bind(student.id).run()
+
+    const gradesResponse = await app.request('/api/users/grades', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ student_ids: [student.id], grades: ['dgnl'] }),
+    }, env)
+    expect(gradesResponse.status).toBe(200)
+
+    const pendingListResponse = await app.request('/api/users?status=pending', {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    await expect(pendingListResponse.json()).resolves.toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          id: student.id,
+          name: 'No Programme Then DGNL',
+          phone: '+84900000065',
+          status: 'pending',
+          access_tier: 'vip',
+          grades: ['dgnl'],
+        }),
+      ]),
+    })
+    const pendingLoginResponse = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+84900000065', password: '123' }),
+    }, env)
+    expect(pendingLoginResponse.status).toBe(200)
+    const pendingLogin = await pendingLoginResponse.json()
+    expect(pendingLogin.data.membership.status).toBe('pending')
+    const pendingLearning = await app.request('/api/exercises', { headers: { Authorization: `Bearer ${pendingLogin.data.token}` } }, env)
+    expect(pendingLearning.status).toBe(403)
+    expect((await pendingLearning.json()).error.code).toBe('MEMBERSHIP_PENDING')
+
+    const approveResponse = await app.request(`/api/users/${student.id}/approve`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    expect(approveResponse.status).toBe(200)
+    await expect(approveResponse.json()).resolves.toMatchObject({
+      data: { id: student.id, status: 'active' },
+    })
+
+    const activeListResponse = await app.request('/api/users?status=active', {
+      headers: { Authorization: `Bearer ${teacherToken}` },
+    }, env)
+    await expect(activeListResponse.json()).resolves.toMatchObject({
+      data: expect.arrayContaining([
+        expect.objectContaining({
+          id: student.id,
+          name: 'No Programme Then DGNL',
+          phone: '+84900000065',
+          status: 'active',
+          access_tier: 'vip',
+          grades: ['dgnl'],
+        }),
+      ]),
+    })
+    const activeLoginResponse = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: '+84900000065', password: '123' }),
+    }, env)
+    expect(activeLoginResponse.status).toBe(200)
+  })
+
   it('lets a teacher remove a student without deleting their account record', async () => {
     await seedStudent('+84900000055', 'Removed Student')
     const teacherToken = await loginAsTeacher()
@@ -248,7 +452,7 @@ describe('student removal', () => {
     await expect(response.json()).resolves.toMatchObject({
       data: { id: student.id, removed: true },
     })
-    await expect(env.DB.prepare('SELECT status FROM users WHERE id = ?').bind(student.id).first('status'))
+    await expect(env.DB.prepare("select status from workspace_memberships where user_id = ? and workspace_id = 'maths'").bind(student.id).first('status'))
       .resolves.toBe('disabled')
   })
 
@@ -260,7 +464,7 @@ describe('student removal', () => {
       "SELECT id FROM users WHERE phone = '+84900000056'",
     ).first()
     const teacher = await env.DB.prepare(
-      "SELECT id FROM users WHERE role = 'teacher' LIMIT 1",
+      "select user_id as id from workspace_memberships where workspace_id = 'maths' and role = 'teacher' limit 1",
     ).first()
 
     const studentResponse = await app.request(`/api/users/${student.id}`, {
@@ -273,9 +477,9 @@ describe('student removal', () => {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${teacherToken}` },
     }, env)
-    expect(teacherTargetResponse.status).toBe(400)
+    expect(teacherTargetResponse.status).toBe(404)
     await expect(teacherTargetResponse.json()).resolves.toMatchObject({
-      error: { code: 'INVALID_ROLE' },
+      error: { code: 'NOT_FOUND' },
     })
   })
 
@@ -292,13 +496,18 @@ describe('student removal', () => {
       headers: { Authorization: `Bearer ${teacherToken}` },
     }, env)
 
-    const response = await app.request('/api/auth/me', {
+    const me = await app.request('/api/auth/me', {
+      headers: { Authorization: `Bearer ${studentToken}` },
+    }, env)
+    expect(me.status).toBe(200)
+    expect((await me.json()).data.membership.status).toBe('disabled')
+    const response = await app.request('/api/exercises', {
       headers: { Authorization: `Bearer ${studentToken}` },
     }, env)
 
     expect(response.status).toBe(403)
     await expect(response.json()).resolves.toMatchObject({
-      error: { code: 'ACCOUNT_DISABLED' },
+      error: { code: 'MEMBERSHIP_DISABLED' },
     })
   })
 })
@@ -380,7 +589,7 @@ describe('student class access', () => {
       "SELECT id FROM users WHERE phone = '+84900000063'",
     ).first()
     const teacher = await env.DB.prepare(
-      "SELECT id FROM users WHERE role = 'teacher' LIMIT 1",
+      "select user_id as id from workspace_memberships where workspace_id = 'maths' and role = 'teacher' limit 1",
     ).first()
 
     const studentResponse = await app.request('/api/users/grades', {
@@ -411,9 +620,9 @@ describe('student class access', () => {
       },
       body: JSON.stringify({ student_ids: [teacher.id], grades: [10] }),
     }, env)
-    expect(teacherTargetResponse.status).toBe(400)
+    expect(teacherTargetResponse.status).toBe(404)
     await expect(teacherTargetResponse.json()).resolves.toMatchObject({
-      error: { code: 'INVALID_STUDENTS' },
+      error: { code: 'NOT_FOUND' },
     })
   })
 })
@@ -427,7 +636,7 @@ describe('student access tiers', () => {
         'Authorization': `Bearer ${teacherToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name: 'Standard Student', phone: '+84900000081' }),
+      body: JSON.stringify({ name: 'Standard Student', phone: '+84900000081', grades: [12] }),
     }, env)
 
     expect(createResponse.status).toBe(201)
@@ -452,7 +661,7 @@ describe('student access tiers', () => {
         'Authorization': `Bearer ${teacherToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ name: 'Tier Student', phone, access_tier: accessTier }),
+      body: JSON.stringify({ name: 'Tier Student', phone, access_tier: accessTier, grades: [10] }),
     }, env)
 
     const vipResponse = await request('+84900000082', 'vip')
@@ -482,7 +691,7 @@ describe('student access tiers', () => {
       ORDER BY id
     `).all()
     const studentIds = rows.results.map(({ id }) => id)
-    const teacher = await env.DB.prepare("SELECT id FROM users WHERE role = 'teacher' LIMIT 1").first()
+    const teacher = await env.DB.prepare("select user_id as id from workspace_memberships where workspace_id = 'maths' and role = 'teacher' limit 1").first()
 
     const invalidTargetResponse = await app.request('/api/users/access-tier', {
       method: 'PUT',
@@ -492,8 +701,8 @@ describe('student access tiers', () => {
       },
       body: JSON.stringify({ student_ids: [studentIds[0], teacher.id], access_tier: 'vip' }),
     }, env)
-    expect(invalidTargetResponse.status).toBe(400)
-    expect(await env.DB.prepare('SELECT access_tier FROM users WHERE id = ?').bind(studentIds[0]).first('access_tier')).toBe('standard')
+    expect(invalidTargetResponse.status).toBe(404)
+    expect(await env.DB.prepare("select access_tier from workspace_memberships where user_id = ? and workspace_id = 'maths'").bind(studentIds[0]).first('access_tier')).toBe('standard')
 
     const response = await app.request('/api/users/access-tier', {
       method: 'PUT',
@@ -508,7 +717,7 @@ describe('student access tiers', () => {
       data: { student_ids: studentIds, access_tier: 'vip' },
     })
     const updated = await env.DB.prepare(`
-      SELECT DISTINCT access_tier FROM users WHERE id IN (?, ?)
+      select distinct access_tier from workspace_memberships where user_id in (?, ?) and workspace_id = 'maths'
     `).bind(...studentIds).all()
     expect(updated.results).toEqual([{ access_tier: 'vip' }])
   })
@@ -558,6 +767,6 @@ describe('student access tiers', () => {
       body: JSON.stringify({ student_ids: [student.id], grades: [10] }),
     }, env)
 
-    expect(await env.DB.prepare('SELECT access_tier FROM users WHERE id = ?').bind(student.id).first('access_tier')).toBe('vip')
+    expect(await env.DB.prepare("select access_tier from workspace_memberships where user_id = ? and workspace_id = 'maths'").bind(student.id).first('access_tier')).toBe('vip')
   })
 })

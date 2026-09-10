@@ -9,14 +9,14 @@ import { loadYouTubeIframeAPI } from '@/lib/youtube-player-api'
 
 const SAVE_INTERVAL_MS = 5000
 
-export default function YouTubeLecturePlayer({ accountId, lectureId, title, videoId }) {
+export default function YouTubeLecturePlayer({ accountId, workspaceId, lectureId, title, videoId }) {
   const hostRef = useRef(null)
 
   useEffect(() => {
     const host = hostRef.current
     if (!host) return
 
-    const identity = { accountId, lectureId, videoId }
+    const identity = { accountId, workspaceId, lectureId, videoId }
     const savedSeconds = readLectureProgress(identity)
     const iframe = document.createElement('iframe')
     iframe.className = 'h-full w-full'
@@ -138,7 +138,7 @@ export default function YouTubeLecturePlayer({ accountId, lectureId, title, vide
 
       host.replaceChildren()
     }
-  }, [accountId, lectureId, title, videoId])
+  }, [accountId, workspaceId, lectureId, title, videoId])
 
   return <div ref={hostRef} className="aspect-video w-full" />
 }

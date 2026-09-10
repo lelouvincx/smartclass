@@ -45,6 +45,7 @@ describe('PublicLectureLayout', () => {
       expect(within(navigation).queryByRole('link', { name: /Exercises/ })).not.toBeInTheDocument()
     })
     expect(screen.getAllByRole('link', { name: 'Sign in' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Maths · Thầy Thành').length).toBeGreaterThan(0)
   })
 
   it('lets a Guest change and persist the interface language', async () => {
@@ -63,7 +64,11 @@ describe('PublicLectureLayout', () => {
   })
 
   it('links an authenticated viewer back to their workspace', () => {
-    useAuthMock.mockReturnValue({ user: { role: 'student' } })
+    useAuthMock.mockReturnValue({
+      user: { platform_role: 'user', disabled_at: null },
+      membership: { role: 'student', status: 'active' },
+      defaultPath: '/student',
+    })
 
     renderLayout()
 

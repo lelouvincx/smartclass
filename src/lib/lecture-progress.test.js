@@ -5,7 +5,7 @@ import {
   writeLectureProgress,
 } from './lecture-progress'
 
-const identity = { accountId: 7, lectureId: 12, videoId: 'abcdefghijk' }
+const identity = { accountId: 7, workspaceId: 'maths', lectureId: 12, videoId: 'abcdefghijk' }
 
 describe('lecture progress storage', () => {
   beforeEach(() => localStorage.clear())
@@ -15,6 +15,7 @@ describe('lecture progress storage', () => {
 
     expect(readLectureProgress(identity)).toBe(42)
     expect(readLectureProgress({ ...identity, accountId: 8 })).toBeNull()
+    expect(readLectureProgress({ ...identity, workspaceId: 'english' })).toBeNull()
     expect(readLectureProgress({ ...identity, lectureId: 13 })).toBeNull()
     expect(readLectureProgress({ ...identity, videoId: 'lmnopqrstuv' })).toBeNull()
   })

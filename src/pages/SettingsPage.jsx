@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import { changeLanguage } from '@/i18n'
 import { changePassword, unlinkGoogle, updateMyName } from '@/lib/api'
 import { startGoogleFlow } from '@/lib/google-oauth'
-import { getDefaultPathForRole } from '@/lib/navigation'
+import { getDefaultPathForAuth } from '@/lib/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -62,7 +62,8 @@ function SettingSection({ id, title, toggleLabel, children }) {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { user, token, refreshUser } = useAuth()
+  const auth = useAuth()
+  const { user, token, refreshUser, canManage } = auth
   const { i18n, t } = useTranslation()
   const [isUnlinking, setIsUnlinking] = useState(false)
   const [showDisconnect, setShowDisconnect] = useState(false)
@@ -153,7 +154,7 @@ export default function SettingsPage() {
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-8">
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon-sm" onClick={() => navigate(getDefaultPathForRole(user?.role))} aria-label={t('settings.back')}>
+            <Button variant="ghost" size="icon-sm" onClick={() => navigate(getDefaultPathForAuth(auth))} aria-label={t('settings.back')}>
               <ArrowLeft className="size-4" />
             </Button>
             <h1 className="text-sm font-semibold">{t('settings.title')}</h1>
@@ -178,8 +179,9 @@ export default function SettingsPage() {
             <FieldGroup>
               <Field data-invalid={Boolean(profileError)}>
                 <FieldLabel htmlFor="settings-profile-name">
-                  {t('settings.profile.name')}
+                  {t('settings.profile.sharedName')}
                 </FieldLabel>
+                <FieldDescription>{t('settings.profile.sharedDescription')}</FieldDescription>
                 <Input
                   id="settings-profile-name"
                   name="name"
@@ -225,12 +227,13 @@ export default function SettingsPage() {
             <option value="vi">{t('settings.language.vietnamese')}</option>
           </select>
         </SettingSection>
-        {user?.role === 'teacher' && (
+        {canManage && (
           <SettingSection
             id="password-setting"
             title={t('settings.password.title')}
             toggleLabel={t('settings.sectionToggle', { title: t('settings.password.title') })}
           >
+            <p className="mb-4 text-sm text-muted-foreground">{t('settings.password.description')}</p>
             <form onSubmit={handlePasswordChange}>
               <FieldGroup>
                 <Field data-invalid={Boolean(passwordError)}>
@@ -306,6 +309,7 @@ export default function SettingsPage() {
           title={t('settings.accounts.title')}
           toggleLabel={t('settings.sectionToggle', { title: t('settings.accounts.title') })}
         >
+          <p className="mb-4 text-sm text-muted-foreground">{t('settings.accounts.description')}</p>
           {isLinked ? (
             <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-2">

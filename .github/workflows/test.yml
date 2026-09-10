@@ -19,6 +19,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Release workflow safety
+        run: node --test scripts/*.test.js
+
       - name: Frontend tests
         run: npm test
 

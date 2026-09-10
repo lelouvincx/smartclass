@@ -62,7 +62,10 @@ describe('StudentLecturePlayerPage', () => {
   beforeEach(() => {
     listLecturesMock.mockReset()
     listLecturesMock.mockResolvedValue({ data: lectures })
-    useAuthMock.mockReturnValue({ token: 'student-token', user: { id: 7 } })
+    useAuthMock.mockReturnValue({
+      token: 'student-token', user: { id: 7, platform_role: 'user', disabled_at: null },
+      workspace: { id: 'maths' }, membership: { role: 'student', status: 'active', grades: [12], access_tier: 'standard' },
+    })
   })
 
   it('embeds the selected lecture and provides sequential navigation', async () => {

@@ -25,7 +25,10 @@ const lectures = [
 describe('StudentLecturesPage', () => {
   beforeEach(() => {
     listLecturesMock.mockReset()
-    useAuthMock.mockReturnValue({ token: 'student-token', user: { id: 7, role: 'student' } })
+    useAuthMock.mockReturnValue({
+      token: 'student-token', user: { id: 7, platform_role: 'user', disabled_at: null },
+      workspace: { id: 'maths' }, membership: { role: 'student', status: 'active', grades: [12], access_tier: 'standard' },
+    })
   })
 
   it('shows lectures as a numbered curriculum grouped by section', async () => {

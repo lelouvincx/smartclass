@@ -8,10 +8,11 @@ import {
   useLocation,
 } from 'react-router-dom'
 import { AuthProvider, useAuth } from '@/lib/auth-context'
-import { canAccessRolePath, getDefaultPathForRole } from '@/lib/navigation'
+import { canAccessAuthPath, getDefaultPathForAuth } from '@/lib/navigation'
 import { StudentLayout } from '@/components/student-layout'
 import { TeacherLayout } from '@/components/teacher-layout'
 import { PublicLectureLayout } from '@/components/public-lecture-layout'
+import { WorkspaceRoutingGate } from '@/components/workspace-routing-gate'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import GoogleCallbackPage from '@/pages/GoogleCallbackPage'
@@ -31,16 +32,18 @@ import TeacherLecturesPage from '@/pages/TeacherLecturesPage'
 import TeacherStudentsPage from '@/pages/TeacherStudentsPage'
 import TeacherViewExercisePage from '@/pages/TeacherViewExercisePage'
 import SettingsPage from '@/pages/SettingsPage'
+import WorkspaceStatusPage from '@/pages/WorkspaceStatusPage'
 
 function PublicOnlyRoute({ children }) {
-  const { isLoading, user } = useAuth()
+  const auth = useAuth()
+  const { isLoading, user } = auth
 
   if (isLoading) {
     return <p className="p-6">Loading...</p>
   }
 
   if (user) {
-    return <Navigate to={getDefaultPathForRole(user.role)} replace />
+    return <Navigate to={getDefaultPathForAuth(auth)} replace />
   }
 
   return children
@@ -48,7 +51,8 @@ function PublicOnlyRoute({ children }) {
 
 function ProtectedRoleRoute({ children }) {
   const location = useLocation()
-  const { isLoading, user } = useAuth()
+  const auth = useAuth()
+  const { isLoading, user } = auth
   const { t } = useTranslation()
 
   if (isLoading) {
@@ -59,8 +63,8 @@ function ProtectedRoleRoute({ children }) {
     return <Navigate to="/" replace />
   }
 
-  if (!canAccessRolePath(user.role, location.pathname)) {
-    return <Navigate to={getDefaultPathForRole(user.role)} replace />
+  if (!canAccessAuthPath(auth, location.pathname)) {
+    return <Navigate to={getDefaultPathForAuth(auth)} replace />
   }
 
   return children
@@ -68,6 +72,7 @@ function ProtectedRoleRoute({ children }) {
 
 export function AppRoutes() {
   return (
+    <WorkspaceRoutingGate>
     <Routes>
       <Route
         path="/"
@@ -86,6 +91,7 @@ export function AppRoutes() {
         }
       />
       <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
+      <Route path="/join" element={<WorkspaceStatusPage />} />
       <Route element={<PublicLectureLayout />}>
         <Route path="/lectures" element={<StudentLecturesPage audience="guest" />} />
         <Route path="/lectures/:lectureSlug" element={<StudentLecturePlayerPage audience="guest" />} />
@@ -140,6 +146,7 @@ export function AppRoutes() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </WorkspaceRoutingGate>
   )
 }
 

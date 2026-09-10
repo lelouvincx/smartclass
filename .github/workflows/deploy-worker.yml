@@ -2,12 +2,24 @@ name: Deploy Worker
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      maintenance_only:
+        description: Leave maintenance enabled after schema preparation for the one-time reviewed backfill
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: smartclass-production-release
+  cancel-in-progress: false
 
 jobs:
   deploy-worker:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -16,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -25,6 +39,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run release checks
+        run: node --test scripts/*.test.js
 
       - name: Run frontend tests
         run: npm test
@@ -38,11 +55,46 @@ jobs:
       - name: Build frontend
         run: npm run build
 
-      - name: Sync JWT secret
-        run: echo "${{ secrets.JWT_SECRET }}" | npx wrangler secret put JWT_SECRET
+      - name: Enable application maintenance
+        id: maintenance
+        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$GITHUB_SHA
+
+      - name: Verify maintenance
+        run: node scripts/release-api.mjs closed "$GITHUB_SHA"
+
+      - name: Drain existing requests
+        run: sleep 120
+
+      - name: Record D1 restore bookmark
+        run: npx wrangler d1 time-travel info smartclass --config wrangler.production.toml --json > d1-restore.json
+
+      - name: Keep restore bookmark
+        uses: actions/upload-artifact@v4
+        with:
+          name: d1-restore-${{ github.run_id }}-${{ github.run_attempt }}
+          path: d1-restore.json
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Apply remote D1 migrations
-        run: npx wrangler d1 migrations apply smartclass --remote
+        run: npx wrangler d1 migrations apply smartclass --remote --config wrangler.production.toml
 
-      - name: Deploy Worker
-        run: npx wrangler deploy --var APP_ENV:production --var APP_CORS_ORIGIN:https://smartclass.lelouvincx.com
+      - name: Require completed workspace cutover
+        if: ${{ !inputs.maintenance_only }}
+        run: node scripts/workspace-release.mjs check --remote --commit "$GITHUB_SHA"
+
+      - name: Deploy frontend
+        if: ${{ !inputs.maintenance_only }}
+        run: npx wrangler pages deploy dist --project-name smartclass --branch main --commit-hash "$GITHUB_SHA"
+
+      - name: Reopen API
+        if: ${{ !inputs.maintenance_only }}
+        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:false --var APP_COMMIT_SHA:$GITHUB_SHA
+
+      - name: Verify open API
+        if: ${{ !inputs.maintenance_only }}
+        run: node scripts/release-api.mjs open "$GITHUB_SHA"
+
+      - name: Leave failed release in maintenance
+        if: ${{ failure() && (steps.maintenance.outcome == 'success' || steps.maintenance.outcome == 'failure') }}
+        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$GITHUB_SHA

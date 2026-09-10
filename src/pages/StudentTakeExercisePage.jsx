@@ -89,7 +89,7 @@ function groupSchema(schema) {
 function McqInput({ qId, value, onChange, submitted, t }) {
   const options = ['A', 'B', 'C', 'D']
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <ButtonGroup aria-label={t('student.take.options', { id: qId })}>
         {options.map((opt) => (
           <Button

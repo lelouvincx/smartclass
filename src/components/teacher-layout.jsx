@@ -6,7 +6,7 @@ import { BookOpen, ClipboardList, LayoutDashboard, Plus, Users } from '@/compone
 
 export function TeacherLayout() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, isPlatformAdmin } = useAuth()
   const { t } = useTranslation()
   const navigation = [
     { label: t('common.dashboard'), to: '/teacher', icon: LayoutDashboard, end: true },
@@ -33,8 +33,9 @@ export function TeacherLayout() {
   return (
     <AppShell
       items={navigation}
-      workspaceLabel={t('common.teacher')}
+      workspaceLabel={isPlatformAdmin ? t('common.platformAdmin') : t('common.teacher')}
       userLabel={user?.name || user?.phone}
+      accountMeta={isPlatformAdmin ? t('common.platformAdmin') : undefined}
       onLogout={handleLogout}
     >
       <Outlet />
