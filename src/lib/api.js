@@ -1,14 +1,15 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? (
-  import.meta.env.PROD
-    ? 'https://api.toanthaythanh.com'
-    : 'http://localhost:8787'
-)
+import { requireWorkspaceSite } from './workspaces'
 
-async function request(path, options = {}) {
+export function getApiBaseUrl() {
+  return requireWorkspaceSite().api_origin
+}
+
+export async function request(path, options = {}) {
   const { responseType = 'json', ...fetchOptions } = options
+  const url = `${getApiBaseUrl()}${path}`
   let response
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, fetchOptions)
+    response = await fetch(url, fetchOptions)
   } catch (networkError) {
     throw new Error(
       'SmartClass can’t reach the server right now. Try again in a moment.',
@@ -61,6 +62,16 @@ export function getMe(token) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+  })
+}
+
+export function joinWorkspace(token, payload) {
+  return request('/api/auth/join', {
+    method: 'POST',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
   })
 }
 
@@ -425,7 +436,7 @@ export function getSubmissionAnswerPdf(token, submissionId) {
 function uploadMultipart(path, token, method, form, { onProgress, signal } = {}) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open(method, `${API_BASE_URL}${path}`)
+    xhr.open(method, `${getApiBaseUrl()}${path}`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
 
     if (onProgress) {
@@ -506,7 +517,7 @@ export function extractAnswersFromImage(token, submissionId, imageFile, { onProg
     const form = new FormData()
     form.append('image', imageFile)
 
-    xhr.open('POST', `${API_BASE_URL}/api/submissions/${submissionId}/extract`)
+    xhr.open('POST', `${getApiBaseUrl()}/api/submissions/${submissionId}/extract`)
     xhr.setRequestHeader('Authorization', `Bearer ${token}`)
 
     if (onProgress) {
@@ -611,6 +622,16 @@ export function updateStudentGrades(token, payload) {
 
 export function updateStudentAccessTier(token, payload) {
   return request('/api/users/access-tier', {
+    method: 'PUT',
+    headers: authHeaders(token, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateStudentGlobalStatus(token, userId, payload) {
+  return request(`/api/users/${userId}/global-status`, {
     method: 'PUT',
     headers: authHeaders(token, {
       'Content-Type': 'application/json',

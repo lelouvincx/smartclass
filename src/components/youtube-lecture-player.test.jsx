@@ -10,7 +10,7 @@ vi.mock('@/lib/youtube-player-api', () => ({
   loadYouTubeIframeAPI: () => loadYouTubeIframeAPIMock(),
 }))
 
-const identity = { accountId: 7, lectureId: 12, videoId: 'abcdefghijk' }
+const identity = { accountId: 7, workspaceId: 'maths', lectureId: 12, videoId: 'abcdefghijk' }
 
 function createYouTubeAPI() {
   let options

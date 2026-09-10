@@ -22,11 +22,11 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { changeLanguage } from '@/i18n'
 import { cn } from '@/lib/utils'
+import { getWorkspaceSiteForOrigin } from '@/lib/workspaces'
 
 const SIDEBAR_STORAGE_KEY = 'smartclass-sidebar-collapsed'
 
-function Brand({ workspaceLabel }) {
-  const { t } = useTranslation()
+function Brand() {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-primary text-primary-foreground shadow-sm">
@@ -34,9 +34,6 @@ function Brand({ workspaceLabel }) {
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold tracking-tight">SmartClass</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {t('common.workspace', { role: workspaceLabel })}
-        </span>
       </span>
     </div>
   )
@@ -191,7 +188,7 @@ function LanguageSelect({ rail = false }) {
   )
 }
 
-function RailFooter({ accountAction, showLanguageSwitcher, userLabel, onLogout }) {
+function RailFooter({ accountAction, accountMeta, showLanguageSwitcher, userLabel, onLogout }) {
   const { t } = useTranslation()
   return (
     <div className="space-y-2 border-t px-2 py-3 text-xs">
@@ -199,6 +196,7 @@ function RailFooter({ accountAction, showLanguageSwitcher, userLabel, onLogout }
         <p className="px-1 text-center text-muted-foreground">
           <span className="block">{t('common.signedInAs')}</span>
           <span className="block truncate" title={userLabel}>{userLabel}</span>
+          {accountMeta && <span className="block truncate text-primary" title={accountMeta}>{accountMeta}</span>}
         </p>
       )}
       {onLogout && (
@@ -235,14 +233,22 @@ function RailFooter({ accountAction, showLanguageSwitcher, userLabel, onLogout }
   )
 }
 
-function ShellFooter({ accountAction, showLanguageSwitcher, userLabel, onLogout, onNavigate }) {
+function ShellFooter({ accountAction, accountMeta, showLanguageSwitcher, userLabel, workspaceLabel, onLogout, onNavigate }) {
   const { t } = useTranslation()
+  const site = getWorkspaceSiteForOrigin()
   return (
     <div className="space-y-3 border-t px-3 py-4">
+      <p className="space-y-1 px-2 text-xs text-muted-foreground">
+        <span className="block font-medium text-foreground">
+          {site ? t(site.id === 'english' ? 'common.englishSite' : 'common.mathsSite') : t('common.unsupportedSite')}
+        </span>
+        <span className="block">{t('common.workspace', { role: workspaceLabel })}</span>
+      </p>
       {userLabel && (
         <p className="px-2 text-xs text-muted-foreground">
           <span>{t('common.signedInAs')} </span>
           <span className="font-medium text-foreground" title={userLabel}>{userLabel}</span>
+          {accountMeta && <span className="block text-primary">{accountMeta}</span>}
         </p>
       )}
       <div className={cn('grid gap-2', onLogout && 'grid-cols-[1fr_auto]')}>
@@ -278,7 +284,7 @@ function ShellFooter({ accountAction, showLanguageSwitcher, userLabel, onLogout,
   )
 }
 
-export function AppShell({ accountAction, children, focusedWorkspace = false, items, onLogout, showLanguageSwitcher = false, userLabel, workspaceLabel }) {
+export function AppShell({ accountAction, accountMeta, children, focusedWorkspace = false, items, onLogout, showLanguageSwitcher = false, userLabel, workspaceLabel }) {
   const [navigationOpen, setNavigationOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(
     () => globalThis.localStorage?.getItem(SIDEBAR_STORAGE_KEY) === 'true',
@@ -340,7 +346,7 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
               <GraduationCap className="size-5" aria-hidden="true" />
             </span>
           ) : (
-            <Brand workspaceLabel={workspaceLabel} />
+            <Brand />
           )}
           {!focusedWorkspace && (
             <Button
@@ -362,8 +368,8 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
           <Navigation items={items} label={navigationLabel} rail={effectiveSidebarCollapsed} />
         </div>
         {effectiveSidebarCollapsed
-          ? <RailFooter accountAction={accountAction} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />
-          : <ShellFooter accountAction={accountAction} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />}
+          ? <RailFooter accountAction={accountAction} accountMeta={accountMeta} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />
+          : <ShellFooter accountAction={accountAction} accountMeta={accountMeta} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} workspaceLabel={workspaceLabel} onLogout={onLogout} />}
       </aside>
 
       <aside
@@ -382,14 +388,14 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
         <div className="flex-1 overflow-y-auto px-2 py-4">
           <Navigation items={items} label={navigationLabel} rail />
         </div>
-        <RailFooter accountAction={accountAction} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />
+        <RailFooter accountAction={accountAction} accountMeta={accountMeta} showLanguageSwitcher={showLanguageSwitcher} userLabel={userLabel} onLogout={onLogout} />
       </aside>
 
       <header
         data-app-shell-mobile-header
         className="sticky top-0 z-40 flex min-h-16 items-center justify-between border-b bg-background/95 px-4 backdrop-blur md:hidden"
       >
-        <Brand workspaceLabel={workspaceLabel} />
+        <Brand />
         <Button
           variant="outline"
           size="icon"
@@ -405,7 +411,7 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
         <SheetContent side="left" closeLabel={t('common.close')} aria-describedby={undefined}>
           <SheetHeader className="border-b px-5 py-5 pr-14">
             <SheetTitle className="sr-only">{navigationLabel}</SheetTitle>
-            <Brand workspaceLabel={workspaceLabel} />
+            <Brand />
           </SheetHeader>
           <div className="px-3 py-5">
             <Navigation
@@ -417,8 +423,10 @@ export function AppShell({ accountAction, children, focusedWorkspace = false, it
           <div className="mt-auto">
             <ShellFooter
               accountAction={accountAction}
+              accountMeta={accountMeta}
               showLanguageSwitcher={showLanguageSwitcher}
               userLabel={userLabel}
+              workspaceLabel={workspaceLabel}
               onLogout={onLogout}
               onNavigate={() => setNavigationOpen(false)}
             />

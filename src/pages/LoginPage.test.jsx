@@ -43,7 +43,8 @@ describe('LoginPage', () => {
     expect(phone).toBeRequired()
     expect(password).toHaveAttribute('autocomplete', 'current-password')
     expect(password).toBeRequired()
-    expect(screen.getByText('Use 0xxxxxxxxx or +84xxxxxxxxx format.')).toBeVisible()
+    expect(screen.getByText('Use your shared SmartClass phone number.')).toBeVisible()
+    expect(screen.getByText('Maths · Thầy Thành')).toBeVisible()
   })
 
   it('validates phone format before calling API', async () => {
@@ -57,7 +58,7 @@ describe('LoginPage', () => {
 
     await user.type(screen.getByLabelText('Phone'), '12345')
     await user.type(screen.getByLabelText('Password'), '123')
-    await user.click(screen.getByRole('button', { name: 'Sign In' }))
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     const error = screen.getByRole('alert')
     expect(error).toHaveTextContent('Phone must match +84xxxxxxxxx or 0xxxxxxxxx format.')
@@ -71,7 +72,7 @@ describe('LoginPage', () => {
 
   it('normalises 0-prefix to +84 before calling API', async () => {
     const user = userEvent.setup()
-    loginMock.mockResolvedValue({ data: { user: { role: 'student' } } })
+    loginMock.mockResolvedValue({ data: { user: { platform_role: 'user', disabled_at: null }, membership: { role: 'student', status: 'active' } } })
 
     render(
       <MemoryRouter>
@@ -81,7 +82,7 @@ describe('LoginPage', () => {
 
     await user.type(screen.getByLabelText('Phone'), '0865481769')
     await user.type(screen.getByLabelText('Password'), '123')
-    await user.click(screen.getByRole('button', { name: 'Sign In' }))
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(loginMock).toHaveBeenCalledWith({ phone: '+84865481769', password: '123' })
   })
@@ -98,7 +99,7 @@ describe('LoginPage', () => {
 
     await user.type(screen.getByLabelText('Phone'), '+84865481769')
     await user.type(screen.getByLabelText('Password'), 'bad-password')
-    await user.click(screen.getByRole('button', { name: 'Sign In' }))
+    await user.click(screen.getByRole('button', { name: 'Sign in' }))
 
     expect(await screen.findByText('Invalid phone or password.')).toBeInTheDocument()
   })

@@ -12,6 +12,8 @@ const updateStudentNameMock = vi.fn()
 const updateStudentGradesMock = vi.fn()
 const updateStudentAccessTierMock = vi.fn()
 const updateStudentStatusMock = vi.fn()
+const updateStudentGlobalStatusMock = vi.fn()
+const authMock = vi.hoisted(() => ({ value: {} }))
 const removeStudentMock = vi.fn()
 const logoutMock = vi.fn()
 const navigateMock = vi.fn()
@@ -32,6 +34,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     updateStudentGrades: (...args) => updateStudentGradesMock(...args),
     updateStudentAccessTier: (...args) => updateStudentAccessTierMock(...args),
     updateStudentStatus: (...args) => updateStudentStatusMock(...args),
+    updateStudentGlobalStatus: (...args) => updateStudentGlobalStatusMock(...args),
     removeStudent: (...args) => removeStudentMock(...args),
   }
 })
@@ -39,11 +42,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: toastMock }))
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({
-    user: { phone: '+84865481769', role: 'teacher' },
-    token: 'test-token',
-    logout: logoutMock,
-  }),
+  useAuth: () => authMock.value,
 }))
 
 vi.mock('react-router-dom', async (importOriginal) => {
@@ -56,6 +55,12 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 describe('TeacherStudentsPage', () => {
   beforeEach(() => {
+    authMock.value = {
+      user: { id: 5, phone: '+84865481769', platform_role: 'user', disabled_at: null },
+      membership: { role: 'teacher', status: 'active' }, workspace: { id: 'maths' },
+      token: 'test-token', canManage: true, isPlatformAdmin: false, logout: logoutMock,
+    }
+    updateStudentGlobalStatusMock.mockReset().mockResolvedValue({ data: {} })
     createStudentMock.mockReset()
     approveStudentMock.mockReset()
     listStudentsMock.mockReset()
@@ -68,6 +73,59 @@ describe('TeacherStudentsPage', () => {
     navigateMock.mockReset()
     toastMock.success.mockReset()
     toastMock.error.mockReset()
+  })
+
+  it.each([false, true])('requires explicit confirmation before changing global disabled=%s', async (globally_disabled) => {
+    authMock.value.isPlatformAdmin = true
+    authMock.value.user.platform_role = 'platform_admin'
+    listStudentsMock.mockResolvedValue({ data: [{ id: 7, name: 'Mai', phone: '+84900000001', status: 'active', grades: [10], platform_role: 'user', globally_disabled }] })
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions for Mai' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: `${globally_disabled ? 'Restore' : 'Disable'} shared account for Mai` }))
+    const dialog = screen.getByRole('dialog')
+    const confirm = within(dialog).getByRole('button', { name: globally_disabled ? 'Restore account' : 'Disable everywhere' })
+    expect(confirm).toBeDisabled()
+    expect(updateStudentGlobalStatusMock).not.toHaveBeenCalled()
+    await userEvent.type(within(dialog).getByLabelText('Type GLOBAL to confirm'), 'GLOBAL')
+    await userEvent.click(confirm)
+    expect(updateStudentGlobalStatusMock).toHaveBeenCalledWith('test-token', 7, { disabled: !globally_disabled })
+    expect(updateStudentStatusMock).not.toHaveBeenCalled()
+  })
+
+  it('does not expose global status controls for administrator targets', async () => {
+    authMock.value.isPlatformAdmin = true
+    listStudentsMock.mockResolvedValue({ data: [{ id: 7, name: 'Admin', phone: '+84900000001', status: 'active', grades: [10], platform_role: 'platform_admin' }] })
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions for Admin' }))
+    expect(screen.queryByRole('menuitem', { name: /shared account/ })).not.toBeInTheDocument()
+  })
+
+  it('keeps teacher actions workspace-only', async () => {
+    listStudentsMock.mockResolvedValue({ data: [{ id: 7, name: 'Mai', status: 'active', grades: [10], platform_role: 'user' }] })
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+    await userEvent.click(await screen.findByRole('button', { name: 'More actions for Mai' }))
+    expect(screen.queryByRole('menuitem', { name: /shared account/ })).not.toBeInTheDocument()
+  })
+
+  it('requires programme assignment before reactivation', async () => {
+    listStudentsMock.mockResolvedValue({ data: [{ id: 7, name: 'Mai', status: 'disabled', grades: [] }] })
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+    await userEvent.click(screen.getByRole('button', { name: 'Disabled' }))
+    expect(await screen.findByRole('button', { name: 'Activate Mai' })).toBeDisabled()
+    expect(screen.getByText('Assign programmes first, then approve.')).toBeInTheDocument()
+  })
+
+  it('assigns programmes to a pending member without silently approving', async () => {
+    listStudentsMock.mockResolvedValueOnce({ data: [{ id: 7, name: 'Mai', status: 'pending', grades: [] }] })
+      .mockResolvedValue({ data: [{ id: 7, name: 'Mai', status: 'pending', grades: [12] }] })
+    updateStudentGradesMock.mockResolvedValue({ data: {} })
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+    expect(await screen.findByRole('button', { name: 'Approve' })).toBeDisabled()
+    await userEvent.click(screen.getByLabelText('Select Mai'))
+    await userEvent.click(screen.getByRole('button', { name: 'Assign programmes to 1 student' }))
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve' })).toBeEnabled())
+    expect(updateStudentGradesMock).toHaveBeenCalledWith('test-token', { student_ids: [7], grades: [12] })
+    expect(approveStudentMock).not.toHaveBeenCalled()
   })
 
   it('focuses the create form from the sidebar creation path', async () => {
@@ -338,7 +396,7 @@ describe('TeacherStudentsPage', () => {
     await user.click(await screen.findByRole('button', { name: 'More actions for Nguyễn Văn An' }))
     await user.click(await screen.findByRole('menuitem', { name: 'Rename Nguyễn Văn An' }))
     const dialog = screen.getByRole('dialog', { name: 'Rename student' })
-    const nameInput = within(dialog).getByRole('textbox', { name: 'Name' })
+    const nameInput = within(dialog).getByRole('textbox', { name: 'Workspace display name' })
     await user.clear(nameInput)
     await user.type(nameInput, '  Nguyễn An  ')
     await user.click(within(dialog).getByRole('button', { name: 'Save name' }))
@@ -428,6 +486,7 @@ describe('TeacherStudentsPage', () => {
         phone: '+84123456789',
         role: 'student',
         status: 'disabled',
+        grades: [12],
         created_at: '2026-05-07 10:00:00',
       }],
     })
@@ -513,7 +572,7 @@ describe('TeacherStudentsPage', () => {
     beforeEach(() => {
       listStudentsMock.mockResolvedValue({
         data: [
-          { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'pending', created_at: '2026-05-07 10:00:00' },
+          { id: 1, name: 'Nguyễn Văn An', phone: '+84123456789', role: 'student', status: 'pending', grades: [12], created_at: '2026-05-07 10:00:00' },
           { id: 2, name: 'Trần Thị Bình', phone: '+84987654321', role: 'student', status: 'active', created_at: '2026-05-06 09:00:00' },
         ],
       })

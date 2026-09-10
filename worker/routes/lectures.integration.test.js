@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:test'
 import { beforeAll, describe, expect, it } from 'vitest'
-import app from '../index.js'
-import { issueAccessToken } from '../lib/auth.js'
+import { app, setStudentGrades } from '../test/helpers.js'
+import { issueWorkspaceAccessToken } from '../lib/workspace-auth.js'
 import { loginAsStudent, loginAsTeacher, seedStudent, seedTeacher } from '../test/helpers.js'
 
 let teacherToken
@@ -126,10 +126,10 @@ describe('lectures API', () => {
     const student = await env.DB.prepare(`
       SELECT id, phone, role FROM users WHERE phone = '+84911111111'
     `).first()
-    const expiredToken = await issueAccessToken({
+    const expiredToken = await issueWorkspaceAccessToken({
       JWT_SECRET: env.JWT_SECRET,
       JWT_EXPIRES_IN: '0s',
-    }, student)
+    }, student.id, 'maths')
     const expiredResponse = await app.request('/api/lectures', {
       headers: { Authorization: `Bearer ${expiredToken}` },
     }, env)
@@ -154,10 +154,7 @@ describe('lectures API', () => {
     const student = await env.DB.prepare(
       "SELECT id FROM users WHERE phone = '+84911111111'",
     ).first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare("INSERT INTO student_grades (user_id, grade) VALUES (?, 'dgnl')").bind(student.id),
-    ])
+    await setStudentGrades(student.id, ['dgnl'])
     const matchingResponse = await teacherRequest('/', 'POST', {
       title: 'Grade 11 and ĐGNL lecture',
       section_name: 'Grade access',
@@ -248,11 +245,8 @@ describe('lectures API', () => {
 
   it('enforces visibility, minimum tier, and programme overlap for Guest, Standard, and VIP audiences', async () => {
     const student = await env.DB.prepare("SELECT id FROM users WHERE phone = '+84911111111'").first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, ?)').bind(student.id, 10),
-      env.DB.prepare("UPDATE users SET access_tier = 'standard', status = 'active' WHERE id = ?").bind(student.id),
-    ])
+    await setStudentGrades(student.id, [10])
+    await env.DB.prepare("update workspace_memberships set access_tier = 'standard', status = 'active' where user_id = ? and workspace_id = 'maths'").bind(student.id).run()
 
     const definitions = [
       ['Guest other programme', 'guest', [12], true],
@@ -295,7 +289,7 @@ describe('lectures API', () => {
     expect(standardIds).not.toContain(ids['Standard other programme'])
     expect(standardIds).not.toContain(ids['VIP match'])
 
-    await env.DB.prepare("UPDATE users SET access_tier = 'vip' WHERE id = ?").bind(student.id).run()
+    await env.DB.prepare("update workspace_memberships set access_tier = 'vip' where user_id = ? and workspace_id = 'maths'").bind(student.id).run()
     const vipIds = await listIds(`Bearer ${studentToken}`)
     expect(vipIds).toContain(ids['Standard match'])
     expect(vipIds).toContain(ids['VIP match'])
@@ -309,11 +303,8 @@ describe('lectures API', () => {
 
   it('uses live D1 student tier and status without issuing a new token', async () => {
     const student = await env.DB.prepare("SELECT id FROM users WHERE phone = '+84911111111'").first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, ?)').bind(student.id, 10),
-      env.DB.prepare("UPDATE users SET access_tier = 'standard', status = 'active' WHERE id = ?").bind(student.id),
-    ])
+    await setStudentGrades(student.id, [10])
+    await env.DB.prepare("update workspace_memberships set access_tier = 'standard', status = 'active' where user_id = ? and workspace_id = 'maths'").bind(student.id).run()
     const created = await teacherRequest('/', 'POST', {
       title: 'Live VIP access',
       section_name: 'Live authorization',
@@ -327,16 +318,17 @@ describe('lectures API', () => {
     }, env)
 
     expect((await (await request()).json()).data.map(({ id }) => id)).not.toContain(lectureId)
-    await env.DB.prepare("UPDATE users SET access_tier = 'vip' WHERE id = ?").bind(student.id).run()
+    await env.DB.prepare("update workspace_memberships set access_tier = 'vip' where user_id = ? and workspace_id = 'maths'").bind(student.id).run()
     expect((await (await request()).json()).data.map(({ id }) => id)).toContain(lectureId)
 
-    await env.DB.prepare("UPDATE users SET status = 'disabled' WHERE id = ?").bind(student.id).run()
+    await env.DB.prepare("update workspace_memberships set status = 'disabled' where user_id = ? and workspace_id = 'maths'").bind(student.id).run()
     const disabledResponse = await request()
     expect(disabledResponse.status).toBe(403)
-    await expect(disabledResponse.json()).resolves.toMatchObject({ error: { code: 'ACCOUNT_DISABLED' } })
+    await expect(disabledResponse.json()).resolves.toMatchObject({ error: { code: 'MEMBERSHIP_DISABLED' } })
 
-    await env.DB.prepare("UPDATE users SET status = 'pending' WHERE id = ?").bind(student.id).run()
+    await env.DB.prepare("update workspace_memberships set status = 'pending' where user_id = ? and workspace_id = 'maths'").bind(student.id).run()
     expect((await request()).status).toBe(403)
+    await env.DB.prepare("delete from workspace_memberships where user_id = ?").bind(student.id).run()
     await env.DB.prepare("DELETE FROM users WHERE id = ?").bind(student.id).run()
     expect((await request()).status).toBe(401)
   })

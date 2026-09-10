@@ -8,6 +8,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Prepare isolated Maths and English teaching workspaces, interactive QA scenarios and the maintenance-first release workflow. Production cutover remains a separate approved operation. [#133](https://github.com/lelouvincx/smartclass/pull/133)
+- Document the maths and English workspace plan, shared-account rules, proposed platform administrator role, migration safeguards and acceptance tests in RFC-17. The feature remains planned, not shipped.
+- Record Stage 1 workspace research, the 50-route access inventory and a verified synthetic local database export/import rehearsal.
+- Complete Stage 1 decisions: maths assignments, administrator identity and password prerequisite confirmed; preserve empty programmes and pending status for the 4 students without programmes. No production migration has run.
+- Add RFC-17's local database foundation: additive workspace and membership schema, plus a separately invoked backfill requiring a complete reviewed mapping. Tests preserve credentials, Google links, content, attempts, scores and file bytes, including pending students without programmes and atomic rollback. No production backfill or administrator grant has run.
+- Mount workspace-aware account, student, exercise, question-set, submission, lecture and file routes behind exact host mapping and workspace-bound tokens. Tests cover foreign IDs, independent memberships, shared credentials, explicit joining, administrator-only global blocks and programme assignment before separate approval.
+- Preserve exercise-edit safeguards and pinned attempts during workspace isolation. Add regression checks for concurrent exercise and question-set creation, empty schema rollback, and changed assets during activation validation.
+- Connect the frontend to separate shared identity and workspace membership, site labels, teacher routing without session transfer, join and status screens, and confirmed administrator controls. This feature is not deployed.
+- Clear the departing site's token during teacher routing to prevent crossed teacher sessions from redirecting between sites repeatedly. Focused tests and the live regression pass.
+- Reserve space for long workspace rename titles beside the close button, stack student details on narrow screens, and let selected-answer controls wrap without reducing answer touch targets.
+- Complete RFC-17 Stage 2 locally: browser-check both workspaces, account controls, submissions and saved teacher content. Record inspected mobile/desktop evidence and coverage limits. No production changes have run.
+- Run frontend tests in one thread pool and integration tests in one Worker, retaining isolated storage and existing timeouts. The final full suites pass without concurrent-worker resource failures.
+- Persist 7 interactive workspace end-to-end scenarios as separate files under `tests/e2e/teaching-workspaces/`, with a shared setup index, expected results, cleanup rules, parallel ownership and a local-only helper that creates fresh synthetic accounts without resetting existing users.
+- Complete all 7 local interactive scenarios. Record passing [access checks](tests/e2e/runs/2026-09-10-access.md) and [learning/content checks](tests/e2e/runs/2026-09-10-learning-content.md), restored test content and memberships, browser closure, inspected screenshots and unresolved transient sign-in observations. No production changes ran.
+- Prepare the [simpler Stage 3 release](docs/plans/RFC-17-stage-3-release.md) in the existing deployment workflow: application maintenance before D1 migrations, a restore bookmark, readiness checks, frontend deployment and verified reopening. Add a separate reviewed backfill operator and atomic ownership constraints, with failure recovery that keeps maintenance enabled. Live deployment automation and production remain unchanged.
 - Let teachers upload or drag and drop replacement question screenshots and teacher-only answer-detail screenshots during exercise question review. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Add a non-product Pillow-based vision question-locator POC script with ruler overlays, structured box validation, and crop previews. [#128](https://github.com/lelouvincx/smartclass/pull/128)
 - Add an isolated experimental Cohere Parse blocks adapter for Answer PDF table extraction. [#128](https://github.com/lelouvincx/smartclass/pull/128)
@@ -24,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Move workspace and audience labels from the brand header to the expanded sidebar and mobile drawer footer. Keep Settings and logout reachable and preserve the compact navigation rail.
 - Polish exercise question-review upload cards, per-question score allocation, submissions rows, and reject-preview wording. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Show active exercise question views in the same per-question layout used while creating and editing exercises. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Place each question's score allocation alongside its Exercise PDF crop, Answer PDF crop, and answer review in the Question views workflow. [#132](https://github.com/lelouvincx/smartclass/pull/132)

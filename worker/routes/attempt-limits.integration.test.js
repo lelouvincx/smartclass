@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { beforeAll, describe, expect, it } from 'vitest'
-import app from '../index.js'
+import { app } from '../test/helpers.js'
 import {
   createStudentReadyExercise,
   loginAsStudent,

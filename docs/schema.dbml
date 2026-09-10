@@ -1,6 +1,6 @@
 // SmartClass - Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0022_add_question_answer_assets
+// Last updated: migration 0023_add_teaching_workspaces
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -20,8 +20,60 @@ Table users {
   role       text    [not null, note: 'teacher | student']
   status     text    [not null, default: 'pending', note: 'pending | active | disabled']
   access_tier text   [not null, default: 'standard', note: 'standard | vip; only student lecture authorization reads this value']
+  platform_role text [not null, default: 'user', note: 'user | platform_admin; additive RFC-17 preparation']
+  disabled_at text   [note: 'NULL means the shared identity is enabled; future administrator-controlled global block']
   created_at text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at text    [not null, default: 'CURRENT_TIMESTAMP']
+}
+
+// ── Workspaces ────────────────────────────────────────────────────────────────
+
+Table workspaces {
+  id           text [pk, not null, note: 'Stable workspace id']
+  slug         text [not null, unique]
+  display_name text [not null]
+  subject_code text [not null, unique]
+  created_at   text [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (display_name, id) [name: 'idx_workspaces_display_name']
+  }
+
+  Note: '''
+    RFC-17 additive preparation seeds only maths and English.
+    Content ownership stays nullable until the separately reviewed backfill and cutover.
+  '''
+}
+
+Table workspace_memberships {
+  id           integer [pk, increment]
+  workspace_id text    [not null, ref: > workspaces.id]
+  user_id      integer [not null, ref: > users.id]
+  role         text    [not null, note: 'teacher | student']
+  status       text    [not null, default: 'pending', note: 'pending | active | disabled']
+  access_tier  text    [not null, default: 'standard', note: 'standard | vip']
+  display_name text    [note: 'Workspace-local display name override']
+  created_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+  updated_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (workspace_id, user_id) [unique]
+    (workspace_id, role, status, user_id) [name: 'idx_workspace_memberships_workspace_role_status']
+    (user_id, status, workspace_id) [name: 'idx_workspace_memberships_user_status']
+    (workspace_id, status, access_tier, user_id) [name: 'idx_workspace_memberships_workspace_status_tier']
+  }
+
+  Note: 'Preparation table only. Membership backfill requires a reviewed mapping and a separate access cutover.'
+}
+
+Table workspace_membership_grades {
+  membership_id integer [not null, ref: > workspace_memberships.id, note: 'ON DELETE CASCADE']
+  grade         integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
+
+  indexes {
+    (membership_id, grade) [pk]
+    (grade, membership_id) [name: 'idx_workspace_membership_grades_grade_membership']
+  }
 }
 
 Table student_grades {
@@ -38,6 +90,7 @@ Table student_grades {
 
 Table exercises {
   id               integer [pk, increment]
+  workspace_id     text    [ref: > workspaces.id, note: 'Nullable during RFC-17 additive preparation; required after reviewed cutover']
   title            text    [not null]
   duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
   max_attempts     integer [default: 1, note: 'NULL = unlimited; otherwise a positive per-student attempt limit']
@@ -48,6 +101,10 @@ Table exercises {
   created_by       integer [not null, ref: > users.id]
   created_at       text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at       text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (workspace_id, created_at, id) [name: 'idx_exercises_workspace_created']
+  }
 }
 
 Table exercise_grades {
@@ -279,6 +336,7 @@ Table submission_files {
 
 Table lectures {
   id           integer [pk, increment]
+  workspace_id text    [ref: > workspaces.id, note: 'Nullable during RFC-17 additive preparation; required after reviewed cutover']
   title        text    [not null]
   section_name text    [not null, note: 'e.g. Chapter 1, Solution for Exercise 3']
   youtube_url  text    [not null]
@@ -288,6 +346,11 @@ Table lectures {
   created_by   integer [not null, ref: > users.id]
   created_at   text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at   text    [not null, default: 'CURRENT_TIMESTAMP']
+
+  indexes {
+    (workspace_id, order_index, id) [name: 'idx_lectures_workspace_order']
+    (workspace_id, is_visible, minimum_access_tier, order_index, id) [name: 'idx_lectures_workspace_visibility']
+  }
 }
 
 Table lecture_grades {

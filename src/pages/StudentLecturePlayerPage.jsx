@@ -17,7 +17,7 @@ import { EmptyState } from '@/design-system/empty-state'
 
 export default function StudentLecturePlayerPage({ audience = 'student' }) {
   const { t } = useTranslation()
-  const { token, user } = useAuth()
+  const { token, user, workspace } = useAuth()
   const { lectureSlug } = useParams()
   const tracksPlayback = audience === 'student'
   const lectureListPath = audience === 'guest' ? '/lectures' : `/${audience}/lectures`
@@ -120,8 +120,9 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
               />
             ) : (
               <YouTubeLecturePlayer
-                key={`${user.id}:${lecture.id}:${videoId}`}
+                key={`${user.id}:${workspace?.id}:${lecture.id}:${videoId}`}
                 accountId={user.id}
+                workspaceId={workspace?.id}
                 lectureId={lecture.id}
                 videoId={videoId}
                 title={t('student.lectures.videoTitle', { title: lecture.title })}

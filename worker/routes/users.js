@@ -6,6 +6,33 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const usersRoutes = new Hono()
 const STUDENT_ACCESS_TIERS = new Set(['standard', 'vip'])
+const PROGRAMMES_REQUIRED_MESSAGE = 'Assign at least one programme before approving or activating this student.'
+
+function programmesRequired(c) {
+  return jsonError(c, 400, 'PROGRAMMES_REQUIRED', PROGRAMMES_REQUIRED_MESSAGE)
+}
+
+async function hasProgramme(c, id) {
+  const result = await c.env.DB.prepare(`
+    select exists (
+      select 1 from student_grades where user_id = ?
+    ) as has_programme
+  `).bind(id).first()
+  return Boolean(result?.has_programme)
+}
+
+async function activateStudentWithProgrammes(c, id) {
+  return c.env.DB.prepare(`
+    update users
+    set status = ?
+      , updated_at = current_timestamp
+    where id = ?
+      and role = 'student'
+      and exists (
+        select 1 from student_grades where user_id = users.id
+      )
+  `).bind('active', id).run()
+}
 
 usersRoutes.use('*', requireAuth, requireRole('teacher'))
 
@@ -261,11 +288,18 @@ usersRoutes.put('/:id/status', async (c) => {
     return jsonError(c, 400, 'INVALID_ROLE', 'Only student accounts can be activated or deactivated here.')
   }
 
-  await c.env.DB.prepare(
-    'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-  )
-    .bind(status, id)
-    .run()
+  if (status === 'active') {
+    const result = await activateStudentWithProgrammes(c, id)
+    if (result.meta.changes === 0) {
+      return programmesRequired(c)
+    }
+  } else {
+    await c.env.DB.prepare(
+      'UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    )
+      .bind(status, id)
+      .run()
+  }
 
   return jsonSuccess(c, { id, status })
 })
@@ -286,6 +320,10 @@ usersRoutes.put('/:id/approve', async (c) => {
   }
 
   if (user.status === 'active') {
+    if (!(await hasProgramme(c, id))) {
+      return programmesRequired(c)
+    }
+
     return c.json({
       success: true,
       data: {
@@ -296,9 +334,10 @@ usersRoutes.put('/:id/approve', async (c) => {
     }) // Keep message field
   }
 
-  await c.env.DB.prepare('UPDATE users SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-    .bind('active', id)
-    .run()
+  const result = await activateStudentWithProgrammes(c, id)
+  if (result.meta.changes === 0) {
+    return programmesRequired(c)
+  }
 
   return c.json({
     success: true,

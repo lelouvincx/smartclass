@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, Users } from '@/components/material-symbol'
 import { useSearchParams } from 'react-router-dom'
-import { listStudents, createStudent, approveStudent, removeStudent, updateStudentAccessTier, updateStudentGrades, updateStudentName, updateStudentStatus } from '@/lib/api'
+import { listStudents, createStudent, approveStudent, removeStudent, updateStudentAccessTier, updateStudentGlobalStatus, updateStudentGrades, updateStudentName, updateStudentStatus } from '@/lib/api'
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
@@ -58,11 +58,14 @@ function StudentRowActions({
   onApprove,
   onRename,
   onToggleStatus,
+  onGlobalStatus,
+  isPlatformAdmin,
   onRemove,
   t,
 }) {
   const displayName = student.name || student.phone
   const isPending = student.status === 'pending'
+  const hasProgrammes = Array.isArray(student.grades) && student.grades.length > 0
   const actionVariant = isPending ? 'default' : 'outline'
   const menuButtonClassName = isPending
     ? 'w-9 rounded-l-none border-l border-primary-foreground/25 px-0'
@@ -85,7 +88,7 @@ function StudentRowActions({
             size="sm"
             variant={actionVariant}
             onClick={() => onApprove(student.id)}
-            disabled={approvingId === student.id}
+            disabled={approvingId === student.id || !hasProgrammes || student.globally_disabled}
           >
             {approvingId === student.id ? (
               <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
@@ -100,7 +103,7 @@ function StudentRowActions({
             variant={actionVariant}
             aria-label={toggleAriaLabel}
             onClick={() => onToggleStatus(student)}
-            disabled={updatingStatusId === student.id}
+            disabled={updatingStatusId === student.id || (student.status === 'disabled' && (!hasProgrammes || student.globally_disabled))}
           >
             {updatingStatusId === student.id ? (
               <Spinner data-icon="inline-start" aria-label={t('common.loading')} />
@@ -124,6 +127,15 @@ function StudentRowActions({
             <DropdownMenuItem onSelect={() => onRename(student)} aria-label={t('teacher.students.renameNamed', { name: displayName })}>
               {t('teacher.students.rename')}
             </DropdownMenuItem>
+            {isPlatformAdmin ? (
+              <DropdownMenuItem
+                variant={student.globally_disabled ? undefined : 'destructive'}
+                onSelect={() => onGlobalStatus(student)}
+                aria-label={t(student.globally_disabled ? 'teacher.students.restoreGlobalNamed' : 'teacher.students.disableGlobalNamed', { name: displayName })}
+              >
+                {t(student.globally_disabled ? 'teacher.students.restoreGlobal' : 'teacher.students.disableGlobal')}
+              </DropdownMenuItem>
+            ) : null}
             {student.status === 'pending' ? (
               <DropdownMenuItem
                 onSelect={() => onToggleStatus(student)}
@@ -149,7 +161,7 @@ function StudentRowActions({
 
 export default function TeacherStudentsPage() {
   const { t, i18n } = useTranslation()
-  const { token } = useAuth()
+  const { token, user, isPlatformAdmin, workspace } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestIdRef = useRef(0)
   const nameInputRef = useRef(null)
@@ -174,6 +186,10 @@ export default function TeacherStudentsPage() {
   const [renameError, setRenameError] = useState('')
   const [isRenaming, setIsRenaming] = useState(false)
   const [removingStudent, setRemovingStudent] = useState(null)
+  const [globalStatusStudent, setGlobalStatusStudent] = useState(null)
+  const [globalStatusConfirmation, setGlobalStatusConfirmation] = useState('')
+  const [globalStatusError, setGlobalStatusError] = useState('')
+  const [isUpdatingGlobalStatus, setIsUpdatingGlobalStatus] = useState(false)
   const [removeConfirmation, setRemoveConfirmation] = useState('')
   const [removeError, setRemoveError] = useState('')
   const [isRemoving, setIsRemoving] = useState(false)
@@ -266,6 +282,40 @@ export default function TeacherStudentsPage() {
     setRemoveError('')
   }
 
+  function handleGlobalStatusDialogChange(open) {
+    if (isUpdatingGlobalStatus) return
+    if (!open) {
+      setGlobalStatusStudent(null)
+      setGlobalStatusConfirmation('')
+      setGlobalStatusError('')
+    }
+  }
+
+  function openGlobalStatusDialog(student) {
+    setGlobalStatusStudent(student)
+    setGlobalStatusConfirmation('')
+    setGlobalStatusError('')
+  }
+
+  async function handleGlobalStatus(event) {
+    event.preventDefault()
+    if (globalStatusConfirmation !== 'GLOBAL') return
+    setIsUpdatingGlobalStatus(true)
+    setGlobalStatusError('')
+    try {
+      const disabled = !globalStatusStudent.globally_disabled
+      await updateStudentGlobalStatus(token, globalStatusStudent.id, { disabled })
+      toast.success(t(disabled ? 'teacher.students.globalDisabledFallback' : 'teacher.students.globalRestoredFallback'))
+      setGlobalStatusStudent(null)
+      setGlobalStatusConfirmation('')
+      await loadStudents()
+    } catch (error) {
+      setGlobalStatusError(error.message)
+    } finally {
+      setIsUpdatingGlobalStatus(false)
+    }
+  }
+
   async function handleRemove(event) {
     event.preventDefault()
     if (removeConfirmation !== 'REMOVE') return
@@ -318,7 +368,9 @@ export default function TeacherStudentsPage() {
       setPhone('')
       setNewStudentGrades([...DEFAULT_STUDENT_GRADES])
       setNewStudentAccessTier('standard')
-      setSuccessMessage(res.message || t('teacher.students.createdFallback'))
+      setSuccessMessage(res.data?.defaultPassword
+        ? t('common.newStudentPassword', { password: res.data.defaultPassword })
+        : t('teacher.students.createdFallback'))
       await loadStudents()
     } catch (err) {
       setCreateError(err.message)
@@ -424,12 +476,16 @@ export default function TeacherStudentsPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t('teacher.students.title')} description={t('teacher.students.description')} />
+      <p className="text-sm text-muted-foreground">
+        {workspace?.id === 'english' ? t('common.englishSite') : t('common.mathsSite')}
+        {' · '}{t('common.workspaceStudentControls')}
+      </p>
 
       <Card>
         <CardHeader className="pb-4">
           <CardTitle className="text-lg">{t('teacher.students.createTitle')}</CardTitle>
           <CardDescription>
-            {t('teacher.students.createDescription')}
+            {t('common.newStudentDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -502,7 +558,7 @@ export default function TeacherStudentsPage() {
 
       <Card>
         <CardHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <CardTitle className="text-lg">{t('teacher.students.listTitle')}</CardTitle>
             <div className="flex gap-1">
               {STATUS_FILTERS.map((status) => (
@@ -589,7 +645,7 @@ export default function TeacherStudentsPage() {
                 {visibleStudents.map((student) => (
                   <div
                     key={student.id}
-                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-3 rounded-lg border p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center"
+                    className="grid min-w-0 grid-cols-1 gap-3 rounded-lg border p-3 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto] sm:items-center"
                   >
                     <label className="flex size-12 cursor-pointer items-center justify-center self-start sm:self-center">
                       <span className="sr-only">
@@ -601,7 +657,7 @@ export default function TeacherStudentsPage() {
                       />
                     </label>
                     <div className="min-w-0">
-                      <p className="min-w-0 truncate font-medium">
+                      <p className="min-w-0 break-words font-medium">
                         {student.name || t('teacher.students.nameMissing')}
                       </p>
                       <p className="mt-1 min-w-0 truncate font-mono text-sm text-muted-foreground">{student.phone}</p>
@@ -610,6 +666,11 @@ export default function TeacherStudentsPage() {
                         grades={student.grades}
                         emptyText={t('teacher.students.noGrades')}
                       />
+                      {student.status !== 'active' && !student.grades?.length ? (
+                        <p className="mt-2 text-xs text-warning">
+                          {t('teacher.students.assignProgrammesBeforeApproval')}
+                        </p>
+                      ) : null}
                       <div className="mt-2">
                         <AccessTierBadge tier={student.access_tier} />
                       </div>
@@ -620,6 +681,11 @@ export default function TeacherStudentsPage() {
                     <Badge className="w-fit" variant={STATUS_VARIANT[student.status] || 'outline'}>
                       {t(`teacher.students.${student.status}`, { defaultValue: student.status })}
                     </Badge>
+                    {student.globally_disabled ? (
+                      <Badge className="w-fit" variant="destructive">
+                        {t('teacher.students.globallyDisabled')}
+                      </Badge>
+                    ) : null}
                     <StudentRowActions
                       student={student}
                       approvingId={approvingId}
@@ -627,6 +693,8 @@ export default function TeacherStudentsPage() {
                       onApprove={handleApprove}
                       onRename={openRenameDialog}
                       onToggleStatus={handleToggleStatus}
+                      onGlobalStatus={openGlobalStatusDialog}
+                      isPlatformAdmin={isPlatformAdmin && student.platform_role === 'user' && student.id !== user.id}
                       onRemove={openRemoveDialog}
                       t={t}
                     />
@@ -641,14 +709,14 @@ export default function TeacherStudentsPage() {
       <Dialog open={Boolean(renamingStudent)} onOpenChange={handleRenameDialogChange}>
         <DialogContent closeLabel={t('common.close')}>
           <DialogHeader>
-            <DialogTitle>{t('teacher.students.renameTitle')}</DialogTitle>
+            <DialogTitle className="pr-12">{t('teacher.students.renameTitle')}</DialogTitle>
             <DialogDescription>
               {t('teacher.students.renameDescription', { phone: renamingStudent?.phone })}
             </DialogDescription>
           </DialogHeader>
           <form id="rename-student-form" noValidate onSubmit={handleRename} className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="renamed-student-name">{t('teacher.students.name')}</Label>
+              <Label htmlFor="renamed-student-name">{t('common.workspaceDisplayName')}</Label>
               <Input
                 id="renamed-student-name"
                 name="name"
@@ -722,6 +790,55 @@ export default function TeacherStudentsPage() {
             </Button>
             <Button type="submit" form="remove-student-form" variant="destructive" disabled={isRemoving || removeConfirmation !== 'REMOVE'}>
               {isRemoving ? t('teacher.students.removing') : t('teacher.students.confirmRemove')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(globalStatusStudent)} onOpenChange={handleGlobalStatusDialogChange}>
+        <DialogContent closeLabel={t('common.close')}>
+          <DialogHeader>
+            <DialogTitle>
+              {t(globalStatusStudent?.globally_disabled ? 'teacher.students.restoreGlobalTitle' : 'teacher.students.disableGlobalTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t(globalStatusStudent?.globally_disabled ? 'teacher.students.restoreGlobalDescription' : 'teacher.students.disableGlobalDescription', {
+                name: globalStatusStudent?.name || globalStatusStudent?.phone,
+              })}
+            </DialogDescription>
+          </DialogHeader>
+          <form id="global-status-form" noValidate onSubmit={handleGlobalStatus} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="global-status-confirmation">{t('teacher.students.globalStatusInstruction')}</Label>
+              <Input
+                id="global-status-confirmation"
+                name="confirmation"
+                type="text"
+                autoComplete="off"
+                aria-invalid={Boolean(globalStatusError)}
+                aria-describedby={globalStatusError ? 'global-status-error' : undefined}
+                value={globalStatusConfirmation}
+                onChange={(event) => {
+                  setGlobalStatusConfirmation(event.target.value)
+                  if (globalStatusError) setGlobalStatusError('')
+                }}
+                disabled={isUpdatingGlobalStatus}
+              />
+            </div>
+            {globalStatusError && (
+              <p id="global-status-error" role="alert" className="text-sm text-destructive">
+                {globalStatusError}
+              </p>
+            )}
+          </form>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => handleGlobalStatusDialogChange(false)} disabled={isUpdatingGlobalStatus}>
+              {t('teacher.students.cancel')}
+            </Button>
+            <Button type="submit" form="global-status-form" variant={globalStatusStudent?.globally_disabled ? 'default' : 'destructive'} disabled={isUpdatingGlobalStatus || globalStatusConfirmation !== 'GLOBAL'}>
+              {isUpdatingGlobalStatus
+                ? t('teacher.students.updatingGlobalStatus')
+                : t(globalStatusStudent?.globally_disabled ? 'teacher.students.confirmRestoreGlobal' : 'teacher.students.confirmDisableGlobal')}
             </Button>
           </DialogFooter>
         </DialogContent>

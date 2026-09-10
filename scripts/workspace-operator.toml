@@ -1,0 +1,10 @@
+# Used only by workspace-release.mjs. --local disables remote bindings explicitly.
+name = "smartclass-workspace-operator"
+compatibility_date = "2026-03-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "smartclass"
+database_id = "34265c7a-6455-4e0c-a166-e0b87e2e8eee"
+migrations_dir = "../worker/db/migrations"
+remote = true

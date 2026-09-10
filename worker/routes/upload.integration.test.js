@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll } from 'vitest'
-import app from '../index.js'
+import { app } from '../test/helpers.js'
 import { seedTeacher, loginAsTeacher, createExercise } from '../test/helpers.js'
 
 let token

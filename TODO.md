@@ -10,6 +10,19 @@ Priorities apply within each version:
 
 ## v0.6: Guest mode and launch readiness
 
+### Separate maths and English workspaces
+
+Follow [RFC-17: teaching workspaces](docs/plans/RFC-17-2026-09-09-teaching-workspaces.md) for the access rules, migration stages and acceptance tests.
+
+- [ ] **P0** Make prepared workspace ownership and membership storage authoritative at access cutover, including required content ownership
+- [ ] **P0** Approve the [workspace release window](docs/plans/RFC-17-stage-3-release.md), verify API domains and Google settings, and record the reviewed release commit and D1 restore bookmark
+- [ ] **P0** Run the approved migration and verify isolated access on `toanthaythanh.com` and `tienganhcothuy.com`
+- [ ] **P1** Remove unmounted legacy routes and global teaching-access fields after stabilization and update product and schema documentation
+
+**Outcome:** students share credentials, each teacher manages one workspace, and Chinh administers both.
+
+### Guest access and operations
+
 - [ ] **P0** Let guests browse exercises without logging in and save exercise results in IndexedDB
 - [ ] **P0** Add structured production logging and monitoring
 - [ ] **P1** Plan guest exercise mode: design IndexedDB storage, route access, and a data model for anonymous exercise completion

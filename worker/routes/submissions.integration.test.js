@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll } from 'vitest'
-import app from '../index.js'
+import { app, setStudentGrades } from '../test/helpers.js'
 import {
   seedTeacher,
   loginAsTeacher,
@@ -22,12 +22,13 @@ beforeAll(async () => {
 async function createExercise(token, overrides = {}) {
   const created = await createUnreadyExercise(token, overrides)
   const sourceR2Key = `exercises/${created.id}/source.pdf`
+  await env.BUCKET.put(sourceR2Key, '%PDF-1.4 test source')
   const sourceFile = await env.DB.prepare(`
     insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
     values (?, 'exercise_pdf', ?, 'source.pdf', 100)
   `).bind(created.id, sourceR2Key).run()
   const teacher = await env.DB.prepare(
-    "select id from users where role = 'teacher' limit 1"
+    "select user_id as id from workspace_memberships where workspace_id = 'maths' and role = 'teacher' limit 1"
   ).first()
   const assetSet = await env.DB.prepare(`
     insert into exercise_question_asset_sets (
@@ -186,10 +187,7 @@ describe('POST /api/submissions', () => {
     const student = await env.DB.prepare(
       "SELECT id FROM users WHERE phone = '+84123456789'",
     ).first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
-    ])
+    await setStudentGrades(student.id, [10])
 
     const res = await app.request('/api/submissions', {
       method: 'POST',
@@ -696,6 +694,7 @@ describe('GET /api/submissions/:id', () => {
     const submissionId = (await createRes.json()).data.id
 
     // Insert a mock exercise_files record
+    await env.BUCKET.put('exercises/1/test.pdf', '%PDF-1.4 test source')
     await env.DB.prepare(`
       INSERT INTO exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
       VALUES (?, 'exercise_pdf', 'exercises/1/test.pdf', 'test.pdf', 1024)

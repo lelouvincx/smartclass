@@ -1,7 +1,7 @@
 const LECTURE_PROGRESS_PREFIX = 'smartclass-lecture-progress-v1'
 
-export function lectureProgressKey({ accountId, lectureId, videoId }) {
-  return `${LECTURE_PROGRESS_PREFIX}:${accountId}:${lectureId}:${videoId}`
+export function lectureProgressKey({ accountId, workspaceId, lectureId, videoId }) {
+  return `${LECTURE_PROGRESS_PREFIX}:${accountId}:${workspaceId}:${lectureId}:${videoId}`
 }
 
 function resolveStorage(storage) {

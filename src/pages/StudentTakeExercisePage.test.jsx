@@ -504,6 +504,23 @@ describe('StudentTakeExercisePage', () => {
     expect(exit).toHaveAttribute('data-variant', 'destructive')
   })
 
+  it('lets the selected MCQ clear control wrap without shrinking answer targets', async () => {
+    desktopViewport = false
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
+    getSubmissionMock.mockResolvedValue({ data: SUBMISSION })
+
+    renderPage()
+    const answer = await screen.findByLabelText('Question 1 option A')
+    await user.click(answer)
+
+    const clear = screen.getByRole('button', { name: /clear answer/i })
+    expect(clear.parentElement).toHaveClass('flex-wrap')
+    expect(answer).toHaveClass('min-w-[48px]')
+    await user.click(clear)
+    expect(answer).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('keeps only manual answer controls in the current answer card', async () => {
     getExerciseMock.mockResolvedValue({ data: EXERCISE_MCQ })
     getSubmissionMock.mockResolvedValue({ data: SUBMISSION })

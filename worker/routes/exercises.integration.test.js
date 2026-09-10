@@ -1,6 +1,6 @@
 import { env } from 'cloudflare:test'
 import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
-import app from '../index.js'
+import { app, setStudentGrades } from '../test/helpers.js'
 import {
   seedTeacher,
   loginAsTeacher,
@@ -49,6 +49,7 @@ describe('GET /api/exercises', () => {
 
   it('reports student readiness only for a confirmed active question asset set', async () => {
     const { id } = await createExercise(token, { title: 'Readiness Quiz' })
+    await env.BUCKET.put(`exercises/${id}/readiness.pdf`, '%PDF-1.4 test source')
     const file = await env.DB.prepare(`
       insert into exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
       values (?, 'exercise_pdf', ?, 'readiness.pdf', 100)
@@ -70,7 +71,7 @@ describe('GET /api/exercises', () => {
 
     await env.DB.prepare(`
       update exercise_question_asset_sets
-      set confirmed_by = (select id from users where role = 'teacher' limit 1),
+      set confirmed_by = (select user_id from workspace_memberships where workspace_id = 'maths' and role = 'teacher' limit 1),
           confirmed_at = current_timestamp
       where id = ?
     `).bind(pending.meta.last_row_id).run()
@@ -87,15 +88,13 @@ describe('GET /api/exercises', () => {
     const student = await env.DB.prepare(
       'SELECT id FROM users WHERE phone = ?',
     ).bind(phone).first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare("INSERT INTO student_grades (user_id, grade) VALUES (?, 'dgnl')").bind(student.id),
-    ])
+    await setStudentGrades(student.id, ['dgnl'])
     const studentToken = await loginAsStudent(phone)
     const matching = await createExercise(token, { title: 'ĐGNL quiz', grades: ['dgnl'] })
     const excluded = await createExercise(token, { title: 'Grade 12 quiz', grades: [12] })
 
     for (const exerciseId of [matching.id, excluded.id]) {
+      await env.BUCKET.put(`exercises/${exerciseId}/grade-list.pdf`, '%PDF-1.4 test source')
       const file = await env.DB.prepare(`
         INSERT INTO exercise_files (exercise_id, file_type, r2_key, file_name, file_size)
         VALUES (?, 'exercise_pdf', ?, 'grade-list.pdf', 100)
@@ -105,7 +104,7 @@ describe('GET /api/exercises', () => {
           exercise_id, source_file_id, detector_version, detection_method,
           confirmed_by, confirmed_at
         ) VALUES (?, ?, 'test-v1', 'text',
-          (SELECT id FROM users WHERE role = 'teacher' LIMIT 1), CURRENT_TIMESTAMP)
+          (select user_id from workspace_memberships where workspace_id = 'maths' and role = 'teacher' limit 1), CURRENT_TIMESTAMP)
       `).bind(exerciseId, file.meta.last_row_id).run()
       await env.DB.prepare(
         'UPDATE exercises SET active_question_asset_set_id = ? WHERE id = ?',
@@ -131,10 +130,7 @@ describe('GET /api/exercises', () => {
     const student = await env.DB.prepare(
       'SELECT id FROM users WHERE phone = ?',
     ).bind(phone).first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
-    ])
+    await setStudentGrades(student.id, [10])
     const studentToken = await loginAsStudent(phone)
     const exercise = await createStudentReadyExercise(token, {
       title: 'Grade 10 active attempt',
@@ -145,10 +141,7 @@ describe('GET /api/exercises', () => {
         exercise_id, user_id, mode, total_questions, started_at, question_asset_set_id
       ) VALUES (?, ?, 'untimed', 2, CURRENT_TIMESTAMP, ?)
     `).bind(exercise.id, student.id, exercise.assetSetId).run()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 11)').bind(student.id),
-    ])
+    await setStudentGrades(student.id, [11])
 
     const response = await app.request('/api/exercises', {
       headers: { Authorization: `Bearer ${studentToken}` },
@@ -429,14 +422,8 @@ describe('GET /api/exercises/:id', () => {
     const excludedStudent = await env.DB.prepare(
       "SELECT id FROM users WHERE phone = '+84900000072'",
     ).first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id IN (?, ?)')
-        .bind(matchingStudent.id, excludedStudent.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)')
-        .bind(matchingStudent.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 12)')
-        .bind(excludedStudent.id),
-    ])
+    await setStudentGrades(matchingStudent.id, [10])
+    await setStudentGrades(excludedStudent.id, [12])
     const matchingToken = await loginAsStudent('+84900000071')
     const excludedToken = await loginAsStudent('+84900000072')
     const { id, body } = await createStudentReadyExercise(token, { grades: [10, 11] })
@@ -478,20 +465,14 @@ describe('GET /api/exercises/:id', () => {
     const student = await env.DB.prepare(
       'SELECT id FROM users WHERE phone = ?',
     ).bind(studentPhone).first()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 10)').bind(student.id),
-    ])
+    await setStudentGrades(student.id, [10])
     const studentToken = await loginAsStudent(studentPhone)
     const { id } = await createExercise(token, { grades: [10] })
     await env.DB.prepare(`
       INSERT INTO submissions (exercise_id, user_id, mode, total_questions, started_at)
       VALUES (?, ?, 'untimed', 2, CURRENT_TIMESTAMP)
     `).bind(id, student.id).run()
-    await env.DB.batch([
-      env.DB.prepare('DELETE FROM student_grades WHERE user_id = ?').bind(student.id),
-      env.DB.prepare('INSERT INTO student_grades (user_id, grade) VALUES (?, 11)').bind(student.id),
-    ])
+    await setStudentGrades(student.id, [11])
 
     const response = await app.request(`/api/exercises/${id}`, {
       headers: { Authorization: `Bearer ${studentToken}` },

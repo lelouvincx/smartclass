@@ -9,7 +9,10 @@ import SettingsPage from './SettingsPage'
 
 const { authState, changePasswordMock, updateMyNameMock } = vi.hoisted(() => ({
   authState: {
-    user: { name: 'Nguyễn Văn An', phone: '+84900000001', role: 'teacher', google_email: null },
+    user: { name: 'Nguyễn Văn An', phone: '+84900000001', platform_role: 'user', google_email: null },
+    membership: { role: 'teacher', status: 'active' },
+    canManage: true,
+    defaultPath: '/teacher',
     token: 'token',
     refreshUser: vi.fn(),
   },
@@ -33,7 +36,10 @@ afterEach(() => {
   changePasswordMock.mockReset()
   updateMyNameMock.mockReset()
   authState.refreshUser.mockReset()
-  authState.user = { name: 'Nguyễn Văn An', phone: '+84900000001', role: 'teacher', google_email: null }
+  authState.user = { name: 'Nguyễn Văn An', phone: '+84900000001', platform_role: 'user', google_email: null }
+  authState.membership = { role: 'teacher', status: 'active' }
+  authState.canManage = true
+  authState.defaultPath = '/teacher'
   return act(() => changeLanguage('en'))
 })
 
@@ -52,6 +58,17 @@ async function expandSection(user, name) {
 }
 
 describe('SettingsPage sections', () => {
+  it('offers shared profile and Google settings without an active membership', async () => {
+    authState.membership = null
+    authState.canManage = false
+    renderPage()
+    await userEvent.click(screen.getByRole('button', { name: 'Profile settings' }))
+    expect(screen.getByLabelText('Shared profile name')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Connected accounts settings' }))
+    expect(screen.getByText('Google links are shared across both teaching sites.')).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Change password settings' })).not.toBeInTheDocument()
+  })
+
   it('starts collapsed and lets users independently expand and collapse each visible setting', async () => {
     const user = userEvent.setup()
     renderPage()
@@ -93,13 +110,15 @@ describe('SettingsPage sections', () => {
 describe('SettingsPage profile name', () => {
   it('lets a student rename themselves and refreshes their session profile', async () => {
     const user = userEvent.setup()
-    authState.user = { ...authState.user, role: 'student' }
+    authState.membership = { role: 'student', status: 'active' }
+    authState.canManage = false
+    authState.defaultPath = '/student'
     updateMyNameMock.mockResolvedValue({ data: { name: 'Nguyễn An' } })
     authState.refreshUser.mockResolvedValue()
     renderPage()
 
     await expandSection(user, 'Profile settings')
-    const nameInput = screen.getByRole('textbox', { name: 'Name' })
+    const nameInput = screen.getByRole('textbox', { name: 'Shared profile name' })
     expect(nameInput).toHaveValue('Nguyễn Văn An')
     expect(nameInput).toHaveAttribute('autocomplete', 'name')
     await user.clear(nameInput)
@@ -138,9 +157,12 @@ describe('SettingsPage teacher password change', () => {
     expect(screen.getByLabelText('New password')).toHaveAttribute('autocomplete', 'new-password')
     expect(screen.getByLabelText('Confirm new password')).toHaveAttribute('autocomplete', 'new-password')
     expect(screen.getByLabelText('New password')).toHaveAttribute('minlength', '3')
+    expect(screen.getByText('Changing your password changes sign-in on both teaching sites.')).toBeVisible()
 
     unmount()
-    authState.user = { ...authState.user, role: 'student' }
+    authState.membership = { role: 'student', status: 'active' }
+    authState.canManage = false
+    authState.defaultPath = '/student'
     renderPage()
     expect(screen.queryByLabelText('Current password')).not.toBeInTheDocument()
   })
