@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Add a web app manifest and SmartClass home-screen icons for standalone mobile installation. The app remains online-only, with no service worker or offline caching. [#134](https://github.com/lelouvincx/smartclass/pull/134)
 - Prepare isolated Maths and English teaching workspaces, interactive QA scenarios and the maintenance-first release workflow. Production cutover remains a separate approved operation. [#133](https://github.com/lelouvincx/smartclass/pull/133)
 - Document the maths and English workspace plan, shared-account rules, proposed platform administrator role, migration safeguards and acceptance tests in RFC-17. The feature remains planned, not shipped.
 - Record Stage 1 workspace research, the 50-route access inventory and a verified synthetic local database export/import rehearsal.
