@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Include the approved English curriculum mapping in one atomic maths-and-English backfill. Validate all 12 source videos, preserve access, and reject partial mappings without bypassing the deployment gate. Production application remains pending.
+- Include the approved English curriculum mapping in one atomic maths-and-English backfill. Validate all 12 source videos, preserve access, and reject partial mappings without bypassing the deployment gate. Production application remains pending. [#137](https://github.com/lelouvincx/smartclass/pull/137)
 - Organize reusable lectures by programme, topic, lesson and unit with independent access tiers, teacher management and reviewed local migration mapping. Production cutover remains pending. [#135](https://github.com/lelouvincx/smartclass/pull/135)
 - Keep route-guard tests offline by mocking dashboard lecture and submission requests. Reject unexpected network calls so missing mocks fail instead of stalling test-worker shutdown.
 - Clarify agent guidance for the pinned Node toolchain, thread-specific PR cleanup, page/API contract tests, and documentation skills. Permanently approve local SmartClass browser acceptance and replace the stale Cohere provisioning note with a credential presence probe.
