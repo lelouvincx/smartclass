@@ -45,8 +45,30 @@ describe('RegisterPage', () => {
     expect(password).toBeRequired()
     expect(confirmPassword).toBeRequired()
     expect(screen.getByRole('button', { name: 'Student programmes' })).toHaveTextContent('Grade 12')
+    expect(screen.getByText('Request 1 programme(s) with Standard access. Teachers review programmes separately from the access tier.')).toBeVisible()
     expect(screen.getByText('Use 0xxxxxxxxx or +84xxxxxxxxx format.')).toBeVisible()
     expect(screen.getByText('Maths · Thầy Thành')).toBeVisible()
+  })
+
+  it('lets the maths registration form explicitly request all five programmes', async () => {
+    const user = userEvent.setup()
+    registerMock.mockResolvedValue({ success: true })
+
+    render(<MemoryRouter><RegisterPage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText('Name'), 'THPT Student')
+    await user.type(screen.getByLabelText('Phone'), '+84900000005')
+    await user.type(screen.getByLabelText('Password'), 'abc')
+    await user.type(screen.getByLabelText('Confirm Password'), 'abc')
+    await user.click(screen.getByRole('button', { name: 'Student programmes' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'THPT' })).toBeInTheDocument()
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'All programmes' }))
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: 'Register' }))
+
+    expect(registerMock).toHaveBeenCalledWith(expect.objectContaining({
+      grades: [10, 11, 12, 'thpt', 'dgnl'],
+    }))
   })
 
   it('validates password confirmation', async () => {

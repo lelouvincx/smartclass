@@ -172,7 +172,7 @@ describe('workspace user creation', () => {
     const createdResponse = await api('maths', '', jsonOptions(teacher, {
       name: '  New Student  ',
       phone: '0900000230',
-      grades: [12, 'dgnl'],
+      grades: [12, 'thpt', 'dgnl'],
       access_tier: 'vip',
     }, 'POST'))
     expect(createdResponse.status).toBe(201)
@@ -187,7 +187,7 @@ describe('workspace user creation', () => {
         platform_role: 'user',
         status: 'active',
         access_tier: 'vip',
-        grades: [12, 'dgnl'],
+        grades: [12, 'thpt', 'dgnl'],
         defaultPassword: '123',
       },
     })
@@ -231,6 +231,21 @@ describe('workspace user membership mutations', () => {
     const tier = await api('maths', '/access-tier', jsonOptions(teacher, { student_ids: [201, 203], access_tier: 'standard' }))
     expect(tier.status).toBe(200)
     await expect(env.DB.prepare("select access_tier from workspace_memberships where workspace_id = 'maths' and user_id = 201").first('access_tier')).resolves.toBe('standard')
+  })
+
+  it('accepts THPT only for maths workspace membership mutations and leaves tier independent', async () => {
+    const mathsTeacher = await bearer(101, 'maths')
+    const englishTeacher = await bearer(102, 'english')
+
+    const maths = await api('maths', '/grades', jsonOptions(mathsTeacher, { student_ids: [201], grades: [10, 11, 12, 'thpt', 'dgnl'] }))
+    expect(maths.status).toBe(200)
+    await expect(maths.json()).resolves.toMatchObject({ data: { student_ids: [201], grades: [10, 11, 12, 'thpt', 'dgnl'] } })
+    await expect(env.DB.prepare("select access_tier from workspace_memberships where workspace_id = 'maths' and user_id = 201").first('access_tier')).resolves.toBe('vip')
+
+    const english = await api('english', '/grades', jsonOptions(englishTeacher, { student_ids: [201], grades: ['thpt'] }))
+    expect(english.status).toBe(400)
+    expect((await english.json()).error.message).toBe('grades must be a non-empty array containing only 10, 11, 12, or dgnl')
+    await expect(env.DB.prepare("select grade from workspace_membership_grades where membership_id = (select id from workspace_memberships where workspace_id = 'english' and user_id = 201) order by grade").all()).resolves.toMatchObject({ results: [{ grade: 11 }] })
   })
 
   it('updates only membership display name, disables only local membership, and preserves shared identity and attempts', async () => {

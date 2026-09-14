@@ -280,7 +280,32 @@ describe('TeacherStudentsPage', () => {
     expect(screen.getByLabelText('Name')).toBeRequired()
     expect(screen.getByPlaceholderText(/\+84xxx/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Student programmes' })).toHaveTextContent('Grade 12')
+    await userEvent.click(screen.getByRole('button', { name: 'Student programmes' }))
+    expect(screen.getByRole('menuitemcheckbox', { name: 'THPT' })).toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.getByText('1 programme(s) and Standard access will be saved separately.')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create student/i })).toBeInTheDocument()
+  })
+
+  it('can explicitly create a maths student with all five programmes without changing tier', async () => {
+    const user = userEvent.setup()
+    listStudentsMock.mockResolvedValue({ data: [] })
+    createStudentMock.mockResolvedValue({ data: { id: 4, defaultPassword: '123' } })
+
+    render(<MemoryRouter><TeacherStudentsPage /></MemoryRouter>)
+
+    await screen.findByText(/no students yet/i)
+    await user.type(screen.getByLabelText('Name'), 'THPT Student')
+    await user.type(screen.getByPlaceholderText(/\+84xxx/), '+84900000004')
+    await user.click(screen.getByRole('button', { name: 'Student programmes' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'All programmes' }))
+    await user.keyboard('{Escape}')
+    await user.click(screen.getByRole('button', { name: /create student/i }))
+
+    expect(createStudentMock).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      grades: [10, 11, 12, 'thpt', 'dgnl'],
+      access_tier: 'standard',
+    }))
   })
 
   it('creates a student and refreshes list', async () => {

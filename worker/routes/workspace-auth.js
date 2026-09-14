@@ -85,7 +85,7 @@ authRoutes.post('/register', async (c) => {
   const name = normalizeName(body?.name)
   const phone = normalizePhone(body?.phone)
   const password = body?.password
-  const parsedGrades = parseGrades(body?.grades)
+  const parsedGrades = parseGrades(body?.grades, { workspaceId: workspace(c).id })
 
   if (!name || typeof phone !== 'string' || !phone || typeof password !== 'string' || !password) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'Name, phone, and password are required.')
@@ -300,7 +300,7 @@ authRoutes.post('/join', requireWorkspaceIdentity, async (c) => {
   }
 
   const body = await c.req.json().catch(() => null)
-  const parsedGrades = parseGrades(body?.grades)
+  const parsedGrades = parseGrades(body?.grades, { workspaceId: workspace(c).id })
   if (parsedGrades.error) {
     return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
   }

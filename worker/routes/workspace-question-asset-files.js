@@ -56,8 +56,23 @@ questionAssetFilesRoutes.get('/:assetId', requireWorkspaceIdentity, async (c) =>
           limit 1
         `).bind(membership.id, asset.exercise_id).first()
       : null
-    if (!ownedSubmission && !currentGradeAccess) {
-      const code = asset.active_question_asset_set_id === asset.asset_set_id ? 'GRADE_ACCESS_DENIED' : 'FORBIDDEN'
+    const currentTierAccess = asset.active_question_asset_set_id === asset.asset_set_id
+      ? await c.env.DB.prepare(`
+          select 1
+          from exercises exercise
+          where exercise.id = ?
+            and case exercise.minimum_access_tier
+              when 'guest' then 1
+              when 'standard' then case when ? in ('standard', 'vip') then 1 else 0 end
+              when 'vip' then case when ? = 'vip' then 1 else 0 end
+              else 0
+            end
+          limit 1
+        `).bind(asset.exercise_id, membership.access_tier, membership.access_tier).first()
+      : null
+    if (!ownedSubmission && (!currentGradeAccess || !currentTierAccess)) {
+      let code = 'FORBIDDEN'
+      if (asset.active_question_asset_set_id === asset.asset_set_id) code = currentGradeAccess ? 'TIER_ACCESS_DENIED' : 'GRADE_ACCESS_DENIED'
       return jsonError(c, 403, code, 'You do not have access to this question image')
     }
   }

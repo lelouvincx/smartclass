@@ -49,11 +49,13 @@ export default {
   workspaceUnavailable: 'This workspace membership cannot open teaching content.',
   allGrades: 'All programmes',
   grade: 'Grade {{grade}}',
+  thpt: 'THPT',
   dgnl: 'ĐGNL',
   selectGrades: 'Select programmes',
   gradeAccess: 'Programme access',
   gradeAccessDescription: 'Choose every programme that can access this content.',
   gradeRequired: 'Select at least one programme.',
+  workspaceAccessSummary: 'Request {{programmes}} programme(s) with {{tier}} access. Teachers review programmes separately from the access tier.',
   accessTier: {
     guest: 'Guest',
     standard: 'Standard',

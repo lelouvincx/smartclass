@@ -44,6 +44,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
 import AnswerParseProgress from '@/components/answer-parse-progress'
 import { GradeDropdown } from '@/components/grade-checkbox-group'
+import AccessTierRadioGroup from '@/components/access-tier-radio-group'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
@@ -54,6 +55,7 @@ import { ProgressIndicator } from '@/design-system/progress-indicator'
 import { generateQuestionAssets } from '@/lib/question-generation'
 import ScrollToTopButton from '@/components/scroll-to-top-button'
 import ScoreAllocationInline from '@/components/score-allocation-inline'
+import { gradesForWorkspace } from '@/lib/grades'
 
 const LOW_CONFIDENCE_THRESHOLD = 0.75
 const BOOLEAN_SUB_IDS = ['a', 'b', 'c', 'd']
@@ -466,10 +468,12 @@ function fillMissingSourceNumberRows(rows) {
 export default function TeacherCreateExercisePage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const { token } = useAuth()
+  const { token, workspace } = useAuth()
+  const availableGrades = useMemo(() => gradesForWorkspace(workspace), [workspace])
 
   const [title, setTitle] = useState('')
   const [grades, setGrades] = useState([12])
+  const [minimumAccessTier, setMinimumAccessTier] = useState('standard')
   const [isTimed, setIsTimed] = useState(true)
   const [durationMinutes, setDurationMinutes] = useState(60)
   const [maxAttempts, setMaxAttempts] = useState(1)
@@ -785,6 +789,7 @@ export default function TeacherCreateExercisePage() {
       const payload = {
         title: title.trim(),
         grades,
+        minimum_access_tier: minimumAccessTier,
         is_timed: isTimed,
         duration_minutes: isTimed ? Number(durationMinutes) : 0,
         max_attempts: maxAttempts === null ? null : Number(maxAttempts),
@@ -904,6 +909,16 @@ export default function TeacherCreateExercisePage() {
                 description={t('common.gradeAccessDescription')}
                 value={grades}
                 onChange={setGrades}
+                grades={availableGrades}
+                disabled={isSaving}
+              />
+
+              <AccessTierRadioGroup
+                id="exercise-access-tier"
+                className="max-w-md md:col-span-2"
+                legend={t('teacher.create.minimumAccessTier')}
+                value={minimumAccessTier}
+                onChange={setMinimumAccessTier}
                 disabled={isSaving}
               />
 

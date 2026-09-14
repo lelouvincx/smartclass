@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldDescription, FieldGroup, FieldError, FieldLabel } from '@/components/ui/field'
-import { DEFAULT_STUDENT_GRADES } from '@/lib/grades'
+import { DEFAULT_STUDENT_GRADES, gradesForWorkspace } from '@/lib/grades'
 
 export default function RegisterPage() {
   const { t } = useTranslation()
   const site = getWorkspaceSiteForOrigin()
+  const availableGrades = gradesForWorkspace(site)
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
@@ -171,8 +172,15 @@ export default function RegisterPage() {
                     setInvalidField('')
                   }
                 }}
+                grades={availableGrades}
                 disabled={isSubmitting}
               />
+              <p className="text-sm text-muted-foreground">
+                {t('common.workspaceAccessSummary', {
+                  programmes: grades.length,
+                  tier: t('common.accessTier.standard'),
+                })}
+              </p>
 
               {error && <FieldError id="register-error">{error}</FieldError>}
               {successMessage && (

@@ -60,11 +60,11 @@ async function seedMembership({ userId, workspaceId, role = 'student', status = 
   return result.meta.last_row_id
 }
 
-async function seedExercise({ id, workspaceId, title, grades = [10], ready = true, createdBy = 101, maxAttempts = 1 }) {
+async function seedExercise({ id, workspaceId, title, grades = [10], ready = true, createdBy = 101, maxAttempts = 1, minimumAccessTier = 'standard' }) {
   await env.DB.prepare(`
-    insert into exercises (id, title, duration_minutes, max_attempts, allow_answer_pdf_download, created_by, workspace_id)
-    values (?, ?, 60, ?, 0, ?, ?)
-  `).bind(id, title, maxAttempts, createdBy, workspaceId).run()
+    insert into exercises (id, title, duration_minutes, max_attempts, allow_answer_pdf_download, minimum_access_tier, created_by, workspace_id)
+    values (?, ?, 60, ?, 0, ?, ?, ?)
+  `).bind(id, title, maxAttempts, minimumAccessTier, createdBy, workspaceId).run()
   await env.DB.batch([
     ...schema.map((row) => env.DB.prepare(`
       insert into answer_schemas (
@@ -150,6 +150,8 @@ async function seedFixture() {
   await seedUser({ id: 103, name: 'Platform Admin', phone: '+84900000103', platformRole: 'platform_admin' })
   await seedUser({ id: 201, name: 'Maths Student', phone: '+84900000201' })
   await seedMembership({ userId: 201, workspaceId: 'maths', grades: [10] })
+  await seedUser({ id: 206, name: 'VIP Maths Student', phone: '+84900000206' })
+  await seedMembership({ userId: 206, workspaceId: 'maths', accessTier: 'vip', grades: [12] })
   await seedUser({ id: 202, name: 'English Student', phone: '+84900000202' })
   await seedMembership({ userId: 202, workspaceId: 'english', grades: [11] })
   await seedUser({ id: 203, name: 'Pending Student', phone: '+84900000203' })
@@ -160,6 +162,7 @@ async function seedFixture() {
 
   await seedExercise({ id: 301, workspaceId: 'maths', title: 'Maths grade 10', grades: [10], createdBy: 101 })
   await seedExercise({ id: 302, workspaceId: 'maths', title: 'Maths grade 12', grades: [12], createdBy: 101 })
+  await seedExercise({ id: 303, workspaceId: 'maths', title: 'VIP grade 10', grades: [10], minimumAccessTier: 'vip', createdBy: 101 })
   await seedExercise({ id: 401, workspaceId: 'english', title: 'English grade 11', grades: [11], createdBy: 102 })
 }
 
@@ -204,7 +207,7 @@ describe('workspace exercises prepared router', () => {
   it('lists and details only current-workspace exercises, hides answers from students, and denies inactive or absent memberships', async () => {
     const mathsTeacher = await api('maths', '', authOptions(await bearer(101)))
     expect(mathsTeacher.status).toBe(200)
-    expect((await mathsTeacher.json()).data.map((exercise) => exercise.id)).toEqual([302, 301])
+    expect((await mathsTeacher.json()).data.map((exercise) => exercise.id)).toEqual([303, 302, 301])
 
     const englishTeacher = await api('english', '', authOptions(await bearer(102, 'english'), 'GET', undefined, 'http://english.test'))
     expect((await englishTeacher.json()).data.map((exercise) => exercise.id)).toEqual([401])
@@ -212,7 +215,7 @@ describe('workspace exercises prepared router', () => {
     const studentList = await api('maths', '', authOptions(await bearer(201)))
     const studentData = (await studentList.json()).data
     expect(studentData.map((exercise) => exercise.id)).toEqual([301])
-    expect(studentData[0]).toMatchObject({ can_start_attempt: 1, latest_attempt_number: 0, attempts_remaining: 1 })
+    expect(studentData[0]).toMatchObject({ can_start_attempt: 1, latest_attempt_number: 0, attempts_remaining: 1, minimum_access_tier: 'standard' })
 
     const detail = await api('maths', '/301', authOptions(await bearer(201)))
     expect(detail.status).toBe(200)
@@ -225,6 +228,24 @@ describe('workspace exercises prepared router', () => {
       expect(response.status).toBe(403)
       expect((await response.json()).error.code).toBe(code)
     }
+  })
+
+  it('requires both programme overlap and sufficient tier for fresh student list and detail reads', async () => {
+    const standardList = await api('maths', '', authOptions(await bearer(201)))
+    expect((await standardList.json()).data.map((exercise) => exercise.id)).toEqual([301])
+
+    const vipDetail = await api('maths', '/303', authOptions(await bearer(201)))
+    expect(vipDetail.status).toBe(403)
+    expect((await vipDetail.json()).error.code).toBe('TIER_ACCESS_DENIED')
+
+    const nonOverlappingVip = await api('maths', '/303', authOptions(await bearer(206)))
+    expect(nonOverlappingVip.status).toBe(403)
+    expect((await nonOverlappingVip.json()).error.code).toBe('GRADE_ACCESS_DENIED')
+
+    await env.DB.prepare("update workspace_memberships set access_tier = 'vip' where workspace_id = 'maths' and user_id = 201").run()
+    const upgraded = await api('maths', '/303', authOptions(await bearer(201)))
+    expect(upgraded.status).toBe(200)
+    expect((await upgraded.json()).data).toMatchObject({ id: 303, minimum_access_tier: 'vip', can_start_attempt: 1 })
   })
 
   it('returns foreign 404 before detail, update, delete, asset activation, or R2 disclosure', async () => {
@@ -247,7 +268,7 @@ describe('workspace exercises prepared router', () => {
     }, 'http://english.test'))
     expect(response.status).toBe(201)
     const created = (await response.json()).data
-    expect(created).toMatchObject({ title: 'English created', workspace_id: 'english', grades: [11], max_attempts: null, allow_answer_pdf_download: 1 })
+    expect(created).toMatchObject({ title: 'English created', workspace_id: 'english', grades: [11], max_attempts: null, allow_answer_pdf_download: 1, minimum_access_tier: 'standard' })
     await expect(env.DB.prepare('select workspace_id from exercises where id = ?').bind(created.id).first('workspace_id')).resolves.toBe('english')
 
     await env.DB.prepare(`
@@ -273,8 +294,61 @@ describe('workspace exercises prepared router', () => {
     await expect(env.DB.prepare("select count(*) from exercises where title = 'Rollback exercise'").first('count(*)')).resolves.toBe(0)
   })
 
+  it('accepts THPT only for maths exercises and keeps tier independent from programme grants', async () => {
+    const mathsTeacher = await bearer(101)
+    const created = await api('maths', '', authOptions(mathsTeacher, 'POST', {
+      title: 'Maths THPT',
+      is_timed: false,
+      max_attempts: 1,
+      minimum_access_tier: 'standard',
+      grades: [10, 11, 12, 'thpt', 'dgnl'],
+      schema,
+    }))
+    expect(created.status).toBe(201)
+    expect((await created.json()).data).toMatchObject({ grades: [10, 11, 12, 'thpt', 'dgnl'], minimum_access_tier: 'standard' })
+
+    const englishTeacher = await bearer(102, 'english')
+    const english = await api('english', '', authOptions(englishTeacher, 'POST', {
+      title: 'English THPT',
+      is_timed: false,
+      max_attempts: 1,
+      grades: ['thpt'],
+      schema,
+    }, 'http://english.test'))
+    expect(english.status).toBe(400)
+    expect((await english.json()).error.message).toBe('grades must be a non-empty array containing only 10, 11, 12, or dgnl')
+
+    const thptOnly = await api('maths', '/302', authOptions(mathsTeacher, 'PUT', { grades: ['thpt'] }))
+    expect(thptOnly.status).toBe(200)
+    const blocked = await api('maths', '/302', authOptions(await bearer(201)))
+    expect(blocked.status).toBe(403)
+    expect((await blocked.json()).error.code).toBe('GRADE_ACCESS_DENIED')
+  })
+
+  it('rejects invalid exercise tiers on create and update without mutating rows', async () => {
+    const token = await bearer(101)
+    for (const minimum_access_tier of ['guest', 'invalid']) {
+      const create = await api('maths', '', authOptions(token, 'POST', {
+        title: `Bad ${minimum_access_tier}`,
+        is_timed: false,
+        max_attempts: 1,
+        minimum_access_tier,
+        grades: [10],
+        schema,
+      }))
+      expect(create.status).toBe(400)
+      expect((await create.json()).error.code).toBe('VALIDATION_ERROR')
+    }
+    expect(await env.DB.prepare("select count(*) as count from exercises where title like 'Bad %'").first('count')).toBe(0)
+
+    const before = await env.DB.prepare('select title, minimum_access_tier from exercises where id = 301').first()
+    const update = await api('maths', '/301', authOptions(token, 'PUT', { title: 'Should not change', minimum_access_tier: 'guest' }))
+    expect(update.status).toBe(400)
+    expect(await env.DB.prepare('select title, minimum_access_tier from exercises where id = 301').first()).toEqual(before)
+  })
+
   it('updates metadata, grades, schema-compatible active allocation, and confirms active sets only inside current workspace', async () => {
-    const pending = await seedExercise({ id: 303, workspaceId: 'maths', title: 'Pending activate', grades: [10], ready: false, createdBy: 101 })
+    const pending = await seedExercise({ id: 304, workspaceId: 'maths', title: 'Pending activate', grades: [10], ready: false, createdBy: 101 })
     await env.BUCKET.put(`exercises/${pending.id}/source.pdf`, '%PDF-1.4 source')
     await Promise.all(schema.map(row => env.BUCKET.put(`pending/${pending.id}/${row.q_id}.png`, new Uint8Array([1, 2, 3]))))
     const sourceFile = await env.DB.prepare(`
@@ -296,17 +370,18 @@ describe('workspace exercises prepared router', () => {
         r2_key, mime_type, file_size, pixel_width, pixel_height, confidence
       ) values (?, ?, 0, 'pdf_crop', 1, 0, 0, 0.5, 0.5, ?, 'image/png', 100, 100, 100, 0.99)
     `).bind(assetSet.meta.last_row_id, row.q_id, `pending/${pending.id}/${row.q_id}.png`)))
-    const response = await api('maths', '/303', authOptions(await bearer(101), 'PUT', {
+    const response = await api('maths', '/304', authOptions(await bearer(101), 'PUT', {
       title: 'Activated maths',
       is_timed: false,
       max_attempts: 2,
+      minimum_access_tier: 'vip',
       grades: [12],
       question_asset_set_id: assetSet.meta.last_row_id,
       schema,
     }))
     expect(response.status).toBe(200)
-    expect((await response.json()).data).toMatchObject({ title: 'Activated maths', is_timed: 0, max_attempts: 2, grades: [12] })
-    await expect(env.DB.prepare('select active_question_asset_set_id from exercises where id = 303').first('active_question_asset_set_id')).resolves.toBe(assetSet.meta.last_row_id)
+    expect((await response.json()).data).toMatchObject({ title: 'Activated maths', is_timed: 0, max_attempts: 2, minimum_access_tier: 'vip', grades: [12] })
+    await expect(env.DB.prepare('select active_question_asset_set_id from exercises where id = 304').first('active_question_asset_set_id')).resolves.toBe(assetSet.meta.last_row_id)
   })
 
   it('keeps pinned in-progress history visible after programme changes and blocks new foreign workspace access', async () => {

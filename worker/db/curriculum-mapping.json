@@ -1,0 +1,95 @@
+{
+  "workspace_id": "maths",
+  "reviewer": "Chinh",
+  "reviewed_at": "2026-09-13",
+  "expected_source_order": [1, 2, 3, 4, 5, 6],
+  "topics": [
+    { "key": "g10-vecto", "programme": 10, "title": "Vectơ", "order_index": 0 },
+    { "key": "g10-chuyen-de-1", "programme": 10, "title": "Chuyên đề 1", "order_index": 1 },
+    { "key": "g11-on-tap-va-kiem-tra", "programme": 11, "title": "Ôn tập và kiểm tra", "order_index": 0 },
+    { "key": "g12-chuyen-de-1", "programme": 12, "title": "Chuyên đề 1", "order_index": 0 },
+    { "key": "dgnl-chuyen-de-1", "programme": "dgnl", "title": "Chuyên đề 1", "order_index": 0 }
+  ],
+  "lessons": [
+    { "key": "g10-cac-phep-toan-tren-vecto", "topic_key": "g10-vecto", "title": "Các phép toán trên vectơ", "order_index": 0 },
+    { "key": "g10-bai-5-on-kiem-tra-15-phut", "topic_key": "g10-chuyen-de-1", "title": "Bài 5: Ôn kiểm tra 15 phút", "order_index": 0 },
+    { "key": "g11-on-giua-ki-1", "topic_key": "g11-on-tap-va-kiem-tra", "title": "Ôn giữa kì 1", "order_index": 0 },
+    { "key": "g12-ham-so", "topic_key": "g12-chuyen-de-1", "title": "Hàm số", "order_index": 0 },
+    { "key": "dgnl-ham-so", "topic_key": "dgnl-chuyen-de-1", "title": "Hàm số", "order_index": 0 }
+  ],
+  "lectures": [
+    {
+      "id": 1,
+      "title": "Chương 2 - Bài 3 - Các phép toán trên vecto - Tiết 1",
+      "youtube_url": "https://www.youtube.com/watch?v=e8HFyBr2Szs",
+      "minimum_access_tier": "standard",
+      "is_visible": 1,
+      "programmes": [10],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-cac-phep-toan-tren-vecto", "order_index": 0 }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "ĐGNL 2027 Lớp 12 - Buổi 17",
+      "youtube_url": "https://www.youtube.com/watch?v=YbZisBWeJTo",
+      "minimum_access_tier": "guest",
+      "is_visible": 1,
+      "programmes": [12, "dgnl"],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g12-ham-so", "order_index": 0 },
+        { "lesson_key": "dgnl-ham-so", "order_index": 0 }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Lớp 10 - Chương 1 - Ôn kiểm tra 15 phút",
+      "youtube_url": "https://youtu.be/qh3feEwyqhs",
+      "minimum_access_tier": "guest",
+      "is_visible": 1,
+      "programmes": [10],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-bai-5-on-kiem-tra-15-phut", "order_index": 0 }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Lớp 11 - Ôn giữa kì 1 lần 1",
+      "youtube_url": "https://youtu.be/opcwvFe9fwA",
+      "minimum_access_tier": "guest",
+      "is_visible": 1,
+      "programmes": [11],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g11-on-giua-ki-1", "order_index": 0 }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Lớp 11 - Ôn giữa kì 1 lần 2",
+      "youtube_url": "https://youtu.be/mfB6L_wIGmI",
+      "minimum_access_tier": "guest",
+      "is_visible": 1,
+      "programmes": [11],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g11-on-giua-ki-1", "order_index": 1 }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Lớp 11 - Ôn giữa kì 1 lần 3",
+      "youtube_url": "https://youtu.be/iT4uk8PBFvk",
+      "minimum_access_tier": "guest",
+      "is_visible": 1,
+      "programmes": [11],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g11-on-giua-ki-1", "order_index": 2 }
+      ]
+    }
+  ]
+}

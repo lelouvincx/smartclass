@@ -20,10 +20,13 @@ function slugify(value) {
     .replace(/^-|-$/g, '')
 }
 
-export function getLecturePath(lecture, audience = 'student') {
+export function getLecturePath(lecture, audience = 'student', placementId = null) {
   const titleSlug = slugify(lecture.title) || 'lecture'
   const prefix = audience === 'guest' ? '' : `/${audience}`
-  return `${prefix}/lectures/${lecture.id}-${titleSlug}`
+  const path = `${prefix}/lectures/${lecture.id}-${titleSlug}`
+  if (!placementId) return path
+  const params = new URLSearchParams({ placement: String(placementId) })
+  return `${path}?${params}`
 }
 
 export function getLectureIdFromSlug(value) {

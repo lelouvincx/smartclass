@@ -333,6 +333,107 @@ export function listLectures(token) {
   })
 }
 
+export function listCurriculum(token, programme) {
+  const params = new URLSearchParams({ programme: String(programme) })
+  return request(`/api/curriculum?${params}`, {
+    headers: token ? authHeaders(token) : {},
+  })
+}
+
+export function getCurriculumLesson(token, lessonId) {
+  return request(`/api/curriculum/lessons/${lessonId}`, {
+    headers: token ? authHeaders(token) : {},
+  })
+}
+
+export function createCurriculumTopic(token, payload) {
+  return request('/api/curriculum/topics', {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateCurriculumTopic(token, id, payload) {
+  return request(`/api/curriculum/topics/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteCurriculumTopic(token, id, expectedRevision) {
+  return request(`/api/curriculum/topics/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ expected_revision: expectedRevision }),
+  })
+}
+
+export function createCurriculumLesson(token, payload) {
+  return request('/api/curriculum/lessons', {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateCurriculumLesson(token, id, payload) {
+  return request(`/api/curriculum/lessons/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteCurriculumLesson(token, id, expectedRevision) {
+  return request(`/api/curriculum/lessons/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ expected_revision: expectedRevision }),
+  })
+}
+
+export function createCurriculumPlacement(token, payload) {
+  return request('/api/curriculum/placements', {
+    method: 'POST',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateCurriculumPlacement(token, id, payload) {
+  return request(`/api/curriculum/placements/${id}`, {
+    method: 'PUT',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteCurriculumPlacement(token, id, expectedRevision) {
+  return request(`/api/curriculum/placements/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify({ expected_revision: expectedRevision }),
+  })
+}
+
+export function updateCurriculumOrder(token, payload) {
+  return request('/api/curriculum/order', {
+    method: 'PUT',
+    headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getLecture(token, id, placementId) {
+  const params = new URLSearchParams()
+  if (placementId) params.set('placement', String(placementId))
+  return request(`/api/lectures/${id}${params.toString() ? `?${params}` : ''}`, {
+    headers: token ? authHeaders(token) : {},
+  })
+}
+
 export function createLecture(token, payload) {
   return request('/api/lectures', {
     method: 'POST',
@@ -363,10 +464,16 @@ export function updateLectureOrder(token, ids) {
   })
 }
 
-export function deleteLecture(token, id) {
+export function deleteLecture(token, id, expectedRevision) {
+  const options = expectedRevision === undefined
+    ? { headers: authHeaders(token) }
+    : {
+        headers: authHeaders(token, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ expected_revision: expectedRevision }),
+      }
   return request(`/api/lectures/${id}`, {
     method: 'DELETE',
-    headers: authHeaders(token),
+    ...options,
   })
 }
 

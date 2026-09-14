@@ -49,11 +49,13 @@ export default {
   workspaceUnavailable: 'Tư cách thành viên này không thể mở nội dung học.',
   allGrades: 'Tất cả chương trình',
   grade: 'Khối {{grade}}',
+  thpt: 'THPT',
   dgnl: 'ĐGNL',
   selectGrades: 'Chọn chương trình',
   gradeAccess: 'Chương trình được truy cập',
   gradeAccessDescription: 'Chọn tất cả chương trình được phép truy cập nội dung này.',
   gradeRequired: 'Chọn ít nhất một chương trình.',
+  workspaceAccessSummary: 'Xin học {{programmes}} chương trình với gói {{tier}}. Giáo viên xét chương trình riêng với gói truy cập.',
   accessTier: {
     guest: 'Khách',
     standard: 'Tiêu chuẩn',

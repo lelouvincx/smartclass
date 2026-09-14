@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { extractAnswersFromImage, getSubmission, getSubmissionAnswerPdf, getSubmissionExercisePdf, joinWorkspace, listLectures, parseExerciseSchema, updateStudentGlobalStatus, uploadGeneratedQuestionAsset } from './api'
+import { createCurriculumPlacement, deleteCurriculumLesson, deleteCurriculumPlacement, deleteCurriculumTopic, deleteLecture, extractAnswersFromImage, getCurriculumLesson, getLecture, getSubmission, getSubmissionAnswerPdf, getSubmissionExercisePdf, joinWorkspace, listCurriculum, listLectures, parseExerciseSchema, updateCurriculumOrder, updateStudentGlobalStatus, uploadGeneratedQuestionAsset } from './api'
 
 describe('API errors', () => {
   afterEach(() => {
@@ -116,6 +116,65 @@ describe('API errors', () => {
       'http://maths-api.test/api/lectures',
       { headers: {} },
     )
+  })
+
+  it('uses wrapped curriculum endpoints with placement context and revisions', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ data: {} }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listCurriculum('student-token', 'thpt')
+    await getLecture('student-token', 7, 33)
+    await createCurriculumPlacement('teacher-token', { lesson_id: 4, lecture_id: 7, expected_revision: 12 })
+    await updateCurriculumOrder('teacher-token', { parent_type: 'lesson', parent_id: 4, ids: [2, 1], expected_revision: 12 })
+
+    expect(fetchMock.mock.calls.map(([url, options]) => [url, options.method || 'GET', options.headers, options.body && JSON.parse(options.body)])).toEqual([
+      ['http://maths-api.test/api/curriculum?programme=thpt', 'GET', { Authorization: 'Bearer student-token' }, undefined],
+      ['http://maths-api.test/api/lectures/7?placement=33', 'GET', { Authorization: 'Bearer student-token' }, undefined],
+      ['http://maths-api.test/api/curriculum/placements', 'POST', { Authorization: 'Bearer teacher-token', 'Content-Type': 'application/json' }, { lesson_id: 4, lecture_id: 7, expected_revision: 12 }],
+      ['http://maths-api.test/api/curriculum/order', 'PUT', { Authorization: 'Bearer teacher-token', 'Content-Type': 'application/json' }, { parent_type: 'lesson', parent_id: 4, ids: [2, 1], expected_revision: 12 }],
+    ])
+  })
+
+  it('omits credentials for public curriculum reads and preserves the returned resource envelope', async () => {
+    const data = { units: [{ placement_id: 73, lecture: { id: 6, title: 'Vectors' } }] }
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ data }))))
+    vi.stubGlobal('fetch', fetchMock)
+    expect(await getCurriculumLesson(null, 14)).toEqual({ data })
+    await listCurriculum(null, 'dgnl')
+    await getLecture(null, 6)
+    expect(fetchMock.mock.calls.map(([url, options]) => [url, options.headers])).toEqual([
+      ['http://maths-api.test/api/curriculum/lessons/14', {}],
+      ['http://maths-api.test/api/curriculum?programme=dgnl', {}],
+      ['http://maths-api.test/api/lectures/6', {}],
+    ])
+  })
+
+  it('carries revisions on all curriculum deletions and preserves legacy lecture deletion until cutover', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ data: {} }))))
+    vi.stubGlobal('fetch', fetchMock)
+    await deleteCurriculumTopic('teacher', 5, 0)
+    await deleteCurriculumLesson('teacher', 8, 21)
+    await deleteCurriculumPlacement('teacher', 13, 22)
+    await deleteLecture('teacher', 34, 23)
+    await deleteLecture('teacher', 55)
+    expect(fetchMock.mock.calls.map(([url, options]) => [url, options.method, options.body && JSON.parse(options.body)])).toEqual([
+      ['http://maths-api.test/api/curriculum/topics/5', 'DELETE', { expected_revision: 0 }],
+      ['http://maths-api.test/api/curriculum/lessons/8', 'DELETE', { expected_revision: 21 }],
+      ['http://maths-api.test/api/curriculum/placements/13', 'DELETE', { expected_revision: 22 }],
+      ['http://maths-api.test/api/lectures/34', 'DELETE', { expected_revision: 23 }],
+      ['http://maths-api.test/api/lectures/55', 'DELETE', undefined],
+    ])
+  })
+
+  it('rejects a stale reorder with its conflict code instead of returning success', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: 'CURRICULUM_CHANGED', message: 'Reload curriculum' },
+    }), { status: 409 })))
+    await expect(updateCurriculumOrder('teacher', { parent_type: 'lesson', parent_id: 8, ids: [13, 12], expected_revision: 2 }))
+      .rejects.toMatchObject({ status: 409, code: 'CURRICULUM_CHANGED' })
   })
 
   it('sends prepared Answer PDF pages as multipart data without setting Content-Type', async () => {

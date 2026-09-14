@@ -14,7 +14,9 @@ import { GRADES, hasAllGrades, sortGrades } from '@/lib/grades'
 import { cn } from '@/lib/utils'
 
 function gradeLabel(t, grade) {
-  return grade === 'dgnl' ? t('common.dgnl') : t('common.grade', { grade })
+  if (grade === 'dgnl') return t('common.dgnl')
+  if (grade === 'thpt') return t('common.thpt')
+  return t('common.grade', { grade })
 }
 
 export function GradeDropdown({
@@ -23,11 +25,12 @@ export function GradeDropdown({
   description,
   value,
   onChange,
+  grades = GRADES,
   disabled = false,
   className,
 }) {
   const { t } = useTranslation()
-  const allSelected = hasAllGrades(value)
+  const allSelected = hasAllGrades(value, grades)
   const descriptionId = description ? `${id}-description` : undefined
   const summary = allSelected
     ? t('common.allGrades')
@@ -38,7 +41,7 @@ export function GradeDropdown({
   function toggleGrade(grade) {
     const nextGrades = value.includes(grade)
       ? value.filter((item) => item !== grade)
-      : sortGrades([...value, grade])
+      : sortGrades([...value, grade], grades)
     onChange(nextGrades)
   }
 
@@ -66,14 +69,14 @@ export function GradeDropdown({
         <DropdownMenuContent align="start" className="min-w-[var(--radix-dropdown-menu-trigger-width)]">
           <DropdownMenuCheckboxItem
             checked={allSelected}
-            onCheckedChange={(checked) => onChange(checked ? [...GRADES] : [])}
+            onCheckedChange={(checked) => onChange(checked ? [...grades] : [])}
             onSelect={(event) => event.preventDefault()}
             className="min-h-[var(--sc-component-hit-target)] px-3 pr-9"
           >
             {t('common.allGrades')}
           </DropdownMenuCheckboxItem>
           <DropdownMenuSeparator />
-          {GRADES.map((grade) => (
+          {grades.map((grade) => (
             <DropdownMenuCheckboxItem
               key={grade}
               checked={value.includes(grade)}

@@ -134,7 +134,7 @@ async function rowForMember(c, userId) {
     order by workspace_membership_grades.grade
   `).bind(currentWorkspaceId(c), userId).all()
 
-  const [row] = attachGrades(rows.results, gradeRows.results, 'user_id')
+  const [row] = attachGrades(rows.results, gradeRows.results, 'user_id', { workspaceId: currentWorkspaceId(c) })
   return row ? { ...row, globally_disabled: Boolean(row.globally_disabled) } : null
 }
 
@@ -182,7 +182,7 @@ workspaceUsersRoutes.get('/', async (c) => {
     order by workspace_membership_grades.grade
   `).bind(currentWorkspaceId(c)).all()
 
-  return jsonSuccess(c, attachGrades(result.results, gradeResult.results, 'user_id').map((row) => ({
+  return jsonSuccess(c, attachGrades(result.results, gradeResult.results, 'user_id', { workspaceId: currentWorkspaceId(c) }).map((row) => ({
     ...row,
     globally_disabled: Boolean(row.globally_disabled),
   })))
@@ -192,7 +192,7 @@ workspaceUsersRoutes.post('/', async (c) => {
   const body = await c.req.json().catch(() => null)
   const name = normalizeName(body?.name)
   const phone = normalizePhone(body?.phone)
-  const parsedGrades = parseGrades(body?.grades)
+  const parsedGrades = parseGrades(body?.grades, { workspaceId: currentWorkspaceId(c) })
   const accessTier = body?.access_tier === undefined ? 'standard' : body.access_tier
 
   if (!name || typeof phone !== 'string' || !phone) {
@@ -249,7 +249,7 @@ workspaceUsersRoutes.post('/', async (c) => {
 workspaceUsersRoutes.put('/grades', async (c) => {
   const body = await c.req.json().catch(() => null)
   const studentIds = body?.student_ids
-  const parsedGrades = parseGrades(body?.grades)
+  const parsedGrades = parseGrades(body?.grades, { workspaceId: currentWorkspaceId(c) })
   if (!validateStudentIds(studentIds)) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'student_ids must be a non-empty array of unique positive integers.')
   }

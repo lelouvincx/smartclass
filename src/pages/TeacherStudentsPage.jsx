@@ -23,7 +23,7 @@ import {
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import { formatFullDate } from '@/lib/format'
-import { DEFAULT_STUDENT_GRADES } from '@/lib/grades'
+import { DEFAULT_STUDENT_GRADES, gradesForWorkspace } from '@/lib/grades'
 import {
   Dialog,
   DialogContent,
@@ -162,6 +162,7 @@ function StudentRowActions({
 export default function TeacherStudentsPage() {
   const { t, i18n } = useTranslation()
   const { token, user, isPlatformAdmin, workspace } = useAuth()
+  const availableGrades = gradesForWorkspace(workspace)
   const [searchParams, setSearchParams] = useSearchParams()
   const requestIdRef = useRef(0)
   const nameInputRef = useRef(null)
@@ -533,6 +534,7 @@ export default function TeacherStudentsPage() {
                 setNewStudentGrades(grades)
                 if (createError) setCreateError('')
               }}
+              grades={availableGrades}
               disabled={creating}
             />
             <AccessTierRadioGroup
@@ -543,6 +545,12 @@ export default function TeacherStudentsPage() {
               disabled={creating}
               className="lg:col-span-2"
             />
+            <p className="text-sm text-muted-foreground lg:col-span-2">
+              {t('teacher.students.accessSummary', {
+                programmes: newStudentGrades.length,
+                tier: t(`common.accessTier.${newStudentAccessTier}`),
+              })}
+            </p>
             <Button className="w-full sm:w-fit" type="submit" disabled={creating}>
               {creating ? t('teacher.students.creating') : t('teacher.students.create')}
             </Button>
@@ -612,6 +620,7 @@ export default function TeacherStudentsPage() {
                   legend={t('teacher.students.gradesToAssign')}
                   value={bulkGrades}
                   onChange={setBulkGrades}
+                  grades={availableGrades}
                   disabled={isAssigningGrades}
                 />
                 <Button
@@ -640,6 +649,12 @@ export default function TeacherStudentsPage() {
                     ? t('teacher.students.assigningAccessTier')
                     : t('teacher.students.assignAccessTier', { count: selectedStudentIds.length })}
                 </Button>
+                <p className="text-sm text-muted-foreground lg:col-start-2">
+                  {t('teacher.students.accessSummary', {
+                    programmes: bulkGrades.length,
+                    tier: t(`common.accessTier.${bulkAccessTier}`),
+                  })}
+                </p>
               </div>
               <div data-testid="responsive-student-list" className="grid gap-3" aria-label={t('teacher.students.listLabel')}>
                 {visibleStudents.map((student) => (

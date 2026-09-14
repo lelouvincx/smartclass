@@ -1,6 +1,6 @@
 import { sign } from 'hono/jwt'
 import { parseJwtDuration } from './auth.js'
-import { GRADES } from './grades.js'
+import { GRADES, MATHS_GRADES } from './grades.js'
 import { getWorkspaceSites } from './workspaces.js'
 
 function isPositiveSafeInteger(value) {
@@ -29,8 +29,8 @@ function assertWorkspaceId(workspaceId) {
   return workspaceId
 }
 
-function sortGrades(grades) {
-  return GRADES.filter((grade) => grades.includes(grade))
+function sortGrades(grades, workspaceId) {
+  return (workspaceId === 'maths' ? MATHS_GRADES : GRADES).filter((grade) => grades.includes(grade))
 }
 
 function configuredDestinations(env, workspaceIds) {
@@ -91,7 +91,7 @@ export async function loadWorkspaceAccount(db, userId, workspaceId) {
     `).bind(membership.id).all()
     membershipWithGrades = {
       ...membership,
-      grades: sortGrades(grades.results.map((row) => row.grade)),
+      grades: sortGrades(grades.results.map((row) => row.grade), normalizedWorkspaceId),
     }
   }
 

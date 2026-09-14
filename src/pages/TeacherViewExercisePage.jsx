@@ -6,6 +6,7 @@ import { createExerciseFileUpload, deleteExercise, getExercise, getExerciseFileB
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
+import AccessTierRadioGroup, { AccessTierBadge } from '@/components/access-tier-radio-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,7 +27,7 @@ import FileDropzone from '@/components/file-dropzone'
 import QuestionAssetWorkflow from '@/components/question-asset-workflow'
 import { TeacherExerciseSubmissions } from '@/components/teacher-exercise-submissions'
 import { formatDuration } from '@/lib/format'
-import { GRADES } from '@/lib/grades'
+import { GRADES, gradesForWorkspace } from '@/lib/grades'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
 import ScrollToTopButton from '@/components/scroll-to-top-button'
 
@@ -287,8 +288,9 @@ function ViewSchemaTable({ schema }) {
 export default function TeacherViewExercisePage() {
   const { t, i18n } = useTranslation()
   const { id } = useParams()
-  const { token } = useAuth()
+  const { token, workspace } = useAuth()
   const navigate = useNavigate()
+  const availableGrades = useMemo(() => gradesForWorkspace(workspace), [workspace])
 
   const [exercise, setExercise] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -304,6 +306,7 @@ export default function TeacherViewExercisePage() {
 
   const [editTitle, setEditTitle] = useState('')
   const [editGrades, setEditGrades] = useState([...GRADES])
+  const [editMinimumAccessTier, setEditMinimumAccessTier] = useState('standard')
   const [editIsTimed, setEditIsTimed] = useState(true)
   const [editDuration, setEditDuration] = useState(60)
   const [editMaxAttempts, setEditMaxAttempts] = useState(1)
@@ -337,6 +340,7 @@ export default function TeacherViewExercisePage() {
   function enterEditMode() {
     setEditTitle(exercise.title)
     setEditGrades(exercise.grades || [...GRADES])
+    setEditMinimumAccessTier(exercise.minimum_access_tier || 'standard')
     setEditIsTimed(exercise.is_timed === 1 || exercise.is_timed === true)
     setEditDuration(exercise.duration_minutes)
     setEditMaxAttempts(exercise.max_attempts)
@@ -447,6 +451,7 @@ export default function TeacherViewExercisePage() {
       const payload = {
         title: editTitle.trim(),
         grades: editGrades,
+        minimum_access_tier: editMinimumAccessTier,
         is_timed: editIsTimed,
         duration_minutes: editIsTimed ? Number(editDuration) : 0,
         max_attempts: editMaxAttempts === null ? null : Number(editMaxAttempts),
@@ -572,6 +577,15 @@ export default function TeacherViewExercisePage() {
                     description={t('common.gradeAccessDescription')}
                     value={editGrades}
                     onChange={setEditGrades}
+                    grades={availableGrades}
+                    disabled={isSaving}
+                  />
+                  <AccessTierRadioGroup
+                    id="edit-exercise-access-tier"
+                    className="max-w-md md:col-span-2"
+                    legend={t('teacher.create.minimumAccessTier')}
+                    value={editMinimumAccessTier}
+                    onChange={setEditMinimumAccessTier}
                     disabled={isSaving}
                   />
                   <AttemptLimitField
@@ -648,6 +662,7 @@ export default function TeacherViewExercisePage() {
                       {t(exercise.is_student_ready ? 'teacher.exercises.ready' : 'teacher.exercises.preparationRequired')}
                     </Badge>
                     <GradeBadges grades={exercise.grades} />
+                    <AccessTierBadge tier={exercise.minimum_access_tier} />
                     <span className="text-sm text-muted-foreground">
                       {t('teacher.view.questionCount', { count: new Set((exercise.schema || []).map((row) => row.q_id)).size })}
                     </span>

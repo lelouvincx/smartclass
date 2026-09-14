@@ -23,11 +23,11 @@ async function seedUser({ id, name, phone, legacyRole = 'student', platformRole 
   `).bind(id, name, phone, legacyRole, platformRole, disabledAt).run()
 }
 
-async function seedMembership({ userId, workspaceId, role = 'student', status = 'active', grades = [] }) {
+async function seedMembership({ userId, workspaceId, role = 'student', status = 'active', accessTier = 'standard', grades = [] }) {
   const result = await env.DB.prepare(`
     insert into workspace_memberships (workspace_id, user_id, role, status, access_tier)
-    values (?, ?, ?, ?, 'standard')
-  `).bind(workspaceId, userId, role, status).run()
+    values (?, ?, ?, ?, ?)
+  `).bind(workspaceId, userId, role, status, accessTier).run()
   if (grades.length > 0) {
     await env.DB.batch(grades.map((grade) => env.DB.prepare(`
       insert into workspace_membership_grades (membership_id, grade) values (?, ?)
@@ -35,11 +35,11 @@ async function seedMembership({ userId, workspaceId, role = 'student', status = 
   }
 }
 
-async function seedExercise({ id, workspaceId, title }) {
+async function seedExercise({ id, workspaceId, title, minimumAccessTier = 'standard' }) {
   await env.DB.prepare(`
-    insert into exercises (id, title, duration_minutes, created_by, workspace_id)
-    values (?, ?, 45, 101, ?)
-  `).bind(id, title, workspaceId).run()
+    insert into exercises (id, title, duration_minutes, created_by, workspace_id, minimum_access_tier)
+    values (?, ?, 45, 101, ?, ?)
+  `).bind(id, title, workspaceId, minimumAccessTier).run()
   await env.DB.prepare('insert into exercise_grades (exercise_id, grade) values (?, 10)').bind(id).run()
 }
 
@@ -147,6 +147,32 @@ describe('workspace file streaming', () => {
     }
   })
 
+  it('requires current tier for fresh question images but preserves owned pinned images', async () => {
+    await seedExercise({ id: 502, workspaceId: 'maths', title: 'VIP Maths', minimumAccessTier: 'vip' })
+    const file = await seedFile({ exerciseId: 502 })
+    const setId = await activate(502, file.fileId)
+    const key = 'exercises/502/question.png'
+    const bytes = new Uint8Array([9, 8, 7])
+    await env.BUCKET.put(key, bytes)
+    const image = await env.DB.prepare(`
+      insert into exercise_question_assets (asset_set_id, q_id, segment_index, source_kind, r2_key, mime_type, file_size, pixel_width, pixel_height)
+      values (?, 1, 0, 'teacher_screenshot', ?, 'image/png', 3, 1, 1)
+    `).bind(setId, key).run()
+    const path = `/api/question-assets/${image.meta.last_row_id}`
+
+    const denied = await api('maths', path, { headers: { Authorization: await bearer(201) } })
+    expect(denied.status).toBe(403)
+    expect((await denied.json()).error.code).toBe('TIER_ACCESS_DENIED')
+
+    await env.DB.prepare(`
+      insert into submissions (exercise_id, user_id, mode, question_asset_set_id)
+      values (502, 201, 'timed', ?)
+    `).bind(setId).run()
+    const pinned = await api('maths', path, { headers: { Authorization: await bearer(201) } })
+    expect(pinned.status).toBe(200)
+    expect(await pinned.arrayBuffer()).toEqual(bytes.buffer)
+  })
+
   it('keeps answer images teacher-only in their owning workspace', async () => {
     const file = await seedFile({ exerciseId: 501 })
     const setId = await activate(501, file.fileId)
@@ -186,6 +212,25 @@ describe('workspace file streaming', () => {
     const mismatchedProgramme = await api('english', `/api/files/${englishFileId}`, { headers: { Authorization: await bearer(201, 'english') } })
     expect(mismatchedProgramme.status).toBe(403)
     expect((await mismatchedProgramme.json()).error.code).toBe('GRADE_ACCESS_DENIED')
+  })
+
+  it('requires sufficient tier for current active PDFs without using historical attempts', async () => {
+    await seedExercise({ id: 502, workspaceId: 'maths', title: 'VIP Maths', minimumAccessTier: 'vip' })
+    const { fileId } = await seedFile({ exerciseId: 502, content: 'vip pdf' })
+    await activate(502, fileId)
+    await env.DB.prepare(`
+      insert into submissions (exercise_id, user_id, mode, question_asset_set_id)
+      values (502, 201, 'timed', (select active_question_asset_set_id from exercises where id = 502))
+    `).run()
+
+    const denied = await api('maths', `/api/files/${fileId}`, { headers: { Authorization: await bearer(201) } })
+    expect(denied.status).toBe(403)
+    expect((await denied.json()).error.code).toBe('TIER_ACCESS_DENIED')
+
+    await env.DB.prepare("update workspace_memberships set access_tier = 'vip' where workspace_id = 'maths' and user_id = 201").run()
+    const allowed = await api('maths', `/api/files/${fileId}`, { headers: { Authorization: await bearer(201) } })
+    expect(allowed.status).toBe(200)
+    expect(await allowed.text()).toBe('vip pdf')
   })
 
   it('denies foreign IDs, non-exercise PDFs, incomplete active source, stale active-set relation and inactive identities before R2 access', async () => {

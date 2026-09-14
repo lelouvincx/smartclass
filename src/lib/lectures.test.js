@@ -31,6 +31,15 @@ describe('lecture helpers', () => {
       .toBe('/teacher/lectures/7-teacher-preview')
   })
 
+  it('adds placement context without changing slugification', () => {
+    expect(getLecturePath({ id: 5, title: 'Understanding linear equations' }, 'student', 42))
+      .toBe('/student/lectures/5-understanding-linear-equations?placement=42')
+    expect(getLecturePath({ id: 6, title: 'Đồ thị và hàm số' }, 'guest', 12))
+      .toBe('/lectures/6-do-thi-va-ham-so?placement=12')
+    expect(getLecturePath({ id: 7, title: 'Teacher preview' }, 'teacher', null))
+      .toBe('/teacher/lectures/7-teacher-preview')
+  })
+
   it('reads the stable id from a lecture slug', () => {
     expect(getLectureIdFromSlug('5-understanding-linear-equations')).toBe(5)
     expect(getLectureIdFromSlug('understanding-linear-equations')).toBeNull()

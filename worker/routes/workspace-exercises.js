@@ -68,6 +68,12 @@ function isBooleanSetting(value) {
   return typeof value === 'boolean'
 }
 
+function validateExerciseMinimumAccessTier(value) {
+  if (value === undefined) return null
+  if (value === 'standard' || value === 'vip') return null
+  return 'minimum_access_tier must be standard or vip'
+}
+
 function toExerciseWithTiming(exercise) {
   if (!exercise) return exercise
   const { extract_model: _deprecatedExtractModel, ...currentExercise } = exercise
@@ -75,7 +81,7 @@ function toExerciseWithTiming(exercise) {
 }
 
 function withStudentAttemptState(exercise) {
-  const { has_grade_access: hasGradeAccess, ...publicExercise } = exercise
+  const { has_grade_access: hasGradeAccess, has_tier_access: hasTierAccess, ...publicExercise } = exercise
   const latestAttemptNumber = exercise.latest_attempt_number ?? 0
   const attemptsRemaining = exercise.max_attempts === null
     ? null
@@ -85,7 +91,7 @@ function withStudentAttemptState(exercise) {
     latest_attempt_number: latestAttemptNumber,
     next_attempt_number: latestAttemptNumber + 1,
     attempts_remaining: attemptsRemaining,
-    can_start_attempt: hasGradeAccess && exercise.is_student_ready && (attemptsRemaining === null || attemptsRemaining > 0) ? 1 : 0,
+    can_start_attempt: hasGradeAccess && hasTierAccess && exercise.is_student_ready && (attemptsRemaining === null || attemptsRemaining > 0) ? 1 : 0,
   }
 }
 
@@ -299,6 +305,12 @@ exercisesRoutes.get('/', requireWorkspaceIdentity, async (c) => {
         where membership_grade.membership_id = ?
           and exercise_grade.exercise_id = e.id
       )
+      and case e.minimum_access_tier
+        when 'guest' then 1
+        when 'standard' then case when ? in ('standard', 'vip') then 1 else 0 end
+        when 'vip' then case when ? = 'vip' then 1 else 0 end
+        else 0
+      end
       and exists (
         select 1
         from exercise_question_asset_sets student_active_set
@@ -307,10 +319,10 @@ exercisesRoutes.get('/', requireWorkspaceIdentity, async (c) => {
           and student_active_set.confirmed_at is not null
       )
     ) or in_progress.id is not null)`
-    bindings.push(currentMembership.id)
+    bindings.push(currentMembership.id, currentMembership.access_tier, currentMembership.access_tier)
   }
   const selectBindings = []
-  if (isStudent) selectBindings.push(c.get('authUser').id, currentMembership.id)
+  if (isStudent) selectBindings.push(c.get('authUser').id, currentMembership.id, currentMembership.access_tier, currentMembership.access_tier)
   const exercises = await c.env.DB.prepare(`
     select
       e.*
@@ -331,6 +343,12 @@ exercisesRoutes.get('/', requireWorkspaceIdentity, async (c) => {
           where state_membership_grade.membership_id = ?
             and state_exercise_grade.exercise_id = e.id
         )` : '0'} as has_grade_access
+      , ${isStudent ? `case e.minimum_access_tier
+          when 'guest' then 1
+          when 'standard' then case when ? in ('standard', 'vip') then 1 else 0 end
+          when 'vip' then case when ? = 'vip' then 1 else 0 end
+          else 0
+        end` : '0'} as has_tier_access
       , case when exists (
           select 1
           from exercise_question_asset_sets active_set
@@ -347,7 +365,7 @@ exercisesRoutes.get('/', requireWorkspaceIdentity, async (c) => {
     order by e.created_at desc, e.id desc
   `).bind(...selectBindings, ...bindings).all()
   const gradeResult = await getExerciseGrades(c.env.DB, exercises.results.map((exercise) => exercise.id), workspaceId)
-  return jsonSuccess(c, attachGrades(exercises.results.map(exercise => (isStudent ? withStudentAttemptState(toExerciseWithTiming(exercise)) : toExerciseWithTiming(exercise))), gradeResult, 'exercise_id'))
+  return jsonSuccess(c, attachGrades(exercises.results.map(exercise => (isStudent ? withStudentAttemptState(toExerciseWithTiming(exercise)) : toExerciseWithTiming(exercise))), gradeResult, 'exercise_id', { workspaceId }))
 })
 
 exercisesRoutes.get('/:id', requireWorkspaceIdentity, async (c) => {
@@ -366,6 +384,7 @@ exercisesRoutes.get('/:id', requireWorkspaceIdentity, async (c) => {
   }
 
   let studentAttemptState = null
+  let accessibleSetId = exercise.active_question_asset_set_id
   if (isStudent) {
     const access = await c.env.DB.prepare(`
       select
@@ -378,6 +397,12 @@ exercisesRoutes.get('/:id', requireWorkspaceIdentity, async (c) => {
             join exercise_grades exercise_grade on exercise_grade.grade = membership_grade.grade
             where membership_grade.membership_id = ? and exercise_grade.exercise_id = ?
           ) as has_grade_access
+        , case ?
+            when 'guest' then 1
+            when 'standard' then case when ? in ('standard', 'vip') then 1 else 0 end
+            when 'vip' then case when ? = 'vip' then 1 else 0 end
+            else 0
+          end as has_tier_access
         , exists (
             select 1
             from exercise_question_asset_sets student_active_set
@@ -385,17 +410,23 @@ exercisesRoutes.get('/:id', requireWorkspaceIdentity, async (c) => {
               and student_active_set.exercise_id = ?
               and student_active_set.confirmed_at is not null
           ) as is_ready
-    `).bind(c.get('authUser').id, id, c.get('authUser').id, id, c.get('authUser').id, id, currentMembership.id, id, exercise.active_question_asset_set_id, id).first()
+    `).bind(c.get('authUser').id, id, c.get('authUser').id, id, c.get('authUser').id, id, currentMembership.id, id, exercise.minimum_access_tier, currentMembership.access_tier, currentMembership.access_tier, exercise.active_question_asset_set_id, id).first()
     studentAttemptState = withStudentAttemptState({ max_attempts: exercise.max_attempts, ...access, is_student_ready: access.is_ready })
-    if (!access.in_progress_submission_id && !(access.has_grade_access && access.is_ready)) {
-      return access.has_grade_access
-        ? jsonError(c, 403, 'EXERCISE_NOT_READY', 'This exercise is not ready for students')
-        : jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your classes')
+    if (!access.in_progress_submission_id && !(access.has_grade_access && access.has_tier_access && access.is_ready)) {
+      if (!access.has_grade_access) return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your classes')
+      if (!access.has_tier_access) return jsonError(c, 403, 'TIER_ACCESS_DENIED', 'This exercise requires a higher access tier')
+      return jsonError(c, 403, 'EXERCISE_NOT_READY', 'This exercise is not ready for students')
+    }
+    if (access.in_progress_submission_id && !(access.has_grade_access && access.has_tier_access && access.is_ready)) {
+      accessibleSetId = await c.env.DB.prepare(`
+        select question_asset_set_id from submissions
+        where id = ? and exercise_id = ? and user_id = ?
+      `).bind(access.in_progress_submission_id, id, c.get('authUser').id).first('question_asset_set_id')
     }
   }
 
   const files = await c.env.DB.prepare('select * from exercise_files where exercise_id = ? order by uploaded_at desc, id desc').bind(id).all()
-  const schema = manager || !exercise.active_question_asset_set_id
+  const schema = manager
     ? await c.env.DB.prepare(`
         select q_id, section_key, section_title, local_number, sub_id, type, correct_answer, max_score_hundredths
         from answer_schemas
@@ -410,16 +441,16 @@ exercisesRoutes.get('/:id', requireWorkspaceIdentity, async (c) => {
           and asset_set.exercise_id = ?
           and asset_set.confirmed_at is not null
         order by snapshot.q_id asc, snapshot.sub_id asc
-      `).bind(exercise.active_question_asset_set_id, id).all()
+      `).bind(accessibleSetId, id).all()
 
   let questionAssetSetId = null
   let questionAssets = []
-  if (exercise.active_question_asset_set_id) {
+  if (accessibleSetId) {
     const activeSet = await c.env.DB.prepare(`
       select id
       from exercise_question_asset_sets
       where id = ? and exercise_id = ? and confirmed_at is not null
-    `).bind(exercise.active_question_asset_set_id, id).first()
+    `).bind(accessibleSetId, id).first()
     if (activeSet) {
       const assets = await c.env.DB.prepare(`
         select *
@@ -465,11 +496,13 @@ exercisesRoutes.get('/:id', requireWorkspaceIdentity, async (c) => {
 
 exercisesRoutes.post('/', requireWorkspaceIdentity, requireWorkspaceManagement, async (c) => {
   const body = await c.req.json().catch(() => null)
-  const { title, duration_minutes, schema, is_timed = true, max_attempts, allow_answer_pdf_download = false } = body || {}
-  const parsedGrades = parseGrades(body?.grades, { defaultToAll: true })
+  const { title, duration_minutes, schema, is_timed = true, max_attempts, allow_answer_pdf_download = false, minimum_access_tier = 'standard' } = body || {}
+  const parsedGrades = parseGrades(body?.grades, { defaultToAll: true, workspaceId: workspace(c).id })
   if (!title || schema === undefined || !Object.hasOwn(body || {}, 'max_attempts')) return jsonError(c, 400, 'VALIDATION_ERROR', 'Title, is_timed, max_attempts, and schema are required')
   if (!isValidMaxAttempts(max_attempts)) return jsonError(c, 400, 'VALIDATION_ERROR', 'max_attempts must be null or a positive integer')
   if (!isBooleanSetting(allow_answer_pdf_download)) return jsonError(c, 400, 'VALIDATION_ERROR', 'allow_answer_pdf_download must be boolean')
+  const tierError = validateExerciseMinimumAccessTier(minimum_access_tier)
+  if (tierError) return jsonError(c, 400, 'VALIDATION_ERROR', tierError)
   if (parsedGrades.error) return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
   if (typeof is_timed !== 'boolean') return jsonError(c, 400, 'VALIDATION_ERROR', 'is_timed must be boolean')
   let normalizedDuration = duration_minutes
@@ -487,9 +520,9 @@ exercisesRoutes.post('/', requireWorkspaceIdentity, requireWorkspaceManagement, 
     // The generated exercise ID remains the largest ID throughout this atomic
     // batch. No other exercise insertion can interleave with its child writes.
     const statements = [c.env.DB.prepare(`
-      insert into exercises (title, duration_minutes, max_attempts, allow_answer_pdf_download, created_by, workspace_id)
-      values (?, ?, ?, ?, ?, ?)
-    `).bind(title, normalizedDuration, max_attempts, allow_answer_pdf_download ? 1 : 0, c.get('authUser').id, workspace(c).id)]
+      insert into exercises (title, duration_minutes, max_attempts, allow_answer_pdf_download, minimum_access_tier, created_by, workspace_id)
+      values (?, ?, ?, ?, ?, ?, ?)
+    `).bind(title, normalizedDuration, max_attempts, allow_answer_pdf_download ? 1 : 0, minimum_access_tier, c.get('authUser').id, workspace(c).id)]
     statements.push(...normalizedSchema.map((item) => c.env.DB.prepare(`
       insert into answer_schemas (
         exercise_id, q_id, section_key, section_title, local_number, sub_id, type, correct_answer
@@ -513,15 +546,17 @@ exercisesRoutes.post('/', requireWorkspaceIdentity, requireWorkspaceManagement, 
 exercisesRoutes.put('/:id', requireWorkspaceIdentity, requireWorkspaceManagement, async (c) => {
   const id = c.req.param('id')
   const body = await c.req.json().catch(() => null)
-  const { title, duration_minutes, is_timed, question_asset_set_id, resolved_answer_candidate_keys, grades, max_attempts, allow_answer_pdf_download } = body || {}
+  const { title, duration_minutes, is_timed, question_asset_set_id, resolved_answer_candidate_keys, grades, max_attempts, allow_answer_pdf_download, minimum_access_tier } = body || {}
   let schema = body?.schema
-  if (!title && duration_minutes === undefined && !schema && is_timed === undefined && question_asset_set_id === undefined && resolved_answer_candidate_keys === undefined && grades === undefined && max_attempts === undefined && allow_answer_pdf_download === undefined) {
+  if (!title && duration_minutes === undefined && !schema && is_timed === undefined && question_asset_set_id === undefined && resolved_answer_candidate_keys === undefined && grades === undefined && max_attempts === undefined && allow_answer_pdf_download === undefined && minimum_access_tier === undefined) {
     return jsonError(c, 400, 'VALIDATION_ERROR', 'At least one update field is required')
   }
   if (is_timed !== undefined && typeof is_timed !== 'boolean') return jsonError(c, 400, 'VALIDATION_ERROR', 'is_timed must be boolean')
   if (max_attempts !== undefined && !isValidMaxAttempts(max_attempts)) return jsonError(c, 400, 'VALIDATION_ERROR', 'max_attempts must be null or a positive integer')
   if (allow_answer_pdf_download !== undefined && !isBooleanSetting(allow_answer_pdf_download)) return jsonError(c, 400, 'VALIDATION_ERROR', 'allow_answer_pdf_download must be boolean')
-  const parsedGrades = grades === undefined ? null : parseGrades(grades)
+  const tierError = validateExerciseMinimumAccessTier(minimum_access_tier)
+  if (tierError) return jsonError(c, 400, 'VALIDATION_ERROR', tierError)
+  const parsedGrades = grades === undefined ? null : parseGrades(grades, { workspaceId: workspace(c).id })
   if (parsedGrades?.error) return jsonError(c, 400, 'VALIDATION_ERROR', parsedGrades.error)
   if (question_asset_set_id !== undefined && (!Number.isInteger(question_asset_set_id) || question_asset_set_id < 1)) return jsonError(c, 400, 'VALIDATION_ERROR', 'question_asset_set_id must be a positive integer')
   if (question_asset_set_id !== undefined && !schema) return jsonError(c, 400, 'VALIDATION_ERROR', 'schema is required when activating a question asset set')
@@ -595,6 +630,7 @@ exercisesRoutes.put('/:id', requireWorkspaceIdentity, requireWorkspaceManagement
     if (duration_minutes !== undefined || is_timed !== undefined) { updates.push('duration_minutes = ?'); params.push(nextDuration) }
     if (max_attempts !== undefined) { updates.push('max_attempts = ?'); params.push(max_attempts) }
     if (allow_answer_pdf_download !== undefined) { updates.push('allow_answer_pdf_download = ?'); params.push(allow_answer_pdf_download ? 1 : 0) }
+    if (minimum_access_tier !== undefined) { updates.push('minimum_access_tier = ?'); params.push(minimum_access_tier) }
     if (updates.length > 0) {
       params.push(id, workspace(c).id)
       batchStmts.push(c.env.DB.prepare(`update exercises set ${updates.join(', ')}, updated_at = current_timestamp where id = ? and workspace_id = ?`).bind(...params))

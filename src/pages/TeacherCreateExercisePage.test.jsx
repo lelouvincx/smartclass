@@ -56,6 +56,7 @@ const logoutMock = vi.fn()
 vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({
     token: 'test-token',
+    workspace: { id: 'maths' },
     logout: logoutMock,
   }),
 }))
@@ -177,6 +178,8 @@ describe('TeacherCreateExercisePage', () => {
     expect(screen.getByRole('group', { name: /duration presets/i })).toHaveAttribute('data-slot', 'segmented-button-group')
     expect(screen.getByText(/questions: 0/i).parentElement).toHaveClass('flex-wrap')
     expect(screen.getByRole('button', { name: /programme access/i })).toHaveTextContent('Grade 12')
+    expect(screen.getByRole('group', { name: /minimum access tier/i })).toHaveTextContent('Standard')
+    expect(screen.queryByRole('button', { name: 'Guest' })).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     expect(screen.getByTestId('exercise-pdf-upload')).toHaveClass('bg-sc-primary-container')
     expect(screen.getByTestId('answer-pdf-upload')).toHaveClass('bg-sc-tertiary-container')
@@ -264,8 +267,32 @@ describe('TeacherCreateExercisePage', () => {
         },
       ],
       grades: [12],
+      minimum_access_tier: 'standard',
       max_attempts: 1,
     })
+  })
+
+  it('submits explicit maths-only THPT and VIP exercise access', async () => {
+    const user = userEvent.setup()
+    createExerciseMock.mockResolvedValue({ data: { id: 104 } })
+
+    render(<MemoryRouter><TeacherCreateExercisePage /></MemoryRouter>)
+
+    await user.type(screen.getByLabelText(/exercise title/i), 'THPT VIP quiz')
+    await user.click(screen.getByRole('button', { name: /programme access/i }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'Grade 12' }))
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'THPT' }))
+    await user.keyboard('{Escape}')
+    await user.click(within(screen.getByRole('group', { name: /minimum access tier/i })).getByRole('button', { name: 'VIP' }))
+    await addManualQuestion(user)
+    await user.type(screen.getByLabelText(/correct answer for question 1/i), 'A')
+    await uploadRequiredPdfs(user)
+    await user.click(screen.getByRole('button', { name: 'Save Exercise' }))
+
+    expect(createExerciseMock).toHaveBeenCalledWith('test-token', expect.objectContaining({
+      grades: ['thpt'],
+      minimum_access_tier: 'vip',
+    }))
   })
 
   it('saves custom score hundredths and blocks an invalid custom total', async () => {
@@ -362,6 +389,7 @@ describe('TeacherCreateExercisePage', () => {
         },
       ],
       grades: [12],
+      minimum_access_tier: 'standard',
       max_attempts: 1,
     })
   })
@@ -747,6 +775,7 @@ describe('TeacherCreateExercisePage', () => {
         { q_id: 1, section_key: 'main', section_title: null, local_number: 1, type: 'boolean', sub_id: 'd', correct_answer: '0', max_score_hundredths: null },
       ],
       grades: [12],
+      minimum_access_tier: 'standard',
     })
   })
 
