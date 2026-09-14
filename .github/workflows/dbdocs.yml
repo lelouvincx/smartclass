@@ -7,6 +7,9 @@ on:
     paths:
       - "docs/schema.dbml"
       - "worker/db/migrations/**"
+      - ".github/workflows/dbdocs.yml"
+      - "package.json"
+      - "package-lock.json"
 
 jobs:
   dbdocs:
@@ -25,4 +28,4 @@ jobs:
       - name: Publish schema to dbdocs
         run: npm run db:docs
         env:
-          DBDOCS_TOKEN: ${{ secrets.DBDOCS_TOKEN }}
+          DBDIAGRAM_TOKEN: ${{ secrets.DBDIAGRAM_TOKEN }}

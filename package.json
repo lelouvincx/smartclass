@@ -21,7 +21,7 @@
     "deploy:api": "wrangler deploy",
     "deploy": "npm run deploy:api && npm run deploy:web",
     "cf:typegen": "wrangler types",
-    "db:docs": "dbdocs build docs/schema.dbml --project smartclass"
+    "db:docs": "dbdiagram build document --from-file docs/schema.dbml --project lelouvincx/smartclass"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -52,7 +52,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
-    "dbdocs": "^1.1.0",
+    "dbdiagram": "0.6.2",
     "jsdom": "^28.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.2.1",
