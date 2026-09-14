@@ -154,9 +154,11 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
         >
           {lecture.title}
         </h1>
-        <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <BookOpen className="size-4 text-primary" aria-hidden="true" />
-          {breadcrumbLabel || lecture.section_name || t('student.lectures.unplaced')}
+        <p className="flex min-w-0 items-start gap-2 text-sm font-medium text-muted-foreground">
+          <BookOpen className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span className="min-w-0 break-words text-pretty">
+            {breadcrumbLabel || lecture.section_name || t('student.lectures.unplaced')}
+          </span>
         </p>
       </header>
 

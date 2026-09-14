@@ -62,7 +62,7 @@ export function VideoDialog({ open, mode, lesson, lecture, library, pending, err
             {lesson ? t('curriculumManagement.video.destination', { path: placementPath({ programme: lesson.programme, topic_title: lesson.topic_title, lesson_title: lesson.title }, t) }) : t('curriculumManagement.video.description')}
           </DialogDescription>
         </DialogHeader>
-        <form id="curriculum-video-form" className="grid gap-4" onSubmit={submit}>
+        <form id="curriculum-video-form" className="grid min-w-0 gap-4" onSubmit={submit}>
           {isExisting ? (
             <div className="space-y-1.5">
               <Label htmlFor="existing-video">{t('curriculumManagement.video.existingLabel')}</Label>
@@ -84,10 +84,10 @@ export function VideoDialog({ open, mode, lesson, lecture, library, pending, err
                 <Label htmlFor="video-url">{t('curriculumManagement.video.url')}</Label>
                 <Input id="video-url" type="url" inputMode="url" value={form.youtube_url} onChange={(event) => update('youtube_url', event.target.value)} required disabled={pending} placeholder="https://youtu.be/..." />
               </div>
-              <fieldset className="space-y-2">
+              <fieldset className="min-w-0 space-y-2">
                 <legend className="text-sm font-medium">{t('curriculumManagement.video.tier')}</legend>
                 <SegmentedButtonGroup className="flex w-full">
-                  {ACCESS_TIERS.map((tier) => <SegmentedButton key={tier} selected={form.minimum_access_tier === tier} onClick={() => update('minimum_access_tier', tier)} disabled={pending}>{t(`curriculumManagement.tiers.${tier}`)}</SegmentedButton>)}
+                  {ACCESS_TIERS.map((tier) => <SegmentedButton key={tier} className="whitespace-normal" selected={form.minimum_access_tier === tier} onClick={() => update('minimum_access_tier', tier)} disabled={pending}>{t(`curriculumManagement.tiers.${tier}`)}</SegmentedButton>)}
                 </SegmentedButtonGroup>
               </fieldset>
               <SegmentedButtonGroup className="flex w-full" aria-label={t('curriculumManagement.video.visibility')}>

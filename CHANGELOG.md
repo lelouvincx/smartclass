@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Keep video access controls and long player breadcrumbs within narrow screens. Verify curriculum dialogs, join and exercise controls, player failure states, and recorded resize/reorder interactions with local fixtures. [#135](https://github.com/lelouvincx/smartclass/pull/135)
 - Move workspace and audience labels from the brand header to the expanded sidebar and mobile drawer footer. Keep Settings and logout reachable and preserve the compact navigation rail.
 - Polish exercise question-review upload cards, per-question score allocation, submissions rows, and reject-preview wording. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Show active exercise question views in the same per-question layout used while creating and editing exercises. [#132](https://github.com/lelouvincx/smartclass/pull/132)

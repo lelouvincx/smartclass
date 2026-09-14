@@ -114,6 +114,27 @@ describe('StudentLecturePlayerPage', () => {
     expect(screen.getByRole('link', { name: 'Next: Functions' })).toHaveAttribute('href', '/student/lectures/3-functions?placement=23')
   })
 
+  it('lets a long breadcrumb wrap inside the player header', async () => {
+    getLectureMock.mockResolvedValue({
+      data: {
+        ...lectureResponse.data,
+        breadcrumb: {
+          programme: 12,
+          topic_id: 5,
+          topic_title: 'Lớp 12 · Mũ và logarit',
+          lesson_id: 12,
+          lesson_title: 'Bài 1: Một tên bài học rất dài để kiểm tra xuống dòng ở khung phát chung',
+        },
+      },
+    })
+
+    renderPage('2-worked-example', '?placement=22')
+
+    const breadcrumb = await screen.findByText('Lớp 12 · Mũ và logarit · Bài 1: Một tên bài học rất dài để kiểm tra xuống dòng ở khung phát chung')
+    expect(breadcrumb).toHaveClass('min-w-0', 'break-words')
+    expect(breadcrumb.parentElement).toHaveClass('items-start')
+  })
+
   it('uses contextual neighbours for a shared video in different programmes', async () => {
     getLectureMock.mockResolvedValue({
       data: {
