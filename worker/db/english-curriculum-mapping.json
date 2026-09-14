@@ -1,0 +1,110 @@
+{
+  "workspace_id": "english",
+  "reviewer": "Chinh",
+  "reviewed_at": "2026-09-14",
+  "expected_source_order": [7, 8, 9, 10, 11, 12],
+  "topics": [
+    { "key": "g10-chuyen-de-1-verb-tenses", "programme": 10, "title": "Chuyên đề 1: Verb tenses", "order_index": 0 },
+    { "key": "g11-chuyen-de-1-verb-tenses", "programme": 11, "title": "Chuyên đề 1: Verb tenses", "order_index": 0 },
+    { "key": "g12-chuyen-de-1-verb-tenses", "programme": 12, "title": "Chuyên đề 1: Verb tenses", "order_index": 0 },
+    { "key": "dgnl-chuyen-de-1-verb-tenses", "programme": "dgnl", "title": "Chuyên đề 1: Verb tenses", "order_index": 0 }
+  ],
+  "lessons": [
+    { "key": "g10-bai-1-verb-tenses", "topic_key": "g10-chuyen-de-1-verb-tenses", "title": "Bài 1: Verb tenses", "order_index": 0 },
+    { "key": "g11-bai-1-verb-tenses", "topic_key": "g11-chuyen-de-1-verb-tenses", "title": "Bài 1: Verb tenses", "order_index": 0 },
+    { "key": "g12-bai-1-verb-tenses", "topic_key": "g12-chuyen-de-1-verb-tenses", "title": "Bài 1: Verb tenses", "order_index": 0 },
+    { "key": "dgnl-bai-1-verb-tenses", "topic_key": "dgnl-chuyen-de-1-verb-tenses", "title": "Bài 1: Verb tenses", "order_index": 0 }
+  ],
+  "lectures": [
+    {
+      "id": 7,
+      "title": "Chuyên đề 1 (verb tense) - Buổi 1",
+      "youtube_url": "https://youtu.be/ziwr2BKuPeI",
+      "minimum_access_tier": "guest",
+      "is_visible": 1,
+      "programmes": [10, 11, 12, "dgnl"],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-bai-1-verb-tenses", "order_index": 0 },
+        { "lesson_key": "g11-bai-1-verb-tenses", "order_index": 0 },
+        { "lesson_key": "g12-bai-1-verb-tenses", "order_index": 0 },
+        { "lesson_key": "dgnl-bai-1-verb-tenses", "order_index": 0 }
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Chuyên đề 1 (Verb tenses) - Buổi 2",
+      "youtube_url": "https://youtu.be/B1rH1yF_hRw",
+      "minimum_access_tier": "guest",
+      "is_visible": 1,
+      "programmes": [10, 11, 12, "dgnl"],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-bai-1-verb-tenses", "order_index": 1 },
+        { "lesson_key": "g11-bai-1-verb-tenses", "order_index": 1 },
+        { "lesson_key": "g12-bai-1-verb-tenses", "order_index": 1 },
+        { "lesson_key": "dgnl-bai-1-verb-tenses", "order_index": 1 }
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Chuyên đề 1 (Verb tenses) - Buổi 3",
+      "youtube_url": "https://youtu.be/kezIUPvmJ2Q",
+      "minimum_access_tier": "standard",
+      "is_visible": 1,
+      "programmes": [10, 11, 12, "dgnl"],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-bai-1-verb-tenses", "order_index": 2 },
+        { "lesson_key": "g11-bai-1-verb-tenses", "order_index": 2 },
+        { "lesson_key": "g12-bai-1-verb-tenses", "order_index": 2 },
+        { "lesson_key": "dgnl-bai-1-verb-tenses", "order_index": 2 }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Chuyên đề 1 (Verb tenses) - Buổi 4",
+      "youtube_url": "https://youtu.be/WXH0insEVY0",
+      "minimum_access_tier": "standard",
+      "is_visible": 1,
+      "programmes": [10, 11, 12, "dgnl"],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-bai-1-verb-tenses", "order_index": 3 },
+        { "lesson_key": "g11-bai-1-verb-tenses", "order_index": 3 },
+        { "lesson_key": "g12-bai-1-verb-tenses", "order_index": 3 },
+        { "lesson_key": "dgnl-bai-1-verb-tenses", "order_index": 3 }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Chuyên đề 1 (Verb tense) - Buổi 5",
+      "youtube_url": "https://youtu.be/gAoThZ0iooY",
+      "minimum_access_tier": "standard",
+      "is_visible": 1,
+      "programmes": [10, 11, 12, "dgnl"],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-bai-1-verb-tenses", "order_index": 4 },
+        { "lesson_key": "g11-bai-1-verb-tenses", "order_index": 4 },
+        { "lesson_key": "g12-bai-1-verb-tenses", "order_index": 4 },
+        { "lesson_key": "dgnl-bai-1-verb-tenses", "order_index": 4 }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Chuyên đề 1 (Verb tenses) - Buổi 6",
+      "youtube_url": "https://youtu.be/dy6mlQDnYBI",
+      "minimum_access_tier": "standard",
+      "is_visible": 1,
+      "programmes": [10, 11, 12, "dgnl"],
+      "approved_audience_change": null,
+      "placements": [
+        { "lesson_key": "g10-bai-1-verb-tenses", "order_index": 5 },
+        { "lesson_key": "g11-bai-1-verb-tenses", "order_index": 5 },
+        { "lesson_key": "g12-bai-1-verb-tenses", "order_index": 5 },
+        { "lesson_key": "dgnl-bai-1-verb-tenses", "order_index": 5 }
+      ]
+    }
+  ]
+}
