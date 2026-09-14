@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import mapping from './curriculum-mapping.json'
+import approvedEnglishMapping from './english-curriculum-mapping.json'
 import { backfillCurriculum, validateCurriculumBackfill } from './curriculum-backfill.js'
 import {
   CURRICULUM_CUTOVER_MARKER_SQL,
@@ -67,6 +68,68 @@ async function seedReviewedLectures({ workspaceId = 'maths', order = [1, 2, 3, 4
   await env.DB.batch(gradeStatements)
 }
 
+function englishMapping() {
+  return {
+    workspace_id: 'english',
+    reviewer: 'Chinh',
+    reviewed_at: '2026-09-14',
+    expected_source_order: [20, 21, 22, 23, 24, 25],
+    topics: [10, 11, 12, 'dgnl'].map((programme) => ({
+      key: `english-${programme}-topic`,
+      programme,
+      title: 'Chuyên đề 1: Verb tenses',
+      order_index: 0,
+    })),
+    lessons: [10, 11, 12, 'dgnl'].map((programme) => ({
+      key: `english-${programme}-lesson`,
+      topic_key: `english-${programme}-topic`,
+      title: 'Bài 1: Verb tenses',
+      order_index: 0,
+    })),
+    lectures: Array.from({ length: 6 }, (_, index) => ({
+      id: 20 + index,
+      title: `Verb tenses - Tiết ${index + 1}`,
+      youtube_url: `https://youtu.be/english00${index + 1}`,
+      minimum_access_tier: index === 0 ? 'guest' : 'standard',
+      is_visible: index === 5 ? 0 : 1,
+      programmes: [10, 11, 12, 'dgnl'],
+      approved_audience_change: null,
+      placements: [10, 11, 12, 'dgnl'].map((programme) => ({
+        lesson_key: `english-${programme}-lesson`,
+        order_index: index,
+      })),
+    })),
+  }
+}
+
+async function seedReviewedEnglishLectures(english = englishMapping()) {
+  await env.DB.prepare(`
+    insert into workspace_memberships (workspace_id, user_id, role, status, access_tier, display_name)
+    values ('english', 101, 'teacher', 'active', 'standard', null)
+  `).run()
+  await env.DB.batch(english.lectures.map((lecture, index) => env.DB.prepare(`
+    insert into lectures (
+      id, workspace_id, title, section_name, youtube_url, order_index, created_by,
+      is_visible, minimum_access_tier
+    ) values (?, 'english', ?, 'Reviewed English', ?, ?, 101, ?, ?)
+  `).bind(
+    lecture.id,
+    lecture.title,
+    lecture.youtube_url,
+    index,
+    lecture.is_visible,
+    lecture.minimum_access_tier,
+  )))
+  const gradeStatements = []
+  for (const lecture of english.lectures) {
+    for (const programme of lecture.programmes) {
+      gradeStatements.push(env.DB.prepare('insert into lecture_grades (lecture_id, grade) values (?, ?)')
+        .bind(lecture.id, programme))
+    }
+  }
+  await env.DB.batch(gradeStatements)
+}
+
 async function completeWorkspaceCutover() {
   await finalizeWorkspaceCutover(env.DB, {
     users: [
@@ -77,9 +140,37 @@ async function completeWorkspaceCutover() {
   })
 }
 
+async function completeBundleWorkspaceCutover(english = englishMapping()) {
+  await finalizeWorkspaceCutover(env.DB, {
+    users: [
+      {
+        id: 101,
+        platform_role: 'user',
+        memberships: [
+          { workspace_id: 'maths', role: 'teacher', status: 'active', access_tier: 'standard', display_name: null, grades: [] },
+          { workspace_id: 'english', role: 'teacher', status: 'active', access_tier: 'standard', display_name: null, grades: [] },
+        ],
+      },
+    ],
+    exercises: [],
+    lectures: [
+      ...mapping.lectures.map((lecture) => ({ id: lecture.id, workspace_id: 'maths' })),
+      ...english.lectures.map((lecture) => ({ id: lecture.id, workspace_id: 'english' })),
+    ],
+  })
+}
+
 async function seedReadyReviewedDatabase() {
   await seedReviewedLectures()
   await completeWorkspaceCutover()
+}
+
+async function seedReadyReviewedBundle() {
+  const english = englishMapping()
+  await seedReviewedLectures()
+  await seedReviewedEnglishLectures()
+  await completeBundleWorkspaceCutover(english)
+  return { workspaces: [structuredClone(mapping), english] }
 }
 
 async function seedEnglishCurriculumAfterBackfill() {
@@ -209,6 +300,140 @@ describe('RFC-18 reviewed curriculum placement backfill', () => {
     ])
   })
 
+  it('accepts a reviewed maths and English bundle in one atomic cutover', async () => {
+    const bundle = await seedReadyReviewedBundle()
+    const beforeLectures = (await env.DB.prepare(`
+      select id, workspace_id, title, youtube_url, is_visible, minimum_access_tier
+      from lectures order by id
+    `).all()).results
+    const beforeGrades = (await env.DB.prepare('select lecture_id, grade from lecture_grades order by lecture_id, grade').all()).results
+
+    await expect(validateCurriculumBackfill(env.DB, bundle)).resolves.toMatchObject({
+      revision_before: { maths: 0, english: 0 },
+      topics: 9,
+      lessons: 9,
+      placements: 31,
+      workspaces: expect.arrayContaining([
+        expect.objectContaining({ workspace_id: 'maths', topics: 5, lessons: 5, placements: 7 }),
+        expect.objectContaining({ workspace_id: 'english', topics: 4, lessons: 4, placements: 24 }),
+      ]),
+      audience: expect.arrayContaining([
+        expect.objectContaining({ workspace_id: 'english', lecture_id: 20, before: [10, 11, 12, 'dgnl'], after: [10, 11, 12, 'dgnl'] }),
+      ]),
+    })
+
+    const result = await backfillCurriculum(env.DB, bundle)
+    expect(result).toMatchObject({ revision_after: { maths: 1, english: 1 }, topics: 9, lessons: 9, placements: 31 })
+    await expect(env.DB.prepare('select id, workspace_id, title, youtube_url, is_visible, minimum_access_tier from lectures order by id').all())
+      .resolves.toMatchObject({ results: beforeLectures })
+    await expect(env.DB.prepare('select lecture_id, grade from lecture_grades order by lecture_id, grade').all())
+      .resolves.toMatchObject({ results: beforeGrades })
+    await expect(env.DB.prepare('select count(*) as count from curriculum_topics').first('count')).resolves.toBe(9)
+    await expect(env.DB.prepare('select count(*) as count from curriculum_lessons').first('count')).resolves.toBe(9)
+    await expect(env.DB.prepare('select count(*) as count from lecture_placements').first('count')).resolves.toBe(31)
+    await expect(env.DB.prepare('select count(*) as count from curriculum_topics where workspace_id = \'english\' and programme = \'thpt\'').first('count')).resolves.toBe(0)
+    await expect(env.DB.prepare('select id, curriculum_revision from workspaces where id in (\'maths\', \'english\') order by id').all())
+      .resolves.toMatchObject({ results: [{ id: 'english', curriculum_revision: 1 }, { id: 'maths', curriculum_revision: 1 }] })
+    await expect(env.DB.prepare('select id, workspace_id, mapping_sha256 from curriculum_cutover').first())
+      .resolves.toEqual({ id: 1, workspace_id: 'maths', mapping_sha256: await getCurriculumMappingSha256(bundle) })
+  })
+
+  it('places the approved English videos in exact order under each existing programme', async () => {
+    await seedReviewedLectures()
+    await seedReviewedEnglishLectures(approvedEnglishMapping)
+    await completeBundleWorkspaceCutover(approvedEnglishMapping)
+    const bundle = { workspaces: [mapping, approvedEnglishMapping] }
+    const before = (await env.DB.prepare('select * from lectures order by id').all()).results
+
+    await backfillCurriculum(env.DB, bundle)
+
+    const placements = (await env.DB.prepare(`
+      select t.programme, t.title as topic, l.title as lesson, p.lecture_id, p.order_index
+      from lecture_placements p
+      join curriculum_lessons l on l.id = p.lesson_id and l.workspace_id = p.workspace_id
+      join curriculum_topics t on t.id = l.topic_id and t.workspace_id = l.workspace_id
+      where p.workspace_id = 'english'
+      order by t.programme, p.order_index
+    `).all()).results
+    expect(placements).toEqual([10, 11, 12, 'dgnl'].flatMap((programme) => (
+      [7, 8, 9, 10, 11, 12].map((id, index) => ({
+        programme, topic: 'Chuyên đề 1: Verb tenses', lesson: 'Bài 1: Verb tenses',
+        lecture_id: id, order_index: index,
+      }))
+    )))
+    expect((await env.DB.prepare('select * from lectures order by id').all()).results).toEqual(before)
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({ complete: true })
+    await expect(backfillCurriculum(env.DB, bundle)).rejects.toThrow(/completion marker already exists/i)
+  })
+
+  it('rejects English THPT, duplicate workspace bundles and unmapped extra source lectures', async () => {
+    const bundle = await seedReadyReviewedBundle()
+    const englishThpt = structuredClone(bundle)
+    englishThpt.workspaces[1].topics[0].programme = 'thpt'
+    await expect(validateCurriculumBackfill(env.DB, englishThpt)).rejects.toThrow(/unknown programme thpt/i)
+
+    await expect(validateCurriculumBackfill(env.DB, { workspaces: [mapping, structuredClone(mapping)] }))
+      .rejects.toThrow(/duplicate workspace_id maths/i)
+
+    await env.DB.prepare(`
+      insert into lectures (id, workspace_id, title, section_name, youtube_url, order_index, created_by)
+      values (99, 'english', 'Unmapped English', 'English', 'https://youtu.be/unmapped001', 99, 101)
+    `).run()
+    await expect(backfillCurriculum(env.DB, bundle)).rejects.toThrow(/absent from the reviewed mapping/i)
+  })
+
+  it('rolls back maths, English and the marker when a late English batch statement fails', async () => {
+    const bundle = await seedReadyReviewedBundle()
+    const db = {
+      prepare: (...args) => env.DB.prepare(...args),
+      batch: (statements) => env.DB.batch([
+        ...statements.slice(0, -2),
+        env.DB.prepare("insert into lecture_placements (workspace_id, lesson_id, lecture_id, order_index) values ('english', 999999, 20, 0)"),
+        ...statements.slice(-2),
+      ]),
+    }
+
+    await expect(backfillCurriculum(db, bundle)).rejects.toThrow()
+    await expect(env.DB.prepare('select count(*) as count from curriculum_topics').first('count')).resolves.toBe(0)
+    await expect(env.DB.prepare('select count(*) as count from curriculum_lessons').first('count')).resolves.toBe(0)
+    await expect(env.DB.prepare('select count(*) as count from lecture_placements').first('count')).resolves.toBe(0)
+    await expect(env.DB.prepare('select name from sqlite_master where name = \'curriculum_cutover\'').first()).resolves.toBeNull()
+    await expect(env.DB.prepare('select id, curriculum_revision from workspaces where id in (\'maths\', \'english\') order by id').all())
+      .resolves.toMatchObject({ results: [{ id: 'english', curriculum_revision: 0 }, { id: 'maths', curriculum_revision: 0 }] })
+  })
+
+  it('rolls back the first workspace and marker when English becomes stale during the atomic batch', async () => {
+    const bundle = await seedReadyReviewedBundle()
+    const db = {
+      prepare: (...args) => env.DB.prepare(...args),
+      batch: async (statements) => {
+        await env.DB.prepare("update workspaces set curriculum_revision = 1 where id = 'english'").run()
+        return env.DB.batch(statements)
+      },
+    }
+
+    await expect(backfillCurriculum(db, bundle)).rejects.toThrow()
+    await expect(env.DB.prepare('select count(*) as count from curriculum_topics').first('count')).resolves.toBe(0)
+    await expect(env.DB.prepare('select name from sqlite_master where name = \'curriculum_cutover\'').first()).resolves.toBeNull()
+    await expect(env.DB.prepare('select id, curriculum_revision from workspaces where id in (\'maths\', \'english\') order by id').all())
+      .resolves.toMatchObject({ results: [{ id: 'english', curriculum_revision: 1 }, { id: 'maths', curriculum_revision: 0 }] })
+  })
+
+  it('keeps readiness complete after normal later English curriculum edits', async () => {
+    const bundle = await seedReadyReviewedBundle()
+    await backfillCurriculum(env.DB, bundle)
+
+    await env.DB.prepare("update curriculum_topics set title = 'Normal later English edit' where workspace_id = 'english' and programme = 10").run()
+    await env.DB.prepare("update workspaces set curriculum_revision = curriculum_revision + 1 where id = 'english'").run()
+
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({
+      complete: true,
+      workspace_cutover_complete: true,
+      workspace_id: 'maths',
+      mapping_sha256: await getCurriculumMappingSha256(bundle),
+    })
+  })
+
   it('refuses duplicate invocation and existing target curriculum without affecting another workspace', async () => {
     await seedReadyReviewedDatabase()
     await env.DB.prepare("insert into curriculum_topics (workspace_id, programme, title, order_index) values ('english', 10, 'Existing', 0)").run()
@@ -283,13 +508,13 @@ describe('RFC-18 reviewed curriculum placement backfill', () => {
     await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/workspace ownership/i)
   })
 
-  it('fails closed when legacy English lectures exist outside the reviewed maths mapping', async () => {
+  it('fails closed when legacy English lectures exist outside the reviewed single-workspace mapping', async () => {
     await seedReadyReviewedDatabase()
     await env.DB.prepare(`
       insert into lectures (id, workspace_id, title, section_name, youtube_url, order_index, created_by)
       values (20, 'english', 'English legacy', 'English', 'https://youtu.be/english0001', 0, 101)
     `).run()
-    await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/legacy non-maths lectures/i)
+    await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/absent from the reviewed mapping/i)
     await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({ complete: false })
   })
 
