@@ -25,8 +25,7 @@ Follow [RFC-17: teaching workspaces](docs/plans/RFC-17-2026-09-09-teaching-works
 
 Follow [RFC-18](docs/plans/RFC-18-2026-09-13-curriculum-and-content-access.md) and the [Vietnamese teacher manual](docs/lecture-manual.vi.md). Target version: v0.6. The remaining implementation and release tasks are below.
 
-- [ ] **P1** Complete rendered frontend acceptance for the integrated curriculum navigator, contextual player, management dialogs and programme/tier forms; review direction B with Chinh
-- [ ] **P1** After verified RFC-17 Stage 3, prepare the coordinated curriculum cutover with maintenance-window source-drift checks and rollback safeguards for separate production approval
+- [ ] **P0** Approve the [coordinated production window](docs/plans/RFC-18-production-cutover.md), verify live configuration, then complete workspace and curriculum backfills under maintenance before reopening
 - [ ] **P2** Enrich the Vietnamese teacher manual with screenshots of verified teacher workflows
 
 **Outcome:** teachers organize reusable videos by programme, topic, lesson and unit, and grant student access without conflating programmes with tiers.

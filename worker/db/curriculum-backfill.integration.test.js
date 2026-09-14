@@ -2,6 +2,11 @@ import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import mapping from './curriculum-mapping.json'
 import { backfillCurriculum, validateCurriculumBackfill } from './curriculum-backfill.js'
+import {
+  CURRICULUM_CUTOVER_MARKER_SQL,
+  getCurriculumCutoverStatus,
+  getCurriculumMappingSha256,
+} from './curriculum-cutover.js'
 import { finalizeWorkspaceCutover } from './workspace-cutover.js'
 
 const PASSWORD_HASH = 'synthetic-password-hash'
@@ -12,6 +17,7 @@ async function resetData() {
     "drop trigger if exists workspace_cutover_exercises_update",
     "drop trigger if exists workspace_cutover_lectures_insert",
     "drop trigger if exists workspace_cutover_lectures_update",
+    "drop table if exists curriculum_cutover",
     "drop table if exists workspace_cutover",
     'delete from lecture_placements',
     'delete from curriculum_lessons',
@@ -76,8 +82,43 @@ async function seedReadyReviewedDatabase() {
   await completeWorkspaceCutover()
 }
 
+async function seedEnglishCurriculumAfterBackfill() {
+  await env.DB.prepare(`
+    insert into lectures (id, workspace_id, title, section_name, youtube_url, order_index, created_by)
+    values (20, 'english', 'English placed video', 'English', 'https://youtu.be/english0001', 0, 101)
+  `).run()
+  await env.DB.prepare(`
+    insert into lecture_grades (lecture_id, grade)
+    values (20, 10)
+  `).run()
+  await env.DB.prepare(`
+    insert into curriculum_topics (workspace_id, programme, title, order_index)
+    values ('english', 10, 'English topic', 0)
+  `).run()
+  await env.DB.prepare(`
+    insert into curriculum_lessons (workspace_id, topic_id, title, order_index)
+    values ('english', (
+      select id from curriculum_topics where workspace_id = 'english' and programme = 10 and order_index = 0
+    ), 'English lesson', 0)
+  `).run()
+  await env.DB.prepare(`
+    insert into lecture_placements (workspace_id, lesson_id, lecture_id, order_index)
+    values ('english', (
+      select id from curriculum_lessons where workspace_id = 'english' and order_index = 0
+    ), 20, 0)
+  `).run()
+  await env.DB.prepare(`
+    insert into lectures (id, workspace_id, title, section_name, youtube_url, order_index, created_by)
+    values (21, 'english', 'English unplaced video', 'English', 'https://youtu.be/english0002', 1, 101)
+  `).run()
+  await env.DB.prepare(`
+    insert into lecture_grades (lecture_id, grade)
+    values (21, 10)
+  `).run()
+}
+
 async function readCoreState() {
-  const [lectures, grades, topics, lessons, placements, workspace] = await Promise.all([
+  const [lectures, grades, topics, lessons, placements, workspace, marker] = await Promise.all([
     env.DB.prepare('select id, workspace_id, title, youtube_url, order_index, is_visible, minimum_access_tier from lectures order by id').all(),
     env.DB.prepare('select lecture_id, grade from lecture_grades order by lecture_id, grade').all(),
     env.DB.prepare('select workspace_id, programme, title, order_index from curriculum_topics order by programme, order_index, id').all(),
@@ -95,6 +136,7 @@ async function readCoreState() {
       order by t.programme, t.order_index, l.order_index, p.order_index, p.id
     `).all(),
     env.DB.prepare("select id, curriculum_revision from workspaces where id = 'maths'").first(),
+    env.DB.prepare("select id, workspace_id, mapping_sha256 from curriculum_cutover where id = 1").first().catch(() => null),
   ])
   return {
     lectures: lectures.results,
@@ -103,6 +145,7 @@ async function readCoreState() {
     lessons: lessons.results,
     placements: placements.results,
     workspace,
+    marker,
   }
 }
 
@@ -138,6 +181,13 @@ describe('RFC-18 reviewed curriculum placement backfill', () => {
     expect(after.lectures).toEqual(before.lectures)
     expect(after.grades).toEqual(before.grades)
     expect(after.workspace).toEqual({ id: 'maths', curriculum_revision: 1 })
+    expect(after.marker).toEqual({ id: 1, workspace_id: 'maths', mapping_sha256: await getCurriculumMappingSha256(mapping) })
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({
+      complete: true,
+      workspace_cutover_complete: true,
+      workspace_id: 'maths',
+      mapping_sha256: await getCurriculumMappingSha256(mapping),
+    })
     expect(after.topics.map((topic) => [topic.programme, topic.title, topic.order_index])).toEqual([
       [10, 'Vectơ', 0],
       [10, 'Chuyên đề 1', 1],
@@ -163,8 +213,36 @@ describe('RFC-18 reviewed curriculum placement backfill', () => {
     await seedReadyReviewedDatabase()
     await env.DB.prepare("insert into curriculum_topics (workspace_id, programme, title, order_index) values ('english', 10, 'Existing', 0)").run()
     await backfillCurriculum(env.DB, mapping)
-    await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/target workspace curriculum is not empty|curriculum_revision/i)
+    await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/completion marker already exists/i)
     expect(await env.DB.prepare("select count(*) as count from curriculum_topics where workspace_id = 'english'").first()).toEqual({ count: 1 })
+  })
+
+  it('distinguishes never migrated revision changes from completed cutover and permits later normal edits', async () => {
+    await seedReadyReviewedDatabase()
+    await env.DB.prepare("update workspaces set curriculum_revision = 2 where id = 'maths'").run()
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toEqual({ complete: false, workspace_cutover_complete: true })
+    await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/curriculum_revision is not zero/i)
+
+    await resetData()
+    await seedReadyReviewedDatabase()
+    await backfillCurriculum(env.DB, mapping)
+    await env.DB.prepare("update curriculum_topics set title = 'Normal later edit' where workspace_id = 'maths' and programme = 10 and order_index = 0").run()
+    await env.DB.prepare("update workspaces set curriculum_revision = curriculum_revision + 1 where id = 'maths'").run()
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({ complete: true, workspace_id: 'maths' })
+  })
+
+  it('keeps readiness complete after legitimate later English placed and unplaced videos', async () => {
+    await seedReadyReviewedDatabase()
+    await backfillCurriculum(env.DB, mapping)
+
+    await seedEnglishCurriculumAfterBackfill()
+
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({
+      complete: true,
+      workspace_cutover_complete: true,
+      workspace_id: 'maths',
+      mapping_sha256: await getCurriculumMappingSha256(mapping),
+    })
   })
 
   it('rejects source drift, malformed mappings and incomplete or duplicate source rows before mutation', async () => {
@@ -203,6 +281,16 @@ describe('RFC-18 reviewed curriculum placement backfill', () => {
     await resetData()
     await seedReviewedLectures({ workspaceId: 'english' })
     await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/workspace ownership/i)
+  })
+
+  it('fails closed when legacy English lectures exist outside the reviewed maths mapping', async () => {
+    await seedReadyReviewedDatabase()
+    await env.DB.prepare(`
+      insert into lectures (id, workspace_id, title, section_name, youtube_url, order_index, created_by)
+      values (20, 'english', 'English legacy', 'English', 'https://youtu.be/english0001', 0, 101)
+    `).run()
+    await expect(backfillCurriculum(env.DB, mapping)).rejects.toThrow(/legacy non-maths lectures/i)
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({ complete: false })
   })
 
   it('refuses a newly added maths video absent from the reviewed mapping', async () => {
@@ -295,5 +383,43 @@ describe('RFC-18 reviewed curriculum placement backfill', () => {
 
     await expect(backfillCurriculum(db, mapping)).rejects.toThrow()
     await expect(readCoreState()).resolves.toEqual(before)
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toEqual({ complete: false, workspace_cutover_complete: true })
+  })
+
+  it('fails readiness closed for bad or missing markers, cross-workspace corruption and foreign key corruption', async () => {
+    await seedReadyReviewedDatabase()
+    await backfillCurriculum(env.DB, mapping)
+
+    await env.DB.prepare('delete from curriculum_cutover').run()
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({ complete: false })
+
+    await env.DB.prepare("insert into curriculum_cutover (id, workspace_id, mapping_sha256) values (1, 'maths', ?)")
+      .bind(await getCurriculumMappingSha256(mapping)).run()
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({ complete: true })
+
+    await env.DB.prepare('drop table curriculum_cutover').run()
+    await env.DB.prepare("create table curriculum_cutover (id integer primary key, workspace_id text not null, mapping_sha256 text not null, completed_at text not null default current_timestamp)").run()
+    await env.DB.prepare("insert into curriculum_cutover (id, workspace_id, mapping_sha256) values (1, 'maths', ?)")
+      .bind(await getCurriculumMappingSha256(mapping)).run()
+    await expect(getCurriculumCutoverStatus(env.DB)).resolves.toMatchObject({ complete: false })
+
+    await env.DB.prepare('drop table curriculum_cutover').run()
+    await env.DB.prepare(CURRICULUM_CUTOVER_MARKER_SQL).run()
+    await env.DB.prepare("insert into curriculum_cutover (id, workspace_id, mapping_sha256) values (1, 'maths', ?)")
+      .bind(await getCurriculumMappingSha256(mapping)).run()
+
+    const crossWorkspace = {
+      prepare: (sql) => sql.includes('from lecture_placements p')
+        ? { first: async () => 1 }
+        : env.DB.prepare(sql),
+    }
+    await expect(getCurriculumCutoverStatus(crossWorkspace)).resolves.toMatchObject({ complete: false })
+
+    const corrupt = {
+      prepare: (sql) => sql === 'pragma foreign_key_check'
+        ? { all: async () => ({ results: [{ table: 'lecture_placements', rowid: 999, parent: 'lectures', fkid: 0 }] }) }
+        : env.DB.prepare(sql),
+    }
+    await expect(getCurriculumCutoverStatus(corrupt)).resolves.toMatchObject({ complete: false })
   })
 })

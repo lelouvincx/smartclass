@@ -1,4 +1,8 @@
 import { getWorkspaceCutoverStatus } from './workspace-cutover.js'
+import {
+  CURRICULUM_CUTOVER_MARKER_SQL,
+  getCurriculumMappingSha256,
+} from './curriculum-cutover.js'
 
 const PROGRAMME_ORDER = [10, 11, 12, 'thpt', 'dgnl']
 const PROGRAMMES = new Set(PROGRAMME_ORDER)
@@ -189,13 +193,14 @@ function validateAudience(mapping, currentProgrammes) {
 async function validateReviewedState(db, mapping) {
   validateMappingShape(mapping)
   const state = await readCurrentState(db, mapping)
+  const marker = await db.prepare("select name from sqlite_master where name = 'curriculum_cutover'").first()
+  if (marker) fail('completion marker already exists; inspect before recovery')
   if (state.foreignKeys.length > 0) fail('existing foreign key corruption must be repaired before backfill')
   if (!state.workspace) fail('maths workspace is missing')
   if (state.workspace.curriculum_revision !== 0) fail('target workspace curriculum_revision is not zero')
   if (state.curriculumCounts.topics !== 0 || state.curriculumCounts.lessons !== 0 || state.curriculumCounts.placements !== 0) {
     fail('target workspace curriculum is not empty')
   }
-
   const byId = new Map(state.lectureRows.map((lecture) => [lecture.id, lecture]))
   const currentProgrammes = programmesByLecture(state.gradeRows)
   for (const lecture of mapping.lectures) {
@@ -214,6 +219,8 @@ async function validateReviewedState(db, mapping) {
   if (JSON.stringify(sourceOrder) !== JSON.stringify(mapping.expected_source_order)) {
     fail('source relative order drifted')
   }
+  const legacyEnglish = await db.prepare("select count(*) as count from lectures where workspace_id <> 'maths'").first('count')
+  if (legacyEnglish !== 0) fail('legacy non-maths lectures exist outside the reviewed mapping')
   const cutover = await getWorkspaceCutoverStatus(db)
   if (!cutover.complete) fail('workspace cutover is not complete')
   const audience = validateAudience(mapping, currentProgrammes)
@@ -227,9 +234,10 @@ async function validateReviewedState(db, mapping) {
   }
 }
 
-function buildStatements(db, mapping, expectedRevision) {
+async function buildStatements(db, mapping, expectedRevision) {
   const topicByKey = new Map(mapping.topics.map((topic) => [topic.key, topic]))
   const lessonByKey = new Map(mapping.lessons.map((lesson) => [lesson.key, lesson]))
+  const mappingSha256 = await getCurriculumMappingSha256(mapping)
   const statements = [
     db.prepare("update workspaces set curriculum_revision = curriculum_revision + 1 where id = 'maths' and curriculum_revision = ?")
       .bind(expectedRevision),
@@ -265,6 +273,11 @@ function buildStatements(db, mapping, expectedRevision) {
       `).bind(topic.programme, topic.order_index, lesson.order_index, lecture.id, placement.order_index))
     }
   }
+  statements.push(
+    db.prepare(CURRICULUM_CUTOVER_MARKER_SQL),
+    db.prepare("insert into curriculum_cutover (id, workspace_id, mapping_sha256) values (1, 'maths', ?)")
+      .bind(mappingSha256),
+  )
   return statements
 }
 
@@ -284,6 +297,6 @@ export async function validateCurriculumBackfill(db, mapping) {
 export async function backfillCurriculum(db, mapping) {
   const reviewed = structuredClone(mapping)
   const dryRun = await validateReviewedState(db, reviewed)
-  await db.batch(buildStatements(db, reviewed, dryRun.revision_before))
+  await db.batch(await buildStatements(db, reviewed, dryRun.revision_before))
   return { ...dryRun, revision_after: dryRun.revision_before + 1 }
 }

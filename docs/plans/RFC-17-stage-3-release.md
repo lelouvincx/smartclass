@@ -3,6 +3,8 @@
 Stage 3 of [RFC-17](RFC-17-2026-09-09-teaching-workspaces.md), prepared locally on 10 September 2026.
 Production remains unchanged. Publication, workflow execution and production writes require separate approval.
 
+For the combined RFC-17/RFC-18 release, follow the [coordinated cutover runbook](RFC-18-production-cutover.md). The workflow now requires both completion checks before reopening. Complete workspace backfill first and curriculum backfill second, without reopening between them.
+
 Chinh chose application maintenance in the existing `Deploy Worker` workflow instead of Cloudflare Access and WAF.
 This supersedes the earlier independent-gate proposal. No Zero Trust onboarding or firewall change is required.
 
@@ -16,7 +18,7 @@ It tests and builds before changing production. Then it:
 3. Waits 120 seconds for existing requests.
 4. Records a D1 Time Travel bookmark as a 7-day GitHub artifact.
 5. Applies additive schema migrations.
-6. Requires a completed, separately reviewed workspace backfill and ownership constraints.
+6. Requires completed, separately reviewed workspace and curriculum backfills, including ownership constraints.
 7. Deploys Pages, reopens the API and verifies both sites.
 
 The `maintenance_only` input stops after schema preparation. It leaves both APIs closed for the one-time backfill.
@@ -121,7 +123,7 @@ Remote writes also require `--confirm-production`. These flags confirm intent; t
 
 `release-api.mjs` uses only GET requests, without login tokens, on both production API domains.
 Closed checks require real diagnostics at the expected commit and `503 MAINTENANCE` on public content and authentication reads.
-Open checks require own-workspace public lectures and rejection of anonymous account reads.
+Open checks require public curriculum responses for each supported programme and rejection of anonymous management-library and account reads.
 These probes do not prove the full permission matrix or production write rejection.
 Run the [workspace scenarios](../../tests/e2e/teaching-workspaces/README.md) only with approved production actors and mutations.
 

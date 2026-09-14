@@ -9,7 +9,7 @@ test('normal deployment closes traffic before backup and migrations, and checks 
     'Run integration tests', 'Build frontend', 'Enable application maintenance',
     'Verify maintenance', 'Drain existing requests', 'Record D1 restore bookmark',
     'Apply remote D1 migrations', 'Require completed workspace cutover',
-    'Deploy frontend', 'Reopen API', 'Verify open API',
+    'Require completed curriculum cutover', 'Deploy frontend', 'Reopen API', 'Verify open API',
   ]
   let previous = -1
   for (const step of steps) {
@@ -25,7 +25,7 @@ test('normal deployment closes traffic before backup and migrations, and checks 
 
 test('maintenance-only run and failed deployment cannot automatically reopen traffic', () => {
   assert.match(workflow, /maintenance_only:/)
-  for (const step of ['Require completed workspace cutover', 'Deploy frontend', 'Reopen API', 'Verify open API']) {
+  for (const step of ['Require completed workspace cutover', 'Require completed curriculum cutover', 'Deploy frontend', 'Reopen API', 'Verify open API']) {
     const section = workflow.split(`name: ${step}`)[1]?.split('\n      - ')[0]
     assert.match(section ?? '', /if:.*!inputs\.maintenance_only/)
   }
@@ -33,6 +33,13 @@ test('maintenance-only run and failed deployment cannot automatically reopen tra
   assert.match(recovery ?? '', /if:.*failure\(\)/)
   assert.match(recovery, /APP_MAINTENANCE:true/)
   assert.doesNotMatch(recovery, /APP_MAINTENANCE:false/)
+})
+
+test('curriculum cutover is checked with the read-only remote operator before Pages deployment', () => {
+  const step = workflow.split('name: Require completed curriculum cutover')[1]?.split('\n\n      - name: Deploy frontend')[0]
+  assert.match(step ?? '', /node scripts\/curriculum-release\.mjs check --remote --commit "\$GITHUB_SHA"/)
+  assert.ok(workflow.indexOf('name: Require completed workspace cutover') < workflow.indexOf('name: Require completed curriculum cutover'))
+  assert.ok(workflow.indexOf('name: Require completed curriculum cutover') < workflow.indexOf('name: Deploy frontend'))
 })
 
 test('production configuration maps both sites and has safe manual-deploy defaults', () => {

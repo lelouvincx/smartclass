@@ -421,3 +421,12 @@ Table lecture_placements {
 Ref: curriculum_lessons.(topic_id, workspace_id) > curriculum_topics.(id, workspace_id) [delete: restrict]
 Ref: lecture_placements.(lesson_id, workspace_id) > curriculum_lessons.(id, workspace_id) [delete: restrict]
 Ref: lecture_placements.(lecture_id, workspace_id) > lectures.(id, workspace_id) [delete: cascade]
+
+Table curriculum_cutover {
+  id integer [pk, note: 'Exactly 1']
+  workspace_id text [not null, note: 'Exactly maths: scope of the reviewed initial migration']
+  mapping_sha256 text [not null, note: '64-character canonical reviewed-mapping SHA-256']
+  completed_at text [not null, default: 'CURRENT_TIMESTAMP']
+
+  Note: 'Created by the curriculum backfill operator in the same atomic batch as the hierarchy, not by additive migrations. Readiness allows later valid curriculum edits in either workspace.'
+}

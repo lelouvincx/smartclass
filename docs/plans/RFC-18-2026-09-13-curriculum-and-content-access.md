@@ -2,7 +2,7 @@
 rfc: RFC-18
 title: Curriculum navigator and independent programme and tier access
 date: 2026-09-13
-status: API and UI integrated locally; visual acceptance and production cutover pending
+status: Local implementation and acceptance complete; production cutover prepared, execution pending
 dependencies: [RFC-10, RFC-12, RFC-15, RFC-17]
 ---
 
@@ -140,7 +140,7 @@ Apply the complete [frontend acceptance contract](../../DESIGN.md#frontend-accep
 
 ## Implementation plan
 
-Storage, backfill, curriculum APIs, exercise-tier enforcement and maths THPT support are implemented locally. Programme controls, the direction B navigator and contextual player now use the new APIs. Browser-free tests cover their integration; rendered frontend acceptance remains pending.
+Storage, backfill, curriculum APIs, exercise-tier enforcement and maths THPT support are implemented locally. Programme controls, the direction B navigator and contextual player now use the new APIs. Local automated and rendered acceptance passed; PR #135 records the evidence and coverage limits. The [coordinated release runbook](RFC-18-production-cutover.md) keeps both workspace and curriculum backfills behind maintenance until separate production approval.
 
 `worker/index.js` now mounts `workspace-curriculum.js` and `curriculum-lectures.js` alongside the updated UI. Mounted-route tests cover public placed content, manager navigation and contextual playback. Exercise-tier changes use the mounted `workspace-*` routes. No production migration or deployment has run.
 
@@ -212,7 +212,7 @@ When current access is denied, an in-progress attempt's exercise landing page mu
 
 The [Vietnamese migration-review table](RFC-18-migration-review.vi.md) records Chinh's approved placements for all 6 videos, with unchanged programmes, tiers and visibility. Video 2 retains both Khối 12 and ĐGNL. The [executable mapping](../../worker/db/curriculum-mapping.json) passes the local D1 rehearsal; live source validation remains required.
 
-Migration `0024_add_curriculum.sql` adds storage without switching reads. In [curriculum-backfill.js](../../worker/db/curriculum-backfill.js), `validateCurriculumBackfill(db, mapping)` returns a read-only audience comparison. `backfillCurriculum(db, mapping)` revalidates and writes the hierarchy in one batch. Both require verified workspace cutover, an empty maths curriculum and revision zero. The caller must keep writes frozen across validation, application and checks. No route or production runner invokes these functions yet.
+Migration `0024_add_curriculum.sql` adds storage without switching reads. In [curriculum-backfill.js](../../worker/db/curriculum-backfill.js), `validateCurriculumBackfill(db, mapping)` returns a read-only audience comparison. `backfillCurriculum(db, mapping)` revalidates and writes the hierarchy and completion marker in one batch. Both require verified workspace cutover, an empty maths curriculum and revision zero. The caller must keep writes frozen across validation, application and checks. The [curriculum operator](../../scripts/curriculum-release.mjs) exposes inspect, validate, apply and check commands. Remote operation requires the full deployed commit and verified maintenance; writes also require explicit confirmation. No application route invokes backfill.
 
 Create a mapping keyed by workspace and lecture ID, with target programme, topic, lesson and order. Snapshot original titles, tiers, visibility and programme sets. Validate complete mappings and parents; emit each video's before/after programme diff. Every non-empty diff needs `approved_audience_change` recording the exact old/new sets and reviewer name. Reject unapproved narrowing as well as expansion. Default-all assignments may need deliberate narrowing; do not infer how many production rows need it. Preserve original relative order unless reviewed otherwise.
 
