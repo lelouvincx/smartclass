@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Keep route-guard tests offline by mocking dashboard lecture and submission requests. Reject unexpected network calls so missing mocks fail instead of stalling test-worker shutdown.
 - Clarify agent guidance for the pinned Node toolchain, thread-specific PR cleanup, page/API contract tests, and documentation skills. Permanently approve local SmartClass browser acceptance and replace the stale Cohere provisioning note with a credential presence probe.
 - Resize the desktop curriculum panes by dragging their divider or using the keyboard, with minimum widths for navigation and lesson content.
 - Use the shared design-system Select for curriculum programme choices, including the styled menu and keyboard selection.

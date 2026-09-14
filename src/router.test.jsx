@@ -1,7 +1,7 @@
 import React from 'react'
 import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import { changeLanguage } from './i18n'
 import { AppRoutes } from './router'
 
@@ -20,9 +20,20 @@ vi.mock('./lib/api', async (importOriginal) => ({
   getCurriculumLesson: (...args) => getCurriculumLessonMock(...args),
   listStudents: vi.fn().mockResolvedValue({ data: [] }),
   listExercises: vi.fn().mockResolvedValue({ data: [] }),
+  listLectures: vi.fn().mockResolvedValue({ data: [] }),
+  listMySubmissions: vi.fn().mockResolvedValue({ data: { submissions: [] } }),
 }))
 
-afterEach(() => act(() => changeLanguage('en')))
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request in route guard test')))
+})
+
+afterEach(async () => {
+  await act(() => changeLanguage('en'))
+  const networkRequests = fetch.mock.calls
+  vi.unstubAllGlobals()
+  expect(networkRequests).toEqual([])
+})
 
 describe('route guards', () => {
   it.each([null, 'pending', 'disabled'])('denies learning and management to membership status %s while allowing Settings', async (status) => {
