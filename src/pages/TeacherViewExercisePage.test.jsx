@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -28,7 +28,7 @@ vi.mock('../lib/api', async (importOriginal) => {
 })
 
 vi.mock('../lib/auth-context', () => ({
-  useAuth: () => ({ token: 'teacher-token' }),
+  useAuth: () => ({ token: 'teacher-token', workspace: { id: 'maths' } }),
 }))
 
 // --- Fixtures ---
@@ -44,6 +44,7 @@ const EXERCISE_MCQ = {
   question_count: 2,
   updated_at: '2026-03-10 12:00:00',
   is_student_ready: 1,
+  minimum_access_tier: 'standard',
   grades: [10, 11],
   files: [],
   schema: [
@@ -61,6 +62,7 @@ const EXERCISE_WITH_BOOLEAN = {
   question_count: 2,
   updated_at: '2026-03-11 08:00:00',
   is_student_ready: 0,
+  minimum_access_tier: 'vip',
   grades: [12],
   files: [
     { id: 1, file_type: 'exercise_pdf', file_name: 'biology.pdf', r2_key: 'ex/1/bio.pdf' },
@@ -127,6 +129,7 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByText('Ready for students')).toBeInTheDocument()
     expect(screen.getByText('Grade 10')).toBeInTheDocument()
     expect(screen.getByText('Grade 11')).toBeInTheDocument()
+    expect(screen.getByText('Standard')).toBeInTheDocument()
     expect(screen.getByText('1 attempt')).toBeInTheDocument()
     expect(screen.getByText('Answer PDF download off')).toBeInTheDocument()
   })
@@ -295,6 +298,8 @@ describe('TeacherViewExercisePage', () => {
     // Title should become an input
     expect(screen.getByLabelText('Exercise title')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Programme access' })).toBeInTheDocument()
+    expect(screen.getByRole('group', { name: /minimum access tier/i })).toHaveTextContent('Standard')
+    expect(screen.queryByRole('button', { name: 'Guest' })).not.toBeInTheDocument()
     expect(screen.getByLabelText('Student answer download')).not.toBeChecked()
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText('Exercise title').parentElement?.parentElement).toHaveClass(
@@ -386,6 +391,46 @@ describe('TeacherViewExercisePage', () => {
       5,
       expect.objectContaining({ grades: [10, 11, 12] }),
     )
+  })
+
+  it('updates exercise programme and tier independently, including maths THPT', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, grades: [10, 11, 12, 'dgnl'], minimum_access_tier: 'standard' } })
+    updateExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, grades: [10, 11, 12, 'thpt', 'dgnl'], minimum_access_tier: 'vip' } })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    const programmeTrigger = screen.getByRole('button', { name: 'Programme access' })
+    expect(programmeTrigger).toHaveTextContent('Grade 10, Grade 11, Grade 12, ĐGNL')
+    await user.click(programmeTrigger)
+    await user.click(screen.getByRole('menuitemcheckbox', { name: 'THPT' }))
+    await user.keyboard('{Escape}')
+    await user.click(within(screen.getByRole('group', { name: /minimum access tier/i })).getByRole('button', { name: 'VIP' }))
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(updateExerciseMock).toHaveBeenCalledWith('teacher-token', 5, expect.objectContaining({
+      grades: [10, 11, 12, 'thpt', 'dgnl'],
+      minimum_access_tier: 'vip',
+    }))
+  })
+
+  it('preserves the loaded VIP tier when editing other metadata', async () => {
+    const user = userEvent.setup()
+    getExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, minimum_access_tier: 'vip' } })
+    updateExerciseMock.mockResolvedValue({ data: { ...EXERCISE_MCQ, title: 'Renamed VIP', minimum_access_tier: 'vip' } })
+    renderPage()
+
+    await screen.findByText('Physics Quiz')
+    await user.click(screen.getByRole('button', { name: /^edit$/i }))
+    await user.clear(screen.getByLabelText('Exercise title'))
+    await user.type(screen.getByLabelText('Exercise title'), 'Renamed VIP')
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(updateExerciseMock).toHaveBeenCalledWith('teacher-token', 5, expect.objectContaining({
+      title: 'Renamed VIP',
+      minimum_access_tier: 'vip',
+    }))
   })
 
   it('updates the exercise to unlimited attempts', async () => {

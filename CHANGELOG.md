@@ -8,7 +8,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- Organize reusable lectures by programme, topic, lesson and unit with independent access tiers, teacher management and reviewed local migration mapping. Production cutover remains pending. [#135](https://github.com/lelouvincx/smartclass/pull/135)
+- Keep route-guard tests offline by mocking dashboard lecture and submission requests. Reject unexpected network calls so missing mocks fail instead of stalling test-worker shutdown.
+- Clarify agent guidance for the pinned Node toolchain, thread-specific PR cleanup, page/API contract tests, and documentation skills. Permanently approve local SmartClass browser acceptance and replace the stale Cohere provisioning note with a credential presence probe.
+- Resize the desktop curriculum panes by dragging their divider or using the keyboard, with minimum widths for navigation and lesson content.
+- Use the shared design-system Select for curriculum programme choices, including the styled menu and keyboard selection.
+- Let users hide and reopen the desktop curriculum pane without losing the selected lesson. Keep teacher lesson actions available when the pane is hidden.
 - Add a web app manifest and SmartClass home-screen icons for standalone mobile installation. The app remains online-only, with no service worker or offline caching. [#134](https://github.com/lelouvincx/smartclass/pull/134)
+- Integrate direction B's curriculum navigator, contextual player and teacher management locally. Add shared-video audience confirmations, revision-safe ordering, retained failed drafts and unsaved-change guards. Mount the matching curriculum and lecture APIs; browser-free tests cover the combined contracts. Rendered acceptance and review with Chinh remain pending.
+- Connect maths-only THPT choices to membership and exercise forms, preserving existing grants and English programme choices. Add Standard/VIP exercise controls without granting THPT automatically.
+- Add workspace curriculum and shared-video APIs with atomic revision checks, scoped ordering and contextual playback. Enforce Standard/VIP exercise access locally, preserving owned attempts and pinned content while blocking restricted replacement metadata. No production migration or deployment has run.
+- Add RFC-18's local curriculum storage foundation and reviewed backfill for 6 videos in 7 placements. D1 tests cover unchanged source fields and audiences, workspace ownership, source drift, stale revisions and atomic rollback. Production cutover remains pending.
+- Record Chinh's approved placements for all 6 production lectures in a Vietnamese review table, preserving programmes, tiers and visibility. Video 2 stays in both Khối 12 and ĐGNL; production changes remain unapproved.
+- Document the agreed curriculum and access model in a Vietnamese teacher manual and RFC-18, including THPT, shared-video placements, independent tiers and the selected direction B navigator.
 - Prepare isolated Maths and English teaching workspaces, interactive QA scenarios and the maintenance-first release workflow. Production cutover remains a separate approved operation. [#133](https://github.com/lelouvincx/smartclass/pull/133)
 - Document the maths and English workspace plan, shared-account rules, proposed platform administrator role, migration safeguards and acceptance tests in RFC-17. The feature remains planned, not shipped.
 - Record Stage 1 workspace research, the 50-route access inventory and a verified synthetic local database export/import rehearsal.
@@ -40,6 +52,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Prepare the coordinated workspace and curriculum release: require both completion markers before reopening, add a maintenance-gated curriculum operator with atomic completion and source-drift checks, and verify current public API contracts. Production execution remains unapproved. [#135](https://github.com/lelouvincx/smartclass/pull/135)
+- Keep video access controls and long player breadcrumbs within narrow screens. Verify curriculum dialogs, join and exercise controls, player failure states, and recorded resize/reorder interactions with local fixtures. [#135](https://github.com/lelouvincx/smartclass/pull/135)
 - Move workspace and audience labels from the brand header to the expanded sidebar and mobile drawer footer. Keep Settings and logout reachable and preserve the compact navigation rail.
 - Polish exercise question-review upload cards, per-question score allocation, submissions rows, and reject-preview wording. [#132](https://github.com/lelouvincx/smartclass/pull/132)
 - Show active exercise question views in the same per-question layout used while creating and editing exercises. [#132](https://github.com/lelouvincx/smartclass/pull/132)

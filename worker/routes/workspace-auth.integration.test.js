@@ -125,7 +125,7 @@ describe('workspace auth phone login and registration', () => {
     const res = await request('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: '  New Student  ', phone: '0900000101', password: '123', grades: [12, 10] }),
+      body: JSON.stringify({ name: '  New Student  ', phone: '0900000101', password: '123', grades: [12, 10, 'thpt', 'dgnl'] }),
     })
 
     expect(res.status).toBe(201)
@@ -133,7 +133,7 @@ describe('workspace auth phone login and registration', () => {
     expect(body.data.user).toMatchObject({ name: 'New Student', phone: '+84900000101', platform_role: 'user', disabled_at: null })
     expect(body.data.user).not.toHaveProperty('role')
     expect(body.data.user).not.toHaveProperty('status')
-    expect(body.data.membership).toMatchObject({ workspace_id: 'maths', role: 'student', status: 'pending', access_tier: 'standard', grades: [10, 12] })
+    expect(body.data.membership).toMatchObject({ workspace_id: 'maths', role: 'student', status: 'pending', access_tier: 'standard', grades: [10, 12, 'thpt', 'dgnl'] })
     expect(await membership(body.data.user.id, 'english')).toBeNull()
     await expect(env.DB.prepare('select * from student_grades where user_id = ?').bind(body.data.user.id).all()).resolves.toMatchObject({ results: [] })
   })
@@ -289,6 +289,26 @@ describe('workspace auth join and profile operations', () => {
     }, ENGLISH)
     expect(duplicate.status).toBe(200)
     expect(await membership(userId, 'english')).toMatchObject({ status: 'disabled', access_tier: 'vip', display_name: 'Local Name', grades: [10] })
+  })
+
+  it('keeps THPT workspace-scoped: maths accepts it and English rejects it', async () => {
+    const userId = await seedUser({ phone: '+84900000124' })
+    const mathsAuth = await token('+84900000124', MATHS)
+    const mathsJoin = await request('/api/auth/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${mathsAuth}` },
+      body: JSON.stringify({ grades: [10, 11, 12, 'thpt', 'dgnl'] }),
+    }, MATHS)
+    expect(mathsJoin.status).toBe(201)
+    expect((await json(mathsJoin)).data.membership).toMatchObject({ grades: [10, 11, 12, 'thpt', 'dgnl'] })
+
+    const englishRegister = await request('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'English THPT', phone: '+84900000125', password: '123', grades: ['thpt'] }),
+    }, ENGLISH)
+    expect(englishRegister.status).toBe(400)
+    expect((await json(englishRegister)).error.message).toBe('grades must be a non-empty array containing only 10, 11, 12, or dgnl')
   })
 
   it('handles concurrent join conflicts without mixing grade sets', async () => {

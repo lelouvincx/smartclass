@@ -1,10 +1,14 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import enCommon from '@/locales/en/common'
+import enCurriculum from '@/locales/en/curriculum'
+import enCurriculumManagement from '@/locales/en/curriculum-management'
 import enSettings from '@/locales/en/settings'
 import enStudent from '@/locales/en/student'
 import enTeacher from '@/locales/en/teacher'
 import viCommon from '@/locales/vi/common'
+import viCurriculum from '@/locales/vi/curriculum'
+import viCurriculumManagement from '@/locales/vi/curriculum-management'
 import viSettings from '@/locales/vi/settings'
 import viStudent from '@/locales/vi/student'
 import viTeacher from '@/locales/vi/teacher'
@@ -17,6 +21,8 @@ export const resources = {
   en: {
     translation: {
       common: enCommon,
+      curriculum: enCurriculum,
+      curriculumManagement: enCurriculumManagement.curriculumManagement,
       settings: enSettings,
       student: enStudent,
       teacher: enTeacher,
@@ -25,6 +31,8 @@ export const resources = {
   vi: {
     translation: {
       common: viCommon,
+      curriculum: viCurriculum,
+      curriculumManagement: viCurriculumManagement.curriculumManagement,
       settings: viSettings,
       student: viStudent,
       teacher: viTeacher,

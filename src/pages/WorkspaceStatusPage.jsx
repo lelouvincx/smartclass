@@ -3,7 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { joinWorkspace } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
-import { DEFAULT_STUDENT_GRADES } from '@/lib/grades'
+import { DEFAULT_STUDENT_GRADES, gradesForWorkspace } from '@/lib/grades'
 import { GradeDropdown } from '@/components/grade-checkbox-group'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +13,7 @@ export default function WorkspaceStatusPage() {
   const auth = useAuth()
   const { token, user, membership, workspace, defaultPath, refreshUser, isActiveStudent, canManage, isLoading } = auth
   const { t } = useTranslation()
+  const availableGrades = gradesForWorkspace(workspace)
   const [grades, setGrades] = useState([...DEFAULT_STUDENT_GRADES])
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -70,8 +71,15 @@ export default function WorkspaceStatusPage() {
                 description={t('common.workspaceJoinProgrammes')}
                 value={grades}
                 onChange={setGrades}
+                grades={availableGrades}
                 disabled={isSubmitting}
               />
+              <p className="text-sm text-muted-foreground">
+                {t('common.workspaceAccessSummary', {
+                  programmes: grades.length,
+                  tier: t('common.accessTier.standard'),
+                })}
+              </p>
               {error && <FieldError>{error}</FieldError>}
               <Button type="submit" disabled={isSubmitting || grades.length === 0}>
                 {isSubmitting ? t('common.joiningWorkspace') : t('common.joinWorkspace')}

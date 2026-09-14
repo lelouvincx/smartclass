@@ -31,11 +31,11 @@ async function seedUser({ id, name, phone, legacyRole = 'student', platformRole 
   `).bind(id, name, phone, legacyRole, platformRole, disabledAt).run()
 }
 
-async function seedMembership({ userId, workspaceId, role = 'student', status = 'active', grades = [], displayName = null }) {
+async function seedMembership({ userId, workspaceId, role = 'student', status = 'active', accessTier = 'standard', grades = [], displayName = null }) {
   const result = await env.DB.prepare(`
     insert into workspace_memberships (workspace_id, user_id, role, status, access_tier, display_name)
-    values (?, ?, ?, ?, 'standard', ?)
-  `).bind(workspaceId, userId, role, status, displayName).run()
+    values (?, ?, ?, ?, ?, ?)
+  `).bind(workspaceId, userId, role, status, accessTier, displayName).run()
   if (grades.length > 0) {
     await env.DB.batch(grades.map((grade) => env.DB.prepare(`
       insert into workspace_membership_grades (membership_id, grade) values (?, ?)
@@ -44,11 +44,11 @@ async function seedMembership({ userId, workspaceId, role = 'student', status = 
   return result.meta.last_row_id
 }
 
-async function seedExercise({ id, workspaceId, title, grade = 10, allowAnswerPdf = true, maxAttempts = null }) {
+async function seedExercise({ id, workspaceId, title, grade = 10, allowAnswerPdf = true, maxAttempts = null, minimumAccessTier = 'standard' }) {
   await env.DB.prepare(`
-    insert into exercises (id, title, duration_minutes, created_by, workspace_id, allow_answer_pdf_download, max_attempts)
-    values (?, ?, 45, 101, ?, ?, ?)
-  `).bind(id, title, workspaceId, allowAnswerPdf ? 1 : 0, maxAttempts).run()
+    insert into exercises (id, title, duration_minutes, created_by, workspace_id, allow_answer_pdf_download, max_attempts, minimum_access_tier)
+    values (?, ?, 45, 101, ?, ?, ?, ?)
+  `).bind(id, title, workspaceId, allowAnswerPdf ? 1 : 0, maxAttempts, minimumAccessTier).run()
   await env.DB.prepare('insert into exercise_grades (exercise_id, grade) values (?, ?)').bind(id, grade).run()
 }
 
@@ -79,8 +79,8 @@ async function activateExercise({ exerciseId, sourceFileId, answerFileId = null,
   return set.meta.last_row_id
 }
 
-async function seedReadyExercise({ id, workspaceId, title, grade = 10, allowAnswerPdf = true, maxAttempts = null }) {
-  await seedExercise({ id, workspaceId, title, grade, allowAnswerPdf, maxAttempts })
+async function seedReadyExercise({ id, workspaceId, title, grade = 10, allowAnswerPdf = true, maxAttempts = null, minimumAccessTier = 'standard' }) {
+  await seedExercise({ id, workspaceId, title, grade, allowAnswerPdf, maxAttempts, minimumAccessTier })
   const source = await seedFile({ exerciseId: id, name: 'source.pdf', content: `${title} source` })
   const answer = await seedFile({ exerciseId: id, type: 'solution_pdf', name: 'answers.pdf', content: `${title} answer` })
   const setId = await activateExercise({ exerciseId: id, sourceFileId: source.id, answerFileId: answer.id })
@@ -292,6 +292,97 @@ describe('workspace submissions', () => {
     await env.DB.prepare("update workspace_memberships set status = 'disabled' where workspace_id = 'maths' and user_id = 201").run()
     expect(await statusOf(await api('maths', `/api/submissions/${submissionId}`, { headers: { Authorization: await bearer(201) } }))).toBe(403)
     expect(await statusOf(await api('maths', `/api/submissions/${submissionId}/answer-pdf`, { headers: { Authorization: await bearer(201) } }))).toBe(403)
+  })
+
+  it('returns tier denial for fresh starts after live tier changes', async () => {
+    await seedReadyExercise({ id: 502, workspaceId: 'maths', title: 'VIP Maths', grade: 10, minimumAccessTier: 'vip' })
+
+    const first = await startSubmission({ exerciseId: 502 })
+    expect(first.status).toBe(403)
+    expect((await first.json()).error.code).toBe('TIER_ACCESS_DENIED')
+
+    await env.DB.prepare("update workspace_memberships set access_tier = 'vip' where workspace_id = 'maths' and user_id = 201").run()
+    const started = await startSubmission({ exerciseId: 502 })
+    expect(started.status).toBe(201)
+    expect(await statusOf(await submit({ submissionId: (await started.json()).data.id }))).toBe(200)
+
+    await env.DB.prepare("update workspace_memberships set access_tier = 'standard' where workspace_id = 'maths' and user_id = 201").run()
+    const denied = await startSubmission({ exerciseId: 502, latest: 1 })
+    expect(denied.status).toBe(403)
+    expect((await denied.json()).error.code).toBe('TIER_ACCESS_DENIED')
+  })
+
+  it('preserves started attempt and pinned downloads after an exercise upgrades to VIP but blocks next attempt', async () => {
+    await env.DB.prepare('update exercises set max_attempts = 2 where id = 501').run()
+    const started = await startSubmission()
+    expect(started.status).toBe(201)
+    const submissionId = (await started.json()).data.id
+    await env.DB.prepare("update exercises set minimum_access_tier = 'vip' where id = 501").run()
+
+    expect(await statusOf(await api('maths', `/api/submissions/${submissionId}`, { headers: { Authorization: await bearer(201) } }))).toBe(200)
+    expect(await statusOf(await api('maths', `/api/submissions/${submissionId}/exercise-pdf`, { headers: { Authorization: await bearer(201) } }))).toBe(200)
+
+    expect(await statusOf(await submit({ submissionId }))).toBe(200)
+    const next = await startSubmission({ latest: 1 })
+    expect(next.status).toBe(403)
+    expect((await next.json()).error.code).toBe('TIER_ACCESS_DENIED')
+  })
+
+  it('keeps restricted replacement content out of the landing page of an owned attempt', async () => {
+    const token = await bearer(201)
+    const started = await startSubmission()
+    const submission = (await started.json()).data
+    const pinnedSetId = submission.question_asset_set_id
+    const replacement = await seedFile({ exerciseId: 501, name: 'vip-replacement.pdf', content: 'New VIP PDF' })
+    const replacementSetId = await activateExercise({ exerciseId: 501, sourceFileId: replacement.id })
+    await env.BUCKET.put('exercises/501/vip-new.png', new Uint8Array([7, 7, 7]))
+    await env.DB.prepare(`
+      insert into exercise_question_assets (
+        asset_set_id, q_id, segment_index, source_kind, r2_key, mime_type, file_size, pixel_width, pixel_height, accessible_text
+      ) values (?, 1, 0, 'teacher_screenshot', 'exercises/501/vip-new.png', 'image/png', 3, 1, 1, 'Restricted replacement question')
+    `).bind(replacementSetId).run()
+    await env.DB.prepare("update exercises set minimum_access_tier = 'vip' where id = 501").run()
+
+    const landing = await api('maths', '/api/exercises/501', { headers: { Authorization: token } })
+    expect(landing.status).toBe(200)
+    const data = (await landing.json()).data
+    expect(data).toMatchObject({ can_start_attempt: 0, in_progress_submission_id: submission.id, question_asset_set_id: pinnedSetId })
+    expect(JSON.stringify(data.question_assets)).not.toContain('Restricted replacement question')
+    expect(data.question_assets).toHaveLength(1)
+    expect(data.question_assets[0].asset_set_id).toBe(pinnedSetId)
+    const pdf = await api('maths', `/api/submissions/${submission.id}/exercise-pdf`, { headers: { Authorization: token } })
+    expect(await pdf.text()).toBe('Maths A source')
+  })
+
+  it('reports a tier change at insertion as TIER_ACCESS_DENIED and writes no attempt', async () => {
+    let intercepted = false
+    const db = {
+      prepare(sql) {
+        const statement = env.DB.prepare(sql)
+        if (!/insert into submissions/i.test(sql)) return statement
+        return {
+          bind(...values) {
+            const bound = statement.bind(...values)
+            return {
+              async run() {
+                intercepted = true
+                await env.DB.prepare("update exercises set minimum_access_tier = 'vip' where id = 501").run()
+                return bound.run()
+              },
+            }
+          },
+        }
+      },
+    }
+    const response = await app.request('http://maths-api.test/api/submissions', {
+      method: 'POST',
+      headers: { Authorization: await bearer(201), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ exercise_id: 501, known_latest_attempt_number: 0 }),
+    }, { ...testEnv(), DB: db })
+    expect(intercepted).toBe(true)
+    expect(response.status).toBe(403)
+    expect((await response.json()).error.code).toBe('TIER_ACCESS_DENIED')
+    expect(await env.DB.prepare('select count(*) as count from submissions where exercise_id = 501').first('count')).toBe(0)
   })
 
   it('validates pin-to-exercise and source-file relationships before downloads, uploads, and provider calls', async () => {

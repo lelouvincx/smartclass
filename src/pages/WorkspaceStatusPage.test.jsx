@@ -32,9 +32,24 @@ describe('workspace access status', () => {
     show()
     expect(screen.getByText('English · Cô Thuỳ')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
+    await userEvent.click(screen.getByRole('button', { name: 'Programme access' }))
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'THPT' })).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
     await userEvent.click(screen.getByRole('button', { name: 'Request access' }))
     await waitFor(() => expect(mocks.join).toHaveBeenCalledWith('english-token', { grades: [12] }))
     expect(mocks.auth.refreshUser).toHaveBeenCalled()
+  })
+
+  it('lets a maths join request explicitly select all five programmes', async () => {
+    mocks.auth.workspace = { id: 'maths' }
+    show()
+    await userEvent.click(screen.getByRole('button', { name: 'Programme access' }))
+    await userEvent.click(screen.getByRole('menuitemcheckbox', { name: 'All programmes' }))
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(screen.getByRole('button', { name: 'Request access' }))
+    await waitFor(() => expect(mocks.join).toHaveBeenCalledWith('english-token', {
+      grades: [10, 11, 12, 'thpt', 'dgnl'],
+    }))
   })
 
   it.each(['pending', 'disabled'])('shows %s without offering a duplicate join, keeping Settings and logout', (status) => {

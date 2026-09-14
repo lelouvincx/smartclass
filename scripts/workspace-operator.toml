@@ -1,4 +1,5 @@
-# Used only by workspace-release.mjs. --local disables remote bindings explicitly.
+# DB-only binding for workspace-release.mjs and curriculum-release.mjs.
+# --local disables remote bindings explicitly.
 name = "smartclass-workspace-operator"
 compatibility_date = "2026-03-01"
 

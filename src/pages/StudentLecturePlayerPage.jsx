@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, BookOpen, ExternalLink, History, VideoOff } from '@/components/material-symbol'
-import { Link, useParams } from 'react-router-dom'
-import { listLectures } from '@/lib/api'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { getLecture } from '@/lib/api'
 import { useAuth } from '@/lib/auth-context'
 import {
   getLectureIdFromSlug,
@@ -19,35 +19,85 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
   const { t } = useTranslation()
   const { token, user, workspace } = useAuth()
   const { lectureSlug } = useParams()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   const tracksPlayback = audience === 'student'
-  const lectureListPath = audience === 'guest' ? '/lectures' : `/${audience}/lectures`
   const headingRef = useRef(null)
-  const [lectures, setLectures] = useState([])
+  const requestRef = useRef(0)
+  const [retryCount, setRetryCount] = useState(0)
+  const [context, setContext] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
+  const [notFound, setNotFound] = useState(false)
+
+  const lectureListPath = audience === 'guest' ? '/lectures' : `/${audience}/lectures`
+  const placementId = searchParams.get('placement')
+  const lectureId = getLectureIdFromSlug(lectureSlug)
+  const contextResolvedPlacementId = context?.data?.placement?.id == null ? null : String(context.data.placement.id)
+  const contextMatchesRoute = context?.lectureId === lectureId && context?.token === token && (
+    context.placementId === placementId || contextResolvedPlacementId === placementId
+  )
 
   useEffect(() => {
-    let active = true
+    if (contextMatchesRoute) {
+      setIsLoading(false)
+      return undefined
+    }
+
+    const requestId = requestRef.current + 1
+    requestRef.current = requestId
+
+    setContext(null)
+    setIsLoading(true)
+    setError('')
+    setNotFound(false)
+
+    if (!lectureId) {
+      setIsLoading(false)
+      setNotFound(true)
+      return undefined
+    }
+
     async function loadLecture() {
       try {
-        const response = await listLectures(token)
-        if (active) setLectures(response.data || [])
+        const response = await getLecture(token, lectureId, placementId)
+        if (requestRef.current !== requestId) return
+        setContext({ data: response.data, lectureId, placementId, token })
       } catch (loadError) {
-        if (active) setError(loadError.message)
+        if (requestRef.current !== requestId) return
+        if (loadError.status === 404 || loadError.code === 'NOT_FOUND') {
+          setNotFound(true)
+        } else {
+          setError(loadError.message)
+        }
       } finally {
-        if (active) setIsLoading(false)
+        if (requestRef.current === requestId) setIsLoading(false)
       }
     }
     loadLecture()
-    return () => { active = false }
-  }, [token])
+    return () => {
+      if (requestRef.current === requestId) requestRef.current += 1
+    }
+  }, [contextMatchesRoute, lectureId, placementId, retryCount, token])
 
-  const lectureId = getLectureIdFromSlug(lectureSlug)
-  const lectureIndex = lectures.findIndex((item) => item.id === lectureId)
-  const lecture = lectures[lectureIndex]
-  const previous = lectureIndex > 0 ? lectures[lectureIndex - 1] : null
-  const next = lectureIndex >= 0 && lectureIndex < lectures.length - 1 ? lectures[lectureIndex + 1] : null
+  const currentContext = contextMatchesRoute ? context.data : null
+  const lecture = currentContext?.lecture || null
+  const previous = currentContext?.previous || null
+  const next = currentContext?.next || null
+  const breadcrumb = currentContext?.breadcrumb || null
+  const placement = currentContext?.placement || null
   const videoId = lecture ? getYouTubeVideoId(lecture.youtube_url) : null
+  const routeMatchesLecture = lecture?.id === lectureId
+  const canonicalPath = routeMatchesLecture && getLecturePath(lecture, audience, placement?.id)
+  const backPath = getLectureListPath(lectureListPath, breadcrumb)
+  const breadcrumbLabel = formatBreadcrumb(breadcrumb)
+
+  useEffect(() => {
+    if (!lecture || !canonicalPath) return
+    if (`${location.pathname}${location.search}` === canonicalPath) return
+    navigate(canonicalPath, { replace: true })
+  }, [canonicalPath, lecture, location.pathname, location.search, navigate])
 
   useEffect(() => {
     if (!lecture) return
@@ -56,7 +106,11 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
     return () => { document.title = 'SmartClass' }
   }, [lecture])
 
-  if (isLoading) {
+  if (isLoading || (context && !currentContext)) {
+    return <Card><p className="p-5 text-sm text-muted-foreground">{t('student.lectures.loadingLecture')}</p></Card>
+  }
+
+  if (lecture && !routeMatchesLecture) {
     return <Card><p className="p-5 text-sm text-muted-foreground">{t('student.lectures.loadingLecture')}</p></Card>
   }
 
@@ -65,13 +119,16 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
       <Card>
         <div className="space-y-4 p-5">
           <p role="alert" className="text-sm text-destructive">{error}</p>
-          <Button asChild variant="outline"><Link to={lectureListPath}>{t('student.lectures.back')}</Link></Button>
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" onClick={() => setRetryCount((value) => value + 1)}>{t('student.lectures.retry')}</Button>
+            <Button asChild variant="outline"><Link to={lectureListPath}>{t('student.lectures.back')}</Link></Button>
+          </div>
         </div>
       </Card>
     )
   }
 
-  if (!lecture) {
+  if (notFound || !lecture) {
     return (
       <Card>
         <EmptyState
@@ -88,7 +145,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
     <article className="mx-auto max-w-5xl space-y-7">
       <header className="space-y-5 border-b border-border pb-6">
         <Button asChild variant="ghost" className="-ms-2">
-          <Link to={lectureListPath}><ArrowLeft aria-hidden="true" />{t('student.lectures.back')}</Link>
+          <Link to={backPath}><ArrowLeft aria-hidden="true" />{t('student.lectures.back')}</Link>
         </Button>
         <h1
           ref={headingRef}
@@ -97,9 +154,11 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
         >
           {lecture.title}
         </h1>
-        <p className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-          <BookOpen className="size-4 text-primary" aria-hidden="true" />
-          {lecture.section_name}
+        <p className="flex min-w-0 items-start gap-2 text-sm font-medium text-muted-foreground">
+          <BookOpen className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+          <span className="min-w-0 break-words text-pretty">
+            {breadcrumbLabel || lecture.section_name || t('student.lectures.unplaced')}
+          </span>
         </p>
       </header>
 
@@ -152,7 +211,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
       <nav aria-label={t('student.lectures.sequenceNavigation')} className="grid gap-3 sm:grid-cols-2">
         {previous ? (
           <Link
-            to={getLecturePath(previous, audience)}
+            to={getLecturePath({ id: previous.lecture_id, title: previous.title }, audience, previous.placement_id)}
             aria-label={t('student.lectures.previousNamed', { title: previous.title })}
             className="group flex min-h-24 items-center gap-4 rounded-[var(--sc-component-card-shape)] border bg-card p-4 shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/30 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
@@ -164,7 +223,7 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
         ) : <span />}
         {next && (
           <Link
-            to={getLecturePath(next, audience)}
+            to={getLecturePath({ id: next.lecture_id, title: next.title }, audience, next.placement_id)}
             aria-label={t('student.lectures.nextNamed', { title: next.title })}
             className="group flex min-h-24 items-center justify-end gap-4 rounded-[var(--sc-component-card-shape)] border border-primary/15 bg-sc-primary-container p-4 text-end text-sc-on-primary-container shadow-[var(--shadow-card)] transition-[border-color,box-shadow] hover:border-primary/35 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
           >
@@ -177,4 +236,18 @@ export default function StudentLecturePlayerPage({ audience = 'student' }) {
       </nav>
     </article>
   )
+}
+
+function getLectureListPath(basePath, breadcrumb) {
+  if (!breadcrumb) return basePath
+  const params = new URLSearchParams()
+  if (breadcrumb.programme != null) params.set('programme', String(breadcrumb.programme))
+  if (breadcrumb.lesson_id != null) params.set('lesson', String(breadcrumb.lesson_id))
+  const query = params.toString()
+  return query ? `${basePath}?${query}` : basePath
+}
+
+function formatBreadcrumb(breadcrumb) {
+  if (!breadcrumb) return ''
+  return [breadcrumb.topic_title, breadcrumb.lesson_title].filter(Boolean).join(' · ')
 }

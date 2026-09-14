@@ -1,12 +1,13 @@
 import React from 'react'
 import { act, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import { changeLanguage } from './i18n'
 import { AppRoutes } from './router'
 
 const useAuthMock = vi.fn()
-const listLecturesMock = vi.fn()
+const listCurriculumMock = vi.fn()
+const getCurriculumLessonMock = vi.fn()
 
 vi.mock('./lib/auth-context', () => ({
   AuthProvider: ({ children }) => children,
@@ -15,12 +16,24 @@ vi.mock('./lib/auth-context', () => ({
 
 vi.mock('./lib/api', async (importOriginal) => ({
   ...await importOriginal(),
-  listLectures: (...args) => listLecturesMock(...args),
+  listCurriculum: (...args) => listCurriculumMock(...args),
+  getCurriculumLesson: (...args) => getCurriculumLessonMock(...args),
   listStudents: vi.fn().mockResolvedValue({ data: [] }),
   listExercises: vi.fn().mockResolvedValue({ data: [] }),
+  listLectures: vi.fn().mockResolvedValue({ data: [] }),
+  listMySubmissions: vi.fn().mockResolvedValue({ data: { submissions: [] } }),
 }))
 
-afterEach(() => act(() => changeLanguage('en')))
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request in route guard test')))
+})
+
+afterEach(async () => {
+  await act(() => changeLanguage('en'))
+  const networkRequests = fetch.mock.calls
+  vi.unstubAllGlobals()
+  expect(networkRequests).toEqual([])
+})
 
 describe('route guards', () => {
   it.each([null, 'pending', 'disabled'])('denies learning and management to membership status %s while allowing Settings', async (status) => {
@@ -61,12 +74,15 @@ describe('route guards', () => {
 
   it('keeps public Guest lectures outside the authentication guard', async () => {
     useAuthMock.mockReturnValue({ isLoading: false, user: null, token: null, logout: vi.fn(), defaultPath: '/' })
-    listLecturesMock.mockResolvedValue({
-      data: [{ id: 1, title: 'Public lesson', section_name: 'Preview', youtube_url: 'https://youtu.be/abcdefghijk' }],
+    listCurriculumMock.mockResolvedValue({
+      data: { programme: 10, topics: [{ id: 8, title: 'Preview', lessons: [{ id: 9, title: 'Introduction', unit_count: 1 }] }] },
+    })
+    getCurriculumLessonMock.mockResolvedValue({
+      data: { lesson: { id: 9, title: 'Introduction' }, units: [{ placement_id: 21, lecture: { id: 1, title: 'Public lesson', youtube_url: 'https://youtu.be/abcdefghijk', minimum_access_tier: 'guest', is_visible: 1 } }] },
     })
 
     render(
-      <MemoryRouter initialEntries={['/lectures']}>
+      <MemoryRouter initialEntries={['/lectures?programme=10&topic=8&lesson=9']}>
         <AppRoutes />
       </MemoryRouter>,
     )
@@ -75,7 +91,8 @@ describe('route guards', () => {
     screen.getAllByRole('link', { name: 'Sign in' }).forEach((link) => {
       expect(link).toHaveAttribute('href', '/')
     })
-    expect(listLecturesMock).toHaveBeenCalledWith(null)
+    expect(listCurriculumMock).toHaveBeenCalledWith(null, 10)
+    expect(getCurriculumLessonMock).toHaveBeenCalledWith(null, 9)
   })
 
   it('keeps the unauthenticated loading state in English', async () => {

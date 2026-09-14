@@ -80,6 +80,21 @@ filesRoutes.get('/:fileId', requireWorkspaceIdentity, async (c) => {
     if (!access) {
       return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise file is not available for your classes')
     }
+    const tierAccess = await c.env.DB.prepare(`
+      select 1
+      from exercises exercise
+      where exercise.id = ?
+        and case exercise.minimum_access_tier
+          when 'guest' then 1
+          when 'standard' then case when ? in ('standard', 'vip') then 1 else 0 end
+          when 'vip' then case when ? = 'vip' then 1 else 0 end
+          else 0
+        end
+      limit 1
+    `).bind(file.exercise_id, membership.access_tier, membership.access_tier).first()
+    if (!tierAccess) {
+      return jsonError(c, 403, 'TIER_ACCESS_DENIED', 'This exercise file requires a higher access tier')
+    }
   }
 
   const r2Object = await c.env.BUCKET.get(file.r2_key)

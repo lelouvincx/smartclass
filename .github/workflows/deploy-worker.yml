@@ -83,6 +83,10 @@ jobs:
         if: ${{ !inputs.maintenance_only }}
         run: node scripts/workspace-release.mjs check --remote --commit "$GITHUB_SHA"
 
+      - name: Require completed curriculum cutover
+        if: ${{ !inputs.maintenance_only }}
+        run: node scripts/curriculum-release.mjs check --remote --commit "$GITHUB_SHA"
+
       - name: Deploy frontend
         if: ${{ !inputs.maintenance_only }}
         run: npx wrangler pages deploy dist --project-name smartclass --branch main --commit-hash "$GITHUB_SHA"

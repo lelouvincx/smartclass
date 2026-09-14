@@ -1,416 +1,318 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ArrowDown, ArrowRight, ArrowUp, BookOpen, Eye, EyeOff, Pencil, Play, Plus, Trash2 } from '@/components/material-symbol'
 import { Link, useSearchParams } from 'react-router-dom'
+import { Eye, MaterialSymbol, Menu, Pencil, Plus, RefreshCw, Trash2, UnlinkIcon } from '@/components/material-symbol'
+import { CurriculumNavigator } from '@/components/curriculum-navigator'
+import { AudienceImpact } from '@/components/curriculum-management/AudienceImpact'
+import { ConfirmDialog } from '@/components/curriculum-management/ConfirmDialog'
+import { DestinationDialog } from '@/components/curriculum-management/DestinationDialog'
+import { ReorderDialog } from '@/components/curriculum-management/ReorderDialog'
+import { TextResourceDialog } from '@/components/curriculum-management/TextResourceDialog'
+import { VideoDialog } from '@/components/curriculum-management/VideoDialog'
 import {
-  createLecture,
-  deleteLecture,
-  listLectures,
-  updateLecture,
-  updateLectureOrder,
-} from '@/lib/api'
-import { useAuth } from '@/lib/auth-context'
-import { getLecturePath, getYouTubeEmbedUrl, groupLectureRuns } from '@/lib/lectures'
+  buildGroupMoveImpact,
+  freezeRevision,
+  isStaleError,
+  minRevisionFromResponses,
+  normaliseResponseList,
+  normaliseRevision,
+  sortedByOrder,
+  withCurrentPlacementRemoved,
+} from '@/components/curriculum-management/curriculum-utils'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
-import AccessTierRadioGroup, { AccessTierBadge, LECTURE_ACCESS_TIERS } from '@/components/access-tier-radio-group'
+import { Card, CardContent } from '@/components/ui/card'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
-import { GRADES } from '@/lib/grades'
+import {
+  createCurriculumLesson,
+  createCurriculumPlacement,
+  createCurriculumTopic,
+  deleteCurriculumLesson,
+  deleteCurriculumPlacement,
+  deleteCurriculumTopic,
+  deleteLecture,
+  getCurriculumLesson,
+  listCurriculum,
+  listLectures,
+  updateCurriculumLesson,
+  updateCurriculumOrder,
+  updateCurriculumPlacement,
+  updateCurriculumTopic,
+  updateLecture,
+} from '@/lib/api'
+import { useAuth } from '@/lib/auth-context'
+import { getLecturePath } from '@/lib/lectures'
+import useCurriculumDraftGuard from '@/lib/use-curriculum-draft-guard'
+import useCurriculumNavigation from '@/lib/use-curriculum-navigation'
 
-const EMPTY_FORM = {
-  title: '',
-  section_name: '',
-  youtube_url: '',
-  grades: [...GRADES],
-  minimum_access_tier: 'standard',
+function ActionMenu({ label, children }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="icon" aria-label={label} title={label}><Menu aria-hidden="true" /></Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-56">{children}</DropdownMenuContent>
+    </DropdownMenu>
+  )
 }
 
 export default function TeacherLecturesPage() {
   const { t } = useTranslation()
-  const { token } = useAuth()
+  const { token, workspace } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
-  const [lectures, setLectures] = useState([])
-  const [form, setForm] = useState(EMPTY_FORM)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [expandedLectureId, setExpandedLectureId] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
-  const [error, setError] = useState('')
+  const navigation = useCurriculumNavigation(token, workspace)
+  const [library, setLibrary] = useState([])
+  const [libraryRevision, setLibraryRevision] = useState(null)
+  const [allTopics, setAllTopics] = useState([])
+  const [libraryError, setLibraryError] = useState('')
+  const [managerReady, setManagerReady] = useState(false)
+  const [dialog, setDialog] = useState(null)
+  const [discard, setDiscard] = useState(null)
+  const loadRequestRef = useRef(0)
 
-  const loadLectures = useCallback(async () => {
-    setIsLoading(true)
-    setError('')
-    try {
-      const response = await listLectures(token)
-      setLectures(response.data || [])
-    } catch (loadError) {
-      setError(loadError.message)
-    } finally {
-      setIsLoading(false)
+  const revision = freezeRevision(navigation.revision, libraryRevision)
+  const programmes = navigation.programmes ?? [10, 11, 12, 'dgnl']
+
+  const allLessons = useMemo(() => allTopics.flatMap((topic) => (topic.lessons ?? []).map((lesson) => ({ ...lesson, programme: topic.programme, topic_title: topic.title }))), [allTopics])
+
+  function enrichLesson(lesson) {
+    const topic = allTopics.find((item) => Number(item.id) === Number(lesson?.topic_id))
+    return topic ? { ...lesson, programme: topic.programme, topic_title: topic.title } : lesson
+  }
+
+  function groupMoveImpact(type, resource) {
+    return (destination) => {
+      if (!destination || destination === String(type === 'topic' ? resource?.programme : resource?.topic_id)) return []
+      return buildGroupMoveImpact({
+        type,
+        resource,
+        destinationProgramme: type === 'topic' ? (destination.match(/^\d+$/) ? Number(destination) : destination) : undefined,
+        destinationTopicId: type === 'lesson' ? Number(destination) : undefined,
+        topics: allTopics,
+        library,
+      })
     }
-  }, [token])
+  }
+
+  const loadManagerData = useCallback(async () => {
+    const requestId = loadRequestRef.current + 1
+    loadRequestRef.current = requestId
+    setLibraryError('')
+    setManagerReady(false)
+    try {
+      const [lectureResponse, ...curriculumResponses] = await Promise.all([
+        listLectures(token),
+        ...programmes.map((programme) => listCurriculum(token, programme)),
+      ])
+      if (loadRequestRef.current !== requestId) return null
+      const normalised = normaliseResponseList(lectureResponse)
+      setLibrary(normalised.lectures)
+      setLibraryRevision(minRevisionFromResponses(lectureResponse, ...curriculumResponses) ?? normalised.revision)
+      setAllTopics(curriculumResponses.flatMap((response) => response?.data?.topics ?? response?.topics ?? []))
+      setManagerReady(true)
+      return { lectureResponse, curriculumResponses }
+    } catch (error) {
+      if (loadRequestRef.current === requestId) {
+        setLibraryError(error.message)
+        setManagerReady(false)
+      }
+      throw error
+    }
+  }, [programmes, token])
 
   useEffect(() => {
-    loadLectures()
-  }, [loadLectures])
+    let ignored = false
+    loadManagerData().catch((error) => { if (!ignored) setLibraryError(error.message) })
+    return () => { ignored = true }
+  }, [loadManagerData])
 
   useEffect(() => {
     if (searchParams.get('create') !== 'lecture') return
+    if (!managerReady) return
+    if (navigation.selectedLesson) openDialog({ type: 'add-new', lesson: enrichLesson(navigation.selectedLesson), revision })
+    else setLibraryError(t('curriculumManagement.video.selectLessonFirst'))
+    const next = new URLSearchParams(searchParams)
+    next.delete('create')
+    setSearchParams(next, { replace: true })
+  }, [managerReady, navigation.selectedLesson, revision, searchParams, setSearchParams, t])
 
-    startCreating()
-    const nextParams = new URLSearchParams(searchParams)
-    nextParams.delete('create')
-    setSearchParams(nextParams, { replace: true })
-  }, [searchParams, setSearchParams])
+  const handleGuardedLeave = useCallback((action) => {
+    if (dialog?.pending) return
+    setDiscard(() => () => {
+      setDialog(null)
+      setDiscard(null)
+      action.retry?.()
+    })
+  }, [dialog?.pending])
 
-  function updateField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }))
-    if (error) setError('')
+  useCurriculumDraftGuard({ blocked: Boolean(dialog?.dirty || dialog?.pending), onLeave: handleGuardedLeave })
+
+  function openDialog(next) {
+    if (!managerReady) return
+    setDialog({ ...next, error: '', stale: false, pending: false, dirty: false, revision: next.revision ?? revision })
   }
 
-  function resetForm() {
-    setForm(EMPTY_FORM)
-    setEditingId(null)
-  }
+  const setDialogDirty = useCallback((dirty) => {
+    setDialog((current) => current && current.dirty !== dirty ? { ...current, dirty } : current)
+  }, [])
 
-  async function handleSubmit(event) {
-    event.preventDefault()
-    setError('')
-    if (form.grades.length === 0) {
-      setError(t('common.gradeRequired'))
+  function closeDialog(meta = {}) {
+    if (meta.dirty || dialog?.dirty) {
+      setDiscard(() => () => { setDialog(null); setDiscard(null) })
       return
     }
-    setIsSaving(true)
+    setDialog(null)
+  }
 
+  async function afterMutation(response) {
+    setLibraryRevision(normaliseRevision(response, revision + 1))
+    await Promise.all([navigation.reload?.(), loadManagerData()])
+  }
+
+  async function runMutation(mutator) {
+    setDialog((current) => ({ ...current, pending: true, error: '', stale: false }))
     try {
-      if (editingId) {
-        await updateLecture(token, editingId, form)
-      } else {
-        await createLecture(token, form)
+      const response = await mutator(dialog.revision)
+      setDialog(null)
+      try {
+        await afterMutation(response)
+      } catch (reloadError) {
+        setLibraryError(t('curriculumManagement.errors.savedReloadFailed', { message: reloadError.message }))
       }
-      resetForm()
-      setDialogOpen(false)
-      await loadLectures()
-    } catch (saveError) {
-      setError(saveError.message)
-    } finally {
-      setIsSaving(false)
+    } catch (error) {
+      setDialog((current) => ({ ...current, pending: false, error: error.message, stale: isStaleError(error) }))
     }
   }
 
-  function startEditing(lecture) {
-    setEditingId(lecture.id)
-    setForm({
-      title: lecture.title,
-      section_name: lecture.section_name,
-      youtube_url: lecture.youtube_url,
-      grades: lecture.grades || [...GRADES],
-      minimum_access_tier: lecture.minimum_access_tier || 'standard',
+  async function reloadAndKeepOpen() {
+    setDiscard(() => async () => {
+      setDialog(null)
+      setDiscard(null)
+      try {
+        await Promise.all([navigation.reload?.(), loadManagerData()])
+      } catch (error) {
+        setLibraryError(error.message)
+      }
     })
-    setError('')
-    setDialogOpen(true)
   }
 
-  function startCreating(sectionName = '') {
-    setEditingId(null)
-    setForm({ ...EMPTY_FORM, section_name: sectionName })
-    setError('')
-    setDialogOpen(true)
+  function lectureFor(unitOrLecture) {
+    const id = unitOrLecture?.lecture?.id ?? unitOrLecture?.id
+    return library.find((item) => item.id === id) ?? unitOrLecture?.lecture ?? unitOrLecture
   }
 
-  function handleDialogOpenChange(open) {
-    setDialogOpen(open)
-    if (!open) {
-      resetForm()
-      setError('')
+  function topicActions(topic) {
+    return (
+      <ActionMenu label={t('curriculumManagement.actions.topic', { title: topic.title })}>
+        <DropdownMenuLabel>{topic.title}</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'create-lesson', resource: { topic_id: topic.id }, revision })}><Plus />{t('curriculumManagement.lesson.create')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'edit-topic', resource: topic, revision })}><Pencil />{t('curriculumManagement.rename')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'move-topic', resource: topic, revision })}>{t('curriculumManagement.moveTo')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'reorder-lessons', topic, items: sortedByOrder(topic.lessons), revision })}>{t('curriculumManagement.reorder.lessons')}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={() => openDialog({ type: 'delete-topic', resource: topic, revision })}><Trash2 />{t('curriculumManagement.delete')}</DropdownMenuItem>
+      </ActionMenu>
+    )
+  }
+
+  function lessonActions(lesson) {
+    async function openReorderUnits() {
+      try {
+        const response = await getCurriculumLesson(token, lesson.id)
+        const data = response.data ?? {}
+        openDialog({ type: 'reorder-units', lesson, items: sortedByOrder(data.units ?? []), revision: freezeRevision(revision, normaliseRevision(response, revision)) })
+      } catch (error) {
+        setLibraryError(error.message)
+      }
     }
+
+    return (
+      <ActionMenu label={t('curriculumManagement.actions.lesson', { title: lesson.title })}>
+        <DropdownMenuLabel>{lesson.title}</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'add-new', lesson: enrichLesson(lesson), revision })}><Plus />{t('curriculumManagement.video.addNew')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'add-existing', lesson: enrichLesson(lesson), revision })}><MaterialSymbol name="video_library" />{t('curriculumManagement.video.addExisting')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'edit-lesson', resource: lesson, revision })}><Pencil />{t('curriculumManagement.rename')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'move-lesson', resource: lesson, revision })}><MaterialSymbol name="drive_file_move" />{t('curriculumManagement.moveTo')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={openReorderUnits}><MaterialSymbol name="swap_vert" />{t('curriculumManagement.reorder.units')}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={() => openDialog({ type: 'delete-lesson', resource: lesson, revision })}><Trash2 />{t('curriculumManagement.delete')}</DropdownMenuItem>
+      </ActionMenu>
+    )
   }
 
-  async function moveLecture(index, offset) {
-    const targetIndex = index + offset
-    if (targetIndex < 0 || targetIndex >= lectures.length) return
-
-    const reordered = [...lectures]
-    const [lecture] = reordered.splice(index, 1)
-    reordered.splice(targetIndex, 0, lecture)
-    setError('')
-
-    try {
-      await updateLectureOrder(token, reordered.map((item) => item.id))
-      setLectures(reordered)
-    } catch (orderError) {
-      setError(orderError.message)
-    }
+  function unitActions(unit) {
+    const lecture = lectureFor(unit)
+    const remaining = withCurrentPlacementRemoved(lecture, unit.placement_id)
+    const currentPlacement = (lecture?.placements ?? []).find((placement) => placement.placement_id === unit.placement_id) ?? unit
+    return (
+      <ActionMenu label={t('curriculumManagement.actions.unit', { title: unit.lecture.title })}>
+        <DropdownMenuLabel>{unit.lecture.title}</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'edit-video', lecture, revision })}><Pencil />{t('curriculumManagement.video.edit')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'move-placement', unit, lecture, nextPlacements: remaining, revision })}>{t('curriculumManagement.moveTo')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'remove-placement', unit: currentPlacement, lecture, nextPlacements: remaining, revision })}><UnlinkIcon />{t('curriculumManagement.placement.remove')}</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onSelect={() => openDialog({ type: 'delete-video', lecture, revision })}><Trash2 />{t('curriculumManagement.video.delete')}</DropdownMenuItem>
+      </ActionMenu>
+    )
   }
 
-  async function handleDelete(lecture) {
-    if (!window.confirm(t('teacher.lectures.deleteConfirm', { title: lecture.title }))) return
-
-    setError('')
-    try {
-      await deleteLecture(token, lecture.id)
-      if (editingId === lecture.id) resetForm()
-      await loadLectures()
-    } catch (deleteError) {
-      setError(deleteError.message)
-    }
+  const management = {
+    programmeActions: <ActionMenu label={t('curriculumManagement.actions.programme')}><DropdownMenuItem onSelect={() => openDialog({ type: 'create-topic', resource: { programme: navigation.programme }, revision })}><Plus />{t('curriculumManagement.topic.create')}</DropdownMenuItem><DropdownMenuItem onSelect={() => openDialog({ type: 'reorder-topics', items: sortedByOrder(navigation.topics), revision })}>{t('curriculumManagement.reorder.topics')}</DropdownMenuItem></ActionMenu>,
+    topicActions,
+    lessonActions,
+    unitActions,
+    lessonHeaderActions: navigation.selectedLesson && <Button type="button" variant="outline" onClick={() => openDialog({ type: 'add-new', lesson: enrichLesson(navigation.selectedLesson), revision })}><Plus />{t('curriculumManagement.video.addNew')}</Button>,
+    footer: <UnplacedLibrary library={library.filter((lecture) => (lecture.placements ?? []).length === 0)} onEdit={(lecture) => openDialog({ type: 'edit-video', lecture, revision })} onDelete={(lecture) => openDialog({ type: 'delete-video', lecture, revision })} />,
   }
-
-  async function toggleVisibility(lecture) {
-    setError('')
-    try {
-      const response = await updateLecture(token, lecture.id, {
-        title: lecture.title,
-        section_name: lecture.section_name,
-        youtube_url: lecture.youtube_url,
-        is_visible: !lecture.is_visible,
-      })
-      setLectures((current) => current.map((item) => (
-        item.id === lecture.id ? response.data : item
-      )))
-    } catch (visibilityError) {
-      setError(visibilityError.message)
-    }
-  }
-
-  let sequence = 0
-  const sectionNames = [...new Set(lectures.map((lecture) => lecture.section_name))]
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={t('teacher.lectures.title')}
-        description={t('teacher.lectures.description')}
-        actions={(
-          <Button type="button" onClick={() => startCreating()}>
-            <Plus aria-hidden="true" />
-            {t('teacher.lectures.add')}
-          </Button>
-        )}
-      />
-
-      <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent
-          className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg"
-          closeLabel={t('teacher.lectures.closeDialog')}
-        >
-          <DialogHeader>
-            <DialogTitle>{editingId ? t('teacher.lectures.edit') : t('teacher.lectures.add')}</DialogTitle>
-            <DialogDescription>{t('teacher.lectures.formDescription')}</DialogDescription>
-          </DialogHeader>
-          <form id="lecture-form" onSubmit={handleSubmit} className="grid gap-4" aria-describedby={error ? 'lecture-form-error' : undefined}>
-            <div className="space-y-1.5">
-              <Label htmlFor="lecture-section">{t('teacher.lectures.section')}</Label>
-              <Input
-                id="lecture-section"
-                name="section_name"
-                value={form.section_name}
-                onChange={(event) => updateField('section_name', event.target.value)}
-                placeholder={t('teacher.lectures.sectionPlaceholder')}
-                list="lecture-sections"
-                required
-              />
-              <datalist id="lecture-sections">
-                {sectionNames.map((sectionName) => <option key={sectionName} value={sectionName} />)}
-              </datalist>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lecture-title">{t('teacher.lectures.titleLabel')}</Label>
-              <Input
-                id="lecture-title"
-                name="title"
-                value={form.title}
-                onChange={(event) => updateField('title', event.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="lecture-url">{t('teacher.lectures.youtubeUrl')}</Label>
-              <Input
-                id="lecture-url"
-                name="youtube_url"
-                type="url"
-                inputMode="url"
-                value={form.youtube_url}
-                onChange={(event) => updateField('youtube_url', event.target.value)}
-                placeholder="https://youtu.be/..."
-                required
-              />
-            </div>
-            <GradeDropdown
-              id="lecture-grades"
-              legend={t('common.gradeAccess')}
-              description={t('common.gradeAccessDescription')}
-              value={form.grades}
-              onChange={(grades) => updateField('grades', grades)}
-              disabled={isSaving}
-            />
-            <AccessTierRadioGroup
-              id="lecture-access-tier"
-              legend={t('teacher.lectures.minimumAccessTier')}
-              value={form.minimum_access_tier}
-              onChange={(tier) => updateField('minimum_access_tier', tier)}
-              tiers={LECTURE_ACCESS_TIERS}
-              disabled={isSaving}
-            />
-            {error && (
-              <p id="lecture-form-error" role="alert" className="rounded-[var(--sc-component-control-shape)] bg-destructive/10 p-3 text-sm text-destructive">
-                {error}
-              </p>
-            )}
-          </form>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleDialogOpenChange(false)} disabled={isSaving}>
-              {t('teacher.lectures.cancel')}
-            </Button>
-            <Button type="submit" form="lecture-form" disabled={isSaving}>
-              {isSaving
-                ? t('teacher.lectures.saving')
-                : editingId
-                  ? t('teacher.lectures.save')
-                  : t('teacher.lectures.create')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {error && !dialogOpen && (
-        <Card>
-          <div className="flex flex-col items-start gap-4 p-5">
-            <p role="alert" className="text-sm text-destructive">{error}</p>
-            {lectures.length === 0 && (
-              <Button type="button" variant="outline" onClick={loadLectures}>
-                {t('teacher.lectures.retry')}
-              </Button>
-            )}
-          </div>
-        </Card>
-      )}
-
-      {isLoading ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">{t('teacher.lectures.loading')}</p>
-      ) : !error && lectures.length === 0 ? (
-        <Card className="gap-0 py-0">
-          <EmptyState
-            icon={BookOpen}
-            title={t('teacher.lectures.empty')}
-            description={t('teacher.lectures.emptyDescription')}
-            action={<Button type="button" onClick={() => startCreating()}>{t('teacher.lectures.add')}</Button>}
-          />
-        </Card>
-      ) : lectures.length > 0 ? (
-        <Card className="gap-0 py-0" aria-label={t('teacher.lectures.list')}>
-          {groupLectureRuns(lectures).map((section, sectionIndex) => (
-            <section key={`${section.name}-${sectionIndex}`} className="border-b last:border-b-0">
-              <header className="flex flex-wrap items-center justify-between gap-3 bg-muted/45 px-4 py-4 sm:px-6">
-                <div className="flex items-center gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] bg-primary/10 text-primary">
-                    <BookOpen className="size-4" aria-hidden="true" />
-                  </span>
-                  <div>
-                    <h2 className="font-semibold">{section.name}</h2>
-                    <p className="text-xs text-muted-foreground">{t('teacher.lectures.lessonCount', { count: section.lectures.length })}</p>
-                  </div>
-                </div>
-                <Button type="button" variant="ghost" size="sm" onClick={() => startCreating(section.name)}>
-                  <Plus aria-hidden="true" />{t('teacher.lectures.addToSection')}
-                </Button>
-              </header>
-              <ol className="divide-y" role="list">
-                {section.lectures.map((lecture) => {
-                  const index = lectures.indexOf(lecture)
-                  const isExpanded = expandedLectureId === lecture.id
-                  const embedUrl = getYouTubeEmbedUrl(lecture.youtube_url)
-                  const playerId = `lecture-player-${lecture.id}`
-                  sequence += 1
-                  return (
-                    <li
-                      key={lecture.id}
-                      className={`min-w-0 px-4 py-3 sm:px-6 ${lecture.is_visible ? '' : 'bg-muted text-muted-foreground'}`}
-                    >
-                      <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-                        <div className="flex min-w-0 items-center gap-3">
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full border bg-background text-sm font-semibold tabular-nums text-muted-foreground">{sequence}</span>
-                          <div className="min-w-0">
-                            <p className="font-medium leading-6 break-words">{lecture.title}</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <GradeBadges grades={lecture.grades} />
-                              <AccessTierBadge tier={lecture.minimum_access_tier} />
-                            </div>
-                            <div className="-ml-2 flex flex-wrap items-center gap-1">
-                              <Button asChild variant="ghost" size="sm" className="text-primary">
-                                <Link
-                                  to={getLecturePath(lecture, 'teacher')}
-                                  aria-label={t('teacher.lectures.viewDetailsNamed', { title: lecture.title })}
-                                >
-                                  {t('teacher.lectures.viewDetails')}
-                                  <ArrowRight aria-hidden="true" />
-                                </Link>
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                aria-expanded={isExpanded}
-                                aria-controls={playerId}
-                                aria-label={t(isExpanded ? 'teacher.lectures.hideNamed' : 'teacher.lectures.watchNamed', { title: lecture.title })}
-                                onClick={() => setExpandedLectureId(isExpanded ? null : lecture.id)}
-                              >
-                                <Play className="fill-current" aria-hidden="true" />
-                                {t(isExpanded ? 'teacher.lectures.hide' : 'teacher.lectures.watch')}
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-wrap gap-2 sm:justify-end">
-                          <Button
-                            type="button"
-                            size="icon"
-                            variant="outline"
-                            onClick={() => toggleVisibility(lecture)}
-                            aria-label={t(lecture.is_visible ? 'teacher.lectures.hideFromStudents' : 'teacher.lectures.showToStudents', { title: lecture.title })}
-                          >
-                            {lecture.is_visible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
-                          </Button>
-                          <Button type="button" size="icon" variant="outline" onClick={() => moveLecture(index, -1)} disabled={index === 0} aria-label={t('teacher.lectures.moveUp', { title: lecture.title })}><ArrowUp aria-hidden="true" /></Button>
-                          <Button type="button" size="icon" variant="outline" onClick={() => moveLecture(index, 1)} disabled={index === lectures.length - 1} aria-label={t('teacher.lectures.moveDown', { title: lecture.title })}><ArrowDown aria-hidden="true" /></Button>
-                          <Button type="button" size="icon" variant="outline" onClick={() => startEditing(lecture)} aria-label={t('teacher.lectures.editNamed', { title: lecture.title })}><Pencil aria-hidden="true" /></Button>
-                          <Button type="button" size="icon" variant="outline" className="text-destructive hover:text-destructive" onClick={() => handleDelete(lecture)} aria-label={t('teacher.lectures.deleteNamed', { title: lecture.title })}><Trash2 aria-hidden="true" /></Button>
-                        </div>
-                      </div>
-                      {isExpanded && embedUrl && (
-                        <div id={playerId} className="mt-3 overflow-hidden rounded-[var(--sc-component-control-shape)] border bg-black sm:ml-10">
-                          <iframe
-                            className="aspect-video w-full"
-                            src={embedUrl}
-                            title={lecture.title}
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                            referrerPolicy="strict-origin-when-cross-origin"
-                            allowFullScreen
-                          />
-                        </div>
-                      )}
-                    </li>
-                  )
-                })}
-              </ol>
-            </section>
-          ))}
-        </Card>
-      ) : null}
+      <PageHeader title={t('teacher.lectures.title')} description={t('curriculumManagement.page.description')} />
+      {libraryError && <Card><CardContent className="flex flex-col items-start gap-3"><p role="alert" className="text-sm text-destructive">{libraryError}</p><Button type="button" variant="outline" onClick={() => loadManagerData().catch(() => {})}><RefreshCw />{t('curriculumManagement.reload')}</Button></CardContent></Card>}
+      <CurriculumNavigator navigation={navigation} audience="teacher" management={management} />
+      {renderDialog()}
+      <ConfirmDialog open={Boolean(discard)} title={t('curriculumManagement.discard.title')} description={t('curriculumManagement.discard.description')} confirmLabel={t('curriculumManagement.discard.confirm')} onConfirm={() => discard?.()} onCancel={() => setDiscard(null)} />
     </div>
   )
+
+  function renderDialog() {
+    if (!dialog) return null
+    if (dialog.type === 'remove-placement') return <ConfirmDialog open destructive title={t('curriculumManagement.placement.remove')} description={<AudienceImpact lecture={dialog.lecture} nextPlacements={dialog.nextPlacements} affectedPlacements={[dialog.unit]} />} confirmLabel={t('curriculumManagement.placement.remove')} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onReload={reloadAndKeepOpen} onCancel={closeDialog} onConfirm={() => runMutation((expected_revision) => deleteCurriculumPlacement(token, dialog.unit.placement_id, expected_revision))} />
+    if (dialog.type === 'delete-video') return <ConfirmDialog open destructive title={t('curriculumManagement.video.delete')} description={<AudienceImpact lecture={dialog.lecture} nextPlacements={[]} />} confirmLabel={t('curriculumManagement.video.delete')} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onReload={reloadAndKeepOpen} onCancel={closeDialog} onConfirm={() => runMutation((expected_revision) => deleteLecture(token, dialog.lecture.id, expected_revision))} />
+    if (dialog.type === 'delete-topic') return <ConfirmDialog open destructive title={t('curriculumManagement.topic.delete')} description={t('curriculumManagement.topic.deleteDescription', { title: dialog.resource.title })} confirmLabel={t('curriculumManagement.delete')} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onReload={reloadAndKeepOpen} onCancel={closeDialog} onConfirm={() => runMutation((expected_revision) => deleteCurriculumTopic(token, dialog.resource.id, expected_revision))} />
+    if (dialog.type === 'delete-lesson') return <ConfirmDialog open destructive title={t('curriculumManagement.lesson.delete')} description={t('curriculumManagement.lesson.deleteDescription', { title: dialog.resource.title })} confirmLabel={t('curriculumManagement.delete')} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onReload={reloadAndKeepOpen} onCancel={closeDialog} onConfirm={() => runMutation((expected_revision) => deleteCurriculumLesson(token, dialog.resource.id, expected_revision))} />
+    if (dialog.type?.startsWith('reorder')) {
+      const parentType = dialog.type === 'reorder-units' ? 'lesson' : dialog.type === 'reorder-lessons' ? 'topic' : 'programme'
+      const parentId = dialog.type === 'reorder-units' ? dialog.lesson.id : dialog.type === 'reorder-lessons' ? dialog.topic.id : navigation.programme
+      return <ReorderDialog open title={t(`curriculumManagement.${dialog.type.replace('-', '.')}`)} items={dialog.items} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onDirtyChange={setDialogDirty} onReload={reloadAndKeepOpen} onCancel={closeDialog} onSave={(ids) => runMutation((expected_revision) => updateCurriculumOrder(token, { parent_type: parentType, parent_id: parentId, ids, expected_revision }))} />
+    }
+    if (dialog.type?.includes('topic') || dialog.type?.includes('lesson')) {
+      if (dialog.type === 'move-lesson') return <DestinationDialog open title={t('curriculumManagement.lesson.move')} description={t('curriculumManagement.lesson.moveDescription')} label={t('curriculumManagement.topic.destination')} value={dialog.resource.topic_id} topics={allTopics} groupImpact={groupMoveImpact('lesson', dialog.resource)} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onDirtyChange={setDialogDirty} onReload={reloadAndKeepOpen} onCancel={closeDialog} onSubmit={(destination) => runMutation((expected_revision) => updateCurriculumLesson(token, dialog.resource.id, { topic_id: Number(destination), expected_revision }))} />
+      if (dialog.type === 'move-topic') return <TextResourceDialog open mode="move-topic" resource={dialog.resource} programmes={programmes} topics={allTopics} groupImpact={groupMoveImpact('topic', dialog.resource)} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onDirtyChange={setDialogDirty} onReload={reloadAndKeepOpen} onCancel={closeDialog} onSubmit={({ destination }) => runMutation((expected_revision) => updateCurriculumTopic(token, dialog.resource.id, { programme: destination.match(/^\d+$/) ? Number(destination) : destination, expected_revision }))} />
+      return <TextResourceDialog open mode={dialog.type} resource={dialog.resource} programmes={programmes} topics={allTopics} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onDirtyChange={setDialogDirty} onReload={reloadAndKeepOpen} onCancel={closeDialog} onSubmit={({ title, destination }) => {
+        if (dialog.type === 'create-topic') return runMutation((expected_revision) => createCurriculumTopic(token, { programme: destination.match(/^\d+$/) ? Number(destination) : destination, title, expected_revision }))
+        if (dialog.type === 'create-lesson') return runMutation((expected_revision) => createCurriculumLesson(token, { topic_id: Number(destination || dialog.resource.topic_id), title, expected_revision }))
+        if (dialog.type === 'edit-topic') return runMutation((expected_revision) => updateCurriculumTopic(token, dialog.resource.id, { title, expected_revision }))
+        return runMutation((expected_revision) => updateCurriculumLesson(token, dialog.resource.id, { title, expected_revision }))
+      }} />
+    }
+    if (dialog.type === 'add-new' || dialog.type === 'add-existing' || dialog.type === 'edit-video') {
+      return <VideoDialog open mode={dialog.type} lesson={dialog.lesson} lecture={dialog.lecture} library={library} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onDirtyChange={setDialogDirty} onReload={reloadAndKeepOpen} onCancel={closeDialog} onSubmit={(payload) => {
+        if (dialog.type === 'edit-video') return runMutation((expected_revision) => updateLecture(token, dialog.lecture.id, { ...payload.lecture, expected_revision }))
+        return runMutation((expected_revision) => createCurriculumPlacement(token, { lesson_id: dialog.lesson.id, ...payload, expected_revision }))
+      }} />
+    }
+    if (dialog.type === 'move-placement') {
+      const currentPlacement = (dialog.lecture?.placements ?? []).find((placement) => placement.placement_id === dialog.unit.placement_id) ?? dialog.unit
+      return <DestinationDialog open title={t('curriculumManagement.placement.move')} description={t('curriculumManagement.placement.moveDescription')} label={t('curriculumManagement.lesson.destination')} value={currentPlacement.lesson_id} lessons={allLessons} lecture={dialog.lecture} nextPlacements={dialog.nextPlacements} pending={dialog.pending} error={dialog.error} stale={dialog.stale} onDirtyChange={setDialogDirty} onReload={reloadAndKeepOpen} onCancel={closeDialog} onSubmit={(destination) => runMutation((expected_revision) => updateCurriculumPlacement(token, dialog.unit.placement_id, { lesson_id: Number(destination), expected_revision }))} />
+    }
+    return null
+  }
+}
+
+function UnplacedLibrary({ library, onEdit, onDelete }) {
+  const { t } = useTranslation()
+  if (!library.length) return null
+  return <Card><CardContent><EmptyState title={t('curriculumManagement.library.title')} description={t('curriculumManagement.library.description')} /><ul className="mt-4 grid gap-2">{library.map((lecture) => <li key={lecture.id} className="flex items-center justify-between gap-3 rounded-[var(--sc-component-control-shape)] border p-2"><span className="min-w-0 break-words">{lecture.title}</span><div className="flex shrink-0 gap-1"><Button asChild variant="outline" size="icon" aria-label={t('teacher.lectures.viewDetailsNamed', { title: lecture.title })}><Link to={getLecturePath(lecture, 'teacher')}><Eye aria-hidden="true" /></Link></Button><Button type="button" variant="outline" size="sm" onClick={() => onEdit(lecture)}>{t('curriculumManagement.video.edit')}</Button><Button type="button" variant="destructive" size="icon" aria-label={t('teacher.lectures.deleteNamed', { title: lecture.title })} onClick={() => onDelete?.(lecture)}><Trash2 aria-hidden="true" /></Button></div></li>)}</ul></CardContent></Card>
 }

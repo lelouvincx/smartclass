@@ -296,6 +296,12 @@ workspaceSubmissionsRoutes.post('/', async (c) => {
         where student_grade.membership_id = ?
           and exercise_grade.exercise_id = exercise.id
       )
+      and case exercise.minimum_access_tier
+        when 'guest' then 1
+        when 'standard' then case when ? in ('standard', 'vip') then 1 else 0 end
+        when 'vip' then case when ? = 'vip' then 1 else 0 end
+        else 0
+      end
       and coalesce((
         select max(existing.attempt_number)
         from submissions existing
@@ -309,6 +315,8 @@ workspaceSubmissionsRoutes.post('/', async (c) => {
     exerciseId,
     currentWorkspaceId(c),
     membership.id,
+    membership.access_tier,
+    membership.access_tier,
     authUser.id,
     knownLatestAttemptNumber,
     nextAttemptNumber,
@@ -339,6 +347,12 @@ workspaceSubmissionsRoutes.post('/', async (c) => {
             join exercise_grades exercise_grade on exercise_grade.grade = student_grade.grade
             where student_grade.membership_id = ? and exercise_grade.exercise_id = exercise.id
           ) as has_grade_access
+        , case exercise.minimum_access_tier
+            when 'guest' then 1
+            when 'standard' then case when ? in ('standard', 'vip') then 1 else 0 end
+            when 'vip' then case when ? = 'vip' then 1 else 0 end
+            else 0
+          end as has_tier_access
         , exists (
             select 1
             from exercise_question_asset_sets active_set
@@ -348,9 +362,10 @@ workspaceSubmissionsRoutes.post('/', async (c) => {
           ) as is_ready
       from exercises exercise
       where exercise.id = ? and exercise.workspace_id = ?
-    `).bind(authUser.id, membership.id, exerciseId, currentWorkspaceId(c)).first()
+    `).bind(authUser.id, membership.id, membership.access_tier, membership.access_tier, exerciseId, currentWorkspaceId(c)).first()
     if (!state) return jsonError(c, 404, 'NOT_FOUND', 'Exercise not found')
     if (!state.has_grade_access) return jsonError(c, 403, 'GRADE_ACCESS_DENIED', 'This exercise is not available for your classes')
+    if (!state.has_tier_access) return jsonError(c, 403, 'TIER_ACCESS_DENIED', 'This exercise requires a higher access tier')
     if (!state.is_ready) return jsonError(c, 409, 'EXERCISE_NOT_READY', 'Exercise is not ready for students')
     if (state.max_attempts !== null && state.latest_attempt_number >= state.max_attempts) {
       return jsonError(c, 409, 'ATTEMPT_LIMIT_REACHED', 'The attempt limit has been reached')

@@ -8,7 +8,8 @@ import questionAssetFilesRoutes from './routes/workspace-question-asset-files.js
 import uploadRoutes from './routes/workspace-upload.js'
 import submissionsRoutes from './routes/workspace-submissions.js'
 import filesRoutes from './routes/workspace-files.js'
-import lecturesRoutes from './routes/workspace-lectures.js'
+import curriculumRoutes from './routes/workspace-curriculum.js'
+import lecturesRoutes from './routes/curriculum-lectures.js'
 import { jsonError, jsonSuccess } from './lib/response.js'
 import { getWorkspaceSites } from './lib/workspaces.js'
 import { BUILD_COMMIT } from './version.js'
@@ -58,6 +59,7 @@ app.route('/api/question-assets', questionAssetFilesRoutes)
 app.route('/api/upload', uploadRoutes)
 app.route('/api/submissions', submissionsRoutes)
 app.route('/api/files', filesRoutes)
+app.route('/api/curriculum', curriculumRoutes)
 app.route('/api/lectures', lecturesRoutes)
 
 app.onError((error, c) => {

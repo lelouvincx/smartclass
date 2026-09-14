@@ -1,6 +1,6 @@
 // SmartClass - Cloudflare D1 (SQLite) schema
 // Kept in sync with worker/db/migrations/*.sql
-// Last updated: migration 0023_add_teaching_workspaces
+// Last updated: migration 0026_add_thpt_programmes
 
 Project SmartClass {
   database_type: 'SQLite'
@@ -33,6 +33,7 @@ Table workspaces {
   slug         text [not null, unique]
   display_name text [not null]
   subject_code text [not null, unique]
+  curriculum_revision integer [not null, default: 0, note: 'Non-negative revision for future curriculum mutation conflict detection']
   created_at   text [not null, default: 'CURRENT_TIMESTAMP']
 
   indexes {
@@ -68,7 +69,7 @@ Table workspace_memberships {
 
 Table workspace_membership_grades {
   membership_id integer [not null, ref: > workspace_memberships.id, note: 'ON DELETE CASCADE']
-  grade         integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
+  grade         integer [not null, note: '10 | 11 | 12 | thpt | dgnl; SQLite stores thpt and dgnl as text']
 
   indexes {
     (membership_id, grade) [pk]
@@ -95,6 +96,7 @@ Table exercises {
   duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
   max_attempts     integer [default: 1, note: 'NULL = unlimited; otherwise a positive per-student attempt limit']
   allow_answer_pdf_download integer [not null, default: 0, note: '0 = students cannot download the Answer PDF after review; 1 = students can download the pinned Answer PDF after submitting']
+  minimum_access_tier text [not null, default: 'standard', note: 'guest | standard | vip; guest is reserved for future public exercise release']
   pdf_key          text    [note: 'Legacy R2 key - superseded by exercise_files']
   extract_model    text    [note: 'Deprecated rollout-compatibility column; ignored by current code']
   active_question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Teacher-confirmed set currently shown to new submissions']
@@ -109,7 +111,7 @@ Table exercises {
 
 Table exercise_grades {
   exercise_id integer [not null, ref: > exercises.id, note: 'ON DELETE CASCADE']
-  grade       integer [not null, note: '10 | 11 | 12 | dgnl; SQLite stores dgnl as text']
+  grade       integer [not null, note: '10 | 11 | 12 | thpt | dgnl; SQLite stores thpt and dgnl as text']
 
   indexes {
     (exercise_id, grade) [pk]
@@ -348,6 +350,7 @@ Table lectures {
   updated_at   text    [not null, default: 'CURRENT_TIMESTAMP']
 
   indexes {
+    (id, workspace_id) [unique, name: 'idx_lectures_id_workspace_unique', note: 'Composite parent key for same-workspace curriculum placements']
     (workspace_id, order_index, id) [name: 'idx_lectures_workspace_order']
     (workspace_id, is_visible, minimum_access_tier, order_index, id) [name: 'idx_lectures_workspace_visibility']
   }
@@ -361,4 +364,69 @@ Table lecture_grades {
     (lecture_id, grade) [pk]
     (grade, lecture_id) [name: 'idx_lecture_grades_grade_lecture']
   }
+}
+
+// ── Curriculum foundation ─────────────────────────────────────────────────────
+
+Table curriculum_topics {
+  id           integer [pk, increment, note: 'Positive integer']
+  workspace_id text    [not null, ref: > workspaces.id]
+  programme    integer [not null, note: '10 | 11 | 12 | thpt | dgnl; SQLite integer affinity stores thpt and dgnl as text']
+  title        text    [not null, note: 'Non-empty after trim']
+  order_index  integer [not null, default: 0, note: 'Non-negative integer; not unique among siblings']
+
+  indexes {
+    (id, workspace_id) [unique]
+    (workspace_id, programme, order_index, id) [name: 'idx_curriculum_topics_workspace_programme_order']
+  }
+
+  Note: 'RFC-18 additive storage only. Reads and existing lecture behavior do not use this table until a later cutover.'
+}
+
+Table curriculum_lessons {
+  id           integer [pk, increment, note: 'Positive integer']
+  workspace_id text    [not null, ref: > workspaces.id]
+  topic_id     integer [not null]
+  title        text    [not null, note: 'Non-empty after trim']
+  order_index  integer [not null, default: 0, note: 'Non-negative integer; not unique among siblings']
+
+  indexes {
+    (id, workspace_id) [unique]
+    (workspace_id, topic_id, order_index, id) [name: 'idx_curriculum_lessons_topic_order']
+  }
+
+  Note: 'A lesson must belong to a topic in the same workspace.'
+}
+
+Table lecture_placements {
+  id           integer [pk, increment, note: 'Positive integer']
+  workspace_id text    [not null, ref: > workspaces.id]
+  lesson_id    integer [not null]
+  lecture_id   integer [not null]
+  order_index  integer [not null, default: 0, note: 'Non-negative integer; not unique among siblings']
+
+  indexes {
+    (id, workspace_id) [unique]
+    (lesson_id, lecture_id) [unique]
+    (workspace_id, lesson_id, order_index, id) [name: 'idx_lecture_placements_lesson_order']
+    (workspace_id, lecture_id, lesson_id, id) [name: 'idx_lecture_placements_lecture']
+  }
+
+  Note: '''
+    A placement must reference a lesson and lecture in the same workspace.
+    The same lecture can appear in multiple lessons, but only once within one lesson.
+  '''
+}
+
+Ref: curriculum_lessons.(topic_id, workspace_id) > curriculum_topics.(id, workspace_id) [delete: restrict]
+Ref: lecture_placements.(lesson_id, workspace_id) > curriculum_lessons.(id, workspace_id) [delete: restrict]
+Ref: lecture_placements.(lecture_id, workspace_id) > lectures.(id, workspace_id) [delete: cascade]
+
+Table curriculum_cutover {
+  id integer [pk, note: 'Exactly 1']
+  workspace_id text [not null, note: 'Exactly maths: scope of the reviewed initial migration']
+  mapping_sha256 text [not null, note: '64-character canonical reviewed-mapping SHA-256']
+  completed_at text [not null, default: 'CURRENT_TIMESTAMP']
+
+  Note: 'Created by the curriculum backfill operator in the same atomic batch as the hierarchy, not by additive migrations. Readiness allows later valid curriculum edits in either workspace.'
 }

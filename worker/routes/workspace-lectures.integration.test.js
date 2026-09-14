@@ -16,11 +16,19 @@ function testEnv() {
 
 function api(workspaceId, path = '', options = {}) {
   const host = workspaceId === 'english' ? 'english-api.test' : 'maths-api.test'
-  return app.request(`http://${host}/api/lectures${path}`, options, testEnv())
+  return app.request(`http://${host}/api${path}`, options, testEnv())
 }
 
 async function bearer(userId, workspaceId = 'maths') {
   return `Bearer ${await issueWorkspaceAccessToken(testEnv(), userId, workspaceId)}`
+}
+
+function jsonOptions(token, body, method = 'PUT', origin = 'http://maths.test') {
+  return {
+    method,
+    headers: { Authorization: token, 'Content-Type': 'application/json', Origin: origin },
+    body: JSON.stringify(body),
+  }
 }
 
 async function seedUser({ id, name, phone, platformRole = 'user', disabledAt = null }) {
@@ -43,41 +51,33 @@ async function seedMembership({ userId, workspaceId, role = 'student', status = 
   return result.meta.last_row_id
 }
 
-async function seedLecture({
-  id,
-  workspaceId,
-  title,
-  section = 'Foundations',
-  orderIndex,
-  visible = true,
-  tier = 'standard',
-  grades = [10],
-  createdBy = 101,
-}) {
+async function seedLecture({ id, workspaceId, title, visible = true, tier = 'standard', createdBy }) {
   await env.DB.prepare(`
-    insert into lectures (
-      id, title, section_name, youtube_url, order_index, is_visible, minimum_access_tier, created_by, workspace_id
-    ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    id,
-    title,
-    section,
-    `https://youtu.be/${String(id).padStart(11, 'a')}`,
-    orderIndex,
-    Number(visible),
-    tier,
-    createdBy,
-    workspaceId,
-  ).run()
-  if (grades.length > 0) {
-    await env.DB.batch(grades.map((grade) => env.DB.prepare(`
-      insert into lecture_grades (lecture_id, grade) values (?, ?)
-    `).bind(id, grade)))
-  }
+    insert into lectures (id, title, section_name, youtube_url, order_index, is_visible, minimum_access_tier, created_by, workspace_id)
+    values (?, ?, 'Curriculum', ?, 0, ?, ?, ?, ?)
+  `).bind(id, title, `https://youtu.be/${String(id).padStart(11, 'a')}`, Number(visible), tier, createdBy, workspaceId).run()
+}
+
+async function seedTopic({ id, workspaceId, programme, title, orderIndex }) {
+  await env.DB.prepare('insert into curriculum_topics (id, workspace_id, programme, title, order_index) values (?, ?, ?, ?, ?)')
+    .bind(id, workspaceId, programme, title, orderIndex).run()
+}
+
+async function seedLesson({ id, workspaceId, topicId, title, orderIndex }) {
+  await env.DB.prepare('insert into curriculum_lessons (id, workspace_id, topic_id, title, order_index) values (?, ?, ?, ?, ?)')
+    .bind(id, workspaceId, topicId, title, orderIndex).run()
+}
+
+async function seedPlacement({ id, workspaceId, lessonId, lectureId, orderIndex }) {
+  await env.DB.prepare('insert into lecture_placements (id, workspace_id, lesson_id, lecture_id, order_index) values (?, ?, ?, ?, ?)')
+    .bind(id, workspaceId, lessonId, lectureId, orderIndex).run()
 }
 
 async function resetRows() {
   await env.DB.batch([
+    env.DB.prepare('delete from lecture_placements'),
+    env.DB.prepare('delete from curriculum_lessons'),
+    env.DB.prepare('delete from curriculum_topics'),
     env.DB.prepare('delete from lecture_grades'),
     env.DB.prepare('delete from lectures'),
     env.DB.prepare('delete from workspace_membership_grades'),
@@ -87,6 +87,7 @@ async function resetRows() {
     env.DB.prepare('delete from answer_schemas'),
     env.DB.prepare('delete from exercises'),
     env.DB.prepare('delete from users'),
+    env.DB.prepare('update workspaces set curriculum_revision = 0'),
   ])
 }
 
@@ -109,55 +110,52 @@ async function seedFixture() {
   await seedUser({ id: 206, name: 'Disabled Identity', phone: '+84900000206', disabledAt: '2026-09-10T00:00:00Z' })
   await seedMembership({ userId: 206, workspaceId: 'maths', grades: [10] })
 
-  await seedLecture({ id: 301, workspaceId: 'maths', title: 'Maths guest', orderIndex: 0, tier: 'guest', grades: [12] })
-  await seedLecture({ id: 302, workspaceId: 'maths', title: 'Maths standard grade 10', orderIndex: 1, tier: 'standard', grades: [10] })
-  await seedLecture({ id: 303, workspaceId: 'maths', title: 'Maths vip grade 10', orderIndex: 2, tier: 'vip', grades: [10] })
-  await seedLecture({ id: 304, workspaceId: 'maths', title: 'Maths hidden guest', orderIndex: 3, tier: 'guest', visible: false, grades: [10] })
-  await seedLecture({ id: 401, workspaceId: 'english', title: 'English guest', section: 'Grammar', orderIndex: 0, tier: 'guest', grades: [10], createdBy: 102 })
-  await seedLecture({ id: 402, workspaceId: 'english', title: 'English vip grade 11', section: 'Grammar', orderIndex: 1, tier: 'vip', grades: [11], createdBy: 102 })
+  await seedLecture({ id: 301, workspaceId: 'maths', title: 'Maths guest', tier: 'guest', createdBy: 101 })
+  await seedLecture({ id: 302, workspaceId: 'maths', title: 'Maths standard grade 10', tier: 'standard', createdBy: 101 })
+  await seedLecture({ id: 303, workspaceId: 'maths', title: 'Maths vip grade 10', tier: 'vip', createdBy: 101 })
+  await seedLecture({ id: 304, workspaceId: 'maths', title: 'Maths hidden guest', tier: 'guest', visible: false, createdBy: 101 })
+  await seedLecture({ id: 401, workspaceId: 'english', title: 'English guest', tier: 'guest', createdBy: 102 })
+  await seedLecture({ id: 402, workspaceId: 'english', title: 'English vip grade 11', tier: 'vip', createdBy: 102 })
+
+  await seedTopic({ id: 501, workspaceId: 'maths', programme: 10, title: 'Maths 10', orderIndex: 0 })
+  await seedLesson({ id: 701, workspaceId: 'maths', topicId: 501, title: 'Maths lesson', orderIndex: 0 })
+  await seedTopic({ id: 601, workspaceId: 'english', programme: 10, title: 'English 10', orderIndex: 0 })
+  await seedTopic({ id: 602, workspaceId: 'english', programme: 11, title: 'English 11', orderIndex: 0 })
+  await seedLesson({ id: 801, workspaceId: 'english', topicId: 601, title: 'English lesson 10', orderIndex: 0 })
+  await seedLesson({ id: 802, workspaceId: 'english', topicId: 602, title: 'English lesson 11', orderIndex: 0 })
+  await seedPlacement({ id: 901, workspaceId: 'maths', lessonId: 701, lectureId: 301, orderIndex: 0 })
+  await seedPlacement({ id: 902, workspaceId: 'maths', lessonId: 701, lectureId: 302, orderIndex: 1 })
+  await seedPlacement({ id: 903, workspaceId: 'maths', lessonId: 701, lectureId: 303, orderIndex: 2 })
+  await seedPlacement({ id: 904, workspaceId: 'maths', lessonId: 701, lectureId: 304, orderIndex: 3 })
+  await seedPlacement({ id: 990, workspaceId: 'english', lessonId: 801, lectureId: 401, orderIndex: 0 })
+  await seedPlacement({ id: 991, workspaceId: 'english', lessonId: 802, lectureId: 402, orderIndex: 0 })
 }
 
-function jsonOptions(token, body, method = 'PUT', origin = 'http://maths.test') {
-  return {
-    method,
-    headers: { Authorization: token, 'Content-Type': 'application/json', Origin: origin },
-    body: JSON.stringify(body),
-  }
-}
-
-async function lectureState(ids) {
+async function placementState(ids) {
   const rows = await env.DB.prepare(`
-    select id, title, order_index, workspace_id
-    from lectures
+    select id, lesson_id, lecture_id, order_index, workspace_id
+    from lecture_placements
     where id in (${ids.map(() => '?').join(',')})
     order by id
   `).bind(...ids).all()
-  const grades = await env.DB.prepare(`
-    select lecture_id, grade
-    from lecture_grades
-    where lecture_id in (${ids.map(() => '?').join(',')})
-    order by lecture_id, grade
-  `).bind(...ids).all()
-  return { lectures: rows.results, grades: grades.results }
+  return rows.results
 }
 
-beforeEach(async () => {
-  await seedFixture()
-})
+beforeEach(seedFixture)
 
-describe('workspace lectures prepared router', () => {
-  it('lists only current-workspace guest lectures for guests and rejects invalid or wrong-site requests', async () => {
-    const mathsGuest = await api('maths')
+describe('workspace curriculum lecture routes', () => {
+  it('serves placed current-workspace guest curriculum for guests and rejects invalid or wrong-site requests', async () => {
+    const mathsGuest = await api('maths', '/curriculum?programme=10')
     expect(mathsGuest.status).toBe(200)
-    expect((await mathsGuest.json()).data.map((lecture) => lecture.id)).toEqual([301])
+    expect((await mathsGuest.json()).data.topics.map((topic) => topic.id)).toEqual([501])
 
-    const englishGuest = await api('english')
+    const englishGuest = await api('english', '/curriculum?programme=10')
     expect(englishGuest.status).toBe(200)
-    expect((await englishGuest.json()).data.map((lecture) => lecture.id)).toEqual([401])
+    expect((await englishGuest.json()).data.topics.map((topic) => topic.id)).toEqual([601])
 
-    expect((await api('maths', '', { headers: { Authorization: 'Bearer invalid' } })).status).toBe(401)
-    expect((await app.request('http://unknown-api.test/api/lectures', {}, testEnv())).status).toBe(404)
-    expect((await api('maths', '', { headers: { Origin: 'http://english.test' } })).status).toBe(403)
+    expect((await api('maths', '/curriculum?programme=10', { headers: { Authorization: 'Bearer invalid' } })).status).toBe(401)
+    expect((await app.request('http://unknown-api.test/api/curriculum?programme=10', {}, testEnv())).status).toBe(404)
+    expect((await api('maths', '/curriculum?programme=10', { headers: { Origin: 'http://english.test' } })).status).toBe(403)
   })
 
   it('denies authenticated pending, disabled, no-membership, and globally disabled users instead of guest fallback', async () => {
@@ -167,160 +165,167 @@ describe('workspace lectures prepared router', () => {
       [205, 'MEMBERSHIP_REQUIRED'],
       [206, 'ACCOUNT_DISABLED'],
     ]) {
-      const response = await api('maths', '', { headers: { Authorization: await bearer(userId) } })
+      const response = await api('maths', '/lectures/301?placement=901', { headers: { Authorization: await bearer(userId) } })
       expect(response.status).toBe(403)
       expect((await response.json()).error.code).toBe(code)
     }
   })
 
-  it('uses active student live membership tier and programmes, while active teachers and platform admins see all current workspace lectures', async () => {
+  it('uses active student live membership tier and programmes, while managers get the workspace library only', async () => {
     const studentToken = await bearer(201)
-    const mathsStudent = await api('maths', '', { headers: { Authorization: studentToken } })
-    expect((await mathsStudent.json()).data.map((lecture) => lecture.id)).toEqual([301, 302])
+    expect((await api('maths', '/lectures/302?placement=902', { headers: { Authorization: studentToken } })).status).toBe(200)
+    expect((await api('maths', '/lectures/303?placement=903', { headers: { Authorization: studentToken } })).status).toBe(404)
 
     await env.DB.prepare(`
       update workspace_memberships set access_tier = 'vip'
       where workspace_id = 'maths' and user_id = 201
     `).run()
-    expect((await (await api('maths', '', { headers: { Authorization: studentToken } })).json()).data.map((lecture) => lecture.id)).toEqual([301, 302, 303])
+    expect((await api('maths', '/lectures/303?placement=903', { headers: { Authorization: studentToken } })).status).toBe(200)
 
-    const teacherIds = (await (await api('maths', '', { headers: { Authorization: await bearer(101) } })).json()).data.map((lecture) => lecture.id)
-    expect(teacherIds).toEqual([301, 302, 303, 304])
-    const adminIds = (await (await api('english', '', { headers: { Authorization: await bearer(103, 'english') } })).json()).data.map((lecture) => lecture.id)
-    expect(adminIds).toEqual([401, 402])
+    const publicLibrary = await api('maths', '/lectures')
+    expect(publicLibrary.status).toBe(401)
+    const studentLibrary = await api('maths', '/lectures', { headers: { Authorization: studentToken } })
+    expect(studentLibrary.status).toBe(403)
+
+    const teacherLibrary = await api('maths', '/lectures', { headers: { Authorization: await bearer(101) } })
+    expect((await teacherLibrary.json()).data.lectures.map((lecture) => lecture.id)).toEqual([301, 304, 302, 303])
+    const adminLibrary = await api('english', '/lectures', { headers: { Authorization: await bearer(103, 'english') } })
+    expect((await adminLibrary.json()).data.lectures.map((lecture) => lecture.id)).toEqual([401, 402])
   })
 
   it('mutations are scoped: foreign IDs return 404, leave English rows unchanged, and keep lists scoped', async () => {
     const teacher = await bearer(101)
-    const before = await lectureState([401, 402])
-    const mathsBefore = await api('maths', '', { headers: { Authorization: teacher } })
-    expect((await mathsBefore.json()).data.map((lecture) => lecture.id)).toEqual([301, 302, 303, 304])
+    const before = await placementState([990, 991])
+    const mathsBefore = await api('maths', '/lectures', { headers: { Authorization: teacher } })
+    expect((await mathsBefore.json()).data.lectures.map((lecture) => lecture.id)).toEqual([301, 304, 302, 303])
 
-    expect((await api('maths', '/401', jsonOptions(teacher, {
+    expect((await api('maths', '/lectures/401', jsonOptions(teacher, {
       title: 'Wrong workspace',
-      section_name: 'Nope',
-      youtube_url: 'https://youtu.be/wrongspace1',
-      grades: [12],
+      expected_revision: 0,
     }))).status).toBe(404)
-    expect((await api('maths', '/401', { method: 'DELETE', headers: { Authorization: teacher } })).status).toBe(404)
+    expect((await api('maths', '/curriculum/placements/990', jsonOptions(teacher, {
+      lesson_id: 701,
+      expected_revision: 0,
+    }))).status).toBe(404)
+    expect((await api('maths', '/lectures/401', {
+      method: 'DELETE',
+      headers: { Authorization: teacher, 'Content-Type': 'application/json', Origin: 'http://maths.test' },
+      body: JSON.stringify({ expected_revision: 0 }),
+    })).status).toBe(404)
 
-    expect(await lectureState([401, 402])).toEqual(before)
-    const englishAfter = await api('english', '', { headers: { Authorization: await bearer(102, 'english') } })
-    expect((await englishAfter.json()).data.map((lecture) => lecture.id)).toEqual([401, 402])
+    expect(await placementState([990, 991])).toEqual(before)
+    const englishAfter = await api('english', '/lectures', { headers: { Authorization: await bearer(102, 'english') } })
+    expect((await englishAfter.json()).data.lectures.map((lecture) => lecture.id)).toEqual([401, 402])
   })
 
-  it('rejects reordered lists with omissions, missing IDs, or mixed workspace IDs without changing order', async () => {
+  it('rejects incomplete, missing-ID, or mixed-workspace order writes without changing order, then saves a complete order', async () => {
     const teacher = await bearer(101)
-    const before = await lectureState([301, 302, 303, 304, 401])
+    const before = await placementState([901, 902, 903, 904, 990])
 
-    for (const ids of [[302, 301, 303], [302, 301, 303, 999], [302, 301, 303, 304, 401]]) {
-      const response = await api('maths', '/order', jsonOptions(teacher, { ids }))
+    for (const ids of [[902, 901, 903], [902, 901, 903, 999], [902, 901, 903, 904, 990]]) {
+      const response = await api('maths', '/curriculum/order', jsonOptions(teacher, {
+        parent_type: 'lesson',
+        parent_id: 701,
+        ids,
+        expected_revision: 0,
+      }))
       expect(response.status).toBe(400)
-      expect((await response.json()).error.code).toBe('INVALID_LECTURE_ORDER')
-      expect(await lectureState([301, 302, 303, 304, 401])).toEqual(before)
+      expect((await response.json()).error.code).toBe('INVALID_ORDER')
+      expect(await placementState([901, 902, 903, 904, 990])).toEqual(before)
     }
 
-    const response = await api('maths', '/order', jsonOptions(teacher, { ids: [304, 303, 302, 301] }))
+    const response = await api('maths', '/curriculum/order', jsonOptions(teacher, {
+      parent_type: 'lesson',
+      parent_id: 701,
+      ids: [904, 903, 902, 901],
+      expected_revision: 0,
+    }))
     expect(response.status).toBe(200)
-    expect((await lectureState([301, 302, 303, 304])).lectures.map((lecture) => lecture.order_index)).toEqual([3, 2, 1, 0])
+    expect((await placementState([901, 902, 903, 904])).map((placement) => placement.order_index)).toEqual([3, 2, 1, 0])
   })
 
-  it('creates lectures in the current workspace with local next order, default tier and grades atomically', async () => {
+  it('validates new placed videos, missing and foreign parent IDs, and manager-only mutations', async () => {
     const teacher = await bearer(102, 'english')
-    const response = await api('english', '', jsonOptions(teacher, {
-      title: 'English standard default',
-      section_name: 'Grammar',
-      youtube_url: 'https://youtu.be/createeng01',
+    const invalidVideo = await api('english', '/curriculum/placements', jsonOptions(teacher, {
+      lesson_id: 801,
+      lecture: { title: 'Invalid URL', youtube_url: 'https://example.com/not-youtube' },
+      expected_revision: 0,
     }, 'POST', 'http://english.test'))
+    expect(invalidVideo.status).toBe(400)
+    await expect(env.DB.prepare("select count(*) as count from lectures where title = 'Invalid URL'").first('count')).resolves.toBe(0)
 
-    expect(response.status).toBe(201)
-    const created = (await response.json()).data
-    expect(created).toMatchObject({
-      title: 'English standard default',
-      workspace_id: 'english',
-      order_index: 2,
-      minimum_access_tier: 'standard',
-      grades: [10, 11, 12, 'dgnl'],
-    })
-    await expect(env.DB.prepare('select max(order_index) from lectures where workspace_id = ?').bind('maths').first('max(order_index)')).resolves.toBe(3)
-  })
+    const missingLesson = await api('english', '/curriculum/placements', jsonOptions(teacher, {
+      lesson_id: 999,
+      lecture_id: 401,
+      expected_revision: 0,
+    }, 'POST', 'http://english.test'))
+    expect(missingLesson.status).toBe(404)
 
-  it('allows concurrent lecture creates to return distinct generated IDs and preserve each lecture grades', async () => {
-    const teacher = await bearer(102, 'english')
-    const [firstResponse, secondResponse] = await Promise.all([
-      api('english', '', jsonOptions(teacher, {
-        title: 'Concurrent grade 10',
-        section_name: 'Grammar',
-        youtube_url: 'https://youtu.be/concur00001',
-        grades: [10],
-      }, 'POST', 'http://english.test')),
-      api('english', '', jsonOptions(teacher, {
-        title: 'Concurrent DGNL',
-        section_name: 'Grammar',
-        youtube_url: 'https://youtu.be/concur00002',
-        grades: ['dgnl'],
-      }, 'POST', 'http://english.test')),
-    ])
+    const foreignLecture = await api('english', '/curriculum/placements', jsonOptions(teacher, {
+      lesson_id: 801,
+      lecture_id: 301,
+      expected_revision: 0,
+    }, 'POST', 'http://english.test'))
+    expect(foreignLecture.status).toBe(404)
 
-    expect(firstResponse.status).toBe(201)
-    expect(secondResponse.status).toBe(201)
-    const first = (await firstResponse.json()).data
-    const second = (await secondResponse.json()).data
-    expect(first.id).not.toBe(second.id)
-    expect(first).toMatchObject({ title: 'Concurrent grade 10', grades: [10], workspace_id: 'english' })
-    expect(second).toMatchObject({ title: 'Concurrent DGNL', grades: ['dgnl'], workspace_id: 'english' })
-
-    const listResponse = await api('english', '', { headers: { Authorization: teacher } })
-    const createdByTitle = new Map((await listResponse.json()).data.map((lecture) => [lecture.title, lecture]))
-    expect(createdByTitle.get('Concurrent grade 10')).toMatchObject({ id: first.id, grades: [10] })
-    expect(createdByTitle.get('Concurrent DGNL')).toMatchObject({ id: second.id, grades: ['dgnl'] })
-  })
-
-  it('rolls back the lecture insert when a later grade insert fails', async () => {
-    const teacher = await bearer(102, 'english')
-    await env.DB.prepare(`
-      create trigger workspace_lectures_reject_grade_11
-      before insert on lecture_grades
-      when new.grade = 11
-      begin
-        select raise(abort, 'reject grade for rollback test');
-      end
-    `).run()
-
-    try {
-      const response = await api('english', '', jsonOptions(teacher, {
-        title: 'Rollback lecture',
-        section_name: 'Grammar',
-        youtube_url: 'https://youtu.be/rollback001',
-        grades: [10, 11],
-      }, 'POST', 'http://english.test'))
-      expect(response.status).toBe(500)
-    } finally {
-      await env.DB.prepare('drop trigger workspace_lectures_reject_grade_11').run()
-    }
-
-    await expect(env.DB.prepare(`
-      select count(*) as count
-      from lectures
-      where title = 'Rollback lecture'
-    `).first('count')).resolves.toBe(0)
-  })
-
-  it('requires workspace management membership and never grants access from a teacher token for the wrong workspace', async () => {
-    const wrongWorkspaceTeacher = await api('maths', '', jsonOptions(await bearer(102, 'maths'), {
-      title: 'Nope',
-      section_name: 'Nope',
-      youtube_url: 'https://youtu.be/noaccess001',
+    const wrongWorkspaceTeacher = await api('maths', '/curriculum/placements', jsonOptions(await bearer(102, 'maths'), {
+      lesson_id: 701,
+      lecture_id: 301,
+      expected_revision: 0,
     }, 'POST'))
     expect(wrongWorkspaceTeacher.status).toBe(403)
     expect((await wrongWorkspaceTeacher.json()).error.code).toBe('MEMBERSHIP_REQUIRED')
 
-    const student = await api('maths', '', jsonOptions(await bearer(201), {
-      title: 'Nope',
-      section_name: 'Nope',
-      youtube_url: 'https://youtu.be/noaccess002',
+    const student = await api('maths', '/curriculum/placements', jsonOptions(await bearer(201), {
+      lesson_id: 701,
+      lecture_id: 301,
+      expected_revision: 0,
     }, 'POST'))
     expect(student.status).toBe(403)
     expect((await student.json()).error.code).toBe('FORBIDDEN')
+  })
+
+  it('allows exactly one concurrent placement create at a revision and leaves no partial loser writes', async () => {
+    const teacher = await bearer(102, 'english')
+    const responses = await Promise.all(['Concurrent first', 'Concurrent second'].map((title) => (
+      api('english', '/curriculum/placements', jsonOptions(teacher, {
+        lesson_id: 801,
+        lecture: { title, youtube_url: `https://youtu.be/${title.replace(/\s/g, '').padEnd(11, '0').slice(0, 11)}` },
+        expected_revision: 0,
+      }, 'POST', 'http://english.test'))
+    )))
+
+    expect(responses.map((response) => response.status).sort()).toEqual([201, 409])
+    const bodies = await Promise.all(responses.map((response) => response.json()))
+    expect(bodies.find((body) => body.success).data.revision).toBe(1)
+    expect(bodies.find((body) => !body.success).error.code).toBe('CURRICULUM_CHANGED')
+    await expect(env.DB.prepare("select count(*) as count from lectures where title like 'Concurrent %'").first('count')).resolves.toBe(1)
+    await expect(env.DB.prepare("select count(*) as count from lecture_placements where lesson_id = 801 and lecture_id in (select id from lectures where title like 'Concurrent %')").first('count')).resolves.toBe(1)
+  })
+
+  it('rolls back a new shared video when the later placement insert fails', async () => {
+    const teacher = await bearer(102, 'english')
+    await env.DB.prepare(`
+      create trigger workspace_lectures_reject_placement
+      before insert on lecture_placements
+      when new.lesson_id = 801
+      begin
+        select raise(abort, 'reject placement for rollback test');
+      end
+    `).run()
+
+    try {
+      const response = await api('english', '/curriculum/placements', jsonOptions(teacher, {
+        lesson_id: 801,
+        lecture: { title: 'Rollback lecture', youtube_url: 'https://youtu.be/rollback001' },
+        expected_revision: 0,
+      }, 'POST', 'http://english.test'))
+      expect(response.status).toBe(500)
+    } finally {
+      await env.DB.prepare('drop trigger workspace_lectures_reject_placement').run()
+    }
+
+    await expect(env.DB.prepare("select count(*) as count from lectures where title = 'Rollback lecture'").first('count')).resolves.toBe(0)
+    await expect(env.DB.prepare("select curriculum_revision from workspaces where id = 'english'").first('curriculum_revision')).resolves.toBe(0)
   })
 })
