@@ -145,13 +145,11 @@ describe('TeacherLecturesPage integrated curriculum management', () => {
     renderPage()
 
     expect(await screen.findByRole('heading', { name: 'Linear equations' })).toBeInTheDocument()
-    const programme = screen.getByLabelText('Programme')
-    expect(programme).toHaveTextContent('Grade 10')
-    programme.focus()
-    const user = userEvent.setup()
-    await user.keyboard('{Enter}')
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Grade 10', 'Grade 11', 'Grade 12', 'THPT', 'ĐGNL'])
-    await user.keyboard('{Escape}')
+    const programme = screen.getByRole('group', { name: 'Programme' })
+    expect(programme).toHaveAttribute('data-slot', 'segmented-button-group')
+    expect(within(programme).getAllByRole('button').map((button) => button.textContent)).toEqual(['Grade 10', 'Grade 11', 'Grade 12', 'THPT', 'ĐGNL'])
+    expect(within(programme).getByRole('button', { name: 'Grade 10' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('combobox', { name: 'Programme' })).not.toBeInTheDocument()
 
     const units = await screen.findByRole('list', { name: 'Units in Linear equations' })
     expect(within(units).getByText('Shared line')).toBeInTheDocument()

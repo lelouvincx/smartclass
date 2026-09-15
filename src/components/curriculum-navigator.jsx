@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { ArrowLeft, ArrowRight, BookOpen, ChevronDownIcon, ChevronRightIcon, FileText, Folder, PanelLeftClose, PanelLeftOpen, Play, RefreshCw } from '@/components/material-symbol'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SegmentedButton, SegmentedButtonGroup } from '@/components/ui/segmented-button'
 import { AccessTierBadge } from '@/components/access-tier-radio-group'
 import { EmptyState } from '@/design-system/empty-state'
 import { getLecturePath } from '@/lib/lectures'
@@ -17,6 +17,34 @@ function programmeLabel(programme, t) {
 function topicLessonCount(topic, t) {
   const count = topic.lessons?.length || 0
   return t('curriculum.lessonCount', { count })
+}
+
+function ProgrammeSelector({ programme, programmes, selectProgramme, t }) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <p id="curriculum-programme-label" className="text-sm font-medium text-foreground">
+        {t('curriculum.programme')}
+      </p>
+      <SegmentedButtonGroup
+        role="group"
+        aria-labelledby="curriculum-programme-label"
+        className="flex w-full flex-wrap sm:w-fit"
+      >
+        {programmes.map((item) => {
+          const value = String(item)
+          return (
+            <SegmentedButton
+              key={value}
+              selected={String(programme) === value}
+              onClick={() => selectProgramme(value)}
+            >
+              {programmeLabel(item, t)}
+            </SegmentedButton>
+          )
+        })}
+      </SegmentedButtonGroup>
+    </div>
+  )
 }
 
 const CURRICULUM_NAVIGATION_MIN_WIDTH = 256
@@ -85,41 +113,12 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
     return (
       <Card className="p-4 sm:p-5">
         <div className="grid gap-3">
-          <div className="grid max-w-sm grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
-            <div className="min-w-0 space-y-1">
-            <label htmlFor="curriculum-programme" className="text-sm font-medium text-foreground">
-              {t('curriculum.programme')}
-            </label>
-            <Select value={String(programme)} onValueChange={selectProgramme}>
-              <SelectTrigger id="curriculum-programme" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {programmes.map((item) => (
-                  <SelectItem key={item} value={String(item)}>{programmeLabel(item, t)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            </div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <ProgrammeSelector programme={programme} programmes={programmes} selectProgramme={selectProgramme} t={t} />
             <div className="flex shrink-0 flex-wrap gap-2">
               {management.programmeActions}
             </div>
           </div>
-        {selectedLesson && (
-          <div>
-            <Button
-              type="button"
-              variant="outline"
-              className="hidden lg:inline-flex"
-              aria-expanded={navigationExpanded}
-              aria-controls={navigationId}
-              onClick={() => setNavigationExpanded((expanded) => !expanded)}
-            >
-              {navigationExpanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
-              {t(navigationExpanded ? 'curriculum.hideNavigation' : 'curriculum.showNavigation')}
-            </Button>
-          </div>
-        )}
         </div>
       </Card>
     )
@@ -130,35 +129,8 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
     return (
       <Card className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0 flex-1 space-y-1 sm:w-72 sm:flex-none">
-            <label htmlFor="curriculum-programme" className="text-sm font-medium text-foreground">
-              {t('curriculum.programme')}
-            </label>
-            <Select value={String(programme)} onValueChange={selectProgramme}>
-              <SelectTrigger id="curriculum-programme" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {programmes.map((item) => (
-                  <SelectItem key={item} value={String(item)}>{programmeLabel(item, t)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <ProgrammeSelector programme={programme} programmes={programmes} selectProgramme={selectProgramme} t={t} />
           <div className="flex shrink-0 flex-wrap gap-2">
-            {selectedLesson && (
-              <Button
-                type="button"
-                variant="outline"
-                className="hidden lg:inline-flex"
-                aria-expanded={navigationExpanded}
-                aria-controls={navigationId}
-                onClick={() => setNavigationExpanded((expanded) => !expanded)}
-              >
-                {navigationExpanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
-                {t(navigationExpanded ? 'curriculum.hideNavigation' : 'curriculum.showNavigation')}
-              </Button>
-            )}
             {management.programmeActions}
           </div>
         </div>
@@ -389,7 +361,7 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
             </div>
           )}
 
-          <Card className={cn('@container min-w-0 overflow-hidden p-0', !selectedLesson && 'hidden lg:block')}>
+          <Card data-testid="curriculum-lesson-pane" className={cn('@container min-w-0 overflow-hidden p-0', !selectedLesson && 'hidden self-start bg-sc-surface-container lg:block')}>
             {selectedLesson ? (
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-col gap-3 border-b border-border px-4 py-4 sm:px-5">
@@ -410,10 +382,23 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
                         </ol>
                       </nav>
                     </div>
-                    <Button type="button" variant="ghost" onClick={backToTopics} className="lg:hidden">
-                      <ArrowLeft className="size-4" aria-hidden="true" />
-                      {t('curriculum.backToTopics')}
-                    </Button>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      <Button type="button" variant="ghost" onClick={backToTopics} className="lg:hidden">
+                        <ArrowLeft className="size-4" aria-hidden="true" />
+                        {t('curriculum.backToTopics')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="hidden lg:inline-flex"
+                        aria-expanded={navigationExpanded}
+                        aria-controls={navigationId}
+                        onClick={() => setNavigationExpanded((expanded) => !expanded)}
+                      >
+                        {navigationExpanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
+                        {t(navigationExpanded ? 'curriculum.hideNavigation' : 'curriculum.showNavigation')}
+                      </Button>
+                    </div>
                   </div>
                   {management.lessonActions && (
                     <div data-testid="curriculum-mobile-lesson-actions" className="flex flex-wrap gap-2 lg:hidden">
@@ -485,7 +470,7 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
                 icon={BookOpen}
                 title={t('curriculum.chooseLessonTitle')}
                 description={t('curriculum.chooseLessonDescription')}
-                className="min-h-72"
+                className="h-full min-h-72 bg-sc-surface-container"
               />
             )}
           </Card>

@@ -11,6 +11,7 @@ export function StudentLayout() {
   const { t } = useTranslation()
   const isTakingExercise = /^\/student\/exercises\/[^/]+\/take\/?$/.test(location.pathname)
   const isReviewingSubmission = /^\/student\/submissions\/[^/]+\/review\/?$/.test(location.pathname)
+  const isBrowsingLectures = location.pathname.startsWith('/student/lectures')
   const navigation = [
     { label: t('common.dashboard'), to: '/student', icon: LayoutDashboard, end: true },
     { label: t('common.exercises'), to: '/student/exercises', icon: ClipboardList },
@@ -29,7 +30,7 @@ export function StudentLayout() {
       workspaceLabel={t('common.student')}
       userLabel={user?.name || user?.phone}
       onLogout={handleLogout}
-      focusedWorkspace={isTakingExercise || isReviewingSubmission}
+      focusedWorkspace={isTakingExercise || isReviewingSubmission || isBrowsingLectures}
     >
       <Outlet />
     </AppShell>

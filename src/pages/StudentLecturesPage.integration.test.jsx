@@ -49,12 +49,19 @@ describe('StudentLecturesPage real request boundary', () => {
       if (url === 'http://maths-api.test/api/curriculum?programme=12') {
         return new Response(JSON.stringify({ data: { programme: 12, topics } }))
       }
+      if (url === 'http://maths-api.test/api/curriculum/lessons/11') {
+        return new Response(JSON.stringify({ data: {
+          breadcrumb: { programme: 12, topic_id: 1, topic_title: 'Vectors', lesson_id: 11, lesson_title: 'Vector basics' },
+          lesson: { id: 11, title: 'Vector basics', order_index: 0, topic_id: 1, programme: 12 },
+          units: topics[0].lessons[0].units,
+        } }))
+      }
       return new Response(JSON.stringify({ error: { message: `Unexpected ${url}` } }), { status: 500 })
     })
     vi.stubGlobal('fetch', fetchMock)
     setStoredToken('real-token')
 
-    render(<MemoryRouter initialEntries={["/student/lectures?programme=12"]}><AuthProvider><StudentLecturesPage /></AuthProvider></MemoryRouter>)
+    render(<MemoryRouter initialEntries={["/student/lectures?programme=12&lesson=11"]}><AuthProvider><StudentLecturesPage /></AuthProvider></MemoryRouter>)
 
     expect(await screen.findByRole('link', { name: 'Watch unit 1: Intro unit' })).toHaveAttribute(
       'href',
@@ -63,7 +70,8 @@ describe('StudentLecturesPage real request boundary', () => {
     expect(fetchMock.mock.calls.map(([url, options]) => [url, options?.headers])).toEqual(expect.arrayContaining([
       ['http://maths-api.test/api/auth/me', { Authorization: 'Bearer real-token' }],
       ['http://maths-api.test/api/curriculum?programme=12', { Authorization: 'Bearer real-token' }],
+      ['http://maths-api.test/api/curriculum/lessons/11', { Authorization: 'Bearer real-token' }],
     ]))
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })

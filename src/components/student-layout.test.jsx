@@ -120,4 +120,20 @@ describe('StudentLayout navigation', () => {
     expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).not.toBeInTheDocument()
     expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBeNull()
   })
+
+  it('uses the teacher-like compact wide workspace while browsing lectures', () => {
+    const { unmount } = renderLayout('/student/lectures?programme=12&lesson=11')
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-28')
+    expect(document.getElementById('main-content')).toHaveClass('max-w-[90rem]')
+    expect(screen.queryByRole('button', { name: 'Expand sidebar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).not.toBeInTheDocument()
+    expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBeNull()
+
+    unmount()
+    renderLayout()
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-56')
+    expect(document.getElementById('main-content')).toHaveClass('max-w-5xl')
+  })
 })

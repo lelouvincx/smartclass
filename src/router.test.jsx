@@ -25,6 +25,7 @@ vi.mock('./lib/api', async (importOriginal) => ({
 }))
 
 beforeEach(() => {
+  vi.clearAllMocks()
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request in route guard test')))
 })
 
@@ -84,9 +85,15 @@ describe('route guards', () => {
             id: 9,
             title: 'Introduction',
             unit_count: 1,
-            units: [{ placement_id: 21, lecture: { id: 1, title: 'Public lesson', youtube_url: 'https://youtu.be/abcdefghijk', minimum_access_tier: 'guest', is_visible: 1 } }],
           }],
         }],
+      },
+    })
+    getCurriculumLessonMock.mockResolvedValue({
+      data: {
+        breadcrumb: { programme: 10, topic_id: 8, topic_title: 'Preview', lesson_id: 9, lesson_title: 'Introduction' },
+        lesson: { id: 9, title: 'Introduction', order_index: 0, topic_id: 8, programme: 10 },
+        units: [{ placement_id: 21, lecture: { id: 1, title: 'Public lesson', youtube_url: 'https://youtu.be/abcdefghijk', minimum_access_tier: 'guest', is_visible: 1 } }],
       },
     })
 
@@ -101,7 +108,7 @@ describe('route guards', () => {
       expect(link).toHaveAttribute('href', '/')
     })
     expect(listCurriculumMock).toHaveBeenCalledWith(null, 10)
-    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
+    expect(getCurriculumLessonMock).toHaveBeenCalledWith(null, 9)
   })
 
   it('keeps the unauthenticated loading state in English', async () => {
