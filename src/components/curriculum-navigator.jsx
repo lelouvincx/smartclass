@@ -1,7 +1,7 @@
-import React, { useId, useRef, useState } from 'react'
+import React, { useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ArrowLeft, ArrowRight, BookOpen, Play, RefreshCw } from '@/components/material-symbol'
+import { ArrowLeft, ArrowRight, BookOpen, ChevronDownIcon, ChevronRightIcon, FileText, Folder, PanelLeftClose, PanelLeftOpen, Play, RefreshCw } from '@/components/material-symbol'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -48,6 +48,8 @@ function percentBounds(layoutWidth) {
 export function CurriculumNavigator({ navigation, audience = 'student', management = {} }) {
   const { t } = useTranslation()
   const [navigationExpanded, setNavigationExpanded] = useState(true)
+  const [expandedTopicIds, setExpandedTopicIds] = useState(() => new Set())
+  const [collapsedTopicIds, setCollapsedTopicIds] = useState(() => new Set())
   const [navigationWidthPercent, setNavigationWidthPercent] = useState(CURRICULUM_DEFAULT_NAVIGATION_PERCENT)
   const [draggingDivider, setDraggingDivider] = useState(false)
   const layoutRef = useRef(null)
@@ -76,6 +78,122 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
   const separatorValueMin = Math.round(currentPercentBounds.minimum)
   const separatorValueMax = Math.round(currentPercentBounds.maximum)
   const separatorValueNow = Math.round(clampedNavigationWidthPercent)
+  const isTeacher = audience === 'teacher'
+
+  function renderPageHeader() {
+    if (!isTeacher) return null
+    return (
+      <Card className="p-4 sm:p-5">
+        <div className="grid gap-3">
+          <div className="grid max-w-sm grid-cols-[minmax(0,1fr)_auto] items-end gap-2">
+            <div className="min-w-0 space-y-1">
+            <label htmlFor="curriculum-programme" className="text-sm font-medium text-foreground">
+              {t('curriculum.programme')}
+            </label>
+            <Select value={String(programme)} onValueChange={selectProgramme}>
+              <SelectTrigger id="curriculum-programme" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {programmes.map((item) => (
+                  <SelectItem key={item} value={String(item)}>{programmeLabel(item, t)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            </div>
+            <div className="flex shrink-0 flex-wrap gap-2">
+              {management.programmeActions}
+            </div>
+          </div>
+        {selectedLesson && (
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              className="hidden lg:inline-flex"
+              aria-expanded={navigationExpanded}
+              aria-controls={navigationId}
+              onClick={() => setNavigationExpanded((expanded) => !expanded)}
+            >
+              {navigationExpanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
+              {t(navigationExpanded ? 'curriculum.hideNavigation' : 'curriculum.showNavigation')}
+            </Button>
+          </div>
+        )}
+        </div>
+      </Card>
+    )
+  }
+
+  function renderStudentHeader() {
+    if (isTeacher) return null
+    return (
+      <Card className="space-y-4 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0 flex-1 space-y-1 sm:w-72 sm:flex-none">
+            <label htmlFor="curriculum-programme" className="text-sm font-medium text-foreground">
+              {t('curriculum.programme')}
+            </label>
+            <Select value={String(programme)} onValueChange={selectProgramme}>
+              <SelectTrigger id="curriculum-programme" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {programmes.map((item) => (
+                  <SelectItem key={item} value={String(item)}>{programmeLabel(item, t)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {selectedLesson && (
+              <Button
+                type="button"
+                variant="outline"
+                className="hidden lg:inline-flex"
+                aria-expanded={navigationExpanded}
+                aria-controls={navigationId}
+                onClick={() => setNavigationExpanded((expanded) => !expanded)}
+              >
+                {navigationExpanded ? <PanelLeftClose aria-hidden="true" /> : <PanelLeftOpen aria-hidden="true" />}
+                {t(navigationExpanded ? 'curriculum.hideNavigation' : 'curriculum.showNavigation')}
+              </Button>
+            )}
+            {management.programmeActions}
+          </div>
+        </div>
+      </Card>
+    )
+  }
+
+  useEffect(() => {
+    if (!selectedTopic?.id) return
+    setExpandedTopicIds((current) => {
+      if (current.has(selectedTopic.id)) return current
+      return new Set([...current, selectedTopic.id])
+    })
+    setCollapsedTopicIds((current) => {
+      if (!current.has(selectedTopic.id)) return current
+      const next = new Set(current)
+      next.delete(selectedTopic.id)
+      return next
+    })
+  }, [selectedTopic?.id])
+
+  function toggleTopic(topicId, currentlyExpanded) {
+    setExpandedTopicIds((current) => {
+      const next = new Set(current)
+      if (currentlyExpanded) next.delete(topicId)
+      else next.add(topicId)
+      return next
+    })
+    setCollapsedTopicIds((current) => {
+      const next = new Set(current)
+      if (currentlyExpanded) next.add(topicId)
+      else next.delete(topicId)
+      return next
+    })
+  }
 
   function setNavigationWidthFromClientX(clientX) {
     const rect = layoutRef.current?.getBoundingClientRect()
@@ -119,60 +237,31 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
   }
 
   if (loading) {
-    return <Card><p className="p-5 text-sm text-muted-foreground">{t('curriculum.loading')}</p></Card>
+    return <div className="space-y-6">{renderPageHeader()}{renderStudentHeader()}<Card><p className="p-5 text-sm text-muted-foreground">{t('curriculum.loading')}</p></Card></div>
   }
 
   if (error && topics.length === 0) {
     return (
-      <Card>
-        <div className="flex flex-col items-start gap-4 p-5">
-          <p role="alert" className="text-sm text-destructive">{error}</p>
-          <Button type="button" variant="outline" onClick={() => reload().catch(() => {})}>
-            <RefreshCw className="size-4" aria-hidden="true" />
-            {t('curriculum.retry')}
-          </Button>
-        </div>
-      </Card>
+      <div className="space-y-6">
+        {renderPageHeader()}
+        {renderStudentHeader()}
+        <Card>
+          <div className="flex flex-col items-start gap-4 p-5">
+            <p role="alert" className="text-sm text-destructive">{error}</p>
+            <Button type="button" variant="outline" onClick={() => reload().catch(() => {})}>
+              <RefreshCw className="size-4" aria-hidden="true" />
+              {t('curriculum.retry')}
+            </Button>
+          </div>
+        </Card>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4">
-      <Card className="space-y-4 p-4 sm:p-5">
-        <div className="flex items-end justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-1 sm:w-72 sm:flex-none">
-            <label htmlFor="curriculum-programme" className="text-sm font-medium text-foreground">
-              {t('curriculum.programme')}
-            </label>
-            <Select value={String(programme)} onValueChange={selectProgramme}>
-              <SelectTrigger id="curriculum-programme" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {programmes.map((item) => (
-                  <SelectItem key={item} value={String(item)}>{programmeLabel(item, t)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {selectedLesson && (
-              <Button
-                type="button"
-                variant="outline"
-                className="hidden lg:inline-flex"
-                aria-expanded={navigationExpanded}
-                aria-controls={navigationId}
-                onClick={() => setNavigationExpanded((expanded) => !expanded)}
-              >
-                <BookOpen aria-hidden="true" />
-                {t(navigationExpanded ? 'curriculum.hideNavigation' : 'curriculum.showNavigation')}
-              </Button>
-            )}
-            {management.programmeActions}
-          </div>
-        </div>
-      </Card>
+    <div className="space-y-6">
+      {renderPageHeader()}
+      {renderStudentHeader()}
 
       {topics.length === 0 ? (
         <Card>
@@ -200,49 +289,69 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
         >
           <nav id={navigationId} aria-label={t('curriculum.navigationTitle')} className={cn('min-w-0', selectedLesson && (navigationExpanded ? 'hidden lg:block' : 'hidden lg:hidden'))}>
           <Card className="min-w-0 overflow-hidden p-0">
-            <div className="border-b border-border px-4 py-3 sm:px-5">
-              <h2 className="text-base font-semibold text-foreground">{t('curriculum.navigationTitle')}</h2>
-              <p className="text-sm text-muted-foreground">{programmeLabel(programme, t)}</p>
-            </div>
             <div className="divide-y divide-border">
               {topics.map((topic) => {
                 const isTopicSelected = selectedTopic?.id === topic.id
+                const isTopicCurrent = isTopicSelected && !selectedLesson
+                const isTopicExpanded = !collapsedTopicIds.has(topic.id) && (isTopicSelected || expandedTopicIds.has(topic.id))
+                const topicLessonsId = `${navigationId}-topic-${topic.id}-lessons`
+                const hasLessons = topic.lessons?.length > 0
                 return (
                   <section key={topic.id} className="min-w-0">
-                    <div className="flex min-h-[var(--sc-component-hit-target)] items-start gap-2 px-3 py-2 sm:px-4">
+                    <div className="flex min-h-[var(--sc-component-hit-target)] items-center gap-2 px-2 py-2 sm:px-3">
+                      {hasLessons ? (
+                        <button
+                          type="button"
+                          className="flex size-12 shrink-0 items-center justify-center rounded-[min(var(--sc-component-control-shape),10px)] text-muted-foreground outline-none transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+                          aria-expanded={isTopicExpanded}
+                          aria-controls={topicLessonsId}
+                          aria-label={t(isTopicExpanded ? 'curriculum.collapseTopic' : 'curriculum.expandTopic', { title: topic.title })}
+                          onClick={() => toggleTopic(topic.id, isTopicExpanded)}
+                        >
+                          {isTopicExpanded ? <ChevronDownIcon className="size-4" aria-hidden="true" /> : <ChevronRightIcon className="size-4" aria-hidden="true" />}
+                        </button>
+                      ) : <span className="size-12 shrink-0" aria-hidden="true" />}
                       <button
                         type="button"
-                        aria-current={isTopicSelected && !selectedLesson ? 'true' : undefined}
+                        aria-current={isTopicCurrent ? 'true' : undefined}
+                        aria-label={`${topic.title}, ${topicLessonCount(topic, t)}`}
                         onClick={() => selectTopic(topic.id)}
                         className={cn(
-                          'min-h-[var(--sc-component-hit-target)] min-w-0 flex-1 rounded-[var(--sc-component-control-shape)] px-3 py-2 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-                          isTopicSelected ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
+                          'flex min-h-[var(--sc-component-hit-target)] min-w-0 flex-1 items-center gap-2 rounded-[var(--sc-component-control-shape)] px-3 py-2 text-left outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                          isTopicCurrent ? 'bg-sc-primary-container text-sc-on-primary-container' : 'text-foreground hover:bg-muted/70',
                         )}
                       >
-                        <span className="block min-w-0 break-words font-medium leading-6">{topic.title}</span>
-                        <span className="block text-xs text-muted-foreground">{topicLessonCount(topic, t)}</span>
+                        <Folder className={cn('size-5', isTopicSelected ? 'text-sc-on-primary-container' : 'text-muted-foreground')} aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block min-w-0 break-words font-medium leading-6">{topic.title}</span>
+                          <span className="block text-xs text-muted-foreground">{topicLessonCount(topic, t)}</span>
+                        </span>
                       </button>
                       {management.topicActions && <div className="shrink-0">{management.topicActions(topic)}</div>}
                     </div>
-                    {isTopicSelected && topic.lessons?.length > 0 && (
-                      <ol className="space-y-1 px-4 pb-3 pl-8 sm:px-5 sm:pl-10" role="list" aria-label={t('curriculum.lessonsInTopic', { title: topic.title })}>
+                    {isTopicExpanded && hasLessons && (
+                      <ol id={topicLessonsId} className="space-y-1 px-3 pb-3 pl-10 sm:px-4 sm:pl-12" role="list" aria-label={t('curriculum.lessonsInTopic', { title: topic.title })}>
                         {topic.lessons.map((lesson) => {
                           const isLessonSelected = selectedLesson?.id === lesson.id
                           return (
-                            <li key={lesson.id} className="flex min-w-0 items-start gap-2">
+                            <li key={lesson.id} className="flex min-w-0 items-center gap-2">
                               <button
                                 type="button"
                                 aria-current={isLessonSelected ? 'page' : undefined}
+                                aria-label={`${lesson.title}, ${t('curriculum.unitCount', { count: lesson.unit_count || 0 })}`}
                                 onClick={() => selectLesson(lesson.id)}
                                 className={cn(
-                                  'min-h-[var(--sc-component-hit-target)] min-w-0 flex-1 rounded-[var(--sc-component-control-shape)] px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
-                                  isLessonSelected ? 'bg-primary/10 font-medium text-primary' : 'text-foreground hover:bg-muted',
+                                  'flex min-h-[var(--sc-component-hit-target)] min-w-0 flex-1 items-center gap-2 rounded-[var(--sc-component-control-shape)] px-3 py-2 text-left text-sm outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
+                                  isLessonSelected ? 'bg-sc-primary-container font-medium text-sc-on-primary-container' : 'text-foreground hover:bg-muted/70',
                                 )}
                               >
-                                <span className="block min-w-0 break-words">{lesson.title}</span>
-                                <span className="block text-xs text-muted-foreground">{t('curriculum.unitCount', { count: lesson.unit_count || 0 })}</span>
+                                <FileText className={cn('size-5', isLessonSelected ? 'text-sc-on-primary-container' : 'text-muted-foreground')} aria-hidden="true" />
+                                <span className="min-w-0 flex-1">
+                                  <span className="block min-w-0 break-words">{lesson.title}</span>
+                                  <span className="block text-xs text-muted-foreground">{t('curriculum.unitCount', { count: lesson.unit_count || 0 })}</span>
+                                </span>
                               </button>
-                              {management.lessonActions && <div className="shrink-0 pt-1">{management.lessonActions(lesson)}</div>}
+                              {management.lessonActions && <div className="shrink-0">{management.lessonActions(lesson)}</div>}
                             </li>
                           )
                         })}
@@ -265,7 +374,7 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
               aria-valuemax={separatorValueMax}
               aria-valuenow={separatorValueNow}
               tabIndex={0}
-              className="group hidden cursor-col-resize touch-none items-stretch justify-center rounded-[var(--sc-component-control-shape)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:flex"
+              className="group relative z-10 -mx-[18px] hidden w-12 cursor-col-resize touch-none items-stretch justify-center rounded-[var(--sc-component-control-shape)] outline-none focus-visible:ring-3 focus-visible:ring-ring/50 lg:flex"
               onPointerDown={handleDividerPointerDown}
               onPointerMove={handleDividerPointerMove}
               onPointerUp={handleDividerPointerEnd}
@@ -284,30 +393,42 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
             {selectedLesson ? (
               <div className="min-w-0">
                 <div className="flex min-w-0 flex-col gap-3 border-b border-border px-4 py-4 sm:px-5">
-                  <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start justify-between gap-3 max-[360px]:flex-col-reverse">
                     <div className="min-w-0 space-y-1">
-                      <p className="text-sm text-muted-foreground">
-                        {selectedTopic?.title ? `${programmeLabel(programme, t)} · ${selectedTopic.title}` : programmeLabel(programme, t)}
-                      </p>
                       <h2 className="break-words text-lg font-semibold text-foreground">{selectedLesson.title}</h2>
+                      <nav aria-label={t('curriculum.breadcrumbs')} className="text-sm text-muted-foreground">
+                        <ol className="flex min-w-0 flex-wrap items-center gap-1">
+                          <li><button type="button" className="inline-flex min-h-[var(--sc-component-hit-target)] min-w-[var(--sc-component-hit-target)] items-center rounded-sm hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50" onClick={() => selectProgramme(programme)}>{programmeLabel(programme, t)}</button></li>
+                          {selectedTopic?.title && (
+                            <>
+                              <li aria-hidden="true"><ChevronRightIcon className="size-4" /></li>
+                              <li><button type="button" className="inline-flex min-h-[var(--sc-component-hit-target)] min-w-[var(--sc-component-hit-target)] items-center rounded-sm break-words hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50" onClick={() => selectTopic(selectedTopic.id)}>{selectedTopic.title}</button></li>
+                            </>
+                          )}
+                          <li aria-hidden="true"><ChevronRightIcon className="size-4" /></li>
+                          <li aria-current="page" className="min-w-0 break-words text-foreground">{selectedLesson.title}</li>
+                        </ol>
+                      </nav>
                     </div>
                     <Button type="button" variant="ghost" onClick={backToTopics} className="lg:hidden">
                       <ArrowLeft className="size-4" aria-hidden="true" />
                       {t('curriculum.backToTopics')}
                     </Button>
                   </div>
-                  {(management.lessonActions || management.lessonHeaderActions) && (
+                  {management.lessonActions && (
                     <div data-testid="curriculum-mobile-lesson-actions" className="flex flex-wrap gap-2 lg:hidden">
-                      {management.lessonActions && management.lessonActions(selectedLesson)}
-                      {management.lessonHeaderActions}
+                      {management.lessonActions(selectedLesson)}
                     </div>
                   )}
-                  {(management.lessonHeaderActions || (!navigationExpanded && management.lessonActions)) && (
+                  {!navigationExpanded && management.lessonActions && (
                     <div data-testid="curriculum-desktop-lesson-header-actions" className="hidden flex-wrap gap-2 lg:flex">
-                      {!navigationExpanded && management.lessonActions?.(selectedLesson)}
-                      {management.lessonHeaderActions}
+                      {management.lessonActions(selectedLesson)}
                     </div>
                   )}
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+                  <h3 className="text-base font-semibold text-foreground">{t('curriculum.unitListTitle')}</h3>
+                  {management.lessonHeaderActions && <div className="flex flex-wrap gap-2">{management.lessonHeaderActions}</div>}
                 </div>
                 {lessonLoading ? (
                   <p className="p-5 text-sm text-muted-foreground">{t('curriculum.loadingLesson')}</p>
@@ -327,15 +448,16 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
                     className="min-h-64"
                   />
                 ) : (
-                  <ol className="divide-y divide-border" role="list" aria-label={t('curriculum.unitsInLesson', { title: selectedLesson.title })}>
+                  <div>
+                    <ol className="divide-y divide-border" role="list" aria-label={t('curriculum.unitsInLesson', { title: selectedLesson.title })}>
                     {units.map((unit, index) => (
-                      <li key={unit.placement_id} className="flex min-w-0 items-center gap-2 px-4 py-3 sm:px-5">
+                      <li key={unit.placement_id} className="flex min-w-0 items-center gap-2 px-3 py-3 sm:px-5">
                         <Link
                           to={getLecturePath(unit.lecture, audience, unit.placement_id)}
-                          className="group flex min-h-[var(--sc-component-hit-target)] min-w-0 flex-1 items-center gap-3 rounded-[var(--sc-component-control-shape)] px-2 py-1 outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50"
+                          className="group flex min-h-[var(--sc-component-hit-target)] min-w-0 flex-1 items-center gap-2 rounded-[var(--sc-component-control-shape)] px-1 py-1 outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 sm:gap-3 sm:px-2"
                           aria-label={t('curriculum.watchUnit', { number: index + 1, title: unit.lecture.title })}
                         >
-                          <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold tabular-nums text-muted-foreground group-hover:text-primary">
+                          <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold tabular-nums text-muted-foreground group-hover:text-primary sm:size-9 sm:text-sm">
                             {index + 1}
                           </span>
                           <span className="min-w-0 flex-1 space-y-2">
@@ -349,12 +471,13 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
                             <Play className="size-4" aria-hidden="true" />
                             {t('curriculum.watch')}
                           </span>
-                          <ArrowRight className="size-4 shrink-0 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
+                          <ArrowRight className="hidden size-4 shrink-0 text-muted-foreground group-hover:text-primary @[440px]:block" aria-hidden="true" />
                         </Link>
                         {management.unitActions && <div className="shrink-0">{management.unitActions(unit)}</div>}
                       </li>
                     ))}
-                  </ol>
+                    </ol>
+                  </div>
                 )}
               </div>
             ) : (
@@ -368,7 +491,7 @@ export function CurriculumNavigator({ navigation, audience = 'student', manageme
           </Card>
         </div>
       )}
-      {management.footer && <div className="flex flex-wrap gap-2">{management.footer}</div>}
+      {management.footer && <div className="grid gap-2">{management.footer}</div>}
     </div>
   )
 }

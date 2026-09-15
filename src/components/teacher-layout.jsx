@@ -1,13 +1,15 @@
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
 import { AppShell } from '@/design-system/app-shell'
 import { BookOpen, ClipboardList, LayoutDashboard, Plus, Users } from '@/components/material-symbol'
 
 export function TeacherLayout() {
+  const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, isPlatformAdmin } = useAuth()
   const { t } = useTranslation()
+  const focusedWorkspace = location.pathname.startsWith('/teacher/lectures')
   const navigation = [
     { label: t('common.dashboard'), to: '/teacher', icon: LayoutDashboard, end: true },
     { label: t('common.students'), to: '/teacher/students', icon: Users },
@@ -37,6 +39,7 @@ export function TeacherLayout() {
       userLabel={user?.name || user?.phone}
       accountMeta={isPlatformAdmin ? t('common.platformAdmin') : undefined}
       onLogout={handleLogout}
+      focusedWorkspace={focusedWorkspace}
     >
       <Outlet />
     </AppShell>

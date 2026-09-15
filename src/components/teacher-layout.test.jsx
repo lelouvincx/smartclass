@@ -62,6 +62,16 @@ describe('TeacherLayout navigation', () => {
     })
   })
 
+  it('auto-collapses the desktop sidebar in the lecture workspace without saving the preference', () => {
+    const { container } = renderLayout('/teacher/lectures?programme=10')
+
+    expect(document.getElementById('desktop-sidebar')).toHaveClass('w-28')
+    expect(screen.queryByRole('button', { name: 'Expand sidebar' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).not.toBeInTheDocument()
+    expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBeNull()
+    expect(container.querySelector('[data-app-shell-content]')).toHaveClass('min-[1024px]:!ps-28')
+  })
+
   it('offers direct creation paths for exercises, lectures, and students', async () => {
     const user = userEvent.setup()
     renderLayout()

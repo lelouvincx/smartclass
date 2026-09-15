@@ -66,7 +66,7 @@ describe('StudentLecturesPage curriculum navigator', () => {
     const user = userEvent.setup()
     render(<MemoryRouter initialEntries={["/student/lectures?programme=12"]}><StudentLecturesPage /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: /Vectors/ }))
+    await user.click(await screen.findByRole('button', { name: 'Vectors, 1 lesson' }))
     expect(screen.getByRole('button', { name: /Vector basics/ })).toHaveTextContent('2 units')
     expect(screen.getByRole('heading', { name: 'Choose a lesson' })).toBeInTheDocument()
     expect(listCurriculumMock).toHaveBeenCalledWith('student-token', 12)
@@ -77,7 +77,7 @@ describe('StudentLecturesPage curriculum navigator', () => {
     const user = userEvent.setup()
     render(<MemoryRouter initialEntries={["/student/lectures?programme=12"]}><StudentLecturesPage /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: /Vectors/ }))
+    await user.click(await screen.findByRole('button', { name: 'Vectors, 1 lesson' }))
     await user.click(await screen.findByRole('button', { name: /Vector basics/ }))
 
     expect(await screen.findByRole('heading', { name: 'Vector basics' })).toBeInTheDocument()
@@ -95,7 +95,7 @@ describe('StudentLecturesPage curriculum navigator', () => {
 
     render(<MemoryRouter initialEntries={["/lectures?programme=10"]}><StudentLecturesPage audience="guest" /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: /Vectors/ }))
+    await user.click(await screen.findByRole('button', { name: 'Vectors, 1 lesson' }))
     await user.click(await screen.findByRole('button', { name: /Vector basics/ }))
     expect(await screen.findByRole('link', { name: 'Watch unit 1: Intro unit' })).toHaveAttribute(
       'href',

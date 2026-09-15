@@ -165,24 +165,41 @@ describe('TeacherLecturesPage curriculum management', () => {
     expect(mocks.createCurriculumTopic).toHaveBeenCalledWith('teacher-token', { programme: 10, title: 'Functions', expected_revision: 8 })
   })
 
-  it('adds new and existing videos using backend placement shapes', async () => {
+  it('adds a new video using the backend placement shape', async () => {
     renderPage()
-    let user = await openMenu('Lesson actions for Linear equations')
+    const user = await openMenu('Lesson actions for Linear equations')
     await user.click(screen.getByRole('menuitem', { name: /Add new video/ }))
     await user.type(screen.getByLabelText('Video title'), 'New lesson video')
     await user.type(screen.getByLabelText('YouTube URL'), 'https://youtu.be/aaaaaaaaaaa')
     await user.click(screen.getByRole('button', { name: 'VIP' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
     expect(mocks.createCurriculumPlacement).toHaveBeenCalledWith('teacher-token', expect.objectContaining({ lesson_id: 21, expected_revision: 8, lecture: expect.objectContaining({ title: 'New lesson video', minimum_access_tier: 'vip' }) }))
+  })
 
-    cleanup()
+  it('adds an existing unplaced video using the backend placement shape', async () => {
     renderPage()
-    user = await openMenu('Lesson actions for Linear equations')
+    const user = await openMenu('Lesson actions for Linear equations')
     await user.click(screen.getByRole('menuitem', { name: /Use existing video/ }))
     await user.click(screen.getByLabelText('Existing shared video'))
     await user.click(await screen.findByRole('option', { name: 'Unplaced library video' }))
     await user.click(screen.getByRole('button', { name: 'Save' }))
-    expect(mocks.createCurriculumPlacement).toHaveBeenLastCalledWith('teacher-token', { lesson_id: 21, lecture_id: 3, expected_revision: 8 })
+    expect(mocks.createCurriculumPlacement).toHaveBeenCalledWith('teacher-token', { lesson_id: 21, lecture_id: 3, expected_revision: 8 })
+  })
+
+  it('keeps edge-case videos that are not in any lesson collapsed until opened', async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    const toggle = await screen.findByRole('button', { name: /Videos not in any lesson/ })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(toggle).toHaveTextContent('1 shared video is in the library but has not been added to a lesson.')
+    expect(screen.queryByText('Unplaced library video')).not.toBeInTheDocument()
+
+    await user.click(toggle)
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByText('Unplaced library video')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Unit actions for Unplaced library video' })).toBeInTheDocument()
   })
 
   it('enumerates affected shared videos before moving a topic and submits the confirmed payload', async () => {
