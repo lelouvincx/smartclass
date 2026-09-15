@@ -75,10 +75,19 @@ describe('route guards', () => {
   it('keeps public Guest lectures outside the authentication guard', async () => {
     useAuthMock.mockReturnValue({ isLoading: false, user: null, token: null, logout: vi.fn(), defaultPath: '/' })
     listCurriculumMock.mockResolvedValue({
-      data: { programme: 10, topics: [{ id: 8, title: 'Preview', lessons: [{ id: 9, title: 'Introduction', unit_count: 1 }] }] },
-    })
-    getCurriculumLessonMock.mockResolvedValue({
-      data: { lesson: { id: 9, title: 'Introduction' }, units: [{ placement_id: 21, lecture: { id: 1, title: 'Public lesson', youtube_url: 'https://youtu.be/abcdefghijk', minimum_access_tier: 'guest', is_visible: 1 } }] },
+      data: {
+        programme: 10,
+        topics: [{
+          id: 8,
+          title: 'Preview',
+          lessons: [{
+            id: 9,
+            title: 'Introduction',
+            unit_count: 1,
+            units: [{ placement_id: 21, lecture: { id: 1, title: 'Public lesson', youtube_url: 'https://youtu.be/abcdefghijk', minimum_access_tier: 'guest', is_visible: 1 } }],
+          }],
+        }],
+      },
     })
 
     render(
@@ -87,12 +96,12 @@ describe('route guards', () => {
       </MemoryRouter>,
     )
 
-    expect(await screen.findByText('Public lesson')).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: 'Watch unit 1: Public lesson' })).toBeInTheDocument()
     screen.getAllByRole('link', { name: 'Sign in' }).forEach((link) => {
       expect(link).toHaveAttribute('href', '/')
     })
     expect(listCurriculumMock).toHaveBeenCalledWith(null, 10)
-    expect(getCurriculumLessonMock).toHaveBeenCalledWith(null, 9)
+    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
   })
 
   it('keeps the unauthenticated loading state in English', async () => {

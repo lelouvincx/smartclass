@@ -79,12 +79,16 @@ async function seedFixture() {
 
   await seedTopic({ id: 501, programme: 10, title: 'Algebra', orderIndex: 0 })
   await seedTopic({ id: 502, programme: 10, title: 'Hidden topic', orderIndex: 1 })
+  await seedTopic({ id: 503, programme: 11, title: 'Grade 11 topic', orderIndex: 0 })
   await seedLesson({ id: 701, topicId: 501, title: 'Linear equations', orderIndex: 0 })
   await seedLesson({ id: 702, topicId: 502, title: 'Hidden only', orderIndex: 0 })
+  await seedLesson({ id: 703, topicId: 503, title: 'Grade 11 lesson', orderIndex: 0 })
   await seedPlacement({ id: 901, lessonId: 701, lectureId: 301, orderIndex: 0 })
   await seedPlacement({ id: 902, lessonId: 701, lectureId: 302, orderIndex: 1 })
   await seedPlacement({ id: 903, lessonId: 701, lectureId: 303, orderIndex: 2 })
   await seedPlacement({ id: 904, lessonId: 702, lectureId: 304, orderIndex: 0 })
+  await seedPlacement({ id: 905, lessonId: 703, lectureId: 301, orderIndex: 0 })
+  await seedPlacement({ id: 906, lessonId: 703, lectureId: 302, orderIndex: 1 })
 }
 
 beforeEach(seedFixture)
@@ -96,6 +100,12 @@ describe('mounted RFC-18 curriculum routes', () => {
     const curriculumBody = await curriculum.json()
     expect(curriculumBody.data.topics.map((topic) => topic.id)).toEqual([501])
     expect(curriculumBody.data.topics[0].lessons).toMatchObject([{ id: 701, unit_count: 1 }])
+    expect(curriculumBody.data.topics[0].lessons[0].units).toEqual([
+      expect.objectContaining({
+        placement_id: 901,
+        lecture: expect.objectContaining({ id: 301, title: 'Guest placed', minimum_access_tier: 'guest' }),
+      }),
+    ])
     expect(JSON.stringify(curriculumBody)).not.toContain('Standard placed')
     expect(JSON.stringify(curriculumBody)).not.toContain('Hidden topic')
 
@@ -117,6 +127,31 @@ describe('mounted RFC-18 curriculum routes', () => {
     expect(body).not.toHaveProperty('grades')
   })
 
+  it('serves authenticated student unit summaries without leaking VIP or hidden placements', async () => {
+    const student = await token(201)
+    const curriculum = await app.request('/api/curriculum?programme=10', { headers: { Authorization: student } }, env)
+
+    expect(curriculum.status).toBe(200)
+    const curriculumBody = (await curriculum.json()).data
+    expect(curriculumBody.topics.map((topic) => topic.id)).toEqual([501])
+    expect(curriculumBody.topics[0].lessons[0]).toMatchObject({ id: 701, unit_count: 2 })
+    expect(curriculumBody.topics[0].lessons[0].units.map((unit) => unit.placement_id)).toEqual([901, 902])
+    expect(JSON.stringify(curriculumBody)).toContain('Guest placed')
+    expect(JSON.stringify(curriculumBody)).toContain('Standard placed')
+    expect(JSON.stringify(curriculumBody)).not.toContain('VIP placed')
+    expect(JSON.stringify(curriculumBody)).not.toContain('Hidden guest')
+    expect(curriculumBody).not.toHaveProperty('revision')
+
+    const mismatched = await app.request('/api/curriculum?programme=11', { headers: { Authorization: student } }, env)
+    expect(mismatched.status).toBe(200)
+    const mismatchedBody = (await mismatched.json()).data
+    expect(mismatchedBody.topics.map((topic) => topic.id)).toEqual([503])
+    expect(mismatchedBody.topics[0].lessons[0]).toMatchObject({ id: 703, unit_count: 1 })
+    expect(mismatchedBody.topics[0].lessons[0].units.map((unit) => unit.placement_id)).toEqual([905])
+    expect(JSON.stringify(mismatchedBody)).toContain('Guest placed')
+    expect(JSON.stringify(mismatchedBody)).not.toContain('Standard placed')
+  })
+
   it('serves manager navigation and reusable-video library through mounted routes', async () => {
     const teacher = await token(101)
     const curriculum = await app.request('/api/curriculum?programme=10', { headers: { Authorization: teacher } }, env)
@@ -125,6 +160,8 @@ describe('mounted RFC-18 curriculum routes', () => {
     expect(curriculumBody.revision).toBe(0)
     expect(curriculumBody.topics.map((topic) => topic.id)).toEqual([501, 502])
     expect(curriculumBody.topics[0].lessons[0]).toMatchObject({ id: 701, unit_count: 3 })
+    expect(curriculumBody.topics[0].lessons[0].units.map((unit) => unit.placement_id)).toEqual([901, 902, 903])
+    expect(curriculumBody.topics[1].lessons[0].units.map((unit) => unit.placement_id)).toEqual([904])
 
     const lesson = await app.request('/api/curriculum/lessons/701', { headers: { Authorization: teacher } }, env)
     expect(lesson.status).toBe(200)
@@ -136,8 +173,11 @@ describe('mounted RFC-18 curriculum routes', () => {
     expect(libraryBody.revision).toBe(0)
     expect(libraryBody.lectures.find((lecture) => lecture.id === 301)).toMatchObject({
       id: 301,
-      grades: [10],
-      placements: [{ placement_id: 901, lesson_id: 701, topic_id: 501, programme: 10 }],
+      grades: [10, 11],
+      placements: [
+        { placement_id: 901, lesson_id: 701, topic_id: 501, programme: 10 },
+        { placement_id: 905, lesson_id: 703, topic_id: 503, programme: 11 },
+      ],
     })
     expect(libraryBody.lectures.find((lecture) => lecture.id === 305)).toMatchObject({ id: 305, grades: [], placements: [] })
   })

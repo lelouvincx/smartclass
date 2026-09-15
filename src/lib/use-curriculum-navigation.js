@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getCurriculumLesson, listCurriculum } from '@/lib/api'
-import { gradesForWorkspace } from '@/lib/grades'
+import { gradesForWorkspace, sortGrades } from '@/lib/grades'
 import { requireWorkspaceSite } from '@/lib/workspaces'
 
 function normalizeProgramme(value) {
@@ -29,12 +29,17 @@ function findTopicForLesson(topics, lessonId) {
   return topics.find((topic) => topic.lessons?.some((lesson) => lesson.id === lessonId)) || null
 }
 
-export function useCurriculumNavigation(token, workspace) {
+export function useCurriculumNavigation(token, workspace, options = {}) {
   const [searchParams, setSearchParams] = useSearchParams()
   const effectiveWorkspace = useMemo(() => workspace ?? requireWorkspaceSite(), [workspace])
   const programmes = useMemo(() => gradesForWorkspace(effectiveWorkspace), [effectiveWorkspace])
+  const preferredProgrammes = useMemo(() => sortGrades(
+    (options.preferredProgrammes || []).map(normalizeProgramme).filter((value) => value !== null),
+    programmes,
+  ), [options.preferredProgrammes, programmes])
+  const defaultProgramme = preferredProgrammes[0] ?? programmes[0]
   const urlProgramme = normalizeProgramme(searchParams.get('programme'))
-  const programme = programmes.includes(urlProgramme) ? urlProgramme : programmes[0]
+  const programme = programmes.includes(urlProgramme) ? urlProgramme : defaultProgramme
   const topicId = parsePositiveId(searchParams.get('topic'))
   const lessonId = parsePositiveId(searchParams.get('lesson'))
   const treeKey = JSON.stringify([token, effectiveWorkspace.id, programme])
@@ -138,7 +143,7 @@ export function useCurriculumNavigation(token, workspace) {
     setLessonDetail(null)
     setDetailRevision(null)
     setLessonLoading(false)
-    if (!lessonId || loading) return undefined
+    if (options.skipLessonDetail || !lessonId || loading) return undefined
     if (!selectedLesson) return undefined
     setError('')
     setLessonLoading(true)
@@ -160,7 +165,7 @@ export function useCurriculumNavigation(token, workspace) {
     return () => {
       lessonRequestRef.current += 1
     }
-  }, [lessonId, loading, selectedLesson, token])
+  }, [lessonId, loading, options.skipLessonDetail, selectedLesson, token])
 
   const selectProgramme = useCallback((nextProgramme) => {
     const normalized = normalizeProgramme(nextProgramme?.programme ?? nextProgramme?.id ?? nextProgramme)

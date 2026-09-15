@@ -75,12 +75,23 @@ curriculumRoutes.get('/', optionalWorkspaceIdentity, async (c) => {
   const unitRows = await accessibleUnitRows(c, null, programme)
   if (unitRows.error) return unitRows.error
   const countByLesson = new Map()
-  for (const row of unitRows.rows) countByLesson.set(row.lesson_id, (countByLesson.get(row.lesson_id) || 0) + 1)
+  const unitsByLesson = new Map()
+  for (const row of unitRows.rows) {
+    countByLesson.set(row.lesson_id, (countByLesson.get(row.lesson_id) || 0) + 1)
+    unitsByLesson.set(row.lesson_id, [...(unitsByLesson.get(row.lesson_id) || []), toUnit(row)])
+  }
   const lessonsByTopic = new Map()
   for (const lesson of lessons.results) {
     const unitCount = countByLesson.get(lesson.id) || 0
     if (!aud.manager && unitCount === 0) continue
-    const item = { id: lesson.id, topic_id: lesson.topic_id, title: lesson.title, order_index: lesson.order_index, unit_count: unitCount }
+    const item = {
+      id: lesson.id,
+      topic_id: lesson.topic_id,
+      title: lesson.title,
+      order_index: lesson.order_index,
+      unit_count: unitCount,
+      units: unitsByLesson.get(lesson.id) || [],
+    }
     lessonsByTopic.set(lesson.topic_id, [...(lessonsByTopic.get(lesson.topic_id) || []), item])
   }
   const data = topics.results

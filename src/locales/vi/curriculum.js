@@ -28,6 +28,7 @@ export default {
   collapseTopic: 'Thu gọn {{title}}',
   watch: 'Xem',
   watchUnit: 'Xem tiết {{number}}: {{title}}',
+  untitledUnit: 'Video chưa có tiêu đề',
   backToTopics: 'Quay lại',
   emptyTitle: 'Chưa có chương trình',
   emptyDescription: 'Bài học sẽ xuất hiện tại đây khi sẵn sàng.',

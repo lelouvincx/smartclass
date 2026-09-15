@@ -1,14 +1,17 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next'
-import { CurriculumNavigator } from '@/components/curriculum-navigator'
+import { StudentCurriculumBrowser } from '@/components/student-curriculum-browser'
 import { useAuth } from '@/lib/auth-context'
 import { useCurriculumNavigation } from '@/lib/use-curriculum-navigation'
 import { PageHeader } from '@/design-system/page-header'
 
 export default function StudentLecturesPage({ audience = 'student' }) {
   const { t } = useTranslation()
-  const { token, workspace } = useAuth()
-  const navigation = useCurriculumNavigation(token, workspace)
+  const { token, workspace, membership } = useAuth()
+  const navigation = useCurriculumNavigation(token, workspace, {
+    preferredProgrammes: audience === 'student' ? membership?.grades : undefined,
+    skipLessonDetail: true,
+  })
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -16,7 +19,7 @@ export default function StudentLecturesPage({ audience = 'student' }) {
         title={t('student.lectures.title')}
         description={t('student.lectures.description')}
       />
-      <CurriculumNavigator navigation={navigation} audience={audience} />
+      <StudentCurriculumBrowser navigation={navigation} audience={audience} />
     </div>
   )
 }
