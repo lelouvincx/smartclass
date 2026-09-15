@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BrowserRouter, MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -80,34 +80,29 @@ describe('StudentLecturesPage curriculum browser', () => {
     getCurriculumLessonMock.mockResolvedValue({ data: { ...lessonDetail, revision: 8 } })
   })
 
-  it('shows a content-first curriculum outline from the actual API response shape', async () => {
+  it('shows the shared curriculum explorer from the actual API response shape', async () => {
+    const user = userEvent.setup()
     render(<MemoryRouter initialEntries={["/student/lectures?programme=12"]}><StudentLecturesPage /></MemoryRouter>)
 
-    expect(await screen.findByRole('heading', { name: 'Vectors' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Vector basics' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Watch unit 1: Intro unit' })).toHaveAttribute(
-      'href',
-      '/student/lectures/201-intro-unit?placement=101',
-    )
-    expect(screen.getByRole('link', { name: 'Watch unit 2: Worked example' })).toHaveAttribute(
-      'href',
-      '/student/lectures/202-worked-example?placement=102',
-    )
-    expect(screen.queryByRole('heading', { name: 'Choose a lesson' })).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /Vectors, 1 lesson/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Expand Vectors' }))
+    expect(screen.getByRole('button', { name: /Vector basics, 2 units/ })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Choose a lesson' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Watch unit 1: Intro unit' })).not.toBeInTheDocument()
     expect(listCurriculumMock).toHaveBeenCalledWith('student-token', 12)
     expect(getCurriculumLessonMock).not.toHaveBeenCalled()
   })
 
   it('lets an anonymous guest browse public curriculum on public player URLs', async () => {
+    const user = userEvent.setup()
     useAuthMock.mockReturnValue({ token: null, user: null, workspace: { id: 'english' } })
     listCurriculumMock.mockResolvedValue({ data: { programme: 10, topics } })
 
     render(<MemoryRouter initialEntries={["/lectures?programme=10"]}><StudentLecturesPage audience="guest" /></MemoryRouter>)
 
-    expect(await screen.findByRole('link', { name: 'Watch unit 1: Intro unit' })).toHaveAttribute(
-      'href',
-      '/lectures/201-intro-unit?placement=101',
-    )
+    await screen.findByRole('button', { name: /Vectors, 1 lesson/ })
+    await user.click(screen.getByRole('button', { name: 'Expand Vectors' }))
+    expect(screen.getByRole('button', { name: /Vector basics, 2 units/ })).toBeInTheDocument()
     expect(listCurriculumMock).toHaveBeenCalledWith(null, 10)
     expect(getCurriculumLessonMock).not.toHaveBeenCalled()
   })
@@ -118,28 +113,30 @@ describe('StudentLecturesPage curriculum browser', () => {
 
     render(<MemoryRouter initialEntries={["/student/lectures?programme=10"]}><StudentLecturesPage /></MemoryRouter>)
 
-    const selector = await screen.findByLabelText('Programme')
-    Element.prototype.scrollIntoView ??= () => {}
-    selector.focus()
-    await userEvent.setup().keyboard('{Enter}')
-    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Grade 10', 'Grade 11', 'Grade 12', 'ĐGNL'])
-    expect(screen.queryByRole('option', { name: 'THPT' })).not.toBeInTheDocument()
+    const group = await screen.findByRole('group', { name: 'Programme' })
+    expect(group).toHaveAttribute('data-slot', 'segmented-button-group')
+    expect(within(group).getAllByRole('button').map((button) => button.textContent)).toEqual(['Grade 10', 'Grade 11', 'Grade 12', 'ĐGNL'])
+    expect(within(group).getByRole('button', { name: 'Grade 10' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(group).queryByRole('button', { name: 'THPT' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('combobox', { name: 'Programme' })).not.toBeInTheDocument()
   })
 
-  it('keeps a deep-linked lesson in the outline without hiding other videos', async () => {
-    const scrollIntoView = vi.fn()
-    Element.prototype.scrollIntoView = scrollIntoView
+  it('uses the same selected lesson detail pane as the teacher view', async () => {
     window.history.pushState({}, '', '/student/lectures?programme=12&lesson=11')
     render(<BrowserRouter><StudentLecturesPage /></BrowserRouter>)
 
-    const heading = await screen.findByRole('heading', { name: 'Vector basics' })
+    expect(await screen.findByRole('heading', { name: 'Vector basics' })).toBeInTheDocument()
     await screen.findByRole('link', { name: 'Watch unit 1: Intro unit' })
-    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('link', { name: 'Watch unit 2: Worked example' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Watch unit 1: Intro unit' })).toHaveAttribute(
+      'href',
+      '/student/lectures/201-intro-unit?placement=101',
+    )
+    expect(screen.getByRole('link', { name: 'Watch unit 2: Worked example' })).toHaveAttribute(
+      'href',
+      '/student/lectures/202-worked-example?placement=102',
+    )
     expect(screen.queryByRole('heading', { name: 'Choose a lesson' })).not.toBeInTheDocument()
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' }))
-    await waitFor(() => expect(heading).toHaveFocus())
-    expect(heading).toHaveAttribute('aria-current', 'location')
+    expect(getCurriculumLessonMock).toHaveBeenCalledWith('student-token', 11)
   })
 
   it('defaults a student without a programme URL to their first assigned programme', async () => {
@@ -152,7 +149,7 @@ describe('StudentLecturesPage curriculum browser', () => {
 
     render(<MemoryRouter initialEntries={["/student/lectures"]}><StudentLecturesPage /></MemoryRouter>)
 
-    await screen.findByRole('heading', { name: 'Vectors' })
+    await screen.findByRole('button', { name: /Vectors, 1 lesson/ })
     expect(listCurriculumMock).toHaveBeenCalledWith('student-token', 12)
   })
 

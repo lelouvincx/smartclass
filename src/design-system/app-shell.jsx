@@ -436,7 +436,7 @@ export function AppShell({ accountAction, accountMeta, children, focusedWorkspac
 
       <div data-app-shell-content className={cn(
         'md:ps-28 lg:transition-[padding] lg:duration-[var(--sc-motion-duration-medium)] lg:ease-[var(--sc-motion-standard)] lg:motion-reduce:transition-none',
-        effectiveSidebarCollapsed ? 'min-[1024px]:!ps-28' : 'min-[1024px]:!ps-56',
+        effectiveSidebarCollapsed ? 'lg:ps-28' : 'lg:ps-56',
       )}>
         <main
           id="main-content"

@@ -84,24 +84,23 @@ describe('CurriculumNavigator', () => {
     expect(screen.getByRole('navigation', { name: 'Topics and lessons' })).toHaveClass('lg:hidden')
   })
 
-  it('uses the shared programme select and changes programme by keyboard', async () => {
+  it('uses segmented programme buttons and changes programme by click', async () => {
     const user = userEvent.setup()
-    Element.prototype.scrollIntoView ??= () => {}
     render(<MemoryRouter><CurriculumNavigator navigation={navigation} /></MemoryRouter>)
-    const select = screen.getByRole('combobox', { name: 'Programme' })
-    expect(select).toHaveAttribute('data-slot', 'select-trigger')
-    select.focus()
-    await user.keyboard('{Enter}')
-    expect(screen.getByRole('option', { name: 'Grade 12' })).toHaveAttribute('aria-selected', 'true')
-    await user.keyboard('{ArrowDown}{Enter}')
+    const group = screen.getByRole('group', { name: 'Programme' })
+    expect(group).toHaveAttribute('data-slot', 'segmented-button-group')
+    expect(within(group).getByRole('button', { name: 'Grade 12' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('combobox', { name: 'Programme' })).not.toBeInTheDocument()
+
+    await user.click(within(group).getByRole('button', { name: 'THPT' }))
     expect(navigation.selectProgramme).toHaveBeenCalledWith('thpt')
-    expect(select).toHaveFocus()
   })
 
   it('toggles the desktop navigation without changing the selected lesson', async () => {
     const user = userEvent.setup()
     render(<MemoryRouter><CurriculumNavigator navigation={navigation} management={{ lessonActions: () => <button>Lesson menu</button> }} /></MemoryRouter>)
     const toggle = screen.getByRole('button', { name: 'Hide outline' })
+    expect(within(screen.getByTestId('curriculum-lesson-pane')).getByRole('button', { name: 'Hide outline' })).toBe(toggle)
     const pane = screen.getByRole('navigation', { name: 'Topics and lessons' })
     expect(toggle).toHaveAttribute('aria-controls', pane.id)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
@@ -154,7 +153,7 @@ describe('CurriculumNavigator', () => {
     expect(screen.queryByText(/delete|confirm|prompt/i)).not.toBeInTheDocument()
   })
 
-  it('renders the teacher lecture explorer with programme dropdown, icons, toggles, and breadcrumbs', async () => {
+  it('renders the teacher lecture explorer with programme segments, icons, toggles, and breadcrumbs', async () => {
     const user = userEvent.setup()
     const twoTopicNavigation = {
       ...navigation,
@@ -166,7 +165,7 @@ describe('CurriculumNavigator', () => {
     }
     render(<MemoryRouter><CurriculumNavigator navigation={twoTopicNavigation} audience="teacher" /></MemoryRouter>)
 
-    expect(screen.getByRole('combobox', { name: 'Programme' })).toHaveTextContent('Grade 12')
+    expect(within(screen.getByRole('group', { name: 'Programme' })).getByRole('button', { name: 'Grade 12' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('navigation', { name: 'Lesson breadcrumbs' })).toHaveTextContent('Grade 12Topic actions targetLesson actions target')
     expect(screen.getByRole('button', { name: 'Collapse Topic actions target' })).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('button', { name: /Topic actions target, 1 lesson/ })).toHaveTextContent('1 lesson')

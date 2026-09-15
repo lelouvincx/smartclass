@@ -69,7 +69,7 @@ describe('TeacherLayout navigation', () => {
     expect(screen.queryByRole('button', { name: 'Expand sidebar' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Collapse sidebar' })).not.toBeInTheDocument()
     expect(localStorage.getItem('smartclass-sidebar-collapsed')).toBeNull()
-    expect(container.querySelector('[data-app-shell-content]')).toHaveClass('min-[1024px]:!ps-28')
+    expect(container.querySelector('[data-app-shell-content]')).toHaveClass('lg:ps-28')
   })
 
   it('offers direct creation paths for exercises, lectures, and students', async () => {

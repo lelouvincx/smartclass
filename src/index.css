@@ -52,6 +52,7 @@
     white-space: nowrap;
     width: 1em;
     height: 1em;
+    overflow: hidden;
     direction: ltr;
     -webkit-font-feature-settings: 'liga';
     -webkit-font-smoothing: antialiased;

@@ -220,6 +220,31 @@ describe('unmounted RFC-18 curriculum routers', () => {
     expect(eleven.next).toBeNull()
   })
 
+  it('denies student player access to hidden, higher-tier, and wrong-programme lecture placements', async () => {
+    const standardTen = await bearer(201)
+    for (const path of [
+      '/lectures/304?placement=904',
+      '/lectures/303?placement=903',
+    ]) {
+      const response = await api(path, { headers: { Authorization: standardTen } })
+      expect(response.status).toBe(404)
+      expect((await response.json()).error.code).toBe('NOT_FOUND')
+    }
+
+    const vipEleven = await bearer(202)
+    const wrongProgramme = await api('/lectures/302?placement=902', { headers: { Authorization: vipEleven } })
+    expect(wrongProgramme.status).toBe(404)
+    expect((await wrongProgramme.json()).error.code).toBe('NOT_FOUND')
+
+    const teacher = await api('/lectures/304?placement=904', { headers: { Authorization: await bearer(101) } })
+    expect(teacher.status).toBe(200)
+    expect((await teacher.json()).data).toMatchObject({
+      lecture: { id: 304, title: 'Hidden guest' },
+      placement: { id: 904 },
+      breadcrumb: { programme: 10, lesson_id: 703 },
+    })
+  })
+
   it('preserves auth errors and denies unplaced guest content except manager preview', async () => {
     expect((await api('/lectures/301', { headers: { Authorization: 'Bearer invalid' } })).status).toBe(401)
     for (const [userId, code] of [[203, 'MEMBERSHIP_PENDING'], [204, 'MEMBERSHIP_DISABLED'], [205, 'MEMBERSHIP_REQUIRED']]) {
