@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Eye, MaterialSymbol, Menu, Pencil, Plus, RefreshCw, Trash2, UnlinkIcon } from '@/components/material-symbol'
+import { ChevronDownIcon, ChevronRightIcon, Eye, MaterialSymbol, MoreHorizontal, Pencil, Plus, RefreshCw, Trash2, UnlinkIcon } from '@/components/material-symbol'
 import { CurriculumNavigator } from '@/components/curriculum-navigator'
 import { AudienceImpact } from '@/components/curriculum-management/AudienceImpact'
 import { ConfirmDialog } from '@/components/curriculum-management/ConfirmDialog'
@@ -20,9 +20,8 @@ import {
   withCurrentPlacementRemoved,
 } from '@/components/curriculum-management/curriculum-utils'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { EmptyState } from '@/design-system/empty-state'
 import { PageHeader } from '@/design-system/page-header'
 import {
   createCurriculumLesson,
@@ -46,11 +45,11 @@ import { getLecturePath } from '@/lib/lectures'
 import useCurriculumDraftGuard from '@/lib/use-curriculum-draft-guard'
 import useCurriculumNavigation from '@/lib/use-curriculum-navigation'
 
-function ActionMenu({ label, children }) {
+function ActionMenu({ label, children, disabled = false }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="icon" aria-label={label} title={label}><Menu aria-hidden="true" /></Button>
+        <Button type="button" variant="outline" size="icon" aria-label={label} title={label} disabled={disabled}><MoreHorizontal aria-hidden="true" /></Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-56">{children}</DropdownMenuContent>
     </DropdownMenu>
@@ -204,12 +203,12 @@ export default function TeacherLecturesPage() {
 
   function topicActions(topic) {
     return (
-      <ActionMenu label={t('curriculumManagement.actions.topic', { title: topic.title })}>
+      <ActionMenu label={t('curriculumManagement.actions.topic', { title: topic.title })} disabled={!managerReady}>
         <DropdownMenuLabel>{topic.title}</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => openDialog({ type: 'create-lesson', resource: { topic_id: topic.id }, revision })}><Plus />{t('curriculumManagement.lesson.create')}</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => openDialog({ type: 'edit-topic', resource: topic, revision })}><Pencil />{t('curriculumManagement.rename')}</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openDialog({ type: 'move-topic', resource: topic, revision })}>{t('curriculumManagement.moveTo')}</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openDialog({ type: 'reorder-lessons', topic, items: sortedByOrder(topic.lessons), revision })}>{t('curriculumManagement.reorder.lessons')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'move-topic', resource: topic, revision })}><MaterialSymbol name="drive_file_move" />{t('curriculumManagement.moveTo')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'reorder-lessons', topic, items: sortedByOrder(topic.lessons), revision })}><MaterialSymbol name="swap_vert" />{t('curriculumManagement.reorder.lessons')}</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => openDialog({ type: 'delete-topic', resource: topic, revision })}><Trash2 />{t('curriculumManagement.delete')}</DropdownMenuItem>
       </ActionMenu>
@@ -228,7 +227,7 @@ export default function TeacherLecturesPage() {
     }
 
     return (
-      <ActionMenu label={t('curriculumManagement.actions.lesson', { title: lesson.title })}>
+      <ActionMenu label={t('curriculumManagement.actions.lesson', { title: lesson.title })} disabled={!managerReady}>
         <DropdownMenuLabel>{lesson.title}</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => openDialog({ type: 'add-new', lesson: enrichLesson(lesson), revision })}><Plus />{t('curriculumManagement.video.addNew')}</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => openDialog({ type: 'add-existing', lesson: enrichLesson(lesson), revision })}><MaterialSymbol name="video_library" />{t('curriculumManagement.video.addExisting')}</DropdownMenuItem>
@@ -246,10 +245,10 @@ export default function TeacherLecturesPage() {
     const remaining = withCurrentPlacementRemoved(lecture, unit.placement_id)
     const currentPlacement = (lecture?.placements ?? []).find((placement) => placement.placement_id === unit.placement_id) ?? unit
     return (
-      <ActionMenu label={t('curriculumManagement.actions.unit', { title: unit.lecture.title })}>
+      <ActionMenu label={t('curriculumManagement.actions.unit', { title: unit.lecture.title })} disabled={!managerReady}>
         <DropdownMenuLabel>{unit.lecture.title}</DropdownMenuLabel>
         <DropdownMenuItem onSelect={() => openDialog({ type: 'edit-video', lecture, revision })}><Pencil />{t('curriculumManagement.video.edit')}</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => openDialog({ type: 'move-placement', unit, lecture, nextPlacements: remaining, revision })}>{t('curriculumManagement.moveTo')}</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => openDialog({ type: 'move-placement', unit, lecture, nextPlacements: remaining, revision })}><MaterialSymbol name="drive_file_move" />{t('curriculumManagement.moveTo')}</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => openDialog({ type: 'remove-placement', unit: currentPlacement, lecture, nextPlacements: remaining, revision })}><UnlinkIcon />{t('curriculumManagement.placement.remove')}</DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onSelect={() => openDialog({ type: 'delete-video', lecture, revision })}><Trash2 />{t('curriculumManagement.video.delete')}</DropdownMenuItem>
@@ -258,17 +257,17 @@ export default function TeacherLecturesPage() {
   }
 
   const management = {
-    programmeActions: <ActionMenu label={t('curriculumManagement.actions.programme')}><DropdownMenuItem onSelect={() => openDialog({ type: 'create-topic', resource: { programme: navigation.programme }, revision })}><Plus />{t('curriculumManagement.topic.create')}</DropdownMenuItem><DropdownMenuItem onSelect={() => openDialog({ type: 'reorder-topics', items: sortedByOrder(navigation.topics), revision })}>{t('curriculumManagement.reorder.topics')}</DropdownMenuItem></ActionMenu>,
+    programmeActions: <ActionMenu label={t('curriculumManagement.actions.programme')} disabled={!managerReady}><DropdownMenuItem onSelect={() => openDialog({ type: 'create-topic', resource: { programme: navigation.programme }, revision })}><Plus />{t('curriculumManagement.topic.create')}</DropdownMenuItem><DropdownMenuItem onSelect={() => openDialog({ type: 'reorder-topics', items: sortedByOrder(navigation.topics), revision })}><MaterialSymbol name="swap_vert" />{t('curriculumManagement.reorder.topics')}</DropdownMenuItem></ActionMenu>,
     topicActions,
     lessonActions,
     unitActions,
-    lessonHeaderActions: navigation.selectedLesson && <Button type="button" variant="outline" onClick={() => openDialog({ type: 'add-new', lesson: enrichLesson(navigation.selectedLesson), revision })}><Plus />{t('curriculumManagement.video.addNew')}</Button>,
-    footer: <UnplacedLibrary library={library.filter((lecture) => (lecture.placements ?? []).length === 0)} onEdit={(lecture) => openDialog({ type: 'edit-video', lecture, revision })} onDelete={(lecture) => openDialog({ type: 'delete-video', lecture, revision })} />,
+    lessonHeaderActions: navigation.selectedLesson && <Button type="button" variant="outline" disabled={!managerReady} onClick={() => openDialog({ type: 'add-new', lesson: enrichLesson(navigation.selectedLesson), revision })}><Plus />{t('curriculumManagement.video.addNew')}</Button>,
+    footer: <UnplacedLibrary library={library.filter((lecture) => (lecture.placements ?? []).length === 0)} disabled={!managerReady} onEdit={(lecture) => openDialog({ type: 'edit-video', lecture, revision })} onDelete={(lecture) => openDialog({ type: 'delete-video', lecture, revision })} />,
   }
 
   return (
     <div className="space-y-6">
-      <PageHeader title={t('teacher.lectures.title')} description={t('curriculumManagement.page.description')} />
+      <PageHeader title={t('teacher.lectures.title')} description={t('curriculumManagement.page.description')} className="lg:px-4" />
       {libraryError && <Card><CardContent className="flex flex-col items-start gap-3"><p role="alert" className="text-sm text-destructive">{libraryError}</p><Button type="button" variant="outline" onClick={() => loadManagerData().catch(() => {})}><RefreshCw />{t('curriculumManagement.reload')}</Button></CardContent></Card>}
       <CurriculumNavigator navigation={navigation} audience="teacher" management={management} />
       {renderDialog()}
@@ -311,8 +310,53 @@ export default function TeacherLecturesPage() {
   }
 }
 
-function UnplacedLibrary({ library, onEdit, onDelete }) {
+function UnplacedLibrary({ library, disabled = false, onEdit, onDelete }) {
   const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
   if (!library.length) return null
-  return <Card><CardContent><EmptyState title={t('curriculumManagement.library.title')} description={t('curriculumManagement.library.description')} /><ul className="mt-4 grid gap-2">{library.map((lecture) => <li key={lecture.id} className="flex items-center justify-between gap-3 rounded-[var(--sc-component-control-shape)] border p-2"><span className="min-w-0 break-words">{lecture.title}</span><div className="flex shrink-0 gap-1"><Button asChild variant="outline" size="icon" aria-label={t('teacher.lectures.viewDetailsNamed', { title: lecture.title })}><Link to={getLecturePath(lecture, 'teacher')}><Eye aria-hidden="true" /></Link></Button><Button type="button" variant="outline" size="sm" onClick={() => onEdit(lecture)}>{t('curriculumManagement.video.edit')}</Button><Button type="button" variant="destructive" size="icon" aria-label={t('teacher.lectures.deleteNamed', { title: lecture.title })} onClick={() => onDelete?.(lecture)}><Trash2 aria-hidden="true" /></Button></div></li>)}</ul></CardContent></Card>
+  const contentId = 'unplaced-video-library'
+  return (
+    <Card className="w-full">
+      <CardHeader>
+        <button
+          type="button"
+          className="flex min-h-[var(--sc-component-hit-target)] w-full items-start justify-between gap-3 rounded-[var(--sc-component-control-shape)] text-left outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+          aria-expanded={expanded}
+          aria-controls={contentId}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          <span className="min-w-0 space-y-1">
+            <span className="block text-base font-semibold text-foreground">{t('curriculumManagement.library.title')}</span>
+            <span className="block text-sm text-muted-foreground">{t('curriculumManagement.library.description', { count: library.length })}</span>
+          </span>
+          <span className="flex size-[var(--sc-component-hit-target)] shrink-0 items-center justify-center rounded-[var(--sc-component-control-shape)] border border-input bg-background text-muted-foreground">
+            {expanded ? <ChevronDownIcon aria-hidden="true" /> : <ChevronRightIcon aria-hidden="true" />}
+          </span>
+        </button>
+      </CardHeader>
+      {expanded && <CardContent id={contentId}>
+        <ul className="grid gap-2">
+          {library.map((lecture) => (
+            <li key={lecture.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 rounded-[var(--sc-component-control-shape)] border p-2 sm:p-3">
+              <Link
+                to={getLecturePath(lecture, 'teacher')}
+                className="flex min-h-[var(--sc-component-hit-target)] min-w-0 items-center break-words rounded-sm font-medium text-foreground outline-none hover:text-primary focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                {lecture.title}
+              </Link>
+              <ActionMenu label={t('curriculumManagement.actions.unit', { title: lecture.title })} disabled={disabled}>
+                <DropdownMenuLabel>{lecture.title}</DropdownMenuLabel>
+                <DropdownMenuItem asChild>
+                  <Link to={getLecturePath(lecture, 'teacher')}><Eye />{t('teacher.lectures.viewDetails')}</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => onEdit(lecture)}><Pencil />{t('curriculumManagement.video.edit')}</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onSelect={() => onDelete?.(lecture)}><Trash2 />{t('curriculumManagement.video.delete')}</DropdownMenuItem>
+              </ActionMenu>
+            </li>
+          ))}
+        </ul>
+      </CardContent>}
+    </Card>
+  )
 }

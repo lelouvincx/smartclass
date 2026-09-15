@@ -53,6 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Polish the teacher lecture view with a compact programme selector, icon-led curriculum outline, clickable breadcrumbs, collapsed edge-case videos and automatic sidebar collapse on entry.
 - Replace the legacy dbdocs package with the unified dbdiagram CLI for schema publishing. Use DBDIAGRAM_TOKEN and the explicit lelouvincx/smartclass document destination. [#136](https://github.com/lelouvincx/smartclass/pull/136)
 - Prepare the coordinated workspace and curriculum release: require both completion markers before reopening, add a maintenance-gated curriculum operator with atomic completion and source-drift checks, and verify current public API contracts. Production execution remains unapproved. [#135](https://github.com/lelouvincx/smartclass/pull/135)
 - Keep video access controls and long player breadcrumbs within narrow screens. Verify curriculum dialogs, join and exercise controls, player failure states, and recorded resize/reorder interactions with local fixtures. [#135](https://github.com/lelouvincx/smartclass/pull/135)

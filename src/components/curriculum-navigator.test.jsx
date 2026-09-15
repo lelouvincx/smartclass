@@ -79,7 +79,7 @@ describe('CurriculumNavigator', () => {
     const user = userEvent.setup()
     render(<MemoryRouter><CurriculumNavigator navigation={navigation} /></MemoryRouter>)
     expect(screen.getByRole('separator', { name: 'Resize topics and lesson panes' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Hide topics and lessons' }))
+    await user.click(screen.getByRole('button', { name: 'Hide outline' }))
     expect(screen.queryByRole('separator', { name: 'Resize topics and lesson panes' })).not.toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Topics and lessons' })).toHaveClass('lg:hidden')
   })
@@ -101,13 +101,13 @@ describe('CurriculumNavigator', () => {
   it('toggles the desktop navigation without changing the selected lesson', async () => {
     const user = userEvent.setup()
     render(<MemoryRouter><CurriculumNavigator navigation={navigation} management={{ lessonActions: () => <button>Lesson menu</button> }} /></MemoryRouter>)
-    const toggle = screen.getByRole('button', { name: 'Hide topics and lessons' })
+    const toggle = screen.getByRole('button', { name: 'Hide outline' })
     const pane = screen.getByRole('navigation', { name: 'Topics and lessons' })
     expect(toggle).toHaveAttribute('aria-controls', pane.id)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
     await user.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
-    expect(toggle).toHaveAccessibleName('Show topics and lessons')
+    expect(toggle).toHaveAccessibleName('Show outline')
     expect(pane).toHaveClass('lg:hidden')
     expect(pane.parentElement).not.toHaveClass('lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.25fr)]')
     expect(screen.getByRole('heading', { name: 'Lesson actions target' })).toBeInTheDocument()
@@ -149,9 +149,39 @@ describe('CurriculumNavigator', () => {
     expect(within(navigator).getByRole('button', { name: 'Edit Topic actions target' })).toBeInTheDocument()
     expect(within(navigator).getByRole('button', { name: 'Edit Lesson actions target' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit Unit actions target' })).toBeInTheDocument()
-    expect(within(screen.getByTestId('curriculum-desktop-lesson-header-actions')).getByRole('button', { name: 'Lesson header action' })).toBeInTheDocument()
+    expect(within(screen.getByRole('heading', { name: 'Videos in this lesson' }).parentElement).getByRole('button', { name: 'Lesson header action' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Footer action' })).toBeInTheDocument()
     expect(screen.queryByText(/delete|confirm|prompt/i)).not.toBeInTheDocument()
+  })
+
+  it('renders the teacher lecture explorer with programme dropdown, icons, toggles, and breadcrumbs', async () => {
+    const user = userEvent.setup()
+    const twoTopicNavigation = {
+      ...navigation,
+      topics: [
+        ...navigation.topics,
+        { id: 2, title: 'Collapsed topic', lessons: [{ id: 22, title: 'Hidden until expanded', unit_count: 0 }] },
+        { id: 3, title: 'Empty topic', lessons: [] },
+      ],
+    }
+    render(<MemoryRouter><CurriculumNavigator navigation={twoTopicNavigation} audience="teacher" /></MemoryRouter>)
+
+    expect(screen.getByRole('combobox', { name: 'Programme' })).toHaveTextContent('Grade 12')
+    expect(screen.getByRole('navigation', { name: 'Lesson breadcrumbs' })).toHaveTextContent('Grade 12Topic actions targetLesson actions target')
+    expect(screen.getByRole('button', { name: 'Collapse Topic actions target' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /Topic actions target, 1 lesson/ })).toHaveTextContent('1 lesson')
+    expect(screen.getByRole('button', { name: /Lesson actions target, 1 unit/ })).toHaveTextContent('1 unit')
+    expect(screen.queryByRole('button', { name: /Hidden until expanded/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Expand Empty topic' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Collapse Topic actions target' }))
+    expect(screen.queryByRole('button', { name: /Lesson actions target, 1 unit/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Expand Topic actions target' }))
+    expect(screen.getByRole('button', { name: /Lesson actions target, 1 unit/ })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Expand Collapsed topic' }))
+    expect(screen.getByRole('button', { name: /Hidden until expanded/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Collapse Collapsed topic' })).toHaveAttribute('aria-expanded', 'true')
   })
 
   it('keeps lesson management available in the mobile lesson header while preserving the desktop lesson menu', () => {
@@ -174,6 +204,28 @@ describe('CurriculumNavigator', () => {
     const mobileHeaderActions = screen.getByTestId('curriculum-mobile-lesson-actions')
     expect(mobileHeaderActions).toHaveClass('lg:hidden')
     expect(within(mobileHeaderActions).getByRole('button', { name: 'Lesson management menu' })).toBeInTheDocument()
-    expect(within(mobileHeaderActions).getByRole('button', { name: 'Add video' })).toBeInTheDocument()
+    expect(within(mobileHeaderActions).queryByRole('button', { name: 'Add video' })).not.toBeInTheDocument()
+    expect(within(screen.getByRole('heading', { name: 'Videos in this lesson' }).parentElement).getByRole('button', { name: 'Add video' })).toBeInTheDocument()
+  })
+
+  it('keeps the lesson add action available once when a selected lesson has no videos', () => {
+    const emptyLessonNavigation = {
+      ...navigation,
+      lessonDetail: { units: [] },
+    }
+
+    render(
+      <MemoryRouter>
+        <CurriculumNavigator
+          navigation={emptyLessonNavigation}
+          audience="teacher"
+          management={{ lessonHeaderActions: <button type="button">Add video</button> }}
+        />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByRole('heading', { name: 'Videos in this lesson' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Add video' })).toBeInTheDocument()
+    expect(screen.getByText('No units in this lesson')).toBeInTheDocument()
   })
 })
