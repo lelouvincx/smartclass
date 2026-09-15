@@ -28,6 +28,7 @@ export default {
   collapseTopic: 'Collapse {{title}}',
   watch: 'Watch',
   watchUnit: 'Watch unit {{number}}: {{title}}',
+  untitledUnit: 'Untitled video',
   backToTopics: 'Back',
   emptyTitle: 'No curriculum yet',
   emptyDescription: 'Lessons will appear here when they are ready.',

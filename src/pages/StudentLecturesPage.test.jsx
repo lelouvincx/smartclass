@@ -26,7 +26,25 @@ const topics = [
     title: 'Vectors',
     order_index: 0,
     lessons: [
-      { id: 11, topic_id: 1, title: 'Vector basics', order_index: 0, unit_count: 2 },
+      {
+        id: 11,
+        topic_id: 1,
+        title: 'Vector basics',
+        order_index: 0,
+        unit_count: 2,
+        units: [
+          {
+            placement_id: 101,
+            order_index: 0,
+            lecture: { id: 201, title: 'Intro unit', youtube_url: 'https://youtu.be/abcdefghijk', is_visible: 1, minimum_access_tier: 'guest' },
+          },
+          {
+            placement_id: 102,
+            order_index: 1,
+            lecture: { id: 202, title: 'Worked example', youtube_url: 'https://youtu.be/lmnopqrstuv', is_visible: 1, minimum_access_tier: 'standard' },
+          },
+        ],
+      },
     ],
   },
 ]
@@ -48,7 +66,7 @@ const lessonDetail = {
   ],
 }
 
-describe('StudentLecturesPage curriculum navigator', () => {
+describe('StudentLecturesPage curriculum browser', () => {
   beforeEach(() => {
     listCurriculumMock.mockReset()
     getCurriculumLessonMock.mockReset()
@@ -62,47 +80,36 @@ describe('StudentLecturesPage curriculum navigator', () => {
     getCurriculumLessonMock.mockResolvedValue({ data: { ...lessonDetail, revision: 8 } })
   })
 
-  it('shows the direction-B curriculum from the actual API response shape', async () => {
-    const user = userEvent.setup()
+  it('shows a content-first curriculum outline from the actual API response shape', async () => {
     render(<MemoryRouter initialEntries={["/student/lectures?programme=12"]}><StudentLecturesPage /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: 'Vectors, 1 lesson' }))
-    expect(screen.getByRole('button', { name: /Vector basics/ })).toHaveTextContent('2 units')
-    expect(screen.getByRole('heading', { name: 'Choose a lesson' })).toBeInTheDocument()
-    expect(listCurriculumMock).toHaveBeenCalledWith('student-token', 12)
-    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
-  })
-
-  it('drills into a lesson and links units with placement context', async () => {
-    const user = userEvent.setup()
-    render(<MemoryRouter initialEntries={["/student/lectures?programme=12"]}><StudentLecturesPage /></MemoryRouter>)
-
-    await user.click(await screen.findByRole('button', { name: 'Vectors, 1 lesson' }))
-    await user.click(await screen.findByRole('button', { name: /Vector basics/ }))
-
-    expect(await screen.findByRole('heading', { name: 'Vector basics' })).toBeInTheDocument()
-    expect(getCurriculumLessonMock).toHaveBeenCalledWith('student-token', 11)
+    expect(await screen.findByRole('heading', { name: 'Vectors' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Vector basics' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Watch unit 1: Intro unit' })).toHaveAttribute(
       'href',
       '/student/lectures/201-intro-unit?placement=101',
     )
+    expect(screen.getByRole('link', { name: 'Watch unit 2: Worked example' })).toHaveAttribute(
+      'href',
+      '/student/lectures/202-worked-example?placement=102',
+    )
+    expect(screen.queryByRole('heading', { name: 'Choose a lesson' })).not.toBeInTheDocument()
+    expect(listCurriculumMock).toHaveBeenCalledWith('student-token', 12)
+    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
   })
 
   it('lets an anonymous guest browse public curriculum on public player URLs', async () => {
-    const user = userEvent.setup()
     useAuthMock.mockReturnValue({ token: null, user: null, workspace: { id: 'english' } })
     listCurriculumMock.mockResolvedValue({ data: { programme: 10, topics } })
 
     render(<MemoryRouter initialEntries={["/lectures?programme=10"]}><StudentLecturesPage audience="guest" /></MemoryRouter>)
 
-    await user.click(await screen.findByRole('button', { name: 'Vectors, 1 lesson' }))
-    await user.click(await screen.findByRole('button', { name: /Vector basics/ }))
     expect(await screen.findByRole('link', { name: 'Watch unit 1: Intro unit' })).toHaveAttribute(
       'href',
       '/lectures/201-intro-unit?placement=101',
     )
     expect(listCurriculumMock).toHaveBeenCalledWith(null, 10)
-    expect(getCurriculumLessonMock).toHaveBeenCalledWith(null, 11)
+    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
   })
 
   it('uses four English programme choices and no THPT outside maths workspaces', async () => {
@@ -119,18 +126,34 @@ describe('StudentLecturesPage curriculum navigator', () => {
     expect(screen.queryByRole('option', { name: 'THPT' })).not.toBeInTheDocument()
   })
 
-  it('preserves programme and topic when returning from a drilled lesson via browser history', async () => {
-    const user = userEvent.setup()
-    window.history.pushState({}, '', '/student/lectures?programme=12&topic=1')
+  it('keeps a deep-linked lesson in the outline without hiding other videos', async () => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    window.history.pushState({}, '', '/student/lectures?programme=12&lesson=11')
     render(<BrowserRouter><StudentLecturesPage /></BrowserRouter>)
 
-    await user.click(await screen.findByRole('button', { name: /Vector basics/ }))
+    const heading = await screen.findByRole('heading', { name: 'Vector basics' })
     await screen.findByRole('link', { name: 'Watch unit 1: Intro unit' })
-    expect(window.location.search).toContain('lesson=11')
+    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('link', { name: 'Watch unit 2: Worked example' })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Choose a lesson' })).not.toBeInTheDocument()
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledWith({ block: 'center' }))
+    await waitFor(() => expect(heading).toHaveFocus())
+    expect(heading).toHaveAttribute('aria-current', 'location')
+  })
 
-    window.history.back()
-    await waitFor(() => expect(window.location.search).toBe('?programme=12&topic=1'))
-    expect(screen.getByRole('heading', { name: 'Choose a lesson' })).toBeInTheDocument()
+  it('defaults a student without a programme URL to their first assigned programme', async () => {
+    useAuthMock.mockReturnValue({
+      token: 'student-token',
+      user: { id: 7, platform_role: 'user', disabled_at: null },
+      workspace: { id: 'maths' },
+      membership: { role: 'student', status: 'active', grades: [12], access_tier: 'standard' },
+    })
+
+    render(<MemoryRouter initialEntries={["/student/lectures"]}><StudentLecturesPage /></MemoryRouter>)
+
+    await screen.findByRole('heading', { name: 'Vectors' })
+    expect(listCurriculumMock).toHaveBeenCalledWith('student-token', 12)
   })
 
   it('shows recoverable empty and error states without manager fetches', async () => {

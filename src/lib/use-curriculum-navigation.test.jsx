@@ -23,8 +23,8 @@ function deferred() {
   return { promise, resolve, reject }
 }
 
-function Probe({ token = 'student-token', workspace = { id: 'maths' } }) {
-  const navigation = useCurriculumNavigation(token, workspace)
+function Probe({ token = 'student-token', workspace = { id: 'maths' }, options }) {
+  const navigation = useCurriculumNavigation(token, workspace, options)
   return (
     <div>
       <output data-testid="programme">{String(navigation.programme)}</output>
@@ -89,6 +89,29 @@ describe('useCurriculumNavigation', () => {
     expect(await screen.findByTestId('selectedLesson')).toHaveTextContent('Lesson')
     await waitFor(() => expect(getCurriculumLessonMock).toHaveBeenCalledWith('student-token', 12))
     expect(screen.getByTestId('revision')).toHaveTextContent('8')
+  })
+
+  it('defaults to the first preferred programme that belongs to the workspace', async () => {
+    listCurriculumMock.mockResolvedValue({ data: { programme: 12, topics: [] } })
+
+    render(<MemoryRouter initialEntries={["/student/lectures"]}><Probe options={{ preferredProgrammes: [12, 'dgnl'] }} /></MemoryRouter>)
+
+    await waitFor(() => expect(listCurriculumMock).toHaveBeenCalledWith('student-token', 12))
+    expect(screen.getByTestId('programme')).toHaveTextContent('12')
+  })
+
+  it('can skip lesson detail loading when list responses already carry units', async () => {
+    listCurriculumMock.mockResolvedValue({
+      data: {
+        programme: 10,
+        topics: [{ id: 1, title: 'Topic', lessons: [{ id: 12, title: 'Lesson', unit_count: 1 }] }],
+      },
+    })
+
+    render(<MemoryRouter initialEntries={["/student/lectures?programme=10&topic=1&lesson=12"]}><Probe options={{ skipLessonDetail: true }} /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByTestId('selectedLesson')).toHaveTextContent('Lesson'))
+    expect(getCurriculumLessonMock).not.toHaveBeenCalled()
   })
 
   it('reload rejects failures to callers', async () => {
