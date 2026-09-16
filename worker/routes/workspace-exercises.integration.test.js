@@ -325,24 +325,37 @@ describe('workspace exercises prepared router', () => {
     expect((await blocked.json()).error.code).toBe('GRADE_ACCESS_DENIED')
   })
 
-  it('rejects invalid exercise tiers on create and update without mutating rows', async () => {
+  it('accepts Guest exercise publishing and rejects invalid exercise tiers without mutating rows', async () => {
     const token = await bearer(101)
-    for (const minimum_access_tier of ['guest', 'invalid']) {
-      const create = await api('maths', '', authOptions(token, 'POST', {
-        title: `Bad ${minimum_access_tier}`,
-        is_timed: false,
-        max_attempts: 1,
-        minimum_access_tier,
-        grades: [10],
-        schema,
-      }))
-      expect(create.status).toBe(400)
-      expect((await create.json()).error.code).toBe('VALIDATION_ERROR')
-    }
+    const guest = await api('maths', '', authOptions(token, 'POST', {
+      title: 'Guest public exercise',
+      is_timed: false,
+      max_attempts: 1,
+      minimum_access_tier: 'guest',
+      grades: [10],
+      schema,
+    }))
+    expect(guest.status).toBe(201)
+    expect((await guest.json()).data).toMatchObject({ title: 'Guest public exercise', minimum_access_tier: 'guest' })
+
+    const create = await api('maths', '', authOptions(token, 'POST', {
+      title: 'Bad invalid',
+      is_timed: false,
+      max_attempts: 1,
+      minimum_access_tier: 'invalid',
+      grades: [10],
+      schema,
+    }))
+    expect(create.status).toBe(400)
+    expect((await create.json()).error.code).toBe('VALIDATION_ERROR')
     expect(await env.DB.prepare("select count(*) as count from exercises where title like 'Bad %'").first('count')).toBe(0)
 
+    const updateGuest = await api('maths', '/301', authOptions(token, 'PUT', { title: 'Now public', minimum_access_tier: 'guest' }))
+    expect(updateGuest.status).toBe(200)
+    expect((await updateGuest.json()).data).toMatchObject({ title: 'Now public', minimum_access_tier: 'guest' })
+
     const before = await env.DB.prepare('select title, minimum_access_tier from exercises where id = 301').first()
-    const update = await api('maths', '/301', authOptions(token, 'PUT', { title: 'Should not change', minimum_access_tier: 'guest' }))
+    const update = await api('maths', '/301', authOptions(token, 'PUT', { title: 'Should not change', minimum_access_tier: 'invalid' }))
     expect(update.status).toBe(400)
     expect(await env.DB.prepare('select title, minimum_access_tier from exercises where id = 301').first()).toEqual(before)
   })

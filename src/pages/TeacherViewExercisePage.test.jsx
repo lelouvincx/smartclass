@@ -299,7 +299,8 @@ describe('TeacherViewExercisePage', () => {
     expect(screen.getByLabelText('Exercise title')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Programme access' })).toBeInTheDocument()
     expect(screen.getByRole('group', { name: /minimum access tier/i })).toHaveTextContent('Standard')
-    expect(screen.queryByRole('button', { name: 'Guest' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Guest' })).toBeInTheDocument()
+    expect(screen.queryByText(/Guest exercises are public/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText('Student answer download')).not.toBeChecked()
     expect(screen.queryByLabelText(/image-extraction model/i)).not.toBeInTheDocument()
     expect(screen.getByLabelText('Exercise title').parentElement?.parentElement).toHaveClass(

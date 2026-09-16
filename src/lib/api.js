@@ -37,6 +37,10 @@ function authHeaders(token, extra = {}) {
   }
 }
 
+function optionalAuthHeaders(token, extra = {}) {
+  return token ? authHeaders(token, extra) : extra
+}
+
 export function login(payload) {
   return request('/api/auth/login', {
     method: 'POST',
@@ -199,6 +203,32 @@ export function rejectQuestionAsset(token, exerciseId, setId, qId) {
 export function getQuestionAssetBlob(token, fileUrl) {
   return request(fileUrl, {
     headers: authHeaders(token),
+    responseType: 'blob',
+  })
+}
+
+export function listPublicExercises(token) {
+  return request('/api/public/exercises', {
+    headers: optionalAuthHeaders(token),
+  })
+}
+
+export function getPublicExercise(id, token) {
+  return request(`/api/public/exercises/${id}`, {
+    headers: optionalAuthHeaders(token),
+  })
+}
+
+export function getPublicQuestionAssetBlob(token, fileUrl) {
+  return request(fileUrl, {
+    headers: optionalAuthHeaders(token),
+    responseType: 'blob',
+  })
+}
+
+export function getPublicExercisePdf(id, token) {
+  return request(`/api/public/exercises/${id}/exercise-pdf`, {
+    headers: optionalAuthHeaders(token),
     responseType: 'blob',
   })
 }
