@@ -25,6 +25,13 @@ import StudentTakeExercisePage from '@/pages/StudentTakeExercisePage'
 import StudentSubmissionsPage from '@/pages/StudentSubmissionsPage'
 import StudentReviewPage from '@/pages/StudentReviewPage'
 import StudentSummaryPage from '@/pages/StudentSummaryPage'
+import {
+  PublicExerciseLandingPage,
+  PublicExercisesPage,
+  PublicReviewPage,
+  PublicSummaryPage,
+  PublicTakeExercisePage,
+} from '@/pages/PublicGuestExercisePages'
 import TeacherCreateExercisePage from '@/pages/TeacherCreateExercisePage'
 import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
 import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
@@ -95,6 +102,11 @@ export function AppRoutes() {
       <Route element={<PublicLectureLayout />}>
         <Route path="/lectures" element={<StudentLecturesPage audience="guest" />} />
         <Route path="/lectures/:lectureSlug" element={<StudentLecturePlayerPage audience="guest" />} />
+        <Route path="/exercises" element={<PublicExercisesPage />} />
+        <Route path="/exercises/:id" element={<PublicExerciseLandingPage />} />
+        <Route path="/exercises/:id/take" element={<PublicTakeExercisePage />} />
+        <Route path="/exercises/:id/results/:localAttemptId" element={<PublicSummaryPage />} />
+        <Route path="/exercises/:id/results/:localAttemptId/review" element={<PublicReviewPage />} />
       </Route>
       <Route
         path="/settings"

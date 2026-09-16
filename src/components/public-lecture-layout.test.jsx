@@ -11,12 +11,13 @@ vi.mock('@/lib/auth-context', () => ({
   useAuth: () => useAuthMock(),
 }))
 
-function renderLayout() {
+function renderLayout(initialEntry = '/lectures') {
   return render(
-    <MemoryRouter initialEntries={['/lectures']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route element={<PublicLectureLayout />}>
           <Route path="/lectures" element={<p>Public lectures</p>} />
+          <Route path="/exercises" element={<p>Public exercises</p>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -29,7 +30,7 @@ afterEach(() => {
 })
 
 describe('PublicLectureLayout', () => {
-  it('shows Guest navigation with lectures available and exercises disabled', () => {
+  it('shows Guest navigation with lectures and exercises available', () => {
     useAuthMock.mockReturnValue({ user: null })
 
     renderLayout()
@@ -41,11 +42,20 @@ describe('PublicLectureLayout', () => {
         'aria-current',
         'page',
       )
-      expect(within(navigation).getByRole('button', { name: 'Exercises - Coming soon' })).toBeDisabled()
-      expect(within(navigation).queryByRole('link', { name: /Exercises/ })).not.toBeInTheDocument()
+      expect(within(navigation).getByRole('link', { name: 'Exercises' })).toHaveAttribute('href', '/exercises')
     })
     expect(screen.getAllByRole('link', { name: 'Sign in' }).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Maths · Thầy Thành').length).toBeGreaterThan(0)
+  })
+
+  it('marks public exercises as current on the exercise route', () => {
+    useAuthMock.mockReturnValue({ user: null })
+
+    renderLayout('/exercises')
+
+    screen.getAllByRole('link', { name: 'Exercises' }).forEach((link) => {
+      expect(link).toHaveAttribute('aria-current', 'page')
+    })
   })
 
   it('lets a Guest change and persist the interface language', async () => {

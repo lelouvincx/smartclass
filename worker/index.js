@@ -10,6 +10,7 @@ import submissionsRoutes from './routes/workspace-submissions.js'
 import filesRoutes from './routes/workspace-files.js'
 import curriculumRoutes from './routes/workspace-curriculum.js'
 import lecturesRoutes from './routes/curriculum-lectures.js'
+import publicExercisesRoutes from './routes/public-exercises.js'
 import { jsonError, jsonSuccess } from './lib/response.js'
 import { getWorkspaceSites } from './lib/workspaces.js'
 import { BUILD_COMMIT } from './version.js'
@@ -61,6 +62,7 @@ app.route('/api/submissions', submissionsRoutes)
 app.route('/api/files', filesRoutes)
 app.route('/api/curriculum', curriculumRoutes)
 app.route('/api/lectures', lecturesRoutes)
+app.route('/api/public', publicExercisesRoutes)
 
 app.onError((error, c) => {
   console.error('Unhandled worker error:', error)

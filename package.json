@@ -53,6 +53,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@vitejs/plugin-react": "^4.3.4",
     "dbdiagram": "0.6.2",
+    "fake-indexeddb": "^6.2.5",
     "jsdom": "^28.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^4.2.1",

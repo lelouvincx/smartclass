@@ -32,9 +32,9 @@ Follow [RFC-18](docs/plans/RFC-18-2026-09-13-curriculum-and-content-access.md) a
 
 ### Guest access and operations
 
-- [ ] **P0** Let guests browse exercises without logging in and save exercise results in IndexedDB
+Follow [RFC-19: Guest exercise mode](docs/plans/RFC-19-2026-09-16-guest-exercise-mode.md) for the route access, IndexedDB storage, local grading model and acceptance tests.
+
 - [ ] **P0** Add structured production logging and monitoring
-- [ ] **P1** Plan guest exercise mode: design IndexedDB storage, route access, and a data model for anonymous exercise completion
 - [ ] **P1** Prompt guests to register after engagement
 - [ ] **P1** Add a cost analysis and estimation dashboard
 

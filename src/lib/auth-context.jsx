@@ -25,6 +25,7 @@ export function AuthProvider({ children }) {
   const [workspace, setWorkspace] = useState(null)
   const [membership, setMembership] = useState(null)
   const [teacherRouting, setTeacherRouting] = useState(null)
+  const [authError, setAuthError] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
 
   const applyEnvelope = useCallback((data) => {
@@ -45,9 +46,11 @@ export function AuthProvider({ children }) {
       try {
         const response = await getMe(token)
         if (cancelled) return
+        setAuthError(null)
         applyEnvelope(response.data)
-      } catch {
+      } catch (error) {
         if (cancelled) return
+        setAuthError({ status: error.status, code: error.code, message: error.message })
         clearStoredToken()
         setToken(null)
         applyEnvelope(null)
@@ -64,6 +67,7 @@ export function AuthProvider({ children }) {
     const response = await loginRequest(payload)
     setStoredToken(response.data.token)
     setToken(response.data.token)
+    setAuthError(null)
     applyEnvelope(response.data)
     return response
   }, [applyEnvelope])
@@ -71,6 +75,7 @@ export function AuthProvider({ children }) {
   const loginWithGoogleResponse = useCallback((data) => {
     setStoredToken(data.token)
     setToken(data.token)
+    setAuthError(null)
     applyEnvelope(data)
   }, [applyEnvelope])
 
@@ -85,6 +90,7 @@ export function AuthProvider({ children }) {
     clearAllSubmissionDrafts()
     clearStoredToken()
     setToken(null)
+    setAuthError(null)
     applyEnvelope(null)
   }, [applyEnvelope])
 
@@ -93,6 +99,7 @@ export function AuthProvider({ children }) {
       ...deriveAuthState({ token, user, workspace, membership, teacherRouting, isLoading }),
       teacherRouting,
       token,
+      authError,
       user,
       workspace,
       membership,
@@ -104,6 +111,7 @@ export function AuthProvider({ children }) {
     [
       isLoading,
       token,
+      authError,
       user,
       workspace,
       membership,

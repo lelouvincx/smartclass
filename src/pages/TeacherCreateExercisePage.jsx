@@ -44,7 +44,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { SchemaTable } from '@/components/schema-table'
 import AnswerParseProgress from '@/components/answer-parse-progress'
 import { GradeDropdown } from '@/components/grade-checkbox-group'
-import AccessTierRadioGroup from '@/components/access-tier-radio-group'
+import AccessTierRadioGroup, { LECTURE_ACCESS_TIERS } from '@/components/access-tier-radio-group'
 import FileDropzone from '@/components/file-dropzone'
 import { formatDuration } from '@/lib/format'
 import { AttemptLimitField } from '@/components/attempt-limit-field'
@@ -919,8 +919,14 @@ export default function TeacherCreateExercisePage() {
                 legend={t('teacher.create.minimumAccessTier')}
                 value={minimumAccessTier}
                 onChange={setMinimumAccessTier}
+                tiers={LECTURE_ACCESS_TIERS}
                 disabled={isSaving}
               />
+              {minimumAccessTier === 'guest' && (
+                <p className="max-w-md rounded-lg border border-warning/30 bg-warning-muted px-4 py-3 text-sm text-warning md:col-span-2">
+                  {t('teacher.create.guestAccessWarning')}
+                </p>
+              )}
 
               <AttemptLimitField
                 id="attempt-limit"

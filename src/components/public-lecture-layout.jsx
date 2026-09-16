@@ -12,12 +12,7 @@ export function PublicLectureLayout() {
   const { user } = auth
   const navigation = [
     { label: t('common.lectures'), to: '/lectures', icon: BookOpen },
-    {
-      label: t('common.exercises'),
-      icon: ClipboardList,
-      disabled: true,
-      status: t('common.comingSoon'),
-    },
+    { label: t('common.exercises'), to: '/exercises', icon: ClipboardList },
   ]
   const accountAction = user
     ? { label: t('common.openWorkspace'), to: getDefaultPathForAuth(auth) }

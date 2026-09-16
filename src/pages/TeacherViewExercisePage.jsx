@@ -6,7 +6,7 @@ import { createExerciseFileUpload, deleteExercise, getExercise, getExerciseFileB
 import { toast } from 'sonner'
 import { useAuth } from '@/lib/auth-context'
 import { GradeBadges, GradeDropdown } from '@/components/grade-checkbox-group'
-import AccessTierRadioGroup, { AccessTierBadge } from '@/components/access-tier-radio-group'
+import AccessTierRadioGroup, { AccessTierBadge, LECTURE_ACCESS_TIERS } from '@/components/access-tier-radio-group'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -586,8 +586,14 @@ export default function TeacherViewExercisePage() {
                     legend={t('teacher.create.minimumAccessTier')}
                     value={editMinimumAccessTier}
                     onChange={setEditMinimumAccessTier}
+                    tiers={LECTURE_ACCESS_TIERS}
                     disabled={isSaving}
                   />
+                  {editMinimumAccessTier === 'guest' && (
+                    <p className="max-w-md rounded-lg border border-warning/30 bg-warning-muted px-4 py-3 text-sm text-warning md:col-span-2">
+                      {t('teacher.create.guestAccessWarning')}
+                    </p>
+                  )}
                   <AttemptLimitField
                     id="edit-attempt-limit"
                     value={editMaxAttempts}

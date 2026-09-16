@@ -8,6 +8,7 @@ import { AppRoutes } from './router'
 const useAuthMock = vi.fn()
 const listCurriculumMock = vi.fn()
 const getCurriculumLessonMock = vi.fn()
+const listPublicExercisesMock = vi.fn()
 
 vi.mock('./lib/auth-context', () => ({
   AuthProvider: ({ children }) => children,
@@ -21,6 +22,7 @@ vi.mock('./lib/api', async (importOriginal) => ({
   listStudents: vi.fn().mockResolvedValue({ data: [] }),
   listExercises: vi.fn().mockResolvedValue({ data: [] }),
   listLectures: vi.fn().mockResolvedValue({ data: [] }),
+  listPublicExercises: (...args) => listPublicExercisesMock(...args),
   listMySubmissions: vi.fn().mockResolvedValue({ data: { submissions: [] } }),
 }))
 
@@ -109,6 +111,21 @@ describe('route guards', () => {
     })
     expect(listCurriculumMock).toHaveBeenCalledWith(null, 10)
     expect(getCurriculumLessonMock).toHaveBeenCalledWith(null, 9)
+  })
+
+  it('keeps public Guest exercises outside the authentication guard', async () => {
+    useAuthMock.mockReturnValue({ isLoading: false, user: null, token: null, logout: vi.fn(), defaultPath: '/' })
+    listPublicExercisesMock.mockResolvedValue({ data: [] })
+
+    render(
+      <MemoryRouter initialEntries={['/exercises']}>
+        <AppRoutes />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Guest exercises' })).toBeInTheDocument()
+    expect(screen.getByText('No guest exercises yet')).toBeInTheDocument()
+    expect(listPublicExercisesMock).toHaveBeenCalledWith(null)
   })
 
   it('keeps the unauthenticated loading state in English', async () => {

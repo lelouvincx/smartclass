@@ -70,8 +70,8 @@ function isBooleanSetting(value) {
 
 function validateExerciseMinimumAccessTier(value) {
   if (value === undefined) return null
-  if (value === 'standard' || value === 'vip') return null
-  return 'minimum_access_tier must be standard or vip'
+  if (value === 'guest' || value === 'standard' || value === 'vip') return null
+  return 'minimum_access_tier must be guest, standard, or vip'
 }
 
 function toExerciseWithTiming(exercise) {

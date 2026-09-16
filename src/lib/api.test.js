@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createCurriculumPlacement, deleteCurriculumLesson, deleteCurriculumPlacement, deleteCurriculumTopic, deleteLecture, extractAnswersFromImage, getCurriculumLesson, getLecture, getSubmission, getSubmissionAnswerPdf, getSubmissionExercisePdf, joinWorkspace, listCurriculum, listLectures, parseExerciseSchema, updateCurriculumOrder, updateStudentGlobalStatus, uploadGeneratedQuestionAsset } from './api'
+import { createCurriculumPlacement, deleteCurriculumLesson, deleteCurriculumPlacement, deleteCurriculumTopic, deleteLecture, extractAnswersFromImage, getCurriculumLesson, getLecture, getPublicExercise, getPublicExercisePdf, getPublicQuestionAssetBlob, getSubmission, getSubmissionAnswerPdf, getSubmissionExercisePdf, joinWorkspace, listCurriculum, listLectures, listPublicExercises, parseExerciseSchema, updateCurriculumOrder, updateStudentGlobalStatus, uploadGeneratedQuestionAsset } from './api'
 
 describe('API errors', () => {
   afterEach(() => {
@@ -149,6 +149,28 @@ describe('API errors', () => {
       ['http://maths-api.test/api/curriculum/lessons/14', {}],
       ['http://maths-api.test/api/curriculum?programme=dgnl', {}],
       ['http://maths-api.test/api/lectures/6', {}],
+    ])
+  })
+
+  it('omits authorization for anonymous public exercise reads and attaches it for signed-in previews', async () => {
+    const fetchMock = vi.fn().mockImplementation((url) => Promise.resolve(new Response(
+      url.endsWith('/exercise-pdf') || url.includes('/question-assets/') ? 'blob' : JSON.stringify({ data: [] }),
+      { status: 200, headers: { 'Content-Type': url.endsWith('/exercise-pdf') ? 'application/pdf' : 'application/json' } },
+    )))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await listPublicExercises()
+    await getPublicExercise(42)
+    await listPublicExercises('teacher-token')
+    await getPublicQuestionAssetBlob(null, '/api/public/question-assets/7')
+    await getPublicExercisePdf(42, 'teacher-token')
+
+    expect(fetchMock.mock.calls.map(([url, options]) => [url, options.headers])).toEqual([
+      ['http://maths-api.test/api/public/exercises', {}],
+      ['http://maths-api.test/api/public/exercises/42', {}],
+      ['http://maths-api.test/api/public/exercises', { Authorization: 'Bearer teacher-token' }],
+      ['http://maths-api.test/api/public/question-assets/7', {}],
+      ['http://maths-api.test/api/public/exercises/42/exercise-pdf', { Authorization: 'Bearer teacher-token' }],
     ])
   })
 
