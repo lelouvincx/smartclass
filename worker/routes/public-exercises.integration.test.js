@@ -131,12 +131,12 @@ describe('public guest exercises', () => {
     expect(list.status).toBe(200)
     expect(list.headers.get('Cache-Control')).toBe('private, no-store')
     const listBody = await list.json()
-    expect(listBody.data.map(exercise => exercise.id)).toEqual([501])
+    expect(listBody.data).toEqual([expect.objectContaining({ id: 501, workspace_id: 'maths' })])
 
     const detail = await api('/exercises/501')
     expect(detail.status).toBe(200)
     const data = (await detail.json()).data
-    expect(data).toMatchObject({ id: 501, minimum_access_tier: 'guest', question_count: 2 })
+    expect(data).toMatchObject({ id: 501, workspace_id: 'maths', minimum_access_tier: 'guest', question_count: 2 })
     expect(data.schema[0]).toMatchObject({ q_id: 1, correct_answer: 'B', max_score_hundredths: 500 })
     expect(data.question_assets[0].file_url).toMatch(/^\/api\/public\/question-assets\//)
     expect(data).not.toHaveProperty('files')

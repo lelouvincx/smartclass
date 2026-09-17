@@ -28,6 +28,7 @@ const schema = [
 
 const currentExercise = {
   id: 42,
+  workspace_id: 'maths',
   title: 'Guest Algebra',
   duration_minutes: 0,
   is_timed: 0,
@@ -135,6 +136,7 @@ describe('Public guest exercise flow', () => {
     localStorage.clear()
     sessionStorage.clear()
     await act(() => changeLanguage('en'))
+    await clearAllGuestExerciseData().catch(() => {})
   })
 
   afterEach(async () => {
@@ -149,6 +151,7 @@ describe('Public guest exercise flow', () => {
 
     const firstRender = renderApp('/exercises')
     expect(await screen.findByRole('heading', { name: 'Guest exercises' })).toBeInTheDocument()
+    expect(screen.queryByText('Keep learning with a free account')).not.toBeInTheDocument()
     await user.click(await screen.findByRole('link', { name: 'Start' }))
     expect(await screen.findByRole('heading', { name: 'Guest Algebra' })).toBeInTheDocument()
     expect(screen.getByText(/answer key and score allocation/i)).toBeInTheDocument()
@@ -174,6 +177,9 @@ describe('Public guest exercise flow', () => {
     await user.click(screen.getByRole('button', { name: 'Submit' }))
 
     expect(await screen.findByText('10 / 10')).toBeInTheDocument()
+    expect(await screen.findByText('Keep learning with a free account')).toBeInTheDocument()
+    expect(screen.getByText('Register to save future work with your class. Your guest results stay on this device and will not be uploaded.')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Register' })).toHaveAttribute('href', '/register')
     expect(screen.getByText('Correct answers: 6 / 6')).toBeInTheDocument()
     await user.click(screen.getByRole('link', { name: 'View detailed results' }))
     expect(await screen.findByText('Correct Answer: B')).toBeInTheDocument()
@@ -183,13 +189,44 @@ describe('Public guest exercise flow', () => {
     fetchMock.markSubmitted(false)
     const listAgain = renderApp('/exercises')
     expect(await screen.findByRole('link', { name: 'View result' })).toBeInTheDocument()
+    expect(await screen.findByText('Keep learning with a free account')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Clear local guest data' }))
     expect(await screen.findByRole('link', { name: 'Start' })).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Keep learning with a free account')).not.toBeInTheDocument())
     listAgain.unmount()
     renderApp(`/exercises/42/results/${state.localAttemptId}`)
     expect(await screen.findByText('Guest result not found')).toBeInTheDocument()
     expect(fetchMock.calls.some(([url]) => url.includes('/api/submissions'))).toBe(false)
   }, 10000)
+
+  it('prompts after a guest starts a second local attempt in the same workspace', async () => {
+    const user = userEvent.setup()
+    installFetch()
+
+    await createGuestAttempt(currentExercise)
+
+    renderApp('/exercises/42')
+
+    expect(await screen.findByRole('heading', { name: 'Guest Algebra' })).toBeInTheDocument()
+    expect(screen.queryByText('Keep learning with a free account')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Try again' }))
+    expect(await screen.findByText('Question 1')).toBeInTheDocument()
+    expect(await screen.findByText('Keep learning with a free account')).toBeInTheDocument()
+  })
+
+  it('does not prompt from a prior attempt in another workspace', async () => {
+    const user = userEvent.setup()
+    installFetch()
+
+    await createGuestAttempt({ ...currentExercise, workspace_id: 'english' })
+
+    renderApp('/exercises/42')
+
+    expect(await screen.findByRole('heading', { name: 'Guest Algebra' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Start' }))
+    expect(await screen.findByText('Question 1')).toBeInTheDocument()
+    await waitFor(() => expect(screen.queryByText('Keep learning with a free account')).not.toBeInTheDocument())
+  })
 
   it('does not resume stale drafts from the list or direct Take URL, while old results remain viewable', async () => {
     const user = userEvent.setup()

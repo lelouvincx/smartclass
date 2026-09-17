@@ -9,7 +9,7 @@ SmartClass is an assessment platform for teaching and learning. It is a focused 
 - **Teachers (administrators)** create and manage student accounts, create exercises from PDFs, define answer schemas, manage an ordered video curriculum, and review the learning workflow.
 - **Students** browse exercises, start timed or untimed attempts, answer through per-question controls, receive automatic grading, review past results, and follow the video curriculum.
 
-Guest exercise access remains planned work in [`TODO.md`](TODO.md). Public Guest lecture browsing and playback are available without an account. The Guest workspace navigation keeps Lectures available, shows Exercises as disabled and coming soon, and lets visitors switch between Vietnamese and English. The current browser remembers that language preference.
+Guest exercise access is available for exercises that teachers publish for Guest access. Guest answers, scores and reviews stay on the current device. After a guest submits one local attempt or starts a second local attempt in the same workspace, SmartClass prompts them to register and explains that existing guest results stay local. Public Guest lecture browsing and playback are also available without an account. The Guest workspace navigation keeps Lectures and Exercises available and lets visitors switch between Vietnamese and English. The current browser remembers that language preference.
 
 ## Lecture model
 

@@ -27,6 +27,7 @@ function authenticatedAudienceError(c) {
 function toPublicExercise(row) {
   return {
     id: row.id,
+    workspace_id: row.workspace_id,
     title: row.title,
     duration_minutes: row.duration_minutes,
     is_timed: row.duration_minutes > 0 ? 1 : 0,
@@ -47,6 +48,7 @@ async function findReadyGuestExercise(c, exerciseId) {
   return c.env.DB.prepare(`
     select
       exercise.id
+      , exercise.workspace_id
       , exercise.title
       , exercise.duration_minutes
       , exercise.minimum_access_tier
@@ -85,6 +87,7 @@ publicExercisesRoutes.get('/exercises', async (c) => {
   const exercises = await c.env.DB.prepare(`
     select
       exercise.id
+      , exercise.workspace_id
       , exercise.title
       , exercise.duration_minutes
       , exercise.minimum_access_tier
