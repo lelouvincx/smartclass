@@ -32,6 +32,7 @@
 - When a page's API contract changes, include a test that mounts the real page, navigation hooks and `src/lib/api.js`, stubbing only `fetch`. Mocked hooks do not verify request or response contracts. Test Worker route changes through the final app in `worker/index.js`.
 - When editing `DESIGN.md`, keep its YAML front matter valid against the `@google/design.md` schema, retain Google's canonical `##` section names and order, keep `src/design-system/tokens.css` synchronized with front-matter token changes, and run `mise exec -- npx @google/design.md lint DESIGN.md`; it must exit successfully.
 - Use `jsonSuccess` and `jsonError` from `worker/lib/response.js` for API responses.
+- When changing production observability, keep `worker/lib/structured-logging.js`, mounted Worker route logs, `wrangler*.toml`, release probes and their tests synchronized. Structured request logs must be opt-in with `APP_STRUCTURED_LOGS=true`, use registered route templates, and exclude raw URLs, query strings, request or response bodies, credentials, cookies, phone numbers, names and arbitrary exception messages.
 - Keep frontend API operations behind `request()` in `src/lib/api.js`. Use XHR only when upload-progress events are required.
 - Use `DB.batch()` when multiple D1 statements must commit atomically; separate `.run()` calls are not one transaction.
 
@@ -46,6 +47,7 @@
 ## Completion
 
 - While iterating, run the tests relevant to the changed behavior.
+- For debugging handoffs, investigation summaries and PR review packets, include generated evidence that another agent can reuse: timestamp, commit or ref, environment, failing or validating command, relevant logs, reproduction steps, known omissions, and safe next commands.
 - For every frontend change, complete the [frontend acceptance checklist](DESIGN.md#frontend-acceptance) and include its required evidence in the pull request description.
 - Local browser acceptance is permanently pre-approved for SmartClass. This overrides the personal convention requiring permission for live browser testing. Use the Agent Browser skill and managed lifecycle on macOS. This approval covers local app testing, not production changes or adding browser-test dependencies.
 - Before archiving a thread, stop every local frontend and backend process that the thread started, verify that their listeners are gone, and leave processes owned by other threads running.
