@@ -124,7 +124,7 @@ describe('route guards', () => {
     )
 
     expect(await screen.findByRole('heading', { name: 'Guest exercises' })).toBeInTheDocument()
-    expect(screen.getByText('No guest exercises yet')).toBeInTheDocument()
+    expect(await screen.findByText('No guest exercises yet')).toBeInTheDocument()
     expect(listPublicExercisesMock).toHaveBeenCalledWith(null)
   })
 

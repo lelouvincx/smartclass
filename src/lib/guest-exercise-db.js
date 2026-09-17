@@ -139,11 +139,14 @@ export async function loadGuestResult(localAttemptId) {
     : clone(memoryStore.results.get(localAttemptId))))
 }
 
-export async function findGuestExerciseState(exerciseId, currentQuestionAssetSetId = null) {
+export async function findGuestExerciseState(exerciseId, currentQuestionAssetSetId = null, workspaceId = undefined) {
   return withDb(async (db) => {
-    const attempts = db
+    const exerciseAttempts = db
       ? await requestResult(db.transaction('attempts').objectStore('attempts').index('exercise').getAll(Number(exerciseId)))
       : [...memoryStore.attempts.values()].filter(attempt => attempt.exerciseId === Number(exerciseId)).map(clone)
+    const attempts = workspaceId === undefined
+      ? exerciseAttempts
+      : exerciseAttempts.filter(attempt => (attempt.workspaceId ?? null) === (workspaceId ?? null))
     const sorted = attempts.sort((left, right) => String(right.startedAt).localeCompare(String(left.startedAt)))
     const matching = currentQuestionAssetSetId == null
       ? sorted
@@ -152,6 +155,16 @@ export async function findGuestExerciseState(exerciseId, currentQuestionAssetSet
     if (draft) return { type: 'resume', localAttemptId: draft.localAttemptId, attempt: draft }
     const latestSubmitted = matching.find(attempt => attempt.submittedAt)
     return latestSubmitted ? { type: 'result', localAttemptId: latestSubmitted.localAttemptId, attempt: latestSubmitted } : null
+  })
+}
+
+export async function hasGuestRegistrationEngagement(workspaceId = null) {
+  return withDb(async (db) => {
+    const attempts = db
+      ? await requestResult(db.transaction('attempts').objectStore('attempts').getAll())
+      : [...memoryStore.attempts.values()].map(clone)
+    const workspaceAttempts = attempts.filter(attempt => (attempt.workspaceId ?? null) === (workspaceId ?? null))
+    return workspaceAttempts.some(attempt => attempt.submittedAt) || workspaceAttempts.length >= 2
   })
 }
 
@@ -262,12 +275,12 @@ export async function discardGuestAttempt(localAttemptId) {
 }
 
 export async function clearAllGuestExerciseData() {
+  memoryStore.attempts.clear()
+  memoryStore.answers.clear()
+  memoryStore.results.clear()
+  memoryStore.schemas.clear()
   await withDb(async (db) => {
     if (!db) {
-      memoryStore.attempts.clear()
-      memoryStore.answers.clear()
-      memoryStore.results.clear()
-      memoryStore.schemas.clear()
       return
     }
     const tx = db.transaction(['attempts', 'answers', 'results', 'schemas'], 'readwrite')

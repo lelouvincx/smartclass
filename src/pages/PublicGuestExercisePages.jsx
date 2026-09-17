@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { ClipboardList, Clock, RefreshCw } from '@/components/material-symbol'
+import { ClipboardList, Clock, GraduationCap, RefreshCw } from '@/components/material-symbol'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -21,6 +21,7 @@ import {
   countResultAnswers,
   createGuestAttempt,
   findGuestExerciseState,
+  hasGuestRegistrationEngagement,
   loadGuestAnswers,
   loadGuestAttempt,
   loadGuestResult,
@@ -83,6 +84,50 @@ function PublicAuthError({ error }) {
   )
 }
 
+function GuestRegistrationPrompt({ workspaceId = null, refreshKey = 0 }) {
+  const { t } = useTranslation()
+  const { user } = useAuth()
+  const [shouldShow, setShouldShow] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    if (user) {
+      setShouldShow(false)
+      return () => { cancelled = true }
+    }
+    hasGuestRegistrationEngagement(workspaceId)
+      .then((engaged) => {
+        if (!cancelled) setShouldShow(engaged)
+      })
+      .catch(() => {
+        if (!cancelled) setShouldShow(false)
+      })
+    return () => { cancelled = true }
+  }, [user, workspaceId, refreshKey])
+
+  if (!shouldShow) return null
+
+  return (
+    <Card className="border-primary/20 bg-sc-primary-container/35">
+      <CardContent className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <GraduationCap className="size-5" />
+          </span>
+          <div className="space-y-1">
+            <h2 className="font-semibold text-sc-on-primary-container">{t('student.guest.registerPromptTitle')}</h2>
+            <p className="text-sm text-sc-on-primary-container/75">{t('student.guest.registerPromptDescription')}</p>
+          </div>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button asChild><Link to="/register">{t('student.guest.registerPromptRegister')}</Link></Button>
+          <Button variant="outline" asChild><Link to="/">{t('common.signIn')}</Link></Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function PublicExercisesPage() {
   const { t, i18n } = useTranslation()
   const { token } = useAuth()
@@ -92,6 +137,7 @@ export function PublicExercisesPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [lastRefreshed, setLastRefreshed] = useState(null)
+  const [promptRefreshKey, setPromptRefreshKey] = useState(0)
 
   async function load() {
     if (authError) return
@@ -103,7 +149,7 @@ export function PublicExercisesPage() {
       const nextStates = {}
       await Promise.all(exercises.map(async (exercise) => {
         try {
-          const state = await findGuestExerciseState(exercise.id, exercise.question_asset_set_id)
+          const state = await findGuestExerciseState(exercise.id, exercise.question_asset_set_id, exercise.workspace_id ?? null)
           if (state) nextStates[exercise.id] = state
         } catch {
           // The list remains useful when local storage is unavailable.
@@ -124,6 +170,7 @@ export function PublicExercisesPage() {
   async function clearLocalData() {
     try {
       await clearAllGuestExerciseData()
+      setPromptRefreshKey(key => key + 1)
       await load()
     } catch (clearError) {
       setError(clearError.message)
@@ -145,6 +192,7 @@ export function PublicExercisesPage() {
           </Button>
         </>}
       />
+      <GuestRegistrationPrompt workspaceId={items[0]?.workspace_id ?? null} refreshKey={promptRefreshKey} />
       <Card className="py-0">
         {isLoading && <p className="p-5 text-sm text-muted-foreground">{t('student.exercises.loading')}</p>}
         {!isLoading && error && <p role="alert" className="p-5 text-sm text-destructive">{error}</p>}
@@ -202,7 +250,7 @@ export function PublicExerciseLandingPage() {
       try {
         const response = await getPublicExercise(id, token)
         setExercise(response.data)
-        const localState = await findGuestExerciseState(id).catch(() => null)
+        const localState = await findGuestExerciseState(id, null, response.data.workspace_id ?? null).catch(() => null)
         setState(localState?.attempt?.questionAssetSetId === response.data.question_asset_set_id
           ? localState
           : localState
@@ -232,6 +280,7 @@ export function PublicExerciseLandingPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
+      <GuestRegistrationPrompt workspaceId={exercise.workspace_id ?? null} />
       <Card className="border-primary/15 bg-sc-primary-container/45">
         <CardContent className="space-y-6 pt-6">
           <div className="space-y-2">
@@ -390,6 +439,7 @@ export function PublicTakeExercisePage() {
 
   return (
     <div className="space-y-4">
+      <GuestRegistrationPrompt workspaceId={attempt.workspaceId} />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div><h1 className="text-xl font-semibold">{attempt.exerciseTitle}</h1><p className="text-sm text-muted-foreground">{t('student.take.questionProgress', { current: currentIndex + 1, total: questions.length })}</p></div>
         <div className="flex flex-wrap items-center gap-2">
@@ -430,7 +480,7 @@ export function PublicSummaryPage() {
   if (error) return <p className="p-6 text-sm text-destructive">{error}</p>
   if (!bundle) return <p className="p-6 text-sm text-muted-foreground">{t('student.results.loadingSummary')}</p>
   const counts = countResultAnswers(bundle.result, bundle.schema.rows)
-  return <Card className="max-w-2xl"><CardContent className="space-y-4 pt-6"><h1 className="text-xl font-semibold">{bundle.attempt.exerciseTitle}</h1><p className="text-3xl font-semibold">{bundle.result.score} / 10</p><p className="text-sm text-muted-foreground">{t('student.results.answerRowsCorrect', { correct: counts.correct, total: counts.total })}</p><div className="flex gap-2"><Button asChild><Link to={`/exercises/${id}/results/${localAttemptId}/review`}>{t('student.results.detailed')}</Link></Button><Button variant="outline" asChild><Link to="/exercises">{t('student.results.backToExercises')}</Link></Button></div></CardContent></Card>
+  return <div className="max-w-2xl space-y-4"><GuestRegistrationPrompt workspaceId={bundle.attempt.workspaceId} /><Card><CardContent className="space-y-4 pt-6"><h1 className="text-xl font-semibold">{bundle.attempt.exerciseTitle}</h1><p className="text-3xl font-semibold">{bundle.result.score} / 10</p><p className="text-sm text-muted-foreground">{t('student.results.answerRowsCorrect', { correct: counts.correct, total: counts.total })}</p><div className="flex gap-2"><Button asChild><Link to={`/exercises/${id}/results/${localAttemptId}/review`}>{t('student.results.detailed')}</Link></Button><Button variant="outline" asChild><Link to="/exercises">{t('student.results.backToExercises')}</Link></Button></div></CardContent></Card></div>
 }
 
 export function PublicReviewPage() {
@@ -441,5 +491,5 @@ export function PublicReviewPage() {
   useEffect(() => { loadResultBundle(localAttemptId).then(setBundle).catch(error => setError(error.message)) }, [localAttemptId])
   if (error) return <p className="p-6 text-sm text-destructive">{error}</p>
   if (!bundle) return <p className="p-6 text-sm text-muted-foreground">{t('student.results.loadingReview')}</p>
-  return <div className="space-y-4"><h1 className="text-xl font-semibold">{bundle.attempt.exerciseTitle}</h1><p className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">{t('student.guest.reviewImageLimit')}</p>{bundle.schema.rows.map(row => { const answer = bundle.result.answers.find(item => item.q_id === row.q_id && (item.sub_id ?? null) === (row.sub_id ?? null)); return <Card key={`${row.q_id}:${row.sub_id ?? ''}`}><CardContent className="grid gap-3 pt-6 sm:grid-cols-3"><h2 className="font-medium">{row.sub_id ? t('student.take.subQuestion', { id: row.q_id, sub: row.sub_id }) : t('student.results.questionHeading', { id: row.q_id })}</h2><p className="text-sm">{t('student.results.yourAnswer')}: {resultValue(bundle.result, row) || t('student.results.skipped')}</p><p className="text-sm">{t('student.results.correctAnswer')}: {correctLabel(row, t)}</p><Badge variant={answer?.is_correct ? 'success' : 'destructive'}>{answer?.is_correct ? t('student.results.correct') : t('student.results.incorrect')}</Badge></CardContent></Card> })}</div>
+  return <div className="space-y-4"><GuestRegistrationPrompt workspaceId={bundle.attempt.workspaceId} /><h1 className="text-xl font-semibold">{bundle.attempt.exerciseTitle}</h1><p className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">{t('student.guest.reviewImageLimit')}</p>{bundle.schema.rows.map(row => { const answer = bundle.result.answers.find(item => item.q_id === row.q_id && (item.sub_id ?? null) === (row.sub_id ?? null)); return <Card key={`${row.q_id}:${row.sub_id ?? ''}`}><CardContent className="grid gap-3 pt-6 sm:grid-cols-3"><h2 className="font-medium">{row.sub_id ? t('student.take.subQuestion', { id: row.q_id, sub: row.sub_id }) : t('student.results.questionHeading', { id: row.q_id })}</h2><p className="text-sm">{t('student.results.yourAnswer')}: {resultValue(bundle.result, row) || t('student.results.skipped')}</p><p className="text-sm">{t('student.results.correctAnswer')}: {correctLabel(row, t)}</p><Badge variant={answer?.is_correct ? 'success' : 'destructive'}>{answer?.is_correct ? t('student.results.correct') : t('student.results.incorrect')}</Badge></CardContent></Card> })}</div>
 }
