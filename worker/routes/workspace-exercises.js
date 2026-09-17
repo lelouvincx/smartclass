@@ -9,6 +9,7 @@ import {
 } from '../lib/question-assets.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
 import { validateSchemaRows } from '../lib/schema-parser.js'
+import { exceptionFields, logOperation } from '../lib/structured-logging.js'
 import {
   requireWorkspaceIdentity,
   requireWorkspaceManagement,
@@ -245,7 +246,14 @@ exercisesRoutes.post('/schema/parse', requireWorkspaceIdentity, requireWorkspace
       const parsed = await parseImageWithCohere(c.env, { imageBytes: await page.arrayBuffer(), contentType: page.type })
       return { ok: true, ...parsed, manifest: manifest[index] }
     } catch (error) {
-      console.error('Cohere page parse failed', { category: error?.message?.includes('timed out') ? 'timeout' : 'provider', page_number: manifest[index].page_number, page_count: pages.length })
+      logOperation(c, 'exercise_schema_parse.page_failed', {
+        action: 'parse_schema_page',
+        outcome: 'failed_skipped',
+        provider: 'cohere',
+        category: error?.message?.includes('timed out') ? 'timeout' : 'provider',
+        page_number: manifest[index].page_number,
+        page_count: pages.length,
+      }, 'error')
       return { ok: false, manifest: manifest[index] }
     }
   })
@@ -538,7 +546,12 @@ exercisesRoutes.post('/', requireWorkspaceIdentity, requireWorkspaceManagement, 
     const created = await c.env.DB.prepare('select * from exercises where id = ? and workspace_id = ?').bind(exerciseId, workspace(c).id).first()
     return jsonSuccess(c, { ...toExerciseWithTiming(created), files: [], grades: parsedGrades.grades, schema: normalizedSchema }, 201)
   } catch (error) {
-    console.error('Exercise creation error:', error)
+    logOperation(c, 'exercise.create_failed', {
+      action: 'create_exercise',
+      outcome: 'error',
+      actor_user_id: c.get('authUser')?.id ?? null,
+      ...exceptionFields(error),
+    }, 'error')
     return jsonError(c, 500, 'DATABASE_ERROR', 'Failed to create exercise')
   }
 })
@@ -781,7 +794,14 @@ exercisesRoutes.put('/:id', requireWorkspaceIdentity, requireWorkspaceManagement
     const highestAttempt = await c.env.DB.prepare('select coalesce(max(attempt_number), 0) as highest_attempt_number from submissions where exercise_id = ?').bind(id).first()
     return jsonSuccess(c, { ...toExerciseWithTiming(exercise), highest_attempt_number: highestAttempt.highest_attempt_number, files: files.results, grades: gradeResult.results.map((row) => row.grade), schema: schemaResult.results })
   } catch (error) {
-    console.error('Exercise update error:', error)
+    logOperation(c, 'exercise.update_failed', {
+      action: 'update_exercise',
+      outcome: 'error',
+      actor_user_id: c.get('authUser')?.id ?? null,
+      exercise_id: Number(id),
+      activating_asset_set_id: question_asset_set_id ?? null,
+      ...exceptionFields(error),
+    }, 'error')
     return jsonError(c, 500, 'DATABASE_ERROR', 'Failed to update exercise')
   }
 })

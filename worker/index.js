@@ -12,10 +12,13 @@ import curriculumRoutes from './routes/workspace-curriculum.js'
 import lecturesRoutes from './routes/curriculum-lectures.js'
 import publicExercisesRoutes from './routes/public-exercises.js'
 import { jsonError, jsonSuccess } from './lib/response.js'
+import { requestLogging } from './lib/structured-logging.js'
 import { getWorkspaceSites } from './lib/workspaces.js'
 import { BUILD_COMMIT } from './version.js'
 
 const app = new Hono()
+
+app.use('*', requestLogging)
 
 app.use('*', async (c, next) => {
   const url = new URL(c.req.url)
@@ -65,31 +68,11 @@ app.route('/api/lectures', lecturesRoutes)
 app.route('/api/public', publicExercisesRoutes)
 
 app.onError((error, c) => {
-  console.error('Unhandled worker error:', error)
-
-  return c.json(
-    {
-      success: false,
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Something went wrong. Please try again later.',
-      },
-    },
-    500,
-  )
+  return jsonError(c, 500, 'INTERNAL_SERVER_ERROR', 'Something went wrong. Please try again later.')
 })
 
 app.notFound((c) => {
-  return c.json(
-    {
-      success: false,
-      error: {
-        code: 'NOT_FOUND',
-        message: 'Route not found',
-      },
-    },
-    404,
-  )
+  return jsonError(c, 404, 'NOT_FOUND', 'Route not found')
 })
 
 export default app

@@ -3,6 +3,7 @@ import { jsonError, jsonSuccess } from '../lib/response.js'
 import { toQuestionAnswerAssetResponse, toQuestionAssetResponse } from '../lib/question-assets.js'
 import { inspectImageFile } from '../lib/image-metadata.js'
 import { normalizeCorrectAnswer } from '../lib/schema-parser.js'
+import { exceptionFields, logOperation } from '../lib/structured-logging.js'
 import { requireWorkspaceIdentity, requireWorkspaceManagement } from '../middleware/workspace-auth.js'
 
 const questionAssetsRoutes = new Hono()
@@ -198,7 +199,15 @@ questionAssetsRoutes.post(
       }
       setId = results[0].meta.last_row_id
     } catch (error) {
-      console.error('Question asset schema pinning error:', error)
+      logOperation(c, 'question_asset_schema.pin_failed', {
+        action: 'pin_schema',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        exercise_id: exerciseId,
+        source_file_id,
+        answer_source_file_id,
+        ...exceptionFields(error),
+      }, 'error')
       return jsonError(c, 409, 'SCHEMA_PIN_FAILED', 'Failed to pin the current exercise schema')
     }
 
@@ -343,7 +352,15 @@ questionAssetsRoutes.post(
         `${candidate.q_id}:${candidate.sub_id ?? ''}:${candidate.source_kind}`
       )), 201)
     } catch (error) {
-      console.error('Answer candidate upload error:', error)
+      logOperation(c, 'question_answer_candidate.upload_failed', {
+        action: 'upload_answer_candidates',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        exercise_id: exerciseId,
+        asset_set_id: setId,
+        candidate_count: normalized.length,
+        ...exceptionFields(error),
+      }, 'error')
       return jsonError(c, 409, 'ANSWER_CANDIDATE_UPLOAD_FAILED', 'Failed to persist answer candidates')
     }
   },
@@ -521,7 +538,18 @@ questionAssetsRoutes.post(
       if (!persisted) {
         await c.env.BUCKET.delete(r2Key).catch(() => {})
       }
-      console.error('Question asset upload error:', error)
+      logOperation(c, 'question_asset.upload_failed', {
+        action: 'upload_question_asset',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        exercise_id: exerciseId,
+        asset_set_id: setId,
+        q_id: metadata.qId,
+        segment_index: metadata.segmentIndex,
+        mime_type: image.type,
+        file_size: image.size,
+        ...exceptionFields(error),
+      }, 'error')
       return jsonError(c, 409, 'ASSET_UPLOAD_FAILED', 'Failed to persist question asset')
     }
   },
@@ -971,7 +999,16 @@ questionAssetsRoutes.put(
       if (!persisted) {
         await Promise.allSettled(replacements.map(({ r2Key }) => c.env.BUCKET.delete(r2Key)))
       }
-      console.error('Question retry error:', error)
+      logOperation(c, 'question_asset.retry_failed', {
+        action: 'retry_question_detection',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        exercise_id: exerciseId,
+        asset_set_id: setId,
+        q_id: qId,
+        replacement_count: replacements.length,
+        ...exceptionFields(error),
+      }, 'error')
       return jsonError(c, 500, 'QUESTION_RETRY_FAILED', 'Failed to retry question detection')
     }
   },
@@ -1159,7 +1196,15 @@ questionAssetsRoutes.put(
       if (!persisted) {
         await c.env.BUCKET.delete(r2Key).catch(() => {})
       }
-      console.error('Question screenshot replacement error:', error)
+      logOperation(c, 'question_asset.screenshot_replace_failed', {
+        action: 'replace_question_screenshot',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        exercise_id: exerciseId,
+        asset_set_id: setId,
+        q_id: qId,
+        ...exceptionFields(error),
+      }, 'error')
       return jsonError(c, 500, 'SCREENSHOT_REPLACEMENT_FAILED', 'Failed to replace question screenshot')
     }
   },
@@ -1324,7 +1369,15 @@ questionAssetsRoutes.put(
       if (!persisted) {
         await c.env.BUCKET.delete(r2Key).catch(() => {})
       }
-      console.error('Answer screenshot replacement error:', error)
+      logOperation(c, 'question_answer_asset.screenshot_replace_failed', {
+        action: 'replace_answer_screenshot',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        exercise_id: exerciseId,
+        asset_set_id: setId,
+        q_id: qId,
+        ...exceptionFields(error),
+      }, 'error')
       return jsonError(c, 500, 'ANSWER_SCREENSHOT_REPLACEMENT_FAILED', 'Failed to replace answer screenshot')
     }
   },

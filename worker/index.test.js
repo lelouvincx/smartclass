@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import app from './index.js'
 import { createMockEnv } from './test/setup.js'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('application maintenance', () => {
   it('blocks reads, writes and alternate hosts before database access', async () => {
@@ -53,6 +57,97 @@ describe('GET /api/version', () => {
         commit: '0123456789abcdef0123456789abcdef01234567',
       },
     })
+  })
+})
+
+describe('structured production logging', () => {
+  it('stays silent unless explicitly enabled', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const response = await app.request('/api/version', {}, createMockEnv())
+
+    expect(response.status).toBe(200)
+    expect(info).not.toHaveBeenCalled()
+    expect(error).not.toHaveBeenCalled()
+  })
+
+  it('emits one direct object for successful requests', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const env = createMockEnv({
+      APP_STRUCTURED_LOGS: 'true',
+      APP_COMMIT_SHA: 'b'.repeat(40),
+    })
+
+    const response = await app.request('/api/version', {}, env)
+
+    expect(response.status).toBe(200)
+    expect(info).toHaveBeenCalledTimes(1)
+    const record = info.mock.calls[0][0]
+    expect(typeof record).toBe('object')
+    expect(typeof record).not.toBe('string')
+    expect(record).toMatchObject({
+      schema_version: 1,
+      event: 'http.request.completed',
+      method: 'GET',
+      route: '/api/version',
+      status: 200,
+      workspace_id: null,
+      commit: 'b'.repeat(40),
+    })
+    expect(record.handler_duration_ms).toEqual(expect.any(Number))
+  })
+
+  it('logs handled maintenance and not-found errors with error codes', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const maintenance = await app.request('https://api.toanthaythanh.com/api/lectures', {}, createMockEnv({
+      APP_MAINTENANCE: 'true',
+      APP_STRUCTURED_LOGS: 'true',
+      DB: new Proxy({}, { get() { throw new Error('D1 must not be touched') } }),
+    }))
+    const notFound = await app.request('/missing-route', {}, createMockEnv({ APP_STRUCTURED_LOGS: 'true' }))
+
+    expect(maintenance.status).toBe(503)
+    expect(notFound.status).toBe(404)
+    expect(info).toHaveBeenCalledTimes(2)
+    expect(info.mock.calls[0][0]).toMatchObject({ status: 503, error_code: 'MAINTENANCE' })
+    expect(info.mock.calls[1][0]).toMatchObject({ status: 404, error_code: 'NOT_FOUND', route: 'unmatched' })
+  })
+
+  it('logs uncaught errors without raw URL, headers, body, or exception message', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const secret = 'sentinel-secret-value'
+    const env = createMockEnv({
+      APP_ENV: 'production',
+      APP_STRUCTURED_LOGS: 'true',
+      DB: new Proxy({}, { get() { throw new Error(secret) } }),
+    })
+
+    const response = await app.request(`https://api.toanthaythanh.com/api/public/exercises/123?token=${secret}`, {
+      headers: {
+        Cookie: `session=${secret}`,
+      },
+    }, env)
+
+    expect(response.status).toBe(500)
+    expect(error).toHaveBeenCalledTimes(1)
+    const record = error.mock.calls[0][0]
+    expect(record).toMatchObject({
+      event: 'http.request.completed',
+      route: '/api/public/exercises/:id',
+      status: 500,
+      error_code: 'INTERNAL_SERVER_ERROR',
+      exception_type: 'Error',
+      workspace_id: 'maths',
+    })
+    expect(JSON.stringify(record)).not.toContain(secret)
+    expect(JSON.stringify(record)).not.toContain('Authorization')
+    expect(JSON.stringify(record)).not.toContain('Cookie')
+    expect(JSON.stringify(record)).not.toContain('token=')
   })
 })
 

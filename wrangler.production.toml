@@ -16,6 +16,7 @@ mode = "smart"
 [vars]
 APP_ENV = "production"
 APP_MAINTENANCE = "true"
+APP_STRUCTURED_LOGS = "true"
 
 [[d1_databases]]
 binding = "DB"
@@ -28,6 +29,8 @@ binding = "BUCKET"
 bucket_name = "smartclass"
 
 [observability]
+enabled = true
 [observability.logs]
 enabled = true
-invocation_logs = true
+head_sampling_rate = 1
+invocation_logs = false

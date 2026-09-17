@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { hashPassword, isValidVietnamPhone, normalizeName, normalizePhone } from '../lib/auth.js'
 import { attachGrades, parseGrades } from '../lib/grades.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
+import { logOperation } from '../lib/structured-logging.js'
 import { requireWorkspaceIdentity, requireWorkspaceManagement } from '../middleware/workspace-auth.js'
 
 const workspaceUsersRoutes = new Hono()
@@ -36,13 +37,12 @@ function boundedTarget(target) {
 }
 
 function logMutation(c, target, action, outcome) {
-  console.info(JSON.stringify({
-    actor: c.get('authUser')?.id ?? null,
-    workspace: currentWorkspaceId(c),
+  logOperation(c, 'workspace_user.mutation', {
+    actor_user_id: c.get('authUser')?.id ?? null,
     target: boundedTarget(target),
     action,
     outcome,
-  }))
+  }, 'info', { always: true })
 }
 
 async function studentMembership(c, userId) {
