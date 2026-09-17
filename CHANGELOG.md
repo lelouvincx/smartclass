@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Add a platform-admin Guest delivery estimator and user manual. The estimator inventories ready public Guest content and models hypothetical request, R2 read and recorded-byte volume without visitor tracking or monetary pricing.
+- Add a workspace administrator Guest delivery estimator and user manual. The estimator inventories ready public Guest content and models hypothetical request, R2 read and recorded-byte volume without visitor tracking or monetary pricing. [#146](https://github.com/lelouvincx/smartclass/pull/146)
 - Add opt-in structured Worker request logs, convert active production error and audit logs to Cloudflare-indexable objects, and extend release probes to monitor the public Guest exercise list on both production API hosts. [#143](https://github.com/lelouvincx/smartclass/pull/143)
 - Add Guest exercise mode with public exercise routes, IndexedDB attempt storage, local grading, reviewable local results, public PDF/image reads and an RFC for registration prompts, monitoring and cost controls. [#141](https://github.com/lelouvincx/smartclass/pull/141)
 - Prompt engaged Guest exercise visitors to register after they submit one local attempt or start a second local attempt in the same workspace. The prompt states that existing guest results stay on the current device. [#142](https://github.com/lelouvincx/smartclass/pull/142)
