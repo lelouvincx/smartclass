@@ -2,7 +2,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/lib/auth-context'
 import { AppShell } from '@/design-system/app-shell'
-import { BookOpen, ClipboardList, LayoutDashboard, Plus, Users } from '@/components/material-symbol'
+import { BookOpen, ClipboardList, LayoutDashboard, Monitoring, Plus, Users } from '@/components/material-symbol'
 
 export function TeacherLayout() {
   const location = useLocation()
@@ -12,6 +12,7 @@ export function TeacherLayout() {
   const focusedWorkspace = location.pathname.startsWith('/teacher/lectures')
   const navigation = [
     { label: t('common.dashboard'), to: '/teacher', icon: LayoutDashboard, end: true },
+    ...(isPlatformAdmin ? [{ label: t('common.costs'), to: '/teacher/costs', icon: Monitoring }] : []),
     { label: t('common.students'), to: '/teacher/students', icon: Users },
     { label: t('common.exercises'), to: '/teacher/exercises', icon: ClipboardList, end: true },
     { label: t('common.lectures'), to: '/teacher/lectures', icon: BookOpen },

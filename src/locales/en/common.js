@@ -19,6 +19,7 @@ export default {
   students: 'Students',
   exercises: 'Exercises',
   lectures: 'Lectures',
+  costs: 'Costs',
   create: 'Create',
   history: 'History',
   teacher: 'Teacher',

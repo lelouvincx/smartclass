@@ -233,6 +233,12 @@ export function getPublicExercisePdf(id, token) {
   })
 }
 
+export function getGuestCostInventory(token) {
+  return request('/api/cost-analysis/guest-inventory', {
+    headers: authHeaders(token),
+  })
+}
+
 export function uploadGeneratedQuestionAsset(
   token,
   exerciseId,

@@ -19,6 +19,7 @@ export default {
   students: 'Học sinh',
   exercises: 'Bài tập',
   lectures: 'Bài giảng',
+  costs: 'Chi phí',
   create: 'Tạo mới',
   history: 'Lịch sử làm bài',
   teacher: 'giáo viên',

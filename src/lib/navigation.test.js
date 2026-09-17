@@ -20,6 +20,17 @@ describe('navigation auth contract', () => {
     }, '/student/exercises')).toBe(true)
   })
 
+  it('limits the cost dashboard to administrators, not teachers', () => {
+    expect(canAccessAuthPath({
+      user: { platform_role: 'platform_admin', disabled_at: null },
+      membership: null,
+    }, '/teacher/costs')).toBe(true)
+    expect(canAccessAuthPath({
+      user: { platform_role: 'user', disabled_at: null },
+      membership: { role: 'teacher', status: 'active' },
+    }, '/teacher/costs')).toBe(false)
+  })
+
   it('routes from explicit workspace membership and platform role only', () => {
     expect(getDefaultPathForAuth({
       user: { platform_role: 'user', disabled_at: null },

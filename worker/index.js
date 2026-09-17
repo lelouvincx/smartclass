@@ -11,6 +11,7 @@ import filesRoutes from './routes/workspace-files.js'
 import curriculumRoutes from './routes/workspace-curriculum.js'
 import lecturesRoutes from './routes/curriculum-lectures.js'
 import publicExercisesRoutes from './routes/public-exercises.js'
+import costAnalysisRoutes from './routes/workspace-cost-analysis.js'
 import { jsonError, jsonSuccess } from './lib/response.js'
 import { requestLogging } from './lib/structured-logging.js'
 import { getWorkspaceSites } from './lib/workspaces.js'
@@ -66,6 +67,7 @@ app.route('/api/files', filesRoutes)
 app.route('/api/curriculum', curriculumRoutes)
 app.route('/api/lectures', lecturesRoutes)
 app.route('/api/public', publicExercisesRoutes)
+app.route('/api/cost-analysis', costAnalysisRoutes)
 
 app.onError((error, c) => {
   return jsonError(c, 500, 'INTERNAL_SERVER_ERROR', 'Something went wrong. Please try again later.')
