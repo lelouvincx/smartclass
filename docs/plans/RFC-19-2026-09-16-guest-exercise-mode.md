@@ -217,3 +217,30 @@ P1 registration-prompt acceptance tests:
 - teachers publish Guest exercises through an explicit Guest setting with an answer-publication warning
 - timed Guest attempts continue across closed tabs and never auto-submit
 - the public Exercise PDF route is `GET /api/public/exercises/:id/exercise-pdf`
+
+## Operations addendum: Guest delivery estimation
+
+Workspace administrators can estimate Guest delivery volume for the current workspace from published content inventory. Teachers cannot use this estimator. This supports launch planning without adding visitor tracking.
+
+For administrator-facing instructions, see the [Guest cost estimator user manual](../guest-cost-estimator-manual.md).
+
+The dashboard is an estimator, not analytics. It does not record Guest views, Guest attempts, answers, scores or review activity. Guest attempt data remains local to the browser.
+
+The server owns the inventory contract through `GET /api/cost-analysis/guest-inventory`. The endpoint is available only to workspace administrators. It returns:
+
+- ready Guest exercises in the current workspace
+- current question-image counts and recorded bytes
+- the current answer-free Exercise PDF size when metadata exists
+- public, visible, placed Guest lecture count
+- explanatory notes about exclusions
+
+The endpoint excludes Standard and VIP content, unconfirmed or inactive exercise asset sets, teacher-only Answer PDFs, answer-detail images and old question sets.
+
+The browser owns scenario multiplication. Administrators enter hypothetical monthly values for:
+
+- public exercise-list views
+- exercise landing-page views
+- complete exercise runs, where each current question image is viewed once
+- source PDF downloads
+
+The estimator reports dynamic request counts, R2 Class B reads and recorded bytes. It does not report money. It also excludes Workers CPU, D1 row billing, repeated question views, shared Cloudflare account allowances and YouTube delivery.

@@ -34,8 +34,6 @@ Follow [RFC-18](docs/plans/RFC-18-2026-09-13-curriculum-and-content-access.md) a
 
 Follow [RFC-19: Guest exercise mode](docs/plans/RFC-19-2026-09-16-guest-exercise-mode.md) for the route access, IndexedDB storage, local grading model and acceptance tests.
 
-- [ ] **P1** Add a cost analysis and estimation dashboard
-
 **Outcome:** anonymous users can try a reliable, production-ready platform before registering.
 
 ## v0.7: Assessment depth

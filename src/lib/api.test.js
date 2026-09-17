@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createCurriculumPlacement, deleteCurriculumLesson, deleteCurriculumPlacement, deleteCurriculumTopic, deleteLecture, extractAnswersFromImage, getCurriculumLesson, getLecture, getPublicExercise, getPublicExercisePdf, getPublicQuestionAssetBlob, getSubmission, getSubmissionAnswerPdf, getSubmissionExercisePdf, joinWorkspace, listCurriculum, listLectures, listPublicExercises, parseExerciseSchema, updateCurriculumOrder, updateStudentGlobalStatus, uploadGeneratedQuestionAsset } from './api'
+import { createCurriculumPlacement, deleteCurriculumLesson, deleteCurriculumPlacement, deleteCurriculumTopic, deleteLecture, extractAnswersFromImage, getCurriculumLesson, getGuestCostInventory, getLecture, getPublicExercise, getPublicExercisePdf, getPublicQuestionAssetBlob, getSubmission, getSubmissionAnswerPdf, getSubmissionExercisePdf, joinWorkspace, listCurriculum, listLectures, listPublicExercises, parseExerciseSchema, updateCurriculumOrder, updateStudentGlobalStatus, uploadGeneratedQuestionAsset } from './api'
 
 describe('API errors', () => {
   afterEach(() => {
@@ -84,6 +84,21 @@ describe('API errors', () => {
     expect(fetchMock).toHaveBeenCalledWith(
       'http://maths-api.test/api/submissions/10/exercise-pdf',
       { headers: { Authorization: 'Bearer student-token' } },
+    )
+  })
+
+  it('loads administrator Guest cost inventory through the request boundary', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { version: 1 } }), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await getGuestCostInventory('admin-token')
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://maths-api.test/api/cost-analysis/guest-inventory',
+      { headers: { Authorization: 'Bearer admin-token' } },
     )
   })
 

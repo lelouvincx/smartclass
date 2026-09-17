@@ -13,7 +13,11 @@ export function getDefaultPathForAuth(auth) {
 }
 
 export function canAccessAuthPath(auth, path) {
-  const { canManage, isActiveStudent } = getAuthPermissions(auth)
+  const { canManage, isActiveStudent, isPlatformAdmin } = getAuthPermissions(auth)
+  if (path.startsWith('/teacher/costs')) {
+    return isPlatformAdmin
+  }
+
   if (path.startsWith('/teacher')) {
     return canManage
   }

@@ -9,6 +9,7 @@ const useAuthMock = vi.fn()
 const listCurriculumMock = vi.fn()
 const getCurriculumLessonMock = vi.fn()
 const listPublicExercisesMock = vi.fn()
+const getGuestCostInventoryMock = vi.fn()
 
 vi.mock('./lib/auth-context', () => ({
   AuthProvider: ({ children }) => children,
@@ -23,11 +24,20 @@ vi.mock('./lib/api', async (importOriginal) => ({
   listExercises: vi.fn().mockResolvedValue({ data: [] }),
   listLectures: vi.fn().mockResolvedValue({ data: [] }),
   listPublicExercises: (...args) => listPublicExercisesMock(...args),
+  getGuestCostInventory: (...args) => getGuestCostInventoryMock(...args),
   listMySubmissions: vi.fn().mockResolvedValue({ data: { submissions: [] } }),
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  getGuestCostInventoryMock.mockResolvedValue({
+    data: {
+      guest_exercises: [],
+      guest_lectures: { public_placed_count: 0 },
+      totals: { guest_exercise_count: 0, question_asset_count: 0, question_asset_recorded_bytes: 0, exercise_pdf_total_count: 0, exercise_pdf_known_count: 0, exercise_pdf_recorded_bytes: 0, exercise_pdf_unknown_count: 0 },
+      notes: [],
+    },
+  })
   vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Unexpected network request in route guard test')))
 })
 
@@ -73,6 +83,31 @@ describe('route guards', () => {
     render(<MemoryRouter initialEntries={['/teacher']}><AppRoutes /></MemoryRouter>)
     expect(screen.getByText('Teacher Dashboard')).toBeInTheDocument()
     expect(screen.getAllByText('Platform administrator').length).toBeGreaterThan(0)
+  })
+
+  it('opens the cost dashboard only for a workspace administrator', async () => {
+    useAuthMock.mockReturnValue({
+      isLoading: false, token: 'admin-token', user: { id: 1, name: 'Chinh', platform_role: 'platform_admin' },
+      membership: null, workspace: { id: 'maths' }, isPlatformAdmin: true,
+      canManage: true, defaultPath: '/teacher', logout: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/teacher/costs']}><AppRoutes /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: 'Guest cost estimator' })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: 'Costs' })[0]).toHaveAttribute('href', '/teacher/costs')
+    expect(getGuestCostInventoryMock).toHaveBeenCalledWith('admin-token')
+  })
+
+  it('redirects a teacher away from the workspace administrator cost dashboard', () => {
+    useAuthMock.mockReturnValue({
+      isLoading: false, user: { id: 2, phone: '+84865481769', platform_role: 'user' },
+      membership: { role: 'teacher', status: 'active' }, workspace: { id: 'maths' },
+      canManage: true, isPlatformAdmin: false, defaultPath: '/teacher', logout: vi.fn(),
+    })
+    render(<MemoryRouter initialEntries={['/teacher/costs']}><AppRoutes /></MemoryRouter>)
+
+    expect(screen.getByText('Teacher Dashboard')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Costs' })).not.toBeInTheDocument()
   })
 
   it('keeps public Guest lectures outside the authentication guard', async () => {

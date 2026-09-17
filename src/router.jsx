@@ -33,6 +33,7 @@ import {
   PublicTakeExercisePage,
 } from '@/pages/PublicGuestExercisePages'
 import TeacherCreateExercisePage from '@/pages/TeacherCreateExercisePage'
+import TeacherCostDashboardPage from '@/pages/TeacherCostDashboardPage'
 import TeacherDashboardPage from '@/pages/TeacherDashboardPage'
 import TeacherExercisesPage from '@/pages/TeacherExercisesPage'
 import TeacherLecturesPage from '@/pages/TeacherLecturesPage'
@@ -127,6 +128,7 @@ export function AppRoutes() {
         }
       >
         <Route index element={<TeacherDashboardPage />} />
+        <Route path="costs" element={<TeacherCostDashboardPage />} />
         <Route path="students" element={<TeacherStudentsPage />} />
         <Route path="exercises" element={<TeacherExercisesPage />} />
         <Route path="lectures" element={<TeacherLecturesPage />} />
