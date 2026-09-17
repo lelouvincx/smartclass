@@ -301,8 +301,13 @@ describe('global account status administration', () => {
 
     const nonAdmin = await api('maths', '/201/global-status', jsonOptions(teacher, { disabled: true }))
     expect(nonAdmin.status).toBe(403)
-    expect(logSpy).toHaveBeenCalledWith(JSON.stringify({
-      actor: 101, workspace: 'maths', target: 201, action: 'global_status', outcome: 403,
+    expect(logSpy).toHaveBeenCalledWith(expect.objectContaining({
+      event: 'workspace_user.mutation',
+      actor_user_id: 101,
+      workspace_id: 'maths',
+      target: 201,
+      action: 'global_status',
+      outcome: 403,
     }))
 
     const adminTarget = await api('maths', '/207/global-status', jsonOptions(admin, { disabled: true }))
@@ -335,9 +340,27 @@ describe('global account status administration', () => {
     expect(response.status).toBe(200)
 
     expect(logSpy).toHaveBeenCalled()
-    const payload = JSON.parse(logSpy.mock.calls.at(-1)[0])
-    expect(Object.keys(payload).sort()).toEqual(['action', 'actor', 'outcome', 'target', 'workspace'])
-    expect(payload).toEqual({ actor: 101, workspace: 'maths', target: 201, action: 'update_display_name', outcome: 'success' })
+    const payload = logSpy.mock.calls.at(-1)[0]
+    expect(payload).toMatchObject({
+      schema_version: 1,
+      event: 'workspace_user.mutation',
+      actor_user_id: 101,
+      workspace_id: 'maths',
+      target: 201,
+      action: 'update_display_name',
+      outcome: 'success',
+    })
+    expect(Object.keys(payload).sort()).toEqual([
+      'action',
+      'actor_user_id',
+      'commit',
+      'event',
+      'outcome',
+      'schema_version',
+      'target',
+      'timestamp',
+      'workspace_id',
+    ])
     expect(JSON.stringify(payload)).not.toMatch(/Private|\+849|password|answer/i)
   })
 })

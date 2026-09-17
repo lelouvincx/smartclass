@@ -21,6 +21,7 @@ function releaseProbes(site) {
       kind: 'curriculum',
       programme,
     })),
+    { path: '/api/public/exercises', kind: 'public-exercises' },
     { path: '/api/lectures', kind: 'anonymous-denied' },
     { path: '/api/auth/me', kind: 'anonymous-denied' },
   ]
@@ -42,6 +43,9 @@ function validateProbe({ mode, commit, site, probe, response, body }) {
     return response.status === 200 && body.success === true
       && body.data?.programme === programmeValue(probe.programme)
       && Array.isArray(body.data?.topics)
+  }
+  if (probe.kind === 'public-exercises') {
+    return response.status === 200 && body.success === true && Array.isArray(body.data)
   }
   if (probe.kind === 'anonymous-denied') {
     return response.status === 401 && body.success === false && body.error?.code === 'UNAUTHORIZED'

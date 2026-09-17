@@ -18,6 +18,7 @@ export function jsonSuccess(c, data, status = 200) {
  * @returns {Response} JSON response
  */
 export function jsonError(c, status, code, message) {
+  c.set?.('responseErrorCode', code)
   return c.json(
     {
       success: false,

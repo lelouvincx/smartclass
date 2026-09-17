@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { jsonError, jsonSuccess } from '../lib/response.js'
+import { exceptionFields, logOperation } from '../lib/structured-logging.js'
 import { requireWorkspaceIdentity, requireWorkspaceManagement } from '../middleware/workspace-auth.js'
 
 const uploadRoutes = new Hono()
@@ -86,7 +87,15 @@ uploadRoutes.put(
         uploaded: true,
       })
     } catch (error) {
-      console.error('R2 upload error:', error)
+      logOperation(c, 'exercise_file.upload_failed', {
+        action: 'upload_exercise_file',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        exercise_id: Number(exerciseId),
+        file_type: fileType,
+        content_length: contentLength,
+        ...exceptionFields(error),
+      }, 'error')
       return jsonError(c, 500, 'UPLOAD_ERROR', 'Failed to upload file to storage')
     }
   },

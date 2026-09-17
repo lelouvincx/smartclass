@@ -4,6 +4,7 @@ import { parseStudentPhotoAnswers } from '../lib/cohere-table-parser.js'
 import { gradeSubmission } from '../lib/grading.js'
 import { toQuestionAssetResponse } from '../lib/question-assets.js'
 import { jsonError, jsonSuccess } from '../lib/response.js'
+import { exceptionFields, logOperation } from '../lib/structured-logging.js'
 import { requireWorkspaceIdentity } from '../middleware/workspace-auth.js'
 
 const workspaceSubmissionsRoutes = new Hono()
@@ -385,11 +386,11 @@ workspaceSubmissionsRoutes.post('/', async (c) => {
 })
 
 workspaceSubmissionsRoutes.put('/:id/submit', async (c) => {
+  const submissionId = positiveParam(c.req.param('id'))
   try {
     const { error } = activeStudentMembership(c)
     if (error) return error
 
-    const submissionId = positiveParam(c.req.param('id'))
     if (!submissionId) return jsonError(c, 400, 'VALIDATION_ERROR', 'Submission ID must be a positive integer')
 
     const body = await c.req.json().catch(() => null)
@@ -461,7 +462,13 @@ workspaceSubmissionsRoutes.put('/:id/submit', async (c) => {
     `).bind(submissionId).all()
     return jsonSuccess(c, { ...updated, answers: submittedAnswers.results })
   } catch (err) {
-    console.error('Submit answers error:', err)
+    logOperation(c, 'submission.submit_failed', {
+      action: 'submit_answers',
+      outcome: 'error',
+      actor_user_id: c.get('authUser')?.id ?? null,
+      submission_id: submissionId,
+      ...exceptionFields(err),
+    }, 'error')
     return jsonError(c, 500, 'INTERNAL_ERROR', err.message || 'Failed to submit answers')
   }
 })
@@ -555,15 +562,15 @@ workspaceSubmissionsRoutes.get('/:id/answer-pdf', async (c) => {
 })
 
 workspaceSubmissionsRoutes.get('/:id', async (c) => {
+  const submissionId = positiveParam(c.req.param('id'))
+  let manager = false
   try {
-    const submissionId = positiveParam(c.req.param('id'))
     if (!submissionId) return jsonError(c, 400, 'VALIDATION_ERROR', 'Submission ID must be a positive integer')
 
     const submission = await submissionInWorkspace(c, submissionId)
     if (!submission) return jsonError(c, 404, 'NOT_FOUND', 'Submission not found')
 
-
-    const manager = isWorkspaceManager(c)
+    manager = isWorkspaceManager(c)
     const authUser = c.get('authUser')
     if (!manager) {
       const { error } = activeStudentMembership(c)
@@ -656,17 +663,24 @@ workspaceSubmissionsRoutes.get('/:id', async (c) => {
       answers,
     })
   } catch (err) {
-    console.error('Get submission error:', err)
+    logOperation(c, 'submission.get_failed', {
+      action: 'get_submission',
+      outcome: 'error',
+      actor_user_id: c.get('authUser')?.id ?? null,
+      submission_id: submissionId,
+      manager,
+      ...exceptionFields(err),
+    }, 'error')
     return jsonError(c, 500, 'INTERNAL_ERROR', err.message || 'Failed to get submission')
   }
 })
 
 workspaceSubmissionsRoutes.post('/:id/extract', async (c) => {
+  const submissionId = positiveParam(c.req.param('id'))
   try {
     const { error } = activeStudentMembership(c)
     if (error) return error
 
-    const submissionId = positiveParam(c.req.param('id'))
     if (!submissionId) return jsonError(c, 400, 'VALIDATION_ERROR', 'Submission ID must be a positive integer')
 
     const authUser = c.get('authUser')
@@ -705,7 +719,15 @@ workspaceSubmissionsRoutes.post('/:id/extract', async (c) => {
     try {
       await c.env.BUCKET.put(r2Key, image.stream(), { httpMetadata: { contentType: image.type } })
     } catch (err) {
-      console.error('R2 upload error (extract):', err)
+      logOperation(c, 'submission.extract_upload_failed', {
+        action: 'upload_answer_image',
+        outcome: 'error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        submission_id: submissionId,
+        content_type: image.type,
+        file_size: image.size,
+        ...exceptionFields(err),
+      }, 'error')
       return jsonError(c, 500, 'UPLOAD_ERROR', 'Failed to upload image to storage')
     }
     const fileResult = await c.env.DB.prepare(`
@@ -722,7 +744,14 @@ workspaceSubmissionsRoutes.post('/:id/extract', async (c) => {
       const parsed = await parseImageWithCohere(c.env, { imageBytes, contentType: image.type, requireHtmlTable: false })
       markdown = parsed.markdown
     } catch {
-      console.error('Cohere submission extraction failed', { category: 'provider' })
+      logOperation(c, 'submission.extract_provider_failed', {
+        action: 'extract_answers',
+        outcome: 'provider_error',
+        actor_user_id: c.get('authUser')?.id ?? null,
+        submission_id: submissionId,
+        provider: 'cohere',
+        category: 'provider',
+      }, 'error')
       return jsonError(c, 502, 'EXTRACTION_FAILED', 'Failed to extract answers from image. Retry or use manual entry.')
     }
 
@@ -734,7 +763,13 @@ workspaceSubmissionsRoutes.post('/:id/extract', async (c) => {
       warnings,
     })
   } catch (err) {
-    console.error('Extract answers error:', err)
+    logOperation(c, 'submission.extract_failed', {
+      action: 'extract_answers',
+      outcome: 'error',
+      actor_user_id: c.get('authUser')?.id ?? null,
+      submission_id: submissionId,
+      ...exceptionFields(err),
+    }, 'error')
     return jsonError(c, 500, 'INTERNAL_ERROR', err.message || 'Failed to extract answers')
   }
 })

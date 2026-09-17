@@ -36,7 +36,8 @@ describe('jsonSuccess', () => {
 describe('jsonError', () => {
   it('returns a JSON error response with correct shape', () => {
     const mockJson = vi.fn()
-    const c = { json: mockJson }
+    const set = vi.fn()
+    const c = { json: mockJson, set }
 
     jsonError(c, 400, 'VALIDATION_ERROR', 'Phone is required.')
 
@@ -50,6 +51,7 @@ describe('jsonError', () => {
       },
       400,
     )
+    expect(set).toHaveBeenCalledWith('responseErrorCode', 'VALIDATION_ERROR')
   })
 
   it('returns a JSON error response with different status codes', () => {

@@ -26,6 +26,7 @@ function responder(mode, change = () => {}) {
       assert.ok(allowedProgrammes[url.hostname].includes(url.searchParams.get('programme')))
       body.data = { programme: programmeValue(url.searchParams.get('programme')), topics: [] }
     }
+    else if (url.pathname === '/api/public/exercises') body.data = []
     else if (url.pathname === '/api/lectures') { status = 401; body = { success: false, error: { code: 'UNAUTHORIZED' } } }
     else if (url.pathname === '/api/auth/me') { status = 401; body = { success: false, error: { code: 'UNAUTHORIZED' } } }
     const response = { status, body }
@@ -45,6 +46,7 @@ test('checks closed and open API states on both hosts using reads only', async (
   assert.equal(calls.every(([, , , method]) => method === 'GET'), true)
   assert.equal(calls.filter(([, path]) => path === '/api/health').length, 4)
   assert.equal(calls.filter(([, path]) => path === '/api/version').length, 4)
+  assert.equal(calls.filter(([, path]) => path === '/api/public/exercises').length, 4)
   assert.equal(calls.filter(([mode, path]) => mode === 'open' && path === '/api/curriculum').length, 9)
 })
 
@@ -73,6 +75,9 @@ test('rejects malformed successful curriculum data, wrong programmes, redirects,
       response.body.data = { programme: 'thpt', topics: {} }
     }
   })), /curriculum/)
+  await assert.rejects(verifyApiRelease('open', commit, responder('open', (url, response) => {
+    if (url.pathname === '/api/public/exercises') response.body.data = {}
+  })), /public\/exercises/)
   await assert.rejects(verifyApiRelease('open', commit, async (input, options) => {
     if (new URL(input).pathname === '/api/version') throw new TypeError('redirect not allowed')
     return responder('open')(input, options)
