@@ -56,7 +56,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Point documentation guidance at the clear-writing skill.
+- Point documentation guidance at the clear-writing skill. [#145](https://github.com/lelouvincx/smartclass/pull/145)
 - Make the student lecture browser match the teacher curriculum navigator with a wide compact workspace, segmented programme buttons, selected-lesson detail pane, and protected lecture-access regressions. [#140](https://github.com/lelouvincx/smartclass/pull/140)
 - Replace the student lecture navigator with a content-first course outline that shows topic sections, lesson cards and playable units immediately while preserving teacher curriculum management. [#139](https://github.com/lelouvincx/smartclass/pull/139)
 - Polish the teacher lecture view with a compact programme selector, icon-led curriculum outline, clickable breadcrumbs, collapsed edge-case videos and automatic sidebar collapse on entry. [#138](https://github.com/lelouvincx/smartclass/pull/138)
