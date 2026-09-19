@@ -20,4 +20,4 @@
 
 ## 4. Checklist
 
-- [ ] Updated `CHANGELOG.md` under [Unreleased]
+- [ ] Updated `CHANGELOG.md` under [Unreleased] so the automated changelog check can pass
