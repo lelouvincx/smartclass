@@ -1,8 +1,9 @@
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { sign } from 'hono/jwt'
 import { app } from '../test/helpers.js'
 import { loginAsTeacher, seedStudent, seedTeacher } from '../test/helpers.js'
-import { issueAccessToken, verifyAccessToken } from '../lib/auth.js'
+import { verifyAccessToken } from '../lib/auth.js'
 
 describe('final app workspace authentication boundary', () => {
   it('accepts only the configured host and matching workspace token, never legacy credentials', async () => {
@@ -21,7 +22,7 @@ describe('final app workspace authentication boundary', () => {
       expect(foreign.status).toBe(401)
       expect((await foreign.json()).error.code).toBe('UNAUTHORIZED')
     }
-    const legacy = await issueAccessToken(env, teacher)
+    const legacy = await sign({ sub: String(teacher.id), role: teacher.role, phone: teacher.phone }, env.JWT_SECRET, 'HS256')
     const denied = await app.request('/api/users', { headers: { Authorization: `Bearer ${legacy}` } }, env)
     expect(denied.status).toBe(401)
     expect((await denied.json()).error.code).toBe('UNAUTHORIZED')

@@ -4,10 +4,6 @@
 
 ### Code Quality
 
-- [ ] **Extract `optionalAuth` middleware** - `GET /api/exercises/:id` duplicates JWT parsing logic from `requireAuth`. Create a reusable `optionalAuth` middleware in `worker/middleware/auth.js` that attaches user to context if valid, but doesn't error if missing. (`worker/routes/exercises.js`)
-
-- [ ] **Static import for `verifyAccessToken`** - `worker/routes/exercises.js` uses a dynamic `import()` for `verifyAccessToken` inside the request handler. Should be a top-level static import.
-
 - [ ] **Consistent `token` argument ordering in API functions** - `getExercise(id, token)` vs `createSubmission(token, payload)`. Standardize on `token` as first argument for all authenticated calls. (`src/lib/api.js`)
 
 ### Frontend
@@ -31,7 +27,7 @@
 
 ### Frontend
 
-- [ ] **Submitted-banner detection assumes ordering** - `StudentExerciseLandingPage.jsx` reads `submissions[0]` from `listMySubmissions(... limit: 1)` and treats it as the latest. Today this works because `worker/routes/submissions.js` orders by `submitted_at DESC`, but the assumption is implicit on the client. Add a comment or a sort-by-id-desc tiebreaker to future-proof it.
+- [ ] **Submitted-banner detection assumes ordering** - `StudentExerciseLandingPage.jsx` reads `submissions[0]` from `listMySubmissions(... limit: 1)` and treats it as the latest. Today this works because `worker/routes/workspace-submissions.js` orders by `submitted_at DESC`, but the assumption is implicit on the client. Add a comment or a sort-by-id-desc tiebreaker to future-proof it.
 
 - [ ] **Review sidebar drops `correct` column vs RFC** - `submission-review-sidebar.jsx` renders `status | q# | chosen | pts` (4 columns); RFC `docs/plans/RFC-6-2026-05-03-exercise-experience-polish.md` specified `status | q# | chosen | correct | (points)` (5). Either re-add the column or update the RFC to reflect the deliberate trim.
 

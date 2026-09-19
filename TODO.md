@@ -22,7 +22,10 @@ The 14 September release record shows that workspace and curriculum cutover, com
   - [ ] **P0** Verify Guest, student, teacher and platform-administrator workspace isolation on both sites
   - [ ] **P0** Verify an existing pinned attempt and current new-attempt access, or record an approved omission
   - [ ] **P0** Record the tested commit, time, actors, evidence and omissions privately
-- [ ] **P2** Remove unmounted legacy routes and global teaching-access fields after stabilization
+- [x] **P2** Remove unmounted legacy route implementations after stabilization
+- [ ] **P2** Remove legacy global teaching-access storage after authenticated production acceptance
+  - Acceptance: preserve final legacy comparison evidence and an approved restore plan before dropping `users.role`, `users.status`, `users.access_tier`, `student_grades` and `lecture_grades`
+  - Acceptance: update mounted account creation, seeds, fixtures, schema documentation and recovery notes in the same pull request
 - [ ] **P2** Enrich the [Vietnamese teacher manual](docs/lecture-manual.vi.md) with screenshots of verified teacher workflows
 
 **Outcome:** the release record is accurate, and approved authenticated acceptance verifies workspace isolation, curriculum access and pinned attempts before v0.6 closes.

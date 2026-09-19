@@ -1,13 +1,17 @@
 import { describe, it, expect } from 'vitest'
+import { sign } from 'hono/jwt'
 import {
   isValidVietnamPhone,
   normalizePhone,
   parseJwtDuration,
   hashPassword,
   verifyPassword,
-  issueAccessToken,
   verifyAccessToken,
 } from './auth.js'
+
+async function signJwt(env, payload) {
+  return sign(payload, env.JWT_SECRET, 'HS256')
+}
 
 describe('normalizePhone', () => {
   it('converts 0-prefix to +84', () => {
@@ -116,28 +120,15 @@ describe('JWT token operations', () => {
     JWT_EXPIRES_IN: '1h',
   }
 
-  it('issues access token with correct payload', async () => {
-    const user = {
-      id: 1,
-      role: 'teacher',
-      phone: '+84865481769',
-    }
-
-    const token = await issueAccessToken(mockEnv, user)
-
-    expect(token).toBeTruthy()
-    expect(typeof token).toBe('string')
-    expect(token.split('.')).toHaveLength(3) // JWT format
-  })
-
   it('verifies valid token and returns payload', async () => {
-    const user = {
-      id: 1,
+    const now = Math.floor(Date.now() / 1000)
+    const token = await signJwt(mockEnv, {
+      sub: '1',
       role: 'teacher',
       phone: '+84865481769',
-    }
-
-    const token = await issueAccessToken(mockEnv, user)
+      iat: now,
+      exp: now + 60,
+    })
     const payload = await verifyAccessToken(token, mockEnv)
 
     expect(payload.sub).toBe('1')
@@ -154,8 +145,8 @@ describe('JWT token operations', () => {
   })
 
   it('rejects token with wrong secret', async () => {
-    const user = { id: 1, role: 'teacher', phone: '+84865481769' }
-    const token = await issueAccessToken(mockEnv, user)
+    const now = Math.floor(Date.now() / 1000)
+    const token = await signJwt(mockEnv, { sub: '1', iat: now, exp: now + 60 })
 
     const wrongEnv = { ...mockEnv, JWT_SECRET: 'wrong-secret' }
 
@@ -164,17 +155,4 @@ describe('JWT token operations', () => {
     ).rejects.toThrow()
   })
 
-  it('respects custom expiration time', async () => {
-    const customEnv = {
-      JWT_SECRET: 'test-secret',
-      JWT_EXPIRES_IN: '30s',
-    }
-
-    const user = { id: 1, role: 'student', phone: '+84900000001' }
-    const token = await issueAccessToken(customEnv, user)
-    const payload = await verifyAccessToken(token, customEnv)
-
-    const expiresIn = payload.exp - payload.iat
-    expect(expiresIn).toBe(30)
-  })
 })

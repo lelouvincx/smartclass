@@ -1,4 +1,4 @@
-import { sign, verify } from 'hono/jwt'
+import { verify } from 'hono/jwt'
 import bcrypt from 'bcryptjs'
 
 const PHONE_REGEX = /^\+84\d{9,10}$/
@@ -53,21 +53,6 @@ export async function hashPassword(password) {
 
 export async function verifyPassword(password, passwordHash) {
   return bcrypt.compare(password, passwordHash)
-}
-
-export async function issueAccessToken(env, user) {
-  const now = Math.floor(Date.now() / 1000)
-  const expiresInSeconds = parseJwtDuration(env.JWT_EXPIRES_IN || env.JWT_EXPIRE_IN)
-
-  const payload = {
-    sub: String(user.id),
-    role: user.role,
-    phone: user.phone,
-    iat: now,
-    exp: now + expiresInSeconds,
-  }
-
-  return sign(payload, env.JWT_SECRET, 'HS256')
 }
 
 export async function verifyAccessToken(token, env) {
