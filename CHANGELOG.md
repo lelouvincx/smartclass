@@ -57,6 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Clarify that agents monitor this thread's bot PR and run cleanup automatically after `lelouvincx-bot` merges it.
 - Update routine production deployment after cutover. Documentation-only main pushes no longer deploy, compatible releases deploy without maintenance, and pending D1 migrations, incompatible releases marked by production-maintenance generation, or approved recovery work still use the maintenance, restore-bookmark, cutover-gate and verification sequence. [#151](https://github.com/lelouvincx/smartclass/pull/151)
 - Ship the checked-PR automation: pull requests now merge automatically after Test and Changelog pass, main-branch tests gate production deployment, and deploy no longer reruns the same suites. The smoke-test pull request auto-merged and deployed successfully. [#148](https://github.com/lelouvincx/smartclass/pull/148) [#149](https://github.com/lelouvincx/smartclass/pull/149) [#150](https://github.com/lelouvincx/smartclass/pull/150)
 - Reconcile the 14 September production release record. Production evidence records the combined workspace and curriculum cutover, both completion gates, Pages deployment and API reopening at `e82de30`. Later deployments continue to pass both gates. Authenticated production permission and pinned-attempt acceptance remain pending. [#147](https://github.com/lelouvincx/smartclass/pull/147)
