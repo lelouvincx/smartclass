@@ -1,11 +1,13 @@
-name: Merge Approved PR
+name: Merge Ready PR
 
 on:
   workflow_run:
-    workflows: ["Post PR Approval"]
+    workflows: ["Test", "Changelog"]
     types: [completed]
 
 permissions:
+  actions: read
+  checks: read
   contents: write
   pull-requests: write
 
@@ -14,15 +16,15 @@ jobs:
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Verify approval and merge pull request
+      - name: Verify checks and merge pull request
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.LELOUVINCX_BOT_TOKEN }}
           script: |
             const run = context.payload.workflow_run;
 
-            if (run.event !== 'pull_request_review') {
-              core.notice('The triggering run was not a pull request review.');
+            if (run.event !== 'pull_request') {
+              core.notice('The triggering run was not a pull request check.');
               return;
             }
 
@@ -46,27 +48,32 @@ jobs:
             }
 
             if (pr.head.sha !== run.head_sha) {
-              core.notice(`PR #${pr.number} changed after the reviewed commit.`);
+              core.notice(`PR #${pr.number} changed after the completed check run.`);
               return;
             }
 
-            const result = await github.graphql(`
-              query($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: $owner, name: $repo) {
-                  pullRequest(number: $number) {
-                    reviewDecision
-                  }
-                }
-              }
-            `, {
+            const expectedChecks = ['unit-tests', 'integration-tests', 'require-changelog-update'];
+            const { data: checkRuns } = await github.rest.checks.listForRef({
               owner,
               repo,
-              number: pr.number,
+              ref: pr.head.sha,
+              per_page: 100,
             });
 
-            if (result.repository.pullRequest.reviewDecision !== 'APPROVED') {
-              core.notice(`PR #${pr.number} does not currently have an approving review.`);
-              return;
+            for (const checkName of expectedChecks) {
+              const latest = checkRuns.check_runs
+                .filter(check => check.name === checkName)
+                .sort((a, b) => new Date(b.started_at || b.created_at) - new Date(a.started_at || a.created_at))[0];
+
+              if (!latest) {
+                core.notice(`PR #${pr.number} is waiting for ${checkName}.`);
+                return;
+              }
+
+              if (latest.status !== 'completed' || latest.conclusion !== 'success') {
+                core.notice(`PR #${pr.number} is waiting for ${checkName}; current state is ${latest.status}/${latest.conclusion}.`);
+                return;
+              }
             }
 
             const { data: commits } = await github.rest.pulls.listCommits({

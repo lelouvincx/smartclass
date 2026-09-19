@@ -1,8 +1,9 @@
 name: Deploy Worker
 
 on:
-  push:
-    branches: [main]
+  workflow_run:
+    workflows: ["Test"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       maintenance_only:
@@ -19,17 +20,24 @@ concurrency:
 
 jobs:
   deploy-worker:
-    if: github.ref == 'refs/heads/main'
+    if: >-
+      (github.event_name == 'workflow_run' &&
+        github.event.workflow_run.event == 'push' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      APP_COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           persist-credentials: false
+          ref: ${{ env.APP_COMMIT_SHA }}
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -40,27 +48,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run release checks
-        run: node --test scripts/*.test.js
-
-      - name: Run frontend tests
-        run: npm test
-
-      - name: Run worker tests
-        run: npm run test:worker
-
-      - name: Run integration tests
-        run: npm run test:integration
-
       - name: Build frontend
         run: npm run build
 
       - name: Enable application maintenance
         id: maintenance
-        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$GITHUB_SHA
+        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$APP_COMMIT_SHA
 
       - name: Verify maintenance
-        run: node scripts/release-api.mjs closed "$GITHUB_SHA"
+        run: node scripts/release-api.mjs closed "$APP_COMMIT_SHA"
 
       - name: Drain existing requests
         run: sleep 120
@@ -81,24 +77,24 @@ jobs:
 
       - name: Require completed workspace cutover
         if: ${{ !inputs.maintenance_only }}
-        run: node scripts/workspace-release.mjs check --remote --commit "$GITHUB_SHA"
+        run: node scripts/workspace-release.mjs check --remote --commit "$APP_COMMIT_SHA"
 
       - name: Require completed curriculum cutover
         if: ${{ !inputs.maintenance_only }}
-        run: node scripts/curriculum-release.mjs check --remote --commit "$GITHUB_SHA"
+        run: node scripts/curriculum-release.mjs check --remote --commit "$APP_COMMIT_SHA"
 
       - name: Deploy frontend
         if: ${{ !inputs.maintenance_only }}
-        run: npx wrangler pages deploy dist --project-name smartclass --branch main --commit-hash "$GITHUB_SHA"
+        run: npx wrangler pages deploy dist --project-name smartclass --branch main --commit-hash "$APP_COMMIT_SHA"
 
       - name: Reopen API
         if: ${{ !inputs.maintenance_only }}
-        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:false --var APP_COMMIT_SHA:$GITHUB_SHA
+        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:false --var APP_COMMIT_SHA:$APP_COMMIT_SHA
 
       - name: Verify open API
         if: ${{ !inputs.maintenance_only }}
-        run: node scripts/release-api.mjs open "$GITHUB_SHA"
+        run: node scripts/release-api.mjs open "$APP_COMMIT_SHA"
 
       - name: Leave failed release in maintenance
         if: ${{ failure() && (steps.maintenance.outcome == 'success' || steps.maintenance.outcome == 'failure') }}
-        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$GITHUB_SHA
+        run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$APP_COMMIT_SHA
