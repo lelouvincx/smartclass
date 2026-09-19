@@ -29,6 +29,27 @@ Merging to `main` starts `Deploy Worker`. Approval of a pull request can trigger
 
 If a future recovery needs maintenance, keep both APIs in maintenance until the reviewed recovery step completes. Pages Git builds can publish separately; coordinate those builds and prohibit competing Worker deployments, workflow reruns and database writers throughout the window.
 
+## Routine deployment after cutover
+
+After the coordinated cutover, a release uses maintenance only when maintenance protects production data or recovery work.
+
+The deployment workflow now plans one of these modes before it changes production:
+
+- no deployment for documentation-only `main` pushes, because the `Test` push workflow is skipped for Markdown and `docs/**` changes
+- routine deployment when both API sites are open at the same live commit, the candidate commit descends from that live commit, and no D1 migration is pending
+- maintenance deployment when a D1 migration is pending, when the candidate increments `.github/production-maintenance-generation`, or when an approved manual dispatch forces maintenance for recovery
+- maintenance-only preparation when an approved manual dispatch must leave production closed for recovery or reviewed backfill work
+
+Routine deployment does not enable maintenance and does not apply D1 migrations. It verifies the completed workspace and curriculum cutovers against the live open commit, deploys Pages, deploys the Worker with `APP_MAINTENANCE=false`, and verifies both open API sites at the candidate commit.
+
+Maintenance deployment keeps the historical safety sequence. It deploys the candidate Worker with maintenance enabled, verifies closed APIs, drains requests, records a D1 restore bookmark, applies D1 migrations, checks workspace and curriculum completion, deploys Pages, reopens the API, and verifies both open API sites.
+
+The release planner fails before production mutation if any safety fact is unclear. It refuses rollback candidates, inconsistent API site state, a production API already in maintenance without an approved manual maintenance run, remote migration records that are missing from the checkout, or changes to already-applied migration files.
+
+Treat every D1 migration as maintenance-required until the repository has an explicit online-migration contract. Production workflow execution still requires the same approval boundary as other production operations.
+
+For an incompatible release that has no D1 migration, increment `.github/production-maintenance-generation` in the candidate pull request. The release planner compares that value with the live production commit and selects maintenance automatically after merge. Keep the file as one non-negative integer.
+
 ### Chinh's actions
 
 Before merge, approve the maintenance window, candidate PR, domain changes and production operator access. Confirm who will review the fresh workspace inventory, administrator grant and curriculum comparison during the window. Approve the test actors and any production test writes separately.
