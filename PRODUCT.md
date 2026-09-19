@@ -1,26 +1,42 @@
 # SmartClass product truth
 
-**Last reviewed:** 2026-09-06
+**Last reviewed:** 2026-09-19
 
 SmartClass is an assessment platform for teaching and learning. It is a focused learning workspace, not a marketing surface.
 
 ## People and core jobs
 
-- **Teachers (administrators)** create and manage student accounts, create exercises from PDFs, define answer schemas, manage an ordered video curriculum, and review the learning workflow.
-- **Workspace administrators** can model current-workspace Guest delivery volume from published content inventory. Teachers cannot use this estimator. The estimate is not observed traffic or provider billing.
+- **Teachers (administrators)** manage one teaching workspace. They create and manage student memberships, create exercises from PDFs, define answer schemas, manage that workspace's video curriculum, and review the learning workflow.
+- **Platform administrators** can administer more than one workspace. They work in one selected workspace at a time and can model current-workspace Guest delivery volume from published content inventory. Teachers cannot use this estimator. The estimate is not observed traffic or provider billing.
 - **Students** browse exercises, start timed or untimed attempts, answer through per-question controls, receive automatic grading, review past results, and follow the video curriculum.
 
 Guest exercise access is available for exercises that teachers publish for Guest access. Guest answers, scores and reviews stay on the current device. After a guest submits one local attempt or starts a second local attempt in the same workspace, SmartClass prompts them to register and explains that existing guest results stay local. Public Guest lecture browsing and playback are also available without an account. The Guest workspace navigation keeps Lectures and Exercises available and lets visitors switch between Vietnamese and English. The current browser remembers that language preference.
 
+## Workspace model
+
+SmartClass runs 2 teaching sites with one application and backend:
+
+| Site | Workspace | Subject |
+| --- | --- | --- |
+| `toanthaythanh.com` | Maths | Maths |
+| `tienganhcothuy.com` | English | English |
+
+A user has one shared account and profile. Phone number, password, linked Google identity, global block status and platform administrator status belong to that shared user.
+
+A workspace membership connects the shared user to one workspace. Role, membership status, programme memberships, access tier and workspace display name belong to that membership. The same student can have different programmes, tiers and status in each workspace.
+
+Teachers are routed to their teaching workspace. A teacher cannot manage another workspace. Platform administrators can use both sites, but still act inside one workspace at a time. A wrong-workspace token, unknown host or mismatched browser origin is rejected before product data is returned.
+
 ## Lecture model
 
-- Teachers create, edit, show or hide, reorder, and delete lectures. Each lecture has a section, title, supported public YouTube video URL, visibility state, one or more programmes (grades 10, 11, 12, or ĐGNL), and a minimum access tier (Guest, Standard, or VIP). New lectures are visible, assigned to all four programmes, and restricted to Standard by default.
-- The lecture order is global. Consecutive lectures with the same section are presented together without changing that order.
-- Teachers can expand one embedded video at a time while managing the curriculum or open any lecture on a dedicated detail page with previous and next navigation. Teacher playback does not change student progress.
-- Anonymous visitors can browse and watch visible Guest lectures on public routes. Programme assignments do not restrict Guest lectures.
-- Active students have one teacher-assigned account tier: Standard or VIP. They can browse visible Guest lectures and lectures whose programme overlaps one of their memberships and whose minimum tier their account meets. VIP includes Standard access. Hidden, non-overlapping, and higher-tier lectures and their player pages are unavailable.
+- Teachers create, edit, show or hide, place, reorder, move and delete reusable lecture videos. Each lecture video has a title, supported public YouTube video URL, visibility state and minimum access tier (Guest, Standard, or VIP). New lecture videos are visible and restricted to Standard by default.
+- Teachers organize lecture videos by programme, topic, lesson and unit. A topic belongs to one programme. A lesson belongs to one topic. A unit is one placement of a lecture video inside a lesson. The same lecture video can appear in more than one lesson.
+- The Maths workspace supports grades 10, 11, 12, THPT and ĐGNL. The English workspace supports grades 10, 11, 12 and ĐGNL. THPT is Maths-only.
+- A lecture video's restricted programme audience comes from its placements. Guest lectures are public only when they are visible and placed in the current workspace curriculum. Unplaced videos are teacher-only, including Guest videos.
+- Teachers can expand one embedded video at a time while managing the curriculum or open a lecture on a dedicated detail page with contextual previous and next navigation. Teacher playback does not change student progress.
+- Active students have one teacher-assigned tier per workspace: Standard or VIP. They can browse visible Guest lectures and visible lectures whose placement programme overlaps one of their active memberships and whose minimum tier their workspace membership meets. VIP includes Standard access. Hidden, non-overlapping, and higher-tier lectures and their player pages are unavailable.
 - SmartClass remembers each authenticated student's playback position for each lecture and YouTube video in the current browser. Refreshing or revisiting resumes from that position without autoplay. Reaching the end clears the saved position. Progress does not synchronize across browsers or devices.
-- Teachers can manage and preview every lecture regardless of visibility, programme, or tier.
+- Teachers can manage and preview every lecture in their workspace regardless of visibility, programme placement or tier.
 
 ## Account access
 
@@ -28,20 +44,21 @@ Guest exercise access is available for exercises that teachers publish for Guest
 - The authenticated teacher and student application defaults to Vietnamese. A user can switch between Vietnamese and English in Settings, and the current browser remembers that preference.
 - New student accounts require a name, whether students register themselves or a teacher creates the account. Legacy accounts may remain unnamed until updated.
 - A signed-in teacher or student can change their own name from Settings. Teachers can also rename student accounts from the student list.
-- Teachers can deactivate, reactivate, or remove a student from the active student list. Deactivation and removal disable the student account, keep past submissions available, and block future use of existing and new student sessions. Reactivation restores login and learning access.
-- A student can belong to one or more programmes: grades 10, 11, 12, and ĐGNL. Programme memberships accumulate when appropriate, so a student can retain grade 10 access after also receiving grade 11 access. “All programmes” is an interface shortcut for selecting all four memberships, not a stored value.
-- Only teachers can assign Standard or VIP account tier. Students select requested programme memberships when they self-register, and teachers can replace programme memberships for multiple selected students through a separate action. Teacher-created students require programme memberships during creation. A self-registered student is Standard until a teacher changes the tier.
+- Teachers can deactivate, reactivate, or remove a student from the current workspace's active student list. Deactivation and removal disable that workspace membership, keep past submissions available, and block future use of existing and new student sessions for that workspace. Reactivation restores login and learning access in that workspace.
+- A student can belong to one or more programmes in each workspace. Programme memberships accumulate when appropriate, so a student can retain grade 10 access after also receiving grade 11 access. “All programmes” is an interface shortcut for selecting every programme in that workspace, not a stored value.
+- Only teachers can assign Standard or VIP tier for their workspace. Students select requested programme memberships when they self-register, and teachers can replace programme memberships for multiple selected students through a separate action. Teacher-created students require programme memberships during creation. A self-registered student is Standard until a teacher changes the tier.
 - A signed-in teacher can change their own password from Settings after verifying their current password.
 - Password changes never target another account; student password changes and teacher-managed password resets remain roadmap work.
 
 ## Assessment model
 
-- Exercises may be timed or untimed and target one or more access classes (grades 10, 11, 12, or ĐGNL), defaulting to grade 12. Teachers provide an answer-free Exercise PDF for students and a separate Answer PDF containing answers or green highlights. Keeping the student copy free of answer cues is the teacher's responsibility. By default, the Answer PDF stays teacher-only. Teachers can allow students to download the pinned Answer PDF after they submit and review that exercise.
+- Exercises belong to one workspace. Teachers can manage only exercises in their workspace. Cross-workspace exercise IDs, files, answer sets and attempts are unavailable.
+- Exercises may be timed or untimed and target one or more access classes in that workspace, defaulting to grade 12. Exercises also have a minimum access tier: Guest, Standard or VIP. Teachers provide an answer-free Exercise PDF for students and a separate Answer PDF containing answers or green highlights. Keeping the student copy free of answer cues is the teacher's responsibility. By default, the Answer PDF stays teacher-only. Teachers can allow students to download the pinned Answer PDF after they submit and review that exercise.
 - Supported answer types are multiple choice (A/B/C/D), numeric, and true/false questions with four independently answered sub-questions (`a`–`d`). Exercises may group questions into named sections whose printed numbering restarts. SmartClass keeps a separate global question order for grading and navigation.
 - Teachers prepare an exercise through one review workflow. SmartClass detects section and question regions in the Exercise PDF, renders ordered question images, and combines Answer PDF parsing with deterministic green-highlight candidates from the Answer PDF in one editable answer table.
 - A teacher reviews every generated image and final answer, resolves conflicts, and activates both as one version. A teacher can replace any question with one clean student-facing screenshot, add one teacher-only answer-detail image for that question, retry a rejected question, or replace the source PDF. Scanned-PDF vision detection is not enabled; unsupported PDFs require screenshots or replacement.
 - Teachers can keep automatic type-based score allocation or assign each question a custom maximum. Custom values use hundredths of a point and must total exactly 10.0. A true or false question has one maximum across its 4 parts. Its partial-credit ratio scales that maximum.
-- Students can browse or start only exercises with a teacher-confirmed active question set and at least one access class that overlaps their memberships. A started submission pins that set and its answer-schema snapshot, and remains available if current class access later changes, so later exercise or access changes cannot break an active attempt or historical review.
+- Students can browse or start only exercises with a teacher-confirmed active question set, at least one access class that overlaps their current workspace membership, and a minimum tier that their current workspace membership meets. A started submission pins that set and its answer-schema snapshot, and remains available if current programme or tier access later changes, so later exercise or access changes cannot break an active attempt or historical review.
 - Teachers set a positive maximum number of attempts for each exercise or allow unlimited attempts. Existing exercises default to one attempt. Lowering a limit never deletes or renumbers attempts students already started; it only prevents new attempts above the limit.
 - Each submission is one numbered attempt by one student on one exercise. Starting allocates the next positive attempt number. Every attempt keeps its own answers, timing, score, and pinned question set, and all submitted attempts remain separately available from both the exercise landing page and submission history.
 - Students enter answers directly in the take page. It does not offer an answer-photo upload or input-mode selector.

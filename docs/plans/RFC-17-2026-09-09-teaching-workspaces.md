@@ -2,7 +2,7 @@
 rfc: RFC-17
 title: Separate teaching workspaces with shared accounts
 date: 2026-09-09
-status: Proposed
+status: Implemented and deployed; authenticated production acceptance pending
 dependencies: [RFC-1, RFC-7, RFC-10, RFC-15]
 ---
 
@@ -20,7 +20,7 @@ Run 2 teaching sites with one application and one backend:
 A workspace is one teaching site's content, students and access settings.
 A user is one person's shared account and profile, identified internally by a stable user ID.
 A phone number and password are current login details, not the definition of a user.
-The [v0.8 account roadmap](../../TODO.md#v08-account-management) adds class, social links, a profile image and email.
+The [v0.7 student profile roadmap](../../TODO.md#v07-account-recovery-and-assessment-depth) adds class, social links, a profile image and email.
 A membership connects that person to a workspace.
 
 For example, Mai can use the same password on both sites.
@@ -32,9 +32,9 @@ Removing Mai's maths access does not remove her English access.
 Chinh has a new role: platform administrator.
 Chinh can manage both workspaces, but works in one workspace at a time.
 
-This document is a plan, not shipped behaviour.
-[PRODUCT.md](../../PRODUCT.md) remains the source for current behaviour.
-[TODO.md](../../TODO.md) holds the implementation checklist under v0.6.
+This model is implemented and deployed.
+[PRODUCT.md](../../PRODUCT.md) remains the source for shipped product behavior.
+[TODO.md](../../TODO.md) holds the remaining authenticated production acceptance work under v0.6.
 In this document, RFC-15 means the [programme and tier RFC](RFC-15-2026-09-06-programme-and-tier-access.md), not the Cohere RFC.
 
 ## What Chinh has decided
@@ -50,7 +50,7 @@ In this document, RFC-15 means the [programme and tier RFC](RFC-15-2026-09-06-pr
 The remaining design choices below are recommended defaults.
 They can change before implementation without changing these decisions.
 
-## What production contains today
+## Production snapshot before cutover
 
 Read-only checks on 9 September 2026 found:
 
@@ -67,17 +67,17 @@ Read-only checks on 9 September 2026 found:
 The production version endpoint matched the local checkout:
 [`63d8448`](https://github.com/lelouvincx/smartclass/commit/63d8448415b9aa2fd3ff4a6370576cd4646773b6).
 Wrangler deployment inspection and D1 queries confirmed the bindings, schema and counts.
-These are a dated snapshot. Refresh them before migration.
+These are a dated pre-cutover snapshot. Use the coordinated cutover record for the completed migration state.
 
 On 10 September 2026, `tienganhcothuy.com` resolved through DNS and returned HTTP 200 over HTTPS.
 Chinh confirmed this existing domain is the English site. No frontend domain replacement or redirect is needed.
 
-Today, teacher rights are global. The API does not separate either domain's data.
-The `created_by` field records authorship, not who can access a record.
-Student approval, programme access and VIP tier also apply globally.
+Before cutover, teacher rights were global. The API did not separate either domain's data.
+The `created_by` field recorded authorship, not who could access a record.
+Student approval, programme access and VIP tier also applied globally.
 
-Registration does not record the originating site.
-We cannot safely infer whether each existing student intended to join maths or English.
+Registration did not record the originating site before cutover.
+The migration could not safely infer whether each existing student intended to join maths or English.
 
 ## Give each role clear limits
 
@@ -358,7 +358,7 @@ The redirect loop and 3 narrow-screen layout defects found during those checks a
 All QA browsers are closed. Local servers were restarted for Chinh's manual QA and remain running.
 The later [persisted end-to-end run](../../tests/e2e/teaching-workspaces/README.md) passed all 7 scenarios; temporary lecture fixtures were removed.
 See the [verification and coverage limits](RFC-17-stage-1-evidence.md#stage-2-route-coverage) before preparing a release.
-No production migration, deployment or administrator grant has run.
+At that stage, no production migration, deployment or administrator grant had run.
 
 The database preparation uses migration `0023_add_teaching_workspaces.sql`.
 It adds storage and the 2 workspace records, without assigning accounts, promoting administrators or changing application permissions.
@@ -394,7 +394,7 @@ Local maths uses frontend port 5173 and API port 8787; English uses ports 5174 a
 Unknown environments and unconfigured preview sites have no mapping.
 `worker/index.js` now mounts only workspace-aware product routes.
 Existing regression tests call that entry point with explicit test hosts and workspace fixtures.
-Production still runs the previous application until the controlled release in Stages 3 and 4.
+At that stage, production still ran the previous application until the controlled release in Stages 3 and 4.
 
 The account routers use the same boundary:
 
@@ -431,7 +431,7 @@ Follow [DESIGN.md](../../DESIGN.md#frontend-acceptance) for all interface work a
 Read the [Stage 3 release runbook](RFC-17-stage-3-release.md) for local preparation, verification and remaining approvals.
 On 10 September Chinh chose application maintenance in the existing deployment workflow instead of an independent Cloudflare gate.
 The local workflow now deploys maintenance before migration and requires completed cutover before reopening.
-Neither the live workflow nor production has changed yet.
+At that stage, neither the live workflow nor production had changed.
 
 Agent actions:
 
