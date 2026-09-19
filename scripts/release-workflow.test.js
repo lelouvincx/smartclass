@@ -6,7 +6,7 @@ const workflow = readFileSync(new URL('../.github/workflows/deploy-worker.yml', 
 
 test('normal deployment closes traffic before backup and migrations, and checks readiness before reopening', () => {
   const steps = [
-    'Run integration tests', 'Build frontend', 'Enable application maintenance',
+    'Build frontend', 'Enable application maintenance',
     'Verify maintenance', 'Drain existing requests', 'Record D1 restore bookmark',
     'Apply remote D1 migrations', 'Require completed workspace cutover',
     'Require completed curriculum cutover', 'Deploy frontend', 'Reopen API', 'Verify open API',
@@ -23,6 +23,16 @@ test('normal deployment closes traffic before backup and migrations, and checks 
   assert.doesNotMatch(workflow, /secret put|secrets\.JWT_SECRET|always\(\)/)
 })
 
+test('automatic deployment starts only after main branch tests pass and uses that tested commit', () => {
+  assert.match(workflow, /workflow_run:\n\s+workflows: \["Test"\]\n\s+types: \[completed\]/)
+  assert.match(workflow, /github\.event\.workflow_run\.event == 'push'/)
+  assert.match(workflow, /github\.event\.workflow_run\.head_branch == 'main'/)
+  assert.match(workflow, /github\.event\.workflow_run\.conclusion == 'success'/)
+  assert.match(workflow, /APP_COMMIT_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \|\| github\.sha \}\}/)
+  assert.match(workflow, /ref: \$\{\{ env\.APP_COMMIT_SHA \}\}/)
+  assert.doesNotMatch(workflow, /name: Run release checks|name: Run frontend tests|name: Run worker tests|name: Run integration tests/)
+})
+
 test('maintenance-only run and failed deployment cannot automatically reopen traffic', () => {
   assert.match(workflow, /maintenance_only:/)
   for (const step of ['Require completed workspace cutover', 'Require completed curriculum cutover', 'Deploy frontend', 'Reopen API', 'Verify open API']) {
@@ -37,7 +47,7 @@ test('maintenance-only run and failed deployment cannot automatically reopen tra
 
 test('curriculum cutover is checked with the read-only remote operator before Pages deployment', () => {
   const step = workflow.split('name: Require completed curriculum cutover')[1]?.split('\n\n      - name: Deploy frontend')[0]
-  assert.match(step ?? '', /node scripts\/curriculum-release\.mjs check --remote --commit "\$GITHUB_SHA"/)
+  assert.match(step ?? '', /node scripts\/curriculum-release\.mjs check --remote --commit "\$APP_COMMIT_SHA"/)
   assert.ok(workflow.indexOf('name: Require completed workspace cutover') < workflow.indexOf('name: Require completed curriculum cutover'))
   assert.ok(workflow.indexOf('name: Require completed curriculum cutover') < workflow.indexOf('name: Deploy frontend'))
 })

@@ -57,6 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Let checked pull requests merge automatically after the Test and Changelog workflows pass, then start production deployment only after main-branch tests pass without rerunning the same test suites inside the deploy job. [#148](https://github.com/lelouvincx/smartclass/pull/148)
 - Reconcile the 14 September production release record. Production evidence records the combined workspace and curriculum cutover, both completion gates, Pages deployment and API reopening at `e82de30`. Later deployments continue to pass both gates. Authenticated production permission and pinned-attempt acceptance remain pending. [#147](https://github.com/lelouvincx/smartclass/pull/147)
 - Reprioritize the roadmap around release verification, account recovery, student profiles and teacher insights. Consolidate cutover tasks, remove stale photo-extraction work, and specify recovery security, profile permissions, explanation visibility, activity metrics and routine deployment requirements.
 - Clarify agent guidance for structured production logging, release probes, and reusable evidence packets. [#144](https://github.com/lelouvincx/smartclass/pull/144)
