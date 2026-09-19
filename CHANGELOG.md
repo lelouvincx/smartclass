@@ -97,6 +97,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
+- Remove unmounted legacy Worker route implementations and their global-token middleware. The mounted workspace and curriculum routes remain unchanged, and legacy storage remains available for post-cutover acceptance and recovery evidence. [#152](https://github.com/lelouvincx/smartclass/pull/152)
+
 ### Fixed
 
 - Replace the student submission history table with responsive attempt cards so scores, metadata, and review actions stay readable on desktop and mobile. [#131](https://github.com/lelouvincx/smartclass/pull/131)

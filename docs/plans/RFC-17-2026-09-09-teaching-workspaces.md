@@ -301,6 +301,10 @@ Use `DB.batch()` for changes that must succeed together.
 | App shell, login, registration and Settings | Show site identity, join status and shared-profile scope |
 | Student administration | Distinguish local access changes from administrator-only global blocks |
 
+After stabilization, the unmounted pre-cutover route implementations were removed.
+The mounted application now owns these contracts through the `workspace-*` routes and `curriculum-lectures.js`.
+Legacy storage remains until authenticated production acceptance and the later schema cleanup finish.
+
 Preserve existing attempt rules:
 
 - programme changes alone do not break pinned attempts or completed reviews
