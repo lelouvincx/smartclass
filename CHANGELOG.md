@@ -97,7 +97,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Removed
 
-- Remove unmounted legacy Worker route implementations and their global-token middleware. The mounted workspace and curriculum routes remain unchanged, and legacy storage remains available for post-cutover acceptance and recovery evidence.
+- Remove unmounted legacy Worker route implementations and their global-token middleware. The mounted workspace and curriculum routes remain unchanged, and legacy storage remains available for post-cutover acceptance and recovery evidence. [#152](https://github.com/lelouvincx/smartclass/pull/152)
 
 ### Fixed
 
