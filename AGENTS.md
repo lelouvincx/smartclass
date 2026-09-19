@@ -11,7 +11,7 @@
 
 - Publish every change through a pull request as `lelouvincx-bot`. Resolve `GH_TOKEN` non-interactively from `~/.credentials/agent-secrets/lelouvincx-bot.env` with the Agent Secrets service account and pass it only to the `gh` or Git child process. If `agent-secrets` does not permit that child command, resolve the reference with `@1password/sdk` and `~/.local/share/agent-secrets/op-service-account-token`; do not start an interactive 1Password sign-in. If bot authentication is unavailable, stop rather than falling back to a personal identity.
 - When Chinh says "open bot PR", open the pull request with the bot identity in the current worktree.
-- Apply the "PR merged" cleanup workflow only to the bot PR opened by this thread. If another PR merged, acknowledge it and continue the active task. If the PR is unclear, ask which one.
+- After this thread opens a bot PR, monitor it. When `lelouvincx-bot` merges it, run cleanup automatically. Scope cleanup to that PR only. If another PR merged, acknowledge it and continue. If unclear, ask.
 - For this thread's merged PR, confirm its `main` tests and Worker deployment passed. Then verify that `https://api.toanthaythanh.com/api/version` reports the full merge hash in `data.commit`. Do not clean up while checks are pending or failed, production reports another commit, or uncommitted or unpushed work remains outside the merged PR.
 - After those checks pass, sync the repository, return to the branch active before the bot PR work, close the agent browser, clear this thread's schedule if present, and archive the thread. Preserve unrelated work.
 - Name branches `<type>/<kebab-case-summary>`, using a Conventional Commits type, and write Conventional Commits messages.
