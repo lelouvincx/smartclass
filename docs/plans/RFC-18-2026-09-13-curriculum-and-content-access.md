@@ -2,13 +2,13 @@
 rfc: RFC-18
 title: Curriculum navigator and independent programme and tier access
 date: 2026-09-13
-status: Local implementation and acceptance complete; production cutover prepared, execution pending
+status: Implemented and deployed; authenticated production acceptance pending
 dependencies: [RFC-10, RFC-12, RFC-15, RFC-17]
 ---
 
 # Curriculum navigator and content access
 
-Chinh approved this model and UI direction B on 13 September 2026. This is a target design, not shipped behavior. See [PRODUCT.md](../../PRODUCT.md) for production, the [Vietnamese manual](../lecture-manual.vi.md) for teacher guidance, and [TODO.md](../../TODO.md) for planned work.
+Chinh approved this model and UI direction B on 13 September 2026. The model is implemented and deployed. See [PRODUCT.md](../../PRODUCT.md) for shipped product behavior, the [Vietnamese manual](../lecture-manual.vi.md) for teacher guidance, and [TODO.md](../../TODO.md) for remaining acceptance work.
 
 ## Why the model must change
 
@@ -140,9 +140,9 @@ Apply the complete [frontend acceptance contract](../../DESIGN.md#frontend-accep
 
 ## Implementation plan
 
-Storage, backfill, curriculum APIs, exercise-tier enforcement and maths THPT support are implemented locally. Programme controls, the direction B navigator and contextual player now use the new APIs. Local automated and rendered acceptance passed; PR #135 records the evidence and coverage limits. The [coordinated release runbook](RFC-18-production-cutover.md) keeps both workspace and curriculum backfills behind maintenance until separate production approval.
+Storage, backfill, curriculum APIs, exercise-tier enforcement and maths THPT support are implemented and deployed. Programme controls, the direction B navigator and contextual player use the new APIs. Local automated and rendered acceptance passed; PR #135 records the evidence and coverage limits. The [coordinated release runbook](RFC-18-production-cutover.md) records the production cutover and remaining authenticated acceptance boundary.
 
-`worker/index.js` now mounts `workspace-curriculum.js` and `curriculum-lectures.js` alongside the updated UI. Mounted-route tests cover public placed content, manager navigation and contextual playback. Exercise-tier changes use the mounted `workspace-*` routes. No production migration or deployment has run.
+`worker/index.js` mounts `workspace-curriculum.js` and `curriculum-lectures.js` alongside the updated UI. Mounted-route tests cover public placed content, manager navigation and contextual playback. Exercise-tier changes use the mounted `workspace-*` routes. Production cutover completed on 14 September 2026; authenticated production permission checks remain pending.
 
 ### Extend storage without replacing video identity
 
@@ -210,22 +210,22 @@ When current access is denied, an in-progress attempt's exercise landing page mu
 
 ### Prepare a reviewed migration, not guessed categories
 
-The [maths migration-review table](RFC-18-migration-review.vi.md) records Chinh's approved placements for 6 maths videos. Video 2 retains both Khối 12 and ĐGNL. The [English review](RFC-18-English-migration-review.vi.md) adds 6 English videos under Chuyên đề 1: Verb tenses → Bài 1: Verb tenses, in all 4 existing English programmes. Both mappings preserve source identity, programmes, tiers and visibility. Together they create 9 topics, 9 lessons and 31 placements. Live source validation remains required.
+The [maths migration-review table](RFC-18-migration-review.vi.md) records Chinh's approved placements for 6 maths videos. Video 2 retains both Khối 12 and ĐGNL. The [English review](RFC-18-English-migration-review.vi.md) adds 6 English videos under Chuyên đề 1: Verb tenses → Bài 1: Verb tenses, in all 4 existing English programmes. Both mappings preserve source identity, programmes, tiers and visibility. Together they create 9 topics, 9 lessons and 31 placements. The 14 September production cutover ran live source validation before application.
 
 Migration `0024_add_curriculum.sql` adds storage without switching reads. In [curriculum-backfill.js](../../worker/db/curriculum-backfill.js), `validateCurriculumBackfill(db, mapping)` returns a read-only audience comparison. Supply both executable mappings as `{ workspaces: [mathsMapping, englishMapping] }`. Validation requires complete source coverage, verified workspace cutover, empty target curricula and revision zero in each target workspace. `backfillCurriculum(db, mapping)` revalidates and writes both hierarchies and one completion marker in one batch. The caller must keep writes frozen across validation, application and checks. The [curriculum operator](../../scripts/curriculum-release.mjs) exposes inspect, validate, apply and check commands. Remote operation requires the full deployed commit and verified maintenance; writes also require explicit confirmation. No application route invokes backfill.
 
 Create a mapping keyed by workspace and lecture ID, with target programme, topic, lesson and order. Snapshot original titles, tiers, visibility and programme sets. Validate complete mappings and parents; emit each video's before/after programme diff. Every non-empty diff needs `approved_audience_change` recording the exact old/new sets and reviewer name. Reject unapproved narrowing as well as expansion. Default-all assignments may need deliberate narrowing; do not infer how many production rows need it. Preserve original relative order unless reviewed otherwise.
 
-Chinh resolved the conflicting Khối 10/Lớp 12 example in favor of Khối 10. Missing mappings block cutover; they do not create public placeholders or silently hide videos. Rehearse on disposable data, then run a fresh read-only production comparison before seeking migration approval.
+Chinh resolved the conflicting Khối 10/Lớp 12 example in favor of Khối 10. Missing mappings block cutover; they do not create public placeholders or silently hide videos. During the cutover, the operator rehearsed on disposable data and ran a fresh read-only production comparison before applying the mapping.
 
-Production work depends on verified RFC-17 Stage 3 completion and non-null workspace ownership. Local work can use a completed workspace fixture. Deploy additive storage without changing reads. Inside the approved cutover maintenance window, freeze writes and compare the fresh source snapshot and audience diffs with the approved mapping immediately before applying it. Abort on drift; an earlier dry run is not approval for changed data.
+The production cutover depended on verified RFC-17 Stage 3 completion and non-null workspace ownership. Local work used a completed workspace fixture. Additive storage deployed without changing reads. Inside the cutover maintenance window, the operator froze writes and compared the fresh source snapshot and audience diffs with the approved mapping immediately before applying it. The RFC itself did not authorize production operations.
 
 Switch API and UI together after validation. Preserve old tables for verification, but do not roll back to old ordering after new edits without reconciliation or a reviewed restore. Remove legacy fields in a later cleanup.
 
 ### Keep the remaining work bounded
 
-Implementation stages and priorities live in [TODO.md](../../TODO.md#curriculum-navigator-and-content-access). Before frontend implementation, refine direction B's desktop/mobile mockups for navigation, adding/reusing a video, reorder mode and shared-edit confirmation. Use the action labels already specified; the human manual receives screenshots after the real UI is verified.
+Remaining priorities live in [TODO.md](../../TODO.md#v06-launch-readiness). Authenticated production acceptance must verify real account permissions, Google routing and configuration, programme-and-tier access, and pinned attempts before v0.6 closes.
 
-Chinh or the teacher reviews the migration map and any changed audience. The agent owns schema/API details, tests, local migration rehearsal and UI verification. Production release remains a separate approval.
+Chinh or the teacher reviewed the migration map and any changed audience before cutover. The agent owned schema/API details, tests, local migration rehearsal and UI verification. Authenticated production acceptance remains a separate approval.
 
 Payments, renewals, expiry, per-student content exceptions and per-placement tiers remain outside scope.

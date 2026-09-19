@@ -19,9 +19,9 @@ Table users {
   google_email text  [note: 'Snapshot of Google email at link/login (RFC-7)']
   role       text    [not null, note: 'teacher | student']
   status     text    [not null, default: 'pending', note: 'pending | active | disabled']
-  access_tier text   [not null, default: 'standard', note: 'standard | vip; only student lecture authorization reads this value']
-  platform_role text [not null, default: 'user', note: 'user | platform_admin; additive RFC-17 preparation']
-  disabled_at text   [note: 'NULL means the shared identity is enabled; future administrator-controlled global block']
+  access_tier text   [not null, default: 'standard', note: 'Legacy global student tier retained for compatibility; workspace_memberships.access_tier is authoritative after cutover']
+  platform_role text [not null, default: 'user', note: 'user | platform_admin']
+  disabled_at text   [note: 'NULL means the shared identity is enabled; non-NULL blocks the user globally']
   created_at text    [not null, default: 'CURRENT_TIMESTAMP']
   updated_at text    [not null, default: 'CURRENT_TIMESTAMP']
 }
@@ -33,7 +33,7 @@ Table workspaces {
   slug         text [not null, unique]
   display_name text [not null]
   subject_code text [not null, unique]
-  curriculum_revision integer [not null, default: 0, note: 'Non-negative revision for future curriculum mutation conflict detection']
+  curriculum_revision integer [not null, default: 0, note: 'Non-negative revision for curriculum mutation conflict detection']
   created_at   text [not null, default: 'CURRENT_TIMESTAMP']
 
   indexes {
@@ -41,8 +41,8 @@ Table workspaces {
   }
 
   Note: '''
-    RFC-17 additive preparation seeds only maths and English.
-    Content ownership stays nullable until the separately reviewed backfill and cutover.
+    The two shipped workspaces are maths and English.
+    Curriculum mutations increment curriculum_revision.
   '''
 }
 
@@ -64,7 +64,18 @@ Table workspace_memberships {
     (workspace_id, status, access_tier, user_id) [name: 'idx_workspace_memberships_workspace_status_tier']
   }
 
-  Note: 'Preparation table only. Membership backfill requires a reviewed mapping and a separate access cutover.'
+  Note: 'Authoritative workspace membership table after cutover. Legacy global user role, status, tier and programme fields are retained for compatibility until removed.'
+}
+
+Table workspace_cutover {
+  id integer [pk, note: 'Exactly 1']
+  completed_at text [not null, default: 'CURRENT_TIMESTAMP']
+
+  Note: '''
+    Created by the workspace cutover operator after the reviewed ownership backfill.
+    The operator also installs triggers that reject new NULL workspace ownership on exercises and lectures.
+    The DDL keeps ownership columns nullable for expand-deploy compatibility.
+  '''
 }
 
 Table workspace_membership_grades {
@@ -91,12 +102,12 @@ Table student_grades {
 
 Table exercises {
   id               integer [pk, increment]
-  workspace_id     text    [ref: > workspaces.id, note: 'Nullable during RFC-17 additive preparation; required after reviewed cutover']
+  workspace_id     text    [ref: > workspaces.id, note: 'DDL nullable for expand-deploy compatibility; cutover triggers reject new NULL ownership']
   title            text    [not null]
   duration_minutes integer [not null, note: '0 = untimed; >0 = timed (is_timed derived)']
   max_attempts     integer [default: 1, note: 'NULL = unlimited; otherwise a positive per-student attempt limit']
   allow_answer_pdf_download integer [not null, default: 0, note: '0 = students cannot download the Answer PDF after review; 1 = students can download the pinned Answer PDF after submitting']
-  minimum_access_tier text [not null, default: 'standard', note: 'guest | standard | vip; guest is reserved for future public exercise release']
+  minimum_access_tier text [not null, default: 'standard', note: 'guest | standard | vip']
   pdf_key          text    [note: 'Legacy R2 key - superseded by exercise_files']
   extract_model    text    [note: 'Deprecated rollout-compatibility column; ignored by current code']
   active_question_asset_set_id integer [ref: > exercise_question_asset_sets.id, note: 'Teacher-confirmed set currently shown to new submissions']
@@ -338,7 +349,7 @@ Table submission_files {
 
 Table lectures {
   id           integer [pk, increment]
-  workspace_id text    [ref: > workspaces.id, note: 'Nullable during RFC-17 additive preparation; required after reviewed cutover']
+  workspace_id text    [ref: > workspaces.id, note: 'DDL nullable for expand-deploy compatibility; cutover triggers reject new NULL ownership']
   title        text    [not null]
   section_name text    [not null, note: 'e.g. Chapter 1, Solution for Exercise 3']
   youtube_url  text    [not null]
@@ -380,7 +391,7 @@ Table curriculum_topics {
     (workspace_id, programme, order_index, id) [name: 'idx_curriculum_topics_workspace_programme_order']
   }
 
-  Note: 'RFC-18 additive storage only. Reads and existing lecture behavior do not use this table until a later cutover.'
+  Note: 'Active curriculum storage. Student and Guest reads use placed, visible lectures authorized by programme and tier.'
 }
 
 Table curriculum_lessons {

@@ -1,6 +1,6 @@
 # Release workspaces and curriculum in one maintenance window
 
-Prepared locally on 14 September 2026 for [RFC-18](RFC-18-2026-09-13-curriculum-and-content-access.md). Production execution is not approved. This runbook extends [RFC-17 Stage 3](RFC-17-stage-3-release.md); it replaces that document's workspace-only reopening sequence for this release.
+Prepared locally on 14 September 2026 for [RFC-18](RFC-18-2026-09-13-curriculum-and-content-access.md). The coordinated cutover was executed later on 14 September and reopened both sites. Authenticated production acceptance remains pending. This runbook extends [RFC-17 Stage 3](RFC-17-stage-3-release.md); it replaces that document's workspace-only reopening sequence for this release.
 
 ## Recovery status on 14 September 2026
 
@@ -8,13 +8,26 @@ Prepared locally on 14 September 2026 for [RFC-18](RFC-18-2026-09-13-curriculum-
 
 Chinh approved the English hierarchy. Fresh read-only production validation passed for the combined mapping at the [deployed release](https://github.com/lelouvincx/smartclass/commit/8d849a08457f4596e7d7d417e59bb1daa42c45cf). All 12 source videos matched; every programme audience remained unchanged. Both target revisions were zero and both curricula were empty. The private comparison is `.amp/in/curriculum-release-recovery/production-bundle-comparison.json`.
 
-Curriculum application and reopening still need approval. Use the corrected operator with the combined bundle. Resume at the maintenance and workspace checks below; do not repeat a completed workspace backfill or merge another release merely to bypass the curriculum gate.
+The later recovery execution applied the combined bundle and reopened both APIs at merge commit [`e82de30`](https://github.com/lelouvincx/smartclass/commit/e82de300b085a8cf5f3fc0bdc5af1b433ead79fa). Do not repeat the completed workspace or curriculum backfills.
 
-## Do not merge before the release window is approved
+## Production execution record on 14 September 2026
 
-Merging to `main` starts `Deploy Worker`. Approval of the PR can trigger automatic merge. The first deployment closes both APIs, applies schema migrations, then refuses to reopen until both workspace and curriculum completion checks pass. Expect that first run to fail closed if either backfill has not run.
+The private release artifacts under `.amp/in/curriculum-release-recovery/` record the completed state:
 
-Keep both APIs in maintenance while completing RFC-17 and RFC-18. Do not reopen between them. Pages Git builds can publish separately; coordinate those builds and prohibit competing Worker deployments, workflow reruns and database writers throughout the window.
+- `merge137-apply.json` reports `complete: true`, `workspace_cutover_complete: true`, mapping SHA-256 `f1fac291ba96aa530861ff2f5b3b3b6cb2cd4d1a3d148bfaaee90072248b35aa`, and completion time `2026-09-14 17:21:42`.
+- `merge137-after.json` records post-apply inspection at [`e82de30`](https://github.com/lelouvincx/smartclass/commit/e82de300b085a8cf5f3fc0bdc5af1b433ead79fa), captured at `2026-09-14T17:22:35.182Z`.
+- `merge137-bookmark/d1-restore.json` records the restore bookmark captured for that run. The bookmark is historical evidence and is not assumed to be currently valid.
+- `merge137-pages.json` records Pages production deployments sourced from `e82de30`.
+
+GitHub Actions run [34873342437](https://github.com/lelouvincx/smartclass/actions/runs/34873342437) passed at `e82de30`. The run completed maintenance verification, workspace completion check, curriculum completion check, Pages deployment, API reopening and final open API probe.
+
+On 19 September 2026, both production API hosts were publicly readable, reported `maintenance: false`, and returned current commit `2c17b8b877e4fb90b35d7d318976191ad5fb147f` from `/api/version`. Later deployments still pass the same completion gates before reopening. These public checks do not prove authenticated workspace isolation, Google configuration or pinned-attempt behavior.
+
+## Do not replay or recover without approval
+
+Merging to `main` starts `Deploy Worker`. Approval of a pull request can trigger automatic merge. A recovery, workflow rerun or replay can close both APIs, apply schema migrations, and refuse to reopen until both workspace and curriculum completion checks pass. Do not start a replay merely to refresh evidence.
+
+If a future recovery needs maintenance, keep both APIs in maintenance until the reviewed recovery step completes. Pages Git builds can publish separately; coordinate those builds and prohibit competing Worker deployments, workflow reruns and database writers throughout the window.
 
 ### Chinh's actions
 
@@ -32,7 +45,9 @@ Record the approved candidate commit. After merge, record the full merge hash as
 
 Expected result: both sites reopen on the same reviewed release, with isolated workspace access and the approved curriculum. Existing video identity, visibility, tiers, programme audiences, attempts and R2 objects remain unchanged.
 
-## Execute only after production approval
+## Historical execution procedure
+
+This procedure records the reviewed sequence for the 14 September coordinated cutover and remains the recovery reference. The commands are not authorization to run remote operations again.
 
 1. Merge the approved PR in the agreed window. Save the resulting workflow run ID and full merge hash.
 2. Wait for maintenance verification, request draining, the D1 restore bookmark and schema migrations. Save the bookmark artifact before expiry. Confirm that uploads, parsing jobs and all other writers have stopped; the workflow's 120-second wait is only a buffer.
@@ -115,4 +130,4 @@ The initial maths-only rehearsal exercised inspect, premature-check refusal, val
 
 The recovery rehearsal used both approved mappings through the actual local operator. It preserved all 12 videos and 31 programme rows, created 31 placements, passed completion checks and refused repeat application. The validation and completion hashes matched the fresh production comparison. Integration tests also verified exact English placement order, 9 topics and 9 lessons, and atomic rollback on late English failure or revision drift.
 
-All frontend, Worker, D1 integration and script tests, plus the production build, passed locally. Release probes passed against the mounted Worker for both production hostnames. The recovery made no production writes. Production curriculum application, authenticated permission checks and reopening remain pending.
+All frontend, Worker, D1 integration and script tests, plus the production build, passed locally. Release probes passed against the mounted Worker for both production hostnames. The rehearsal made no production writes. The later production execution completed curriculum application and reopening. Authenticated production permission checks remain pending.
