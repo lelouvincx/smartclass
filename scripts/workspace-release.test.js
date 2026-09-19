@@ -18,6 +18,13 @@ test('remote writes require a reviewed mapping, commit and explicit confirmation
   assert.throws(() => parseOperatorArgs(['reset', '--remote', '--commit', 'a'.repeat(40)]), /command/)
 })
 
+test('open API verification is allowed only for read-only remote checks', () => {
+  const commit = 'a'.repeat(40)
+  assert.equal(parseOperatorArgs(['check', '--remote', '--commit', commit, '--api-mode', 'open']).apiMode, 'open')
+  assert.throws(() => parseOperatorArgs(['inspect', '--remote', '--commit', commit, '--api-mode', 'open', '--output', '.amp/in/inventory.json']), /only for check/)
+  assert.throws(() => parseOperatorArgs(['apply', '--remote', '--commit', commit, '--api-mode', 'open', '--mapping', '.amp/in/reviewed.json', '--confirm-production']), /only for check/)
+})
+
 test('private inventory output and reviewed mappings stay in the ignored input directory', () => {
   const base = ['inspect', '--local', '--persist-to', '.amp/in/rehearsal']
   assert.throws(() => parseOperatorArgs(base), /output/)

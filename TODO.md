@@ -22,9 +22,6 @@ The 14 September release record shows that workspace and curriculum cutover, com
   - [ ] **P0** Verify Guest, student, teacher and platform-administrator workspace isolation on both sites
   - [ ] **P0** Verify an existing pinned attempt and current new-attempt access, or record an approved omission
   - [ ] **P0** Record the tested commit, time, actors, evidence and omissions privately
-- [ ] **P1** Review and update routine deployment behavior after cutover
-  - Acceptance: agree when maintenance is required, avoid unnecessary maintenance for compatible releases, and skip deployment for docs-only changes
-  - Acceptance: retain cutover and migration safeguards, failure recovery and release verification; any production workflow execution still requires approval
 - [ ] **P2** Remove unmounted legacy routes and global teaching-access fields after stabilization
 - [ ] **P2** Enrich the [Vietnamese teacher manual](docs/lecture-manual.vi.md) with screenshots of verified teacher workflows
 

@@ -6,8 +6,12 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
+      force_maintenance:
+        description: Use maintenance mode for an approved incompatible release or recovery
+        type: boolean
+        default: false
       maintenance_only:
-        description: Leave maintenance enabled after schema preparation for the one-time reviewed backfill
+        description: Leave maintenance enabled after schema preparation for approved recovery work
         type: boolean
         default: false
 
@@ -38,6 +42,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ env.APP_COMMIT_SHA }}
+          fetch-depth: 0
 
       - name: Setup Node
         uses: actions/setup-node@v5
@@ -51,20 +56,45 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+      - name: Plan release mode
+        id: plan
+        run: |
+          flags=()
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.force_maintenance }}" = "true" ]; then
+            flags+=(--force-maintenance)
+          fi
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.maintenance_only }}" = "true" ]; then
+            flags+=(--maintenance-only)
+          fi
+          node scripts/release-plan.mjs --candidate "$APP_COMMIT_SHA" --github-output "$GITHUB_OUTPUT" "${flags[@]}"
+
+      - name: Require completed workspace cutover before routine deployment
+        if: ${{ steps.plan.outputs.maintenance == 'false' }}
+        run: node scripts/workspace-release.mjs check --remote --api-mode open --commit "${{ steps.plan.outputs.live_commit }}"
+
+      - name: Require completed curriculum cutover before routine deployment
+        if: ${{ steps.plan.outputs.maintenance == 'false' }}
+        run: node scripts/curriculum-release.mjs check --remote --api-mode open --commit "${{ steps.plan.outputs.live_commit }}"
+
       - name: Enable application maintenance
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         id: maintenance
         run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$APP_COMMIT_SHA
 
       - name: Verify maintenance
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         run: node scripts/release-api.mjs closed "$APP_COMMIT_SHA"
 
       - name: Drain existing requests
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         run: sleep 120
 
       - name: Record D1 restore bookmark
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         run: npx wrangler d1 time-travel info smartclass --config wrangler.production.toml --json > d1-restore.json
 
       - name: Keep restore bookmark
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: d1-restore-${{ github.run_id }}-${{ github.run_attempt }}
@@ -73,28 +103,35 @@ jobs:
           retention-days: 7
 
       - name: Apply remote D1 migrations
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         run: npx wrangler d1 migrations apply smartclass --remote --config wrangler.production.toml
 
       - name: Require completed workspace cutover
-        if: ${{ !inputs.maintenance_only }}
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         run: node scripts/workspace-release.mjs check --remote --commit "$APP_COMMIT_SHA"
 
       - name: Require completed curriculum cutover
-        if: ${{ !inputs.maintenance_only }}
+        if: ${{ steps.plan.outputs.maintenance == 'true' }}
         run: node scripts/curriculum-release.mjs check --remote --commit "$APP_COMMIT_SHA"
 
       - name: Deploy frontend
-        if: ${{ !inputs.maintenance_only }}
+        if: ${{ steps.plan.outputs.maintenance_only == 'false' }}
         run: npx wrangler pages deploy dist --project-name smartclass --branch main --commit-hash "$APP_COMMIT_SHA"
 
-      - name: Reopen API
-        if: ${{ !inputs.maintenance_only }}
+      - name: Deploy open API
+        if: ${{ steps.plan.outputs.maintenance_only == 'false' }}
+        id: deploy_api
         run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:false --var APP_COMMIT_SHA:$APP_COMMIT_SHA
 
       - name: Verify open API
-        if: ${{ !inputs.maintenance_only }}
+        if: ${{ steps.plan.outputs.maintenance_only == 'false' }}
         run: node scripts/release-api.mjs open "$APP_COMMIT_SHA"
 
       - name: Leave failed release in maintenance
-        if: ${{ failure() && (steps.maintenance.outcome == 'success' || steps.maintenance.outcome == 'failure') }}
+        if: >-
+          ${{
+            failure() &&
+            (steps.maintenance.outcome == 'success' || steps.maintenance.outcome == 'failure' ||
+              steps.deploy_api.outcome == 'success' || steps.deploy_api.outcome == 'failure')
+          }}
         run: npx wrangler deploy --config wrangler.production.toml --keep-vars --var APP_MAINTENANCE:true --var APP_COMMIT_SHA:$APP_COMMIT_SHA

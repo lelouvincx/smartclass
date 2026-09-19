@@ -16,10 +16,13 @@ export function parseOperatorArgs(args) {
     local: { type: 'boolean' }, remote: { type: 'boolean' },
     'persist-to': { type: 'string' }, mapping: { type: 'string' },
     output: { type: 'string' }, commit: { type: 'string' },
-    'confirm-production': { type: 'boolean' },
+    'confirm-production': { type: 'boolean' }, 'api-mode': { type: 'string' },
   } })
   const command = positionals[0]
   if (positionals.length !== 1 || !['inspect', 'apply', 'finalize', 'check'].includes(command)) throw new Error('Expected inspect, apply, finalize or check command')
+  const apiMode = values['api-mode'] ?? 'closed'
+  if (!['open', 'closed'].includes(apiMode)) throw new Error('--api-mode must be open or closed')
+  if (apiMode === 'open' && command !== 'check') throw new Error('--api-mode open is allowed only for check')
   if (Boolean(values.local) === Boolean(values.remote)) throw new Error('Select exactly one target: --local or --remote')
   if (values.local && !values['persist-to']) throw new Error('--local requires --persist-to')
   if (values.remote && values['persist-to']) throw new Error('--persist-to is local-only')
@@ -31,6 +34,7 @@ export function parseOperatorArgs(args) {
   if (command === 'inspect' && !values.output) throw new Error('inspect requires a private --output file')
   return {
     command, remote: Boolean(values.remote), commit: values.commit,
+    apiMode,
     persistTo: values['persist-to'],
     mapping: values.mapping ? privatePath(values.mapping, '--mapping') : undefined,
     output: values.output ? privatePath(values.output, '--output') : undefined,
@@ -41,7 +45,7 @@ async function main() {
   const options = parseOperatorArgs(process.argv.slice(2))
   // Validate input before starting a binding proxy or contacting Cloudflare.
   const mapping = options.mapping ? JSON.parse(await readFile(options.mapping, 'utf8')) : undefined
-  if (options.remote) await verifyApiRelease('closed', options.commit)
+  if (options.remote) await verifyApiRelease(options.apiMode, options.commit)
   const { getPlatformProxy } = await import('wrangler')
   const { backfillWorkspaces } = await import('../worker/db/workspace-backfill.js')
   const { finalizeWorkspaceCutover, getWorkspaceCutoverStatus } = await import('../worker/db/workspace-cutover.js')
@@ -65,11 +69,14 @@ async function main() {
       console.log(`Private inventory written to ${options.output}; no database changes.`)
       return
     }
-    if (options.command === 'apply') await backfillWorkspaces(db, mapping)
+    if (options.command === 'apply') {
+      if (options.remote) await verifyApiRelease('closed', options.commit)
+      await backfillWorkspaces(db, mapping)
+    }
     if (['apply', 'finalize'].includes(options.command)) await finalizeWorkspaceCutover(db, mapping)
     const status = await getWorkspaceCutoverStatus(db)
     if (!status.complete) throw new Error('Workspace cutover is incomplete. Keep maintenance enabled and complete the reviewed backfill.')
-    if (options.remote) await verifyApiRelease('closed', options.commit)
+    if (options.remote) await verifyApiRelease(options.apiMode, options.commit)
     console.log('Workspace cutover complete; ownership checks passed. Maintenance remains enabled.')
   } finally {
     await platform.dispose()

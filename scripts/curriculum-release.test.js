@@ -17,6 +17,13 @@ test('curriculum operator rejects ambiguous targets and unapproved remote writes
     '--mapping', '.amp/in/map.json', '--confirm-production']).command, 'apply')
 })
 
+test('open API verification is allowed only for read-only curriculum checks', () => {
+  assert.equal(parseCurriculumArgs(['check', '--remote', '--commit', commit, '--api-mode', 'open']).apiMode, 'open')
+  assert.throws(() => parseCurriculumArgs(['inspect', '--remote', '--commit', commit, '--api-mode', 'open', '--output', '.amp/in/inventory.json']), /only for check/)
+  assert.throws(() => parseCurriculumArgs(['validate', '--remote', '--commit', commit, '--api-mode', 'open', '--mapping', '.amp/in/map.json', '--output', '.amp/in/report.json']), /only for check/)
+  assert.throws(() => parseCurriculumArgs(['apply', '--remote', '--commit', commit, '--api-mode', 'open', '--mapping', '.amp/in/map.json', '--confirm-production']), /only for check/)
+})
+
 test('validation requires a reviewed private mapping and non-overwriting private report destination', () => {
   const base = ['validate', '--local', '--persist-to', '.amp/in/local']
   assert.throws(() => parseCurriculumArgs(base), /mapping/)
