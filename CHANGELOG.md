@@ -57,7 +57,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- Ship the checked-PR automation: pull requests now merge automatically after Test and Changelog pass, main-branch tests gate production deployment, and deploy no longer reruns the same suites. The smoke-test pull request auto-merged and deployed successfully. [#148](https://github.com/lelouvincx/smartclass/pull/148) [#149](https://github.com/lelouvincx/smartclass/pull/149)
+- Ship the checked-PR automation: pull requests now merge automatically after Test and Changelog pass, main-branch tests gate production deployment, and deploy no longer reruns the same suites. The smoke-test pull request auto-merged and deployed successfully. [#148](https://github.com/lelouvincx/smartclass/pull/148) [#149](https://github.com/lelouvincx/smartclass/pull/149) [#150](https://github.com/lelouvincx/smartclass/pull/150)
 - Reconcile the 14 September production release record. Production evidence records the combined workspace and curriculum cutover, both completion gates, Pages deployment and API reopening at `e82de30`. Later deployments continue to pass both gates. Authenticated production permission and pinned-attempt acceptance remain pending. [#147](https://github.com/lelouvincx/smartclass/pull/147)
 - Reprioritize the roadmap around release verification, account recovery, student profiles and teacher insights. Consolidate cutover tasks, remove stale photo-extraction work, and specify recovery security, profile permissions, explanation visibility, activity metrics and routine deployment requirements.
 - Clarify agent guidance for structured production logging, release probes, and reusable evidence packets. [#144](https://github.com/lelouvincx/smartclass/pull/144)
